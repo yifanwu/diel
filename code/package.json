@@ -1,0 +1,31 @@
+{
+  "name": "diel",
+  "version": "1.0.0",
+  "description": "data interaction events log is a new SQL embeded DSL for managing the state of history-aware interactive applications",
+  "main": "index.js",
+  "scripts": {
+    "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yifanwu/diel.git"
+  },
+  "keywords": [
+    "interaction",
+    "history",
+    "sql"
+  ],
+  "author": "yifan wu",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/yifanwu/diel/issues"
+  },
+  "homepage": "https://github.com/yifanwu/diel#readme",
+  "devDependencies": {
+    "antlr4ts-cli": "^0.4.0-alpha.4"
+  },
+  "dependencies": {
+    "antlr4ts": "^0.4.1-alpha.0"
+  }
+}

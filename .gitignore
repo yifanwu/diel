@@ -1,0 +1,11 @@
+.DS_Store
+.antlr
+node_modules/
+*.js.map
+*.js
+*.old
+*.csv
+*.txt
+*.db
+*.html
+*.json
