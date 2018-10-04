@@ -1,6 +1,7 @@
 .DS_Store
 .antlr
 node_modules/
+code/src/parser/grammar/
 *.js.map
 *.js
 *.old

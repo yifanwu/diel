@@ -1,8 +1,9 @@
-# High-Level Functionalities
+# Functionalities
 
-* Recognize `stream` from `create streams`, and create relevant triggers for the streams that connect to the outputs
-* Recognize `async data views` and create streams based on these views
-* Recognize the shared views that are used by remote relations, and 
+
+
+* Recognize `input` from `create input`, and create relevant triggers for the streams that connect to the outputs
+* Recognize `output` and create streams based on these views
 
 Only support the minimally required subset of SQL statements.
 

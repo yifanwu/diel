@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "testAll": "jest",
+    "test": "ts-node src/tests/compilerTest.ts",
+    "debug": "node --inspect-brk -r ts-node/register src/tests/compilerTest.ts"
   },
   "repository": {
     "type": "git",
@@ -23,7 +25,10 @@
   },
   "homepage": "https://github.com/yifanwu/diel#readme",
   "devDependencies": {
-    "antlr4ts-cli": "^0.4.0-alpha.4"
+    "antlr4ts-cli": "^0.4.0-alpha.4",
+    "ts-jest": "^23.10.2",
+    "ts-node": "^7.0.1",
+    "typescript": "^3.0.3"
   },
   "dependencies": {
     "antlr4ts": "^0.4.1-alpha.0"

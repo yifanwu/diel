@@ -2,17 +2,18 @@
 // for now it's just strings; can add to later
 
 export enum DataType {
-  String,
-  Integer
+  String = "String",
+  Number = "Number",
+  Boolean = "Boolean"
 }
 
-export enum RelationType {
-  Stream,
-  View,
-  Table,
-  TransferView,
-  RemoteView
-}
+// changing to strings for the ease of reading
+// export enum RelationType {
+//   Input = "Input",
+//   Output = "Output",
+//   View = "View",
+//   Table = "Table"
+// }
 
 export interface TransferInfo {
   depViews: string;
@@ -24,17 +25,25 @@ export interface Column {
   type: DataType;
 }
 
-export interface RelationInfo {
+export interface InputIr {
   name: string;
   columns: Column[];
-  relationType: RelationType;
-  transferInfo?: TransferInfo;
-  // instead of keeping the AST of the view we will just store the generated string
-  spec: string;
 }
 
-export interface CombinedResult {
-  relations: RelationInfo[];
+export interface OutputIr {
+  name: string;
+  columns: Column[];
+  query: string;
 }
 
-export type ExpressionValue = string | CombinedResult;
+export interface DielIr {
+  inputs: InputIr[];
+  outputs: OutputIr[];
+}
+
+export interface OutputIrPartial {
+  columns: Column[];
+  query: string;
+}
+
+export type ExpressionValue = DielIr | InputIr | OutputIr | Column | OutputIrPartial | string;
