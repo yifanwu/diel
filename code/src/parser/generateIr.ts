@@ -4,6 +4,7 @@ import * as visitor from "./grammar/DIELVisitor";
 
 import { ExpressionValue, Column, InputIr, OutputIr, OutputIrPartial } from "./dielTypes";
 import { parseColumnType, getCtxSourceCode } from "../compiler/helper";
+import { LogStandout } from "../util/messages";
 
 /*
  * BASIC SPEC
@@ -51,6 +52,8 @@ implements visitor.DIELVisitor<ExpressionValue> {
   
   visitSelectQuery(ctx: parser.SelectQueryContext) {
     const columns = ctx.selectClause().map(s => this.visit(s) as Column);
+    if (columns.length < 1) {
+    }
     const query = getCtxSourceCode(ctx);
     return {
       columns,
@@ -59,13 +62,19 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   visitSelectClauseSimple(ctx: parser.SelectClauseSimpleContext) {
+    LogStandout(`visitSelectClauseSimple ${ctx.text}`);
     return this.visit(ctx.columnSelection());
   }
 
-  visitColumnSelectionSimple(ctx: parser.ColumnSelectionSimpeContext) {
+  visitColumnSelectionSimple(ctx: parser.ColumnSelectionSimpleContext) {
+    LogStandout(`visitColumnSelectionSimple ${ctx.IDENTIFIER().text}`);
     return ctx.IDENTIFIER().text;
   }
 
+  visitColumnSelectionReference(ctx: parser.ColumnSelectionReferenceContext) {
+    LogStandout(`visitColumnSelectionReference ${ctx._column.text}`);
+    return ctx._column.text;
+  }
   visitInputStmt = (ctx: parser.InputStmtContext) => {
     const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
     const name = ctx.IDENTIFIER().text;

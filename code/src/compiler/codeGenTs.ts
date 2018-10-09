@@ -1,34 +1,35 @@
-import { DielIr, InputIr } from "../parser/dielTypes";
+import { DielIr, InputIr, OutputIr } from "../parser/dielTypes";
 
-function overallTemplate(inputCode: string) {
-  return `
-import { Database, Statement } from "sql.js";
-export default class Diel {
-  ${inputCode}
-};
-  `
+interface relationTs {
+  name: string,
+  query: string
 }
 
-function getInputTypeFromName(inputName: string) {
-  return `${inputName}Type`;
-}
-
-function createInputTs(qs: InputIr[]) {
-  // first need to create the public view so that it can be seen
-  // then need to create the statements
-  const inputTypes = qs.map(q => `
-     ${q.name}: (i: ${getInputTypeFromName(q.name)} => void);
-  `);
+function overallTemplate(inputArray: relationTs[], outputArray: relationTs[]) {
   return `
-  Input: {
-    ${inputTypes}
-  }
+export const inputRelations = ${JSON.stringify(inputArray, null, 2)};
+export const outputRelations = ${JSON.stringify(outputArray, null, 2)};
   `;
 }
 
-// TODO
+function createInputTs(ins: InputIr[]) {
+  return ins.map(i => ({
+    name: i.name,
+    query: `insert into ${i.name} (${i.columns.join(", ")})
+            values (${i.columns.map(v => `$${v}`).join(", ")});`
+  }));
+}
+
+function createOutputTs(outs: OutputIr[]) {
+  return outs.map(r => ({
+    name: r.name,
+    query: `select * from ${r.name};`
+  }));
+}
+
 export function genTs(ir: DielIr) {
-  const inputCode = createInputTs(ir.inputs);
-  const file = overallTemplate(inputCode);
+  const inputArray = createInputTs(ir.inputs);
+  const outputArray = createOutputTs(ir.outputs);
+  const file = overallTemplate(inputArray, outputArray);
   return file;
 }

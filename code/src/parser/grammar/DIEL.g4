@@ -21,7 +21,7 @@ outputStmt
   ;
 
 selectQuery
-  : SELECT selectClause (',' selectClause)* FROM relationReference joinClause* whereClause
+  : SELECT selectClause (',' selectClause)* FROM relationReference joinClause* whereClause?
   ;
 
 joinClause
@@ -44,8 +44,8 @@ selectClause
   ;
 
 columnSelection
-  : IDENTIFIER                             # columnSelectionSimpe
-  | relation=IDENTIFIER.column=IDENTIFIER  # columnSelectionReference
+  : IDENTIFIER                             # columnSelectionSimple
+  | relation=IDENTIFIER '.' column=IDENTIFIER  # columnSelectionReference
   ;
 
 mathExpr

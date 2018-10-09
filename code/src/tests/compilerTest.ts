@@ -1,18 +1,23 @@
 import { genSql } from "../compiler/codeGenSql";
-import { compileDiel } from "../compiler/compiler";
-
-const FgBlue = "\x1b[34m";
-const Reset = "\x1b[0m";
-
+import { genTs } from "../compiler/codeGenTs";
+import { getIR, genFiles } from "../compiler/compiler";
+// async
 function testQuery(q: string) {
-  console.log(`${FgBlue}%s${Reset}`, `\nCompiling query: ${q}`);
-  const ir = compileDiel(q);
+  const ir = getIR(q);
   console.log(`Generated IR: ${JSON.stringify(ir, null, 2)}\n`);
+  console.log(`Generated query: ${genTs(ir)}`);
   console.log(`Generated query: ${genSql(ir)}`);
+  genFiles(ir);
+  return;
 }
 
-const inputQ = `CREATE INPUT click (a number, b string);`;
+// const inputQ = `CREATE INPUT click (a number, b string);`;
 const outputQ = `CREATE OUTPUT clickValue AS select a from click;`;
 
-testQuery(inputQ);
-testQuery(outputQ);
+function main() {
+  console.log("starting tests");
+  // testQuery(inputQ);
+  testQuery(outputQ);
+}
+
+main()
