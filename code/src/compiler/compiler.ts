@@ -27,8 +27,6 @@ export function getIR(code: string) {
 
 export function genFiles(ir: DielIr) {
   // TS gen
-  // const writeFile = util.promisify(fs.writeFile);
-  // await writeFile
   fs.writeFileSync("./src/dist/gen/relations.ts", genTs(ir));
   // SQL gen
   const db = new Database();

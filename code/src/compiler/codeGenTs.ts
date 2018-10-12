@@ -15,8 +15,8 @@ export const outputRelations = ${JSON.stringify(outputArray, null, 2)};
 function createInputTs(ins: InputIr[]) {
   return ins.map(i => ({
     name: i.name,
-    query: `insert into ${i.name} (${i.columns.join(", ")})
-            values (${i.columns.map(v => `$${v}`).join(", ")});`
+    query: `insert into ${i.name} (${i.columns.map(c => c.name).join(", ")})
+            values (${i.columns.map(v => `$${v.name}`).join(", ")});`
   }));
 }
 

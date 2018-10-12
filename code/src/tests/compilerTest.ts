@@ -1,23 +1,27 @@
+import * as fs from "fs";
+
 import { genSql } from "../compiler/codeGenSql";
 import { genTs } from "../compiler/codeGenTs";
 import { getIR, genFiles } from "../compiler/compiler";
-// async
+import { LogStandout } from "../util/messages";
+
 function testQuery(q: string) {
   const ir = getIR(q);
-  console.log(`Generated IR: ${JSON.stringify(ir, null, 2)}\n`);
-  console.log(`Generated query: ${genTs(ir)}`);
-  console.log(`Generated query: ${genSql(ir)}`);
-  genFiles(ir);
+  console.log(`Generated IR:\n${JSON.stringify(ir, null, 2)}\n`);
+  console.log(`Generated query:\n${genTs(ir)}`);
+  console.log(`Generated query:\n${genSql(ir).join("\n\n")}`);
+  // genFiles(ir);
   return;
 }
 
-// const inputQ = `CREATE INPUT click (a number, b string);`;
-const outputQ = `CREATE OUTPUT clickValue AS select a from click;`;
-
 function main() {
   console.log("starting tests");
-  // testQuery(inputQ);
-  testQuery(outputQ);
+  const tests = fs.readFileSync("./src/tests/tests.sql", "utf8").split(/-- TEST: \w+\n/);
+  tests.filter(t => t.length > 0).map(t => {
+    LogStandout(`Running\n${t}`);
+    // console.log(`Testing: ${t.match(/-- TEST: \w+ /ig)[0].slice(9)}`);
+    testQuery(t);
+  });
 }
 
-main()
+main();

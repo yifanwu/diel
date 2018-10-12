@@ -7,6 +7,11 @@ export enum DataType {
   Boolean = "Boolean"
 }
 
+export enum ProgramType {
+  Udf = "Udf",
+  Insert = "Insert"
+}
+
 // changing to strings for the ease of reading
 // export enum RelationType {
 //   Input = "Input",
@@ -36,14 +41,32 @@ export interface OutputIr {
   query: string;
 }
 
+export interface InsertQueryIr {
+  relation: string;
+  query: string;
+  // dependentRelations: string[];
+}
+
+// keeping the relation helps us build the dependency graph later
+
+export interface ProgramSpecIr {
+  selectPrograms: SelectQueryIr[];
+  insertPrograms: InsertQueryIr[];
+}
+
+export interface ProgramsIr extends ProgramSpecIr {
+  input: string;
+};
+
 export interface DielIr {
   inputs: InputIr[];
   outputs: OutputIr[];
+  programs: ProgramsIr[];
 }
 
-export interface OutputIrPartial {
+export interface SelectQueryIr {
   columns: Column[];
   query: string;
 }
 
-export type ExpressionValue = DielIr | InputIr | OutputIr | Column | OutputIrPartial | string;
+export type ExpressionValue = DielIr | InputIr | OutputIr | Column | SelectQueryIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr;

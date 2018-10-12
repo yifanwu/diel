@@ -1,8 +1,6 @@
 grammar DIEL;
 
-// (inputStmt | outputStmt | programStmt) *;
-
-queries : (inputStmt | outputStmt) +;
+queries : (inputStmt | outputStmt | programStmt) +;
 
 columnType
   : INT | TEXT | BOOLEAN
@@ -19,9 +17,33 @@ inputStmt
 outputStmt
   : CREATE OUTPUT IDENTIFIER AS selectQuery ';'
   ;
+  
+programStmt
+  : CREATE PROGRAM programBody ';'            #programStmtGeneral
+  | CREATE PROGRAM AFTER IDENTIFIER programBody ';' #programStmtSpecific
+  ;
+
+programBody
+  : BEGIN (insertQuery | selectQuery)+ END
+  ;
 
 selectQuery
   : SELECT selectClause (',' selectClause)* FROM relationReference joinClause* whereClause?
+  ;
+
+insertQuery
+  : INSERT INTO relation=IDENTIFIER '(' column=IDENTIFIER (',' column=IDENTIFIER)* ')' insertBody
+  ;
+
+insertBody
+  : VALUES '(' value (',' value)* ')' #insertQueryDirect
+  | selectQuery                       #insertQuerySelect
+  ;
+
+
+value
+  : NUMBER
+  | STRING
   ;
 
 joinClause
@@ -83,20 +105,22 @@ compareOp
   | udfExpr # compareOpFunction
   ;
 
-// programStmt
-//   : CREATE PROGRAM AFTER IDENTIFIER BEGIN// ANY END #specificProgram
-//   | CREATE PROGRAM BEGIN //ANY END                  #generalProgram
-//   ;
 CREATE: 'CREATE' | 'create';
 INPUT: 'INPUT' | 'input';
 
 INT: 'NUMBER' | 'number';
 TEXT: 'STRING' | 'string';
 BOOLEAN: 'BOOLEAN' | 'boolean';
-
 OUTPUT: 'OUTPUT' | 'output';
+PROGRAM: 'PROGRAM' | 'program';
+AFTER: 'AFTER' | 'after';
+BEGIN: 'BEGIN' | 'begin';
+END: 'END' | 'end';
+INSERT: 'INSERT' | 'insert';
+INTO: 'INTO' | 'into';
 
-// generic SQL
+// none statement terms
+VALUES: 'VALUES' | 'values';
 AS: 'AS' | 'as';
 SELECT: 'SELECT' | 'select';
 FROM: 'FROM' | 'from';
@@ -108,10 +132,6 @@ BY: 'BY' | 'by';
 AND: 'AND' | 'and';
 OR: 'OR' | 'or';
 MINUS: '-';
-// PROGRAM: 'PROGRAM';
-// AFTER: 'AFTER';
-// BEGIN: 'BEGIN';
-// END: 'END';
 
 // fragment SPACE : ' ';
 
@@ -128,9 +148,6 @@ fragment LETTER
 //   : (LETTER | DIGIT | '_' | ' ' | '\n' | '|')*
 //   ;
 
-IDENTIFIER
-  : (LETTER | DIGIT | '_')+
-  ;
 
 SIMPLE_COMMENT
   : '--' ~[\r\n]* '\r'? '\n'? -> channel(HIDDEN)
@@ -140,8 +157,15 @@ NUMBER
   : MINUS? (DIGIT)+
   ;
 
+STRING
+  : '\'' IDENTIFIER '\''
+  ;
+
+IDENTIFIER
+  : (LETTER | DIGIT | '_')+
+  ;
 /* We're going to ignore all white space characters */
 WS  
-  : (' ' | '\t' | '\r'| '\n') -> channel(HIDDEN)
+  : (' ' | '\t' | '\r'| '\n' | EOF ) -> channel(HIDDEN)
   ;
 // WS: [ \r\t\u000C\n]+ -> skip ;

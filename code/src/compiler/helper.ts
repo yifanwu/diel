@@ -15,7 +15,7 @@ export function parseColumnType(str: string) {
       throw new Error("Parsing error");
   }
 }
-export function getCtxSourceCode(ctx: any) {
+export function getCtxSourceCode(ctx: any): string {
   let a = ctx.start.startIndex;
   let b = ctx.stop.stopIndex;
   let interval = new Interval(a,b);
@@ -32,4 +32,9 @@ export function columnStr(cols: Column) {
     postfix = `INTEGER check (${cols.name} = 0 or ${cols.name} = 1)`;
   }
   return `${cols.name} ${postfix}`;
+}
+
+// TODO
+export function prettyPrintSql(query: string[]) {
+  return query;
 }

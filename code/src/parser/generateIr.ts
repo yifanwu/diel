@@ -2,17 +2,9 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, Column, InputIr, OutputIr, OutputIrPartial } from "./dielTypes";
+import { ExpressionValue, Column, InputIr, OutputIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr } from "./dielTypes";
 import { parseColumnType, getCtxSourceCode } from "../compiler/helper";
 import { LogStandout } from "../util/messages";
-
-/*
- * BASIC SPEC
- * The goal of this visitor is two fold
- * - create the SQL strings to execute (at different places)
- * - create the helper functions to pass the view results
- * - create helper functions for ajax calls to remote servers
- */
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
@@ -23,25 +15,26 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
   visitQueries = (ctx: parser.QueriesContext) => {
     // should only be called once and executed for setup.
-    let inputs:InputIr[] = [];
-    let outputs: OutputIr[] = [];
-  
-    ctx.inputStmt().forEach(e => {
-      inputs.push(this.visit(e) as InputIr);
-    });
-    ctx.outputStmt().forEach(e => {
-      outputs.push(this.visit(e) as OutputIr);
-    });
+    const inputs:InputIr[] = ctx.inputStmt().map(e => (
+      this.visit(e) as InputIr
+    ));
+    let outputs: OutputIr[] = ctx.outputStmt().map(e => (
+      this.visit(e) as OutputIr
+    ));
+    let programs: ProgramsIr[] = ctx.programStmt().map(e => (
+      this.visit(e) as ProgramsIr
+    ));
     return {
       inputs,
-      outputs
+      outputs,
+      programs
     };
   }
 
+  // outputs
   visitOutputStmt = (ctx: parser.OutputStmtContext) => {
-    this.visit(ctx.selectQuery());
     const name = ctx.IDENTIFIER().text;
-    const s = this.visit(ctx.selectQuery()) as OutputIrPartial;
+    const s = this.visit(ctx.selectQuery()) as SelectQueryIr;
     const r: OutputIr = {
       name,
       columns: s.columns,
@@ -50,9 +43,10 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return r;
   }
   
-  visitSelectQuery(ctx: parser.SelectQueryContext) {
+  visitSelectQuery(ctx: parser.SelectQueryContext): SelectQueryIr {
     const columns = ctx.selectClause().map(s => this.visit(s) as Column);
     if (columns.length < 1) {
+      // TODO
     }
     const query = getCtxSourceCode(ctx);
     return {
@@ -62,12 +56,12 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   visitSelectClauseSimple(ctx: parser.SelectClauseSimpleContext) {
-    LogStandout(`visitSelectClauseSimple ${ctx.text}`);
+    // LogStandout(`visitSelectClauseSimple ${ctx.text}`);
     return this.visit(ctx.columnSelection());
   }
 
   visitColumnSelectionSimple(ctx: parser.ColumnSelectionSimpleContext) {
-    LogStandout(`visitColumnSelectionSimple ${ctx.IDENTIFIER().text}`);
+    // LogStandout(`visitColumnSelectionSimple ${ctx.IDENTIFIER().text}`);
     return ctx.IDENTIFIER().text;
   }
 
@@ -85,10 +79,62 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return r;
   }
 
-  visitColumnDefinition = (ctx: parser.ColumnDefinitionContext) => {
+  visitColumnDefinition(ctx: parser.ColumnDefinitionContext) {
     return {
       name: ctx.IDENTIFIER().text,
       type: parseColumnType(ctx.columnType().text)
     };
   }
+
+  // programs
+  visitProgramStmtGeneral(ctx: parser.ProgramStmtGeneralContext) {
+    const programs = this.visit(ctx.programBody()); 
+    return programs;
+  }
+
+  visitProgramStmtSpecific(ctx: parser.ProgramStmtSpecificContext): ProgramsIr {
+    const input = ctx.IDENTIFIER().text;
+    const programs = this.visit(ctx.programBody()) as ProgramSpecIr;
+    return {
+      input,
+      ...programs
+    };
+  }
+
+  visitProgramBody(ctx: parser.ProgramBodyContext): ProgramSpecIr {
+    const insertPrograms = ctx.insertQuery().map(e => (
+      this.visit(e) as InsertQueryIr
+    ));
+    const selectPrograms = ctx.selectQuery().map(e => (
+      this.visit(e) as SelectQueryIr
+    ));
+    return {
+      selectPrograms,
+      insertPrograms
+    };
+  }
+
+  visitInsertQuery(ctx: parser.InsertQueryContext) {
+    const relation = ctx._relation.text;
+    const query = getCtxSourceCode(ctx);
+    this.visit(ctx.insertBody());
+    // const dependentRelations = ) as string[];
+    return {
+      relation,
+      query,
+    }
+  }
+  // visitInsertBody(ctx: parser.InsertBodyContext): string {
+  //   return getCtxSourceCode(ctx);
+  // }
+  visitInsertQueryDirect(ctx: parser.InsertQueryDirectContext) {
+    console.log("visiting insert values");
+    ctx.value().map(v => console.log(v.text));
+    return "";
+  }
+  // visitInsertQuerySelect(ctx: parser.InsertQuerySelectContext): string {
+  //   const select = this.visit(ctx.selectQuery()) as SelectQueryIr;
+  //   console.log("Visitng select query inside insert", select);
+  //   return "";
+  // }
 }
