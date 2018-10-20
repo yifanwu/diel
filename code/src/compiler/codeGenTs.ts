@@ -1,4 +1,4 @@
-import { DielIr, InputIr, OutputIr } from "../parser/dielTypes";
+import { DielIr, RelationIr, DerivedRelationIr } from "../parser/dielTypes";
 
 interface relationTs {
   name: string,
@@ -12,7 +12,7 @@ export const outputRelations = ${JSON.stringify(outputArray, null, 2)};
   `;
 }
 
-function createInputTs(ins: InputIr[]) {
+function createInputTs(ins: RelationIr[]) {
   return ins.map(i => ({
     name: i.name,
     query: `insert into ${i.name} (${i.columns.map(c => c.name).join(", ")})
@@ -20,7 +20,7 @@ function createInputTs(ins: InputIr[]) {
   }));
 }
 
-function createOutputTs(outs: OutputIr[]) {
+function createOutputTs(outs: DerivedRelationIr[]) {
   return outs.map(r => ({
     name: r.name,
     query: `select * from ${r.name};`

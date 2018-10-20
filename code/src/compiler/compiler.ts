@@ -9,14 +9,19 @@ import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateIr";
 import { genTs } from "./codeGenTs";
 import { genSql } from "./codeGenSql";
-import { LogError } from "../util/messages";
+import { LogInternalError } from "../util/messages";
 import { VERBOSE } from "./config";
 import { DielIr } from "../parser/dielTypes";
 
 export function getIR(code: string) {
   console.log("Starting compilation");
-  const inputStream = new ANTLRInputStream(code);
-  const l = new lexer.DIELLexer(inputStream);
+  let l;
+  try {
+    const inputStream = new ANTLRInputStream(code);
+    l = new lexer.DIELLexer(inputStream);
+  } catch (e) {
+    LogInternalError(`Parsing failed: ${e}`);
+  }
   const tokenStream = new CommonTokenStream(l);
   const p = new parser.DIELParser(tokenStream);
   const tree = p.queries();
@@ -35,7 +40,7 @@ export function genFiles(ir: DielIr) {
     try {
       db.run(s);
     } catch (error) {
-      LogError(error);
+      LogInternalError(error);
     }
   }
   fs.writeFileSync("./src/dist/gen/diel.db", new Buffer(db.export()));

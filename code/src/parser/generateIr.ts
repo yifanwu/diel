@@ -2,62 +2,113 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, Column, InputIr, OutputIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr } from "./dielTypes";
+import { ExpressionValue, Column, RelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr } from "./dielTypes";
 import { parseColumnType, getCtxSourceCode } from "../compiler/helper";
 import { LogStandout } from "../util/messages";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
   // private result: DielIr;
+  private inputs: RelationIr[];
+  private tables: RelationIr[];
+  private views: DerivedRelationIr[];
+  private outputs: DerivedRelationIr[];
 
   defaultResult() {
     return "";
   }
   visitQueries = (ctx: parser.QueriesContext) => {
     // should only be called once and executed for setup.
-    const inputs:InputIr[] = ctx.inputStmt().map(e => (
-      this.visit(e) as InputIr
+    const inputs: RelationIr[] = ctx.inputStmt().map(e => (
+      this.visit(e) as RelationIr
     ));
-    let outputs: OutputIr[] = ctx.outputStmt().map(e => (
-      this.visit(e) as OutputIr
+    this.inputs = inputs;
+    const tables: RelationIr[] = ctx.tableStmt().map(e => (
+      this.visit(e) as RelationIr
+    ));
+    this.tables = tables;
+    let outputs: DerivedRelationIr[] = ctx.outputStmt().map(e => (
+      this.visit(e) as DerivedRelationIr
+    ));
+    let views: DerivedRelationIr[] = ctx.viewStmt().map(e => (
+      this.visit(e) as DerivedRelationIr
     ));
     let programs: ProgramsIr[] = ctx.programStmt().map(e => (
       this.visit(e) as ProgramsIr
     ));
     return {
       inputs,
+      tables,
       outputs,
+      views,
       programs
     };
   }
 
   // outputs
-  visitOutputStmt = (ctx: parser.OutputStmtContext) => {
+  visitOutputStmt(ctx: parser.OutputStmtContext) {
     const name = ctx.IDENTIFIER().text;
     const s = this.visit(ctx.selectQuery()) as SelectQueryIr;
-    const r: OutputIr = {
+    const r: DerivedRelationIr = {
       name,
       columns: s.columns,
       query: s.query
     };
     return r;
   }
-  
-  visitSelectQuery(ctx: parser.SelectQueryContext): SelectQueryIr {
+
+  visitSelectQuery(ctx: parser.SelectQueryContext) {
+    // this is lazy, assume union or intersection to ahve the same columns
+    const firstQuery = this.visit(ctx.selectUnitQuery()) as SelectQueryIr;
+    const query = getCtxSourceCode(ctx);
+    return {
+      query,
+      ...firstQuery,
+    };
+  }
+
+  // TODO: do some type checking/inference on the selected.
+  visitSelectQuerySpecific(ctx: parser.SelectQuerySpecificContext): SelectQueryPartialIr {
     const columns = ctx.selectClause().map(s => this.visit(s) as Column);
     if (columns.length < 1) {
       // TODO
     }
-    const query = getCtxSourceCode(ctx);
+    const selectBody = this.visit(ctx.selectBody()) as SelectBodyIr;
     return {
       columns,
-      query
+      relations: selectBody.relations,
     };
   }
 
-  visitSelectClauseSimple(ctx: parser.SelectClauseSimpleContext) {
-    // LogStandout(`visitSelectClauseSimple ${ctx.text}`);
-    return this.visit(ctx.columnSelection());
+  visitSelectQueryAll(ctx: parser.SelectQueryAllContext): SelectQueryPartialIr {
+    // we need to figure out what tables where referenced
+    const selectBody = this.visit(ctx.selectBody()) as SelectBodyIr;
+    const relations = selectBody.relations;
+    // need to look up the relations
+    const columns = relations.reduce((acc: Column[], r) => acc.concat(this._findRelationColumns(r)), []);
+    return {
+      columns,
+      relations,
+    };
+  }
+
+  visitSelectBody(ctx: parser.SelectBodyContext): SelectBodyIr {
+    const relation = this.visit(ctx.relationReference()) as string;
+    const joinsInfo = ctx.joinClause().map(j => this.visit(j) as string);
+    return {
+      relations: [relation, ...joinsInfo]
+    };
+  }
+
+  // ignore the predicates for now
+  // might be useful for sanity checking later
+  // as well as basic materialization
+  visitJoinClause(ctx: parser.JoinClauseContext) {
+    return this.visit(ctx.relationReference());
+  }
+
+  visitRelationReferenceSimple(ctx: parser.RelationReferenceSimpleContext) {
+    return ctx._relation.text;
   }
 
   visitColumnSelectionSimple(ctx: parser.ColumnSelectionSimpleContext) {
@@ -66,13 +117,21 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   visitColumnSelectionReference(ctx: parser.ColumnSelectionReferenceContext) {
-    LogStandout(`visitColumnSelectionReference ${ctx._column.text}`);
     return ctx._column.text;
   }
+
   visitInputStmt = (ctx: parser.InputStmtContext) => {
+    return this.visit(ctx.relationDefintion());
+  }
+
+  visitTableStmt = (ctx: parser.TableStmtContext) => {
+    return this.visit(ctx.relationDefintion());
+  }
+
+  visitRelationDefintion = (ctx: parser.RelationDefintionContext) => {
     const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
     const name = ctx.IDENTIFIER().text;
-    const r: InputIr = {
+    const r: RelationIr = {
       name,
       columns
     };
@@ -124,17 +183,21 @@ implements visitor.DIELVisitor<ExpressionValue> {
       query,
     }
   }
-  // visitInsertBody(ctx: parser.InsertBodyContext): string {
-  //   return getCtxSourceCode(ctx);
-  // }
+
   visitInsertQueryDirect(ctx: parser.InsertQueryDirectContext) {
     console.log("visiting insert values");
     ctx.value().map(v => console.log(v.text));
     return "";
   }
-  // visitInsertQuerySelect(ctx: parser.InsertQuerySelectContext): string {
-  //   const select = this.visit(ctx.selectQuery()) as SelectQueryIr;
-  //   console.log("Visitng select query inside insert", select);
-  //   return "";
-  // }
+
+  _findRelationColumns(relation: string): Column[] {
+    // find in inputs, then tables, then views, and outputs
+    const rs = this.tables.concat(this.inputs).concat(this.views).concat(this.outputs);
+    for (let i = 0; i < rs.length; i++) {
+      if (rs[i].name === relation) {
+        return rs[i].columns;
+      }
+    }
+    return [];
+  }
 }

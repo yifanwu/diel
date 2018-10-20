@@ -1,4 +1,4 @@
-import { DielIr, InputIr, ProgramsIr, ProgramSpecIr } from "../parser/dielTypes";
+import { DielIr, RelationIr, ProgramsIr, ProgramSpecIr } from "../parser/dielTypes";
 import { columnStr } from "./helper";
 import * as fs from "fs";
 

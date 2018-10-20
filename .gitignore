@@ -6,6 +6,7 @@
 *.jar
 node_modules/
 code/src/parser/grammar/
+code/src/debug/DIEL.g4
 DIELParser$*
 *.js.map
 *.js
@@ -15,3 +16,4 @@ DIELParser$*
 *.db
 *.html
 *.json
+*.scrap

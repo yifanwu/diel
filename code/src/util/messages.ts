@@ -7,7 +7,7 @@ export const BgRed = "\x1b[41m"
 export const BgGreen = "\x1b[42m"
 export const BgYellow = "\x1b[43m"
 
-export function LogError(m: string) {
+export function LogInternalError(m: string) {
   console.log(`${FgRed}%s${Reset}`, m);
   if (STRICT) {
     throw new Error();
@@ -20,4 +20,10 @@ export function LogInfo(m: string) {
 
 export function LogStandout(m: string) {
   console.log(`${BgYellow}%s${Reset}`, m);
+}
+
+// TODO: this should also report the line of the code
+// the input should be more structured
+export function ReportDielProgramError(m: string) {
+  console.log(`Program ${FgRed}%s${Reset}`, m);
 }

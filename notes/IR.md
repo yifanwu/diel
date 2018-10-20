@@ -14,7 +14,11 @@ There is also the develoepr facing aspects, as well as the internal layer with S
 
 `diel` will be exposed as a class.
 
-## Compile Time
+## parsing
+
+Reference grammars:
+
+* [SQLite](https://github.com/antlr/grammars-v4/blob/master/sqlite/SQLite.g4)
 
 ### input
 

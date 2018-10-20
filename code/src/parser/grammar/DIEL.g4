@@ -1,6 +1,6 @@
 grammar DIEL;
 
-queries : (inputStmt | outputStmt | programStmt) +;
+queries : (inputStmt | outputStmt | programStmt | tableStmt | viewStmt) +;
 
 columnType
   : INT | TEXT | BOOLEAN
@@ -11,15 +11,28 @@ columnDefinition
   ;
 
 inputStmt
-  : CREATE INPUT IDENTIFIER '(' columnDefinition (',' columnDefinition)* ');'
+  : CREATE INPUT relationDefintion
+  ;
+
+tableStmt
+  : CREATE TABLE relationDefintion
+  | CREATE TABLE AS compositeSelect
+  ;
+
+relationDefintion
+  : IDENTIFIER '(' columnDefinition (',' columnDefinition)* ')' DELIM
   ;
 
 outputStmt
   : CREATE OUTPUT IDENTIFIER AS selectQuery ';'
   ;
   
+viewStmt
+  : CREATE VIEW IDENTIFIER AS selectQuery ';'
+  ;
+
 programStmt
-  : CREATE PROGRAM programBody ';'            #programStmtGeneral
+  : CREATE PROGRAM programBody ';'                  #programStmtGeneral
   | CREATE PROGRAM AFTER IDENTIFIER programBody ';' #programStmtSpecific
   ;
 
@@ -28,26 +41,39 @@ programBody
   ;
 
 selectQuery
-  : SELECT selectClause (',' selectClause)* FROM relationReference joinClause* whereClause?
+  : selectUnitQuery compositeSelect* 
   ;
 
+compositeSelect
+  : compoundOp=(UNION|INTERSECT) selectUnitQuery
+  ;
+
+selectUnitQuery
+  : SELECT selectClause (',' selectClause)* selectBody #selectQuerySpecific
+  | SELECT STAR selectBody                             #selectQueryAll
+  | SELECT value (',' value)*                          #selectQueryStatic
+  ;
+
+selectBody
+ : FROM relationReference joinClause* whereClause?
+ ;
+
 insertQuery
-  : INSERT INTO relation=IDENTIFIER '(' column=IDENTIFIER (',' column=IDENTIFIER)* ')' insertBody
+  : INSERT INTO relation=IDENTIFIER '(' column=IDENTIFIER (',' column=IDENTIFIER)* ')' insertBody DELIM
   ;
 
 insertBody
   : VALUES '(' value (',' value)* ')' #insertQueryDirect
-  | selectQuery                       #insertQuerySelect
+  | selectUnitQuery                       #insertQuerySelect
   ;
 
-
 value
-  : NUMBER
-  | STRING
+  : NUMBER # valueNumber
+  | STRING # valueString
   ;
 
 joinClause
-  : JOIN relationReference ON predicates
+  : (LEFT OUTER)? JOIN relationReference (ON predicates)?
   ;
 
 whereClause
@@ -55,28 +81,38 @@ whereClause
   ;
 
 relationReference
-  : IDENTIFIER                                  # simpleRelationReference
-  | relation=IDENTIFIER AS? alias=IDENTIFIER    # aliasedRelationReference
+  : relation=IDENTIFIER (AS? alias=IDENTIFIER)?  # relationReferenceSimple
+  | '(' selectQuery ')' (AS? alias=IDENTIFIER)?  # relationReferenceSubQuery
   ;
 
+// the seclectClauseCase is here and not in expr since it would allow for illegal expr
 selectClause
-  : columnSelection        # selectClauseSimple
-  | udfExpr AS IDENTIFIER  # selectClauseFunction
-  | mathExpr AS IDENTIFIER # selectClauseMath
+  : expr AS IDENTIFIER
+  ;
+
+expr
+  : unitExpr          # exprSimple
+  | value             # exprStatic
+  | funExpr           # exprFunction
+  | expr mathOp expr  # exprMath
+  | CASE WHEN predicates THEN expr ELSE expr END       # exprWhen
+  | 'group_concat' '(' unitExpr ('||' unitExpr)*  ')'  #exprGroupConcat
+  ;
+
+unitExpr
+  : columnSelection # unitExprColumn
+  | NUMBER          # unitExprNumber
+  | STRING          # unitExprString
+  ;
+
+funExpr
+  : function=IDENTIFIER '(' expr (',' expr)*  ')'
   ;
 
 columnSelection
-  : IDENTIFIER                             # columnSelectionSimple
+  : IDENTIFIER                                 # columnSelectionSimple
   | relation=IDENTIFIER '.' column=IDENTIFIER  # columnSelectionReference
-  ;
-
-mathExpr
-  : columnSelection mathOp columnSelection # mathExprBase
-  | mathExpr mathOp columnSelection        # mathExprMore
-  ;
-
-udfExpr
-  : function=IDENTIFIER '(' columnSelection (',' columnSelection)*  ')'
+  | IDENTIFIER '.' STAR                        # columnSelectionAll
   ;
 
 predicates
@@ -86,8 +122,10 @@ predicates
   ;
 
 singlePredicate
-  : columnSelection compareOp columnSelection # singlePredicateColumns
-  | columnSelection compareOp NUMBER          # singlePredicateNumber
+  : expr compareOp expr      # singlePredicateColumns
+  | expr IS (NOT)? NULL      # singlePredicateNull
+  | expr compareOp NUMBER               # singlePredicateNumber
+  | expr compareOp '(' selectUnitQuery ')'  # singlePredicateSubQuery
   ;
 
 mathOp
@@ -102,12 +140,13 @@ compareOp
   : '='     # compareOpEqual
   | '>'     # compareOpGreater
   | '<'     # compareOpLess
-  | udfExpr # compareOpFunction
+  | funExpr # compareOpFunction
   ;
 
 CREATE: 'CREATE' | 'create';
 INPUT: 'INPUT' | 'input';
-
+TABLE: 'TABLE' | 'table';
+VIEW: 'VIEW' | 'view';
 INT: 'NUMBER' | 'number';
 TEXT: 'STRING' | 'string';
 BOOLEAN: 'BOOLEAN' | 'boolean';
@@ -118,8 +157,7 @@ BEGIN: 'BEGIN' | 'begin';
 END: 'END' | 'end';
 INSERT: 'INSERT' | 'insert';
 INTO: 'INTO' | 'into';
-
-// none statement terms
+STAR: '*';
 VALUES: 'VALUES' | 'values';
 AS: 'AS' | 'as';
 SELECT: 'SELECT' | 'select';
@@ -132,8 +170,18 @@ BY: 'BY' | 'by';
 AND: 'AND' | 'and';
 OR: 'OR' | 'or';
 MINUS: '-';
-
-// fragment SPACE : ' ';
+DELIM: ';';
+INTERSECT : 'INTERSECT' | 'intersect';
+UNION: 'UNION' | 'union';
+LEFT: 'LEFT' | 'left';
+OUTER: 'OUTER' | 'outer';
+CASE: 'CASE' | 'case';
+WHEN: 'WHEN' | 'when';
+THEN: 'THEN' | 'then';
+ELSE: 'ELSE' | 'else';
+IS: 'IS' | 'is';
+NULL: 'NULL' | 'null';
+NOT: 'NOT' | 'not';
 
 fragment DIGIT
   : [0-9]
@@ -143,11 +191,6 @@ fragment LETTER
   : [A-Z]
   | [a-z]
   ;
-
-// ANY
-//   : (LETTER | DIGIT | '_' | ' ' | '\n' | '|')*
-//   ;
-
 
 SIMPLE_COMMENT
   : '--' ~[\r\n]* '\r'? '\n'? -> channel(HIDDEN)
@@ -164,8 +207,7 @@ STRING
 IDENTIFIER
   : (LETTER | DIGIT | '_')+
   ;
-/* We're going to ignore all white space characters */
+
 WS  
   : (' ' | '\t' | '\r'| '\n' | EOF ) -> channel(HIDDEN)
   ;
-// WS: [ \r\t\u000C\n]+ -> skip ;

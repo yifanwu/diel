@@ -30,12 +30,14 @@ export interface Column {
   type: DataType;
 }
 
-export interface InputIr {
+// used for inputs and tables
+export interface RelationIr {
   name: string;
   columns: Column[];
 }
 
-export interface OutputIr {
+// used for views and outputs
+export interface DerivedRelationIr {
   name: string;
   columns: Column[];
   query: string;
@@ -59,14 +61,24 @@ export interface ProgramsIr extends ProgramSpecIr {
 };
 
 export interface DielIr {
-  inputs: InputIr[];
-  outputs: OutputIr[];
+  inputs: RelationIr[];
+  tables: RelationIr[];
+  outputs: DerivedRelationIr[];
+  views: DerivedRelationIr[];
   programs: ProgramsIr[];
 }
 
-export interface SelectQueryIr {
+export interface SelectQueryPartialIr {
   columns: Column[];
+  relations: string[];
+}
+
+export interface SelectQueryIr extends SelectQueryPartialIr{
   query: string;
 }
 
-export type ExpressionValue = DielIr | InputIr | OutputIr | Column | SelectQueryIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr;
+export interface SelectBodyIr {
+  relations: string[];
+} 
+
+export type ExpressionValue = DielIr | RelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr;
