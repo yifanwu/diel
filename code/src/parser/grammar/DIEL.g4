@@ -1,11 +1,26 @@
 grammar DIEL;
 
-queries : (inputStmt | outputStmt | programStmt | tableStmt | viewStmt) +;
+queries : (inputStmt | outputStmt | programStmt | tableStmt | viewStmt | crossfilterStmt | templateStmt) +;
+
+templateStmt
+  : CREATE TEMPLATE templateName=IDENTIFIER '(' IDENTIFIER (',' IDENTIFIER)* ')' selectQuery
+  ;
+
+crossfilterStmt
+  : CREATE CROSSFILTER crossfilterName=IDENTIFIER ON relation=IDENTIFIER
+    BEGIN crossfilterChartStmt+ END ';'
+  ;
+
+crossfilterChartStmt
+  : OUTPUT chart=IDENTIFIER
+    AS definitionQuery=selectQuery
+    WITH PREDICATE predicateClause=joinClause ';'
+  ;
 
 columnType
   : INT | TEXT | BOOLEAN
   ;
-
+  
 columnDefinition
   : IDENTIFIER columnType
   ;
@@ -32,8 +47,8 @@ viewStmt
   ;
 
 programStmt
-  : CREATE PROGRAM programBody ';'                  #programStmtGeneral
-  | CREATE PROGRAM AFTER IDENTIFIER programBody ';' #programStmtSpecific
+  : CREATE PROGRAM programBody ';'                  # programStmtGeneral
+  | CREATE PROGRAM AFTER IDENTIFIER programBody ';' # programStmtSpecific
   ;
 
 programBody
@@ -41,7 +56,12 @@ programBody
   ;
 
 selectQuery
-  : selectUnitQuery compositeSelect* 
+  : selectUnitQuery compositeSelect* # selectQueryDirect
+  | USE TEMPLATE templateName=IDENTIFIER '(' variableAssignment (',' variableAssignment)* ')'   # selectQueryTemplate
+  ;
+
+variableAssignment
+  : variable=STRING '=' assignment=STRING
   ;
 
 compositeSelect
@@ -49,22 +69,30 @@ compositeSelect
   ;
 
 selectUnitQuery
-  : SELECT selectClause (',' selectClause)* selectBody #selectQuerySpecific
-  | SELECT STAR selectBody                             #selectQueryAll
-  | SELECT value (',' value)*                          #selectQueryStatic
+  : SELECT selectClause (',' selectClause)* selectBody # selectQuerySpecific
+  | SELECT STAR selectBody                             # selectQueryAll
+  | SELECT value (',' value)*                          # selectQueryStatic
   ;
 
 selectBody
- : FROM relationReference joinClause* whereClause?
- ;
+  : FROM relationReference joinClause* whereClause? groupByClause? orderByClause? limitClause?
+  ;
+
+groupByClause
+  : GROUP BY expr (',' expr)*
+  ;
+
+orderByClause
+  : ORDER BY expr (',' expr)* (ASC|DESC)
+  ;
 
 insertQuery
   : INSERT INTO relation=IDENTIFIER '(' column=IDENTIFIER (',' column=IDENTIFIER)* ')' insertBody DELIM
   ;
 
 insertBody
-  : VALUES '(' value (',' value)* ')' #insertQueryDirect
-  | selectUnitQuery                       #insertQuerySelect
+  : VALUES '(' value (',' value)* ')' # insertQueryDirect
+  | selectUnitQuery                   # insertQuerySelect
   ;
 
 value
@@ -80,6 +108,11 @@ whereClause
   : WHERE predicates
   ;
 
+limitClause
+  : LIMIT NUMBER                  # limitClauseSimple
+  | LIMIT '(' selectUnitQuery ')' # limitClauseQuery
+  ;
+
 relationReference
   : relation=IDENTIFIER (AS? alias=IDENTIFIER)?  # relationReferenceSimple
   | '(' selectQuery ')' (AS? alias=IDENTIFIER)?  # relationReferenceSubQuery
@@ -87,16 +120,16 @@ relationReference
 
 // the seclectClauseCase is here and not in expr since it would allow for illegal expr
 selectClause
-  : expr AS IDENTIFIER
+  : expr (AS IDENTIFIER)?
   ;
 
 expr
-  : unitExpr          # exprSimple
-  | value             # exprStatic
-  | funExpr           # exprFunction
-  | expr mathOp expr  # exprMath
-  | CASE WHEN predicates THEN expr ELSE expr END       # exprWhen
-  | 'group_concat' '(' unitExpr ('||' unitExpr)*  ')'  #exprGroupConcat
+  : unitExpr                                         # exprSimple
+  | value                                             # exprStatic
+  | function=IDENTIFIER '(' (funExpr)?  ')'           # exprFunction
+  | expr mathOp expr                                  # exprMath
+  | CASE WHEN predicates THEN expr ELSE expr END      # exprWhen
+  | 'group_concat' '(' unitExpr ('||' unitExpr)*  ')' # exprGroupConcat
   ;
 
 unitExpr
@@ -106,7 +139,9 @@ unitExpr
   ;
 
 funExpr
-  : function=IDENTIFIER '(' expr (',' expr)*  ')'
+  : expr (',' expr)* 
+  | STAR
+  | relation=IDENTIFIER '.' STAR
   ;
 
 columnSelection
@@ -122,10 +157,11 @@ predicates
   ;
 
 singlePredicate
-  : expr compareOp expr      # singlePredicateColumns
-  | expr IS (NOT)? NULL      # singlePredicateNull
-  | expr compareOp NUMBER               # singlePredicateNumber
+  : expr compareOp expr                     # singlePredicateColumns
+  | expr IS (NOT)? NULL                     # singlePredicateNull
+  | expr compareOp NUMBER                   # singlePredicateNumber
   | expr compareOp '(' selectUnitQuery ')'  # singlePredicateSubQuery
+  | NOT EXIST '(' selectUnitQuery ')'       # singlePredicateNotExist
   ;
 
 mathOp
@@ -138,13 +174,21 @@ mathOp
 // still need to do has, exists etc.
 compareOp
   : '='     # compareOpEqual
+  | '>='    # compareOpGE
   | '>'     # compareOpGreater
+  | '<='    # compareOpLE
   | '<'     # compareOpLess
-  | funExpr # compareOpFunction
+  | funExpr # compareOpFunction 
   ;
 
 CREATE: 'CREATE' | 'create';
 INPUT: 'INPUT' | 'input';
+CROSSFILTER: 'CROSSFILTER' | 'crossfilter';
+PREDICATE : 'PREDICATE' | 'predicate';
+TEMPLATE: 'TEMPLATE' | 'template';
+USE: 'USE' | 'use';
+
+// SQL
 TABLE: 'TABLE' | 'table';
 VIEW: 'VIEW' | 'view';
 INT: 'NUMBER' | 'number';
@@ -155,6 +199,7 @@ PROGRAM: 'PROGRAM' | 'program';
 AFTER: 'AFTER' | 'after';
 BEGIN: 'BEGIN' | 'begin';
 END: 'END' | 'end';
+WITH: 'WITH' | 'with';
 INSERT: 'INSERT' | 'insert';
 INTO: 'INTO' | 'into';
 STAR: '*';
@@ -165,6 +210,8 @@ FROM: 'FROM' | 'from';
 JOIN: 'JOIN' | 'join';
 ON: 'ON' | 'on';
 WHERE: 'WHERE' | 'where';
+LIMIT: 'LIMIT' | 'limit';
+EXIST: 'EXIST' | 'exist';
 GROUP: 'GROUP' | 'group';
 BY: 'BY' | 'by';
 AND: 'AND' | 'and';
@@ -182,6 +229,9 @@ ELSE: 'ELSE' | 'else';
 IS: 'IS' | 'is';
 NULL: 'NULL' | 'null';
 NOT: 'NOT' | 'not';
+ORDER: 'ORDER' | 'order';
+ASC: 'ASC' | 'asc';
+DESC: 'DESC' | 'desc';
 
 fragment DIGIT
   : [0-9]
@@ -206,6 +256,7 @@ STRING
 
 IDENTIFIER
   : (LETTER | DIGIT | '_')+
+  | '${' (LETTER | DIGIT | '_')+ '}'
   ;
 
 WS  

@@ -1,4 +1,10 @@
 {
+    "enable": true,
+    "linterOptions": {
+        "exclude": [
+            "src/parser/grammar/*.ts"
+        ]
+    },
     "jsRules": {
         "class-name": true,
         "comment-format": [

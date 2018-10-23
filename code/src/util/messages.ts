@@ -9,9 +9,7 @@ export const BgYellow = "\x1b[43m"
 
 export function LogInternalError(m: string) {
   console.log(`${FgRed}%s${Reset}`, m);
-  if (STRICT) {
-    throw new Error();
-  }
+  if (STRICT) throw new Error();
 }
 
 export function LogInfo(m: string) {
@@ -20,6 +18,11 @@ export function LogInfo(m: string) {
 
 export function LogStandout(m: string) {
   console.log(`${BgYellow}%s${Reset}`, m);
+}
+
+export function ReportDielBasicParsingError(m:string) {
+  console.log(`${FgRed}Parsing Error:\n%s${Reset}`, m);
+  if (STRICT) throw new Error();
 }
 
 // TODO: this should also report the line of the code

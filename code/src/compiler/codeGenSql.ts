@@ -13,7 +13,7 @@ create trigger allInputsTrigger after insert on allInputs
     select tick();
     ${program.selectPrograms.map(insert => insert.query).join("\n")}
     ${program.insertPrograms.map(insert => insert.query).join("\n")}
-  end;`
+  end;`;
 }
 
 /**
@@ -42,6 +42,30 @@ end;
   });
   return triggers;
 }
+
+export function generateCrossFilterSql(ir: DielIr) {
+  // filtered & unfiltered
+  // register filtered to output
+  // returning arrays of arrays, should be flattened for execution
+  if ((!ir.crossfilters) || ir.crossfilters.length === 0) {
+    return null;
+  }
+  return ir.crossfilters.map(i => {
+    return i.charts.map(c => {
+      const otherCharts = i.charts.filter(c2 => c2.chartName !== c.chartName);
+      const filteredJoins = otherCharts.map(o => o.predicate).join("\n");
+      const filtered = `create output ${c.chartName}Filtered select * from ${i.relation} ${filteredJoins};`;
+      return {
+        definition: `create view ${c.chartName}Unfiltered ${c.definition}`,
+        filtered,
+      };
+    });
+  });
+}
+
+// TODO
+// function generateAsyncSql() {
+// }
 
 export function genSql(ir: DielIr) {
   const inputQueries = ir.inputs.map(r => `

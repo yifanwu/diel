@@ -11,3 +11,15 @@ create view focusItxRaw as
     select sum(val) as val
     from deltaItx
   ) as delta;
+
+-- TEST: moreinvolved
+CREATE VIEW filteredBrush AS
+  SELECT tweet FROM LATEST brushEvent WHERE NOT EXIST (
+    SELECT tweet FROM tweetEvent WHERE timestep > (
+      SELECT timestep
+      FROM brushEvent
+      WHERE mouseEvent='down'
+      ORDER BY timestep ASC
+      LIMIT 1
+    )
+  );

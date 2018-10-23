@@ -12,14 +12,6 @@ export enum ProgramType {
   Insert = "Insert"
 }
 
-// changing to strings for the ease of reading
-// export enum RelationType {
-//   Input = "Input",
-//   Output = "Output",
-//   View = "View",
-//   Table = "Table"
-// }
-
 export interface TransferInfo {
   depViews: string;
   location: string;
@@ -37,19 +29,14 @@ export interface RelationIr {
 }
 
 // used for views and outputs
-export interface DerivedRelationIr {
+export interface DerivedRelationIr extends SelectQueryIr {
   name: string;
-  columns: Column[];
-  query: string;
 }
 
 export interface InsertQueryIr {
   relation: string;
   query: string;
-  // dependentRelations: string[];
 }
-
-// keeping the relation helps us build the dependency graph later
 
 export interface ProgramSpecIr {
   selectPrograms: SelectQueryIr[];
@@ -58,7 +45,7 @@ export interface ProgramSpecIr {
 
 export interface ProgramsIr extends ProgramSpecIr {
   input: string;
-};
+}
 
 export interface DielIr {
   inputs: RelationIr[];
@@ -66,6 +53,8 @@ export interface DielIr {
   outputs: DerivedRelationIr[];
   views: DerivedRelationIr[];
   programs: ProgramsIr[];
+  crossfilters: CrossFilterIr[];
+  templates: TemplateIr[];
 }
 
 export interface SelectQueryPartialIr {
@@ -73,12 +62,40 @@ export interface SelectQueryPartialIr {
   relations: string[];
 }
 
-export interface SelectQueryIr extends SelectQueryPartialIr{
+export interface SelectQueryIr extends SelectQueryPartialIr {
   query: string;
 }
 
 export interface SelectBodyIr {
   relations: string[];
-} 
+}
 
-export type ExpressionValue = DielIr | RelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr;
+export interface CrossFilterChartIr {
+  chartName: string;
+  predicate: JoinClauseIr;
+  definition: SelectQueryIr;
+}
+
+export interface JoinClauseIr {
+  relation: string;
+  query: string;
+}
+
+export interface CrossFilterIr {
+  crossfilter: string;
+  relation: string;
+  charts: CrossFilterChartIr[];
+}
+
+export interface TemplateIr {
+  templateName: string;
+  variables: string[];
+  query: string;
+}
+
+export interface TemplateVariableAssignments {
+  variable: string;
+  value: string;
+}
+
+export type ExpressionValue = DielIr | RelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | TemplateIr | TemplateVariableAssignments | JoinClauseIr;
