@@ -1,6 +1,10 @@
-import { DielIr, RelationIr, ProgramsIr, ProgramSpecIr } from "../parser/dielTypes";
-import { columnStr } from "./helper";
+import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
+import * as parser from "../parser/grammar/DIELParser";
+import * as lexer from "../parser/grammar/DIELLexer";
+import Visitor from "../parser/generateIr";
+import { DielIr, ProgramSpecIr } from "../parser/dielTypes";
 import * as fs from "fs";
+import { LogInfo } from "../util/messages";
 
 // then there will another pass where we do the networking logic.
 // export function setupNetworking(ir: DielIr) {
@@ -43,39 +47,69 @@ end;
   return triggers;
 }
 
-export function generateCrossFilterSql(ir: DielIr) {
+export function modifyIrFromCrossfilter(ir: DielIr) {
   // filtered & unfiltered
   // register filtered to output
   // returning arrays of arrays, should be flattened for execution
-  if ((!ir.crossfilters) || ir.crossfilters.length === 0) {
-    return null;
-  }
-  return ir.crossfilters.map(i => {
+  ir.crossfilters.map(i => {
     return i.charts.map(c => {
+      const viewQuery = `create view ${c.chartName}Unfiltered as ${c.definition};`;
+      const viewIr = _getViewIr(viewQuery, ir);
+      ir.views.push(viewIr);
       const otherCharts = i.charts.filter(c2 => c2.chartName !== c.chartName);
       const filteredJoins = otherCharts.map(o => o.predicate).join("\n");
-      const filtered = `create output ${c.chartName}Filtered select * from ${i.relation} ${filteredJoins};`;
-      return {
-        definition: `create view ${c.chartName}Unfiltered ${c.definition}`,
-        filtered,
-      };
+      const outputQuery = `
+          create output ${c.chartName}Filtered as
+            select ${viewIr.selectQuery}
+            from ${i.relation}
+            ${filteredJoins}
+            ${viewIr.joinQuery}
+            ${viewIr.whereQuery}
+            ${viewIr.groupByQuery}
+            ${viewIr.orderByQuery}
+           ;`;
+      const outputIr = _getOutputIr(outputQuery, ir);
+      ir.outputs.push(outputIr);
     });
   });
+  return ir;
 }
+
+function _parse(query: string) {
+  const inputStream = new ANTLRInputStream(query);
+  const l = new lexer.DIELLexer(inputStream);
+  const tokenStream = new CommonTokenStream(l);
+  return new parser.DIELParser(tokenStream);
+}
+
+function _getOutputIr(outputQuery: string, ir: DielIr) {
+  LogInfo(`Parsing Output\n ${outputQuery}`);
+  const p = _parse(outputQuery);
+  const tree = p.outputStmt();
+  let visitor = new Visitor();
+  visitor.setContext(ir);
+  return visitor.visitOutputStmt(tree);
+}
+
+function _getViewIr(viewQuery: string, ir: DielIr) {
+  LogInfo(`Parsing View\n ${viewQuery}`);
+  const p = _parse(viewQuery);
+  const tree = p.viewStmt();
+  let visitor = new Visitor();
+  visitor.setContext(ir);
+  return visitor.visitViewStmt(tree);
+}
+
 
 // TODO
 // function generateAsyncSql() {
 // }
 
 export function genSql(ir: DielIr) {
-  const inputQueries = ir.inputs.map(r => `
-    insert into ${r.name} (timestep, ${r.columns.map(c => c.name).join(", ")})
-    select max(timestep), ${r.columns.map(c => c.name).map(v => `$${v}`).join(", ")}
-    from allInputs;
-    `);
-  const outputQueries = ir.outputs.map(r => `
-    create view ${r.name} as ${r.query};
-  `);
+  const definitionQueries = ir.tables.concat(ir.inputs).map(r => `
+create table ${r.name} (timestep, timestamp, ${r.columns.map(c => c.name).join(", ")})`);
+  const viewQueries = ir.views.concat(ir.outputs).map(r => `
+create view ${r.name} as ${r.query};`);
   const specificTriggers = triggerTemplate(ir);
   const genericProgram = ir.programs.filter(p => (p.input) ? false : true);
   let genericTrigger = null;
@@ -83,5 +117,5 @@ export function genSql(ir: DielIr) {
     genericTrigger = triggerGeneric(genericProgram[0]);
   }
   const staticQueries = fs.readFileSync("./src/compiler/static.sql", "utf8");
-  return [staticQueries, genericTrigger, ...inputQueries, ...outputQueries, ...specificTriggers];
+  return [staticQueries, ...definitionQueries, ...viewQueries, genericTrigger, ...specificTriggers];
 }

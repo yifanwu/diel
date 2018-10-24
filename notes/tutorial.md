@@ -1,4 +1,11 @@
-# DIEL Language
+# DIEL Tutorial
+
+The reason why setup has to be called separately is because there is no async constructor.
+
+```ts
+  const d = new Diel(filePath);
+  await d.Setup();
+```
 
 ## Cross-filter
 

@@ -12,6 +12,11 @@ export enum ProgramType {
   Insert = "Insert"
 }
 
+export enum LoggingLevels {
+  Verbose = "Verbose",
+  Succinct = "Succinct"
+}
+
 export interface TransferInfo {
   depViews: string;
   location: string;
@@ -47,6 +52,11 @@ export interface ProgramsIr extends ProgramSpecIr {
   input: string;
 }
 
+export interface DielConfig {
+  name?: string;
+  loggingLevel?: string;
+}
+
 export interface DielIr {
   inputs: RelationIr[];
   tables: RelationIr[];
@@ -55,19 +65,26 @@ export interface DielIr {
   programs: ProgramsIr[];
   crossfilters: CrossFilterIr[];
   templates: TemplateIr[];
+  config?: DielConfig;
 }
 
-export interface SelectQueryPartialIr {
+export interface SelectBodyIr {
+  fromRelation: string;
+  joinRelations: string[];
+  joinQuery: string;
+  whereQuery: string;
+  groupByQuery: string;
+  orderByQuery: string;
+  limitQuery: string;
+}
+
+export interface SelectQueryPartialIr extends SelectBodyIr {
   columns: Column[];
-  relations: string[];
+  selectQuery: string;
 }
 
 export interface SelectQueryIr extends SelectQueryPartialIr {
   query: string;
-}
-
-export interface SelectBodyIr {
-  relations: string[];
 }
 
 export interface CrossFilterChartIr {
@@ -95,7 +112,7 @@ export interface TemplateIr {
 
 export interface TemplateVariableAssignments {
   variable: string;
-  value: string;
+  assignment: string;
 }
 
 export type ExpressionValue = DielIr | RelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | TemplateIr | TemplateVariableAssignments | JoinClauseIr;

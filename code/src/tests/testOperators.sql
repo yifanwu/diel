@@ -1,3 +1,6 @@
+-- TEST: logicalComposition
+create view vComp as SELECT a, b from t where (a > 2 and b >2) or (a < 1 and b < 1);
+
 -- TEST: comparison
 create view v1 as
   select day

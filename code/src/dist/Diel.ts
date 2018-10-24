@@ -2,18 +2,22 @@ import { Database, Statement } from "sql.js";
 import { downloadHelper } from "./dielUtils";
 import { log, timeNow } from "./dielUdfs";
 import { inputRelations, outputRelations } from "./gen/relations";
+import { LogInfo } from "../util/messages";
+import * as fs from "fs";
 
 // this is an interface class that shares all of DIEL's common abstractions
 
-type ReactFunc = (v: any) => void;
+type OutputBoundFunc = (v: any) => any;
+
 type OutputConfig = {
   notNull?: boolean,
 };
+
 const defaultOuptConfig = {
   notNull: false,
 };
 
-type TickBind = {view: string, s: Statement, f: ReactFunc, c: OutputConfig};
+type TickBind = {view: string, s: Statement, f: OutputBoundFunc, c: OutputConfig};
 
 export default class Diel {
   protected db: Database;
@@ -27,6 +31,7 @@ export default class Diel {
   protected dbPath: string;
 
   constructor(dbPath: string) {
+    LogInfo(`DIEL initializing`);
     this.runOutput = this.runOutput.bind(this);
     this.tick = this.tick.bind(this);
     this.BindOutput = this.BindOutput.bind(this);
@@ -37,22 +42,35 @@ export default class Diel {
     this.output = new Map();
     this.staticInput = new Map();
     this.staticOutput = new Map();
-    this.setup();
   }
 
   public async LoadDb(file: string) {
     if (this.db) {
       this.db.close();
     }
-    const response = await fetch(file);
-    const bufferRaw = await response.arrayBuffer();
-    const buffer = new Uint8Array(bufferRaw);
+    let buffer;
+    if (typeof fetch === "undefined") {
+      // we are in node land, let's make this work
+      buffer = fs.readFileSync(file);
+    } else {
+      const response = await fetch(file);
+      const bufferRaw = await response.arrayBuffer();
+      buffer = new Uint8Array(bufferRaw);
+    }
     this.db = new Database(buffer);
+    this.db.create_function("timeNow", timeNow);
     this.db.create_function("log", log);
     this.db.create_function("tick", this.tick());
+    LogInfo(`DIEL Loaded DB Successfully`);
   }
 
+  /**
+   * NewInput
+   * @param i the name of the input
+   * @param o the row/object of the input
+   */
   public NewInput(i: string, o: any) {
+    LogInfo(`NewInput for ${i}, value ${JSON.stringify(o, null, 2)}`);
     let tsI = Object.assign({$ts: timeNow()}, o);
     this.input.get(i).run(tsI);
   }
@@ -66,7 +84,7 @@ export default class Diel {
     return this.readStmt(s, v, cIn);
   }
 
-  public BindOutput(view: string, reactFn: ReactFunc, cIn = {} as OutputConfig) {
+  public BindOutput(view: string, reactFn: OutputBoundFunc, cIn = {} as OutputConfig) {
     if (!this.output.has(view)) {
       throw new Error(`output not defined ${view} ${Array.from(this.output.keys()).join(", ")}`);
     }
@@ -81,7 +99,8 @@ export default class Diel {
     downloadHelper(blob,  "session");
   }
 
-  private async setup() {
+  public async Setup() {
+    LogInfo(`DIEL Setting Up`);
     await this.LoadDb(this.dbPath);
     inputRelations.map(i => this.input.set(i.name, this.db.prepare(i.query)));
     outputRelations.map(i => this.output.set(i.name, this.db.prepare(i.query)));
@@ -113,6 +132,7 @@ export default class Diel {
   }
 
   private tick() {
+    LogInfo("Tick called");
     const boundFns = this.boundFns;
     const runOutput = this.runOutput;
     return () => {

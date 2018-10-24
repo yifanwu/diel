@@ -2,31 +2,47 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, Column, RelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, TemplateIr, TemplateVariableAssignments, JoinClauseIr } from "./dielTypes";
+import { ExpressionValue, Column, RelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, TemplateIr, TemplateVariableAssignments, JoinClauseIr, DielIr } from "./dielTypes";
 import { parseColumnType, getCtxSourceCode } from "../compiler/helper";
+import { LogInfo } from "../util/messages";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
-  private templates: TemplateIr[];
-  private inputs: RelationIr[];
-  private tables: RelationIr[];
-  private views: DerivedRelationIr[];
-  private outputs: DerivedRelationIr[];
+  private ir: DielIr;
 
   defaultResult() {
     return "";
   }
 
-  visitQueries = (ctx: parser.QueriesContext) => {
+  // this is useful for compiling partial queries
+  setContext(ir: DielIr) {
+    LogInfo("setting context");
+    this.ir = ir;
+  }
+
+  visitQueries = (ctx: parser.QueriesContext): DielIr => {
+    this.ir = {
+      inputs: null,
+      tables: null,
+      outputs: null,
+      views: null,
+      programs: null,
+      crossfilters: null,
+      templates: null,
+    };
     // should only be called once and executed for setup.
+    const templates: TemplateIr[] = ctx.templateStmt().map(e => (
+      this.visit(e) as TemplateIr
+    ));
+    this.ir.templates = templates;
     const inputs: RelationIr[] = ctx.inputStmt().map(e => (
       this.visitInputStmt(e)
     ));
-    this.inputs = inputs;
+    this.ir.inputs = inputs;
     const tables: RelationIr[] = ctx.tableStmt().map(e => (
       this.visit(e) as RelationIr
     ));
-    this.tables = tables;
+    this.ir.tables = tables;
     const outputs: DerivedRelationIr[] = ctx.outputStmt().map(e => (
       this.visit(e) as DerivedRelationIr
     ));
@@ -36,12 +52,10 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const programs: ProgramsIr[] = ctx.programStmt().map(e => (
       this.visit(e) as ProgramsIr
     ));
-    const crossfilters: CrossFilterIr[] = ctx.programStmt().map(e => (
+    const crossfilters: CrossFilterIr[] = ctx.crossfilterStmt().map(e => (
       this.visit(e) as CrossFilterIr
     ));
-    const templates: TemplateIr[] = ctx.templateStmt().map(e => (
-      this.visit(e) as TemplateIr
-    ));
+    // const config: DielConfig = this.visit(ctx.configStmt()) as DielConfig;
     return {
       inputs,
       tables,
@@ -49,10 +63,30 @@ implements visitor.DIELVisitor<ExpressionValue> {
       views,
       programs,
       crossfilters,
-      templates
+      templates,
     };
   }
 
+  // visitConfigStmt(ctx: parser.ConfigStmtContext) {
+  //   let config: any = {};
+  //   ctx.configUnit().map(c => {
+  //     const unitConfig = this.visit(c);
+  //     config[unitConfig.key] = unitConfig.value;
+  //   });
+  //   return config;
+  // }
+  // visitConfigUnitName(ctx: parser.ConfigUnitNameContext) {
+  //   return {
+  //     key: "name",
+  //     value: ctx.STRING().text,
+  //   };
+  // }
+  // visitConfigUnitLogging(ctx: parser.ConfigUnitLoggingContext) {
+  //   return {
+  //     key: "logging",
+  //     value: ctx.STRING().text,
+  //   };
+  // }
   // outputs
   visitOutputStmt(ctx: parser.OutputStmtContext): DerivedRelationIr {
     const name = ctx.IDENTIFIER().text;
@@ -73,10 +107,11 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitSelectQueryTemplate(ctx: parser.SelectQueryTemplateContext) {
+  // This is for using the template
+  visitTemplateQuery(ctx: parser.TemplateQueryContext) {
     const values = ctx.variableAssignment().map(v => this.visit(v) as TemplateVariableAssignments);
     const templateName = ctx._templateName.text;
-    const t = this.templates.find(i => i.templateName === templateName);
+    const t = this.ir.templates.find(i => i.templateName === templateName);
     return this._getTemplate(t, values);
   }
 
@@ -91,9 +126,15 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitTemplateStmt(ctx: parser.TemplateStmtContext): TemplateIr {
     const templateName = ctx._templateName.text;
+    console.log("visiting", templateName);
     // make sure that this is expected
-    const variables = ctx.IDENTIFIER().map(i => i.text);
-    const query = this.visit(ctx.selectQuery()) as SelectQueryIr;
+    const variables = ctx.IDENTIFIER().map(i => i.text).splice(1);
+    let query;
+    if (ctx.selectQuery()) {
+      query = this.visit(ctx.selectQuery()) as SelectQueryIr;
+    } else {
+      query = this.visit(ctx.joinClause()) as JoinClauseIr;
+    }
     return {
       templateName,
       variables,
@@ -101,49 +142,77 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
+  visitVariableAssignment(ctx: parser.VariableAssignmentContext): TemplateVariableAssignments {
+    // need to get rid of the quotes
+    const str = ctx._assignment.text;
+    return {
+      variable: ctx._variable.text,
+      assignment: str.slice(1, str.length - 1)
+    };
+  }
+
   // TODO: do some type checking/inference on the selected.
   visitSelectQuerySpecific(ctx: parser.SelectQuerySpecificContext): SelectQueryPartialIr {
     const columns = ctx.selectClause().map(s => this.visit(s) as Column);
+    const selectQuery = ctx.selectClause().map(s => getCtxSourceCode(s)).join(", ");
     if (columns.length < 1) {
       // TODO
     }
     const selectBody = this.visit(ctx.selectBody()) as SelectBodyIr;
     return {
       columns,
-      relations: selectBody.relations,
+      selectQuery,
+      ...selectBody,
     };
   }
 
   visitSelectQueryAll(ctx: parser.SelectQueryAllContext): SelectQueryPartialIr {
     // we need to figure out what tables where referenced
     const selectBody = this.visit(ctx.selectBody()) as SelectBodyIr;
-    const relations = selectBody.relations;
+    const relations = selectBody.joinRelations.concat(selectBody.fromRelation);
     // need to look up the relations
     const columns = relations.reduce((acc: Column[], r) => acc.concat(this._findRelationColumns(r)), []);
+    const selectQuery = "select *";
     return {
       columns,
-      relations,
+      selectQuery,
+      ...selectBody,
     };
   }
 
   visitSelectBody(ctx: parser.SelectBodyContext): SelectBodyIr {
-    const relation = this.visit(ctx.relationReference()) as string;
-    const joinsInfo = ctx.joinClause().map(j => (this.visit(j) as JoinClauseIr).relation);
+    const fromRelation = this.visit(ctx.relationReference()) as string;
+    const joinRelations = ctx.joinClause().map(j => (this.visit(j) as JoinClauseIr).relation);
+    const joinQuery = ctx.joinClause().map(j => getCtxSourceCode(j)).join("\n");
+    const whereQuery = getCtxSourceCode(ctx.whereClause());
+    const groupByQuery = getCtxSourceCode(ctx.groupByClause());
+    const orderByQuery = getCtxSourceCode(ctx.orderByClause());
+    const limitQuery = getCtxSourceCode(ctx.limitClause());
     return {
-      relations: [relation, ...joinsInfo]
+      fromRelation,
+      joinRelations,
+      joinQuery,
+      whereQuery,
+      groupByQuery,
+      orderByQuery,
+      limitQuery,
     };
   }
 
   // ignore the predicates for now
   // might be useful for sanity checking later
   // as well as basic materialization
-  visitJoinClause(ctx: parser.JoinClauseContext): JoinClauseIr {
+  visitJoinClauseBasic(ctx: parser.JoinClauseBasicContext): JoinClauseIr {
     const relation = this.visit(ctx.relationReference()) as string;
     const query = getCtxSourceCode(ctx);
     return {
       relation,
       query
     };
+  }
+
+  visitJoinClauseTemplate(ctx: parser.JoinClauseTemplateContext) {
+    return this.visit(ctx.templateQuery());
   }
 
   visitRelationReferenceSimple(ctx: parser.RelationReferenceSimpleContext) {
@@ -230,6 +299,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   // crossfilter
   visitCrossfilterStmt(ctx: parser.CrossfilterStmtContext): CrossFilterIr {
     const crossfilter = ctx._crossfilterName.text;
+    console.log("visitng crossfilter", crossfilter);
     const relation = ctx._relation.text;
     const charts = ctx.crossfilterChartStmt().map(c => this.visit(c) as CrossFilterChartIr);
     return {
@@ -256,10 +326,13 @@ implements visitor.DIELVisitor<ExpressionValue> {
     t.variables.map(v => {
       const value = values.find(i => i.variable === v);
       if (!value) {
-        throw new Error("Variable not found");
+        const errMsg = `Variable ${v} not found, among ${JSON.stringify(values)}`;
+        throw new Error(errMsg);
       }
-      const re = new RegExp(v, "g");
-      s = s.replace(re, value.value);
+      const re = new RegExp(`{${v}}`, "g");
+      console.log("replacing", s, "with", value.assignment);
+      s = s.replace(re, value.assignment);
+      console.log("to", s);
     });
     return s;
   }
@@ -267,7 +340,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   // helper
   _findRelationColumns(relation: string): Column[] {
     // find in inputs, then tables, then views, and outputs
-    const rs = this.tables.concat(this.inputs).concat(this.views).concat(this.outputs);
+    const rs = this.ir.tables.concat(this.ir.inputs).concat(this.ir.views).concat(this.ir.outputs);
     for (let i = 0; i < rs.length; i++) {
       if (rs[i].name === relation) {
         return rs[i].columns;

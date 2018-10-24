@@ -15,12 +15,16 @@ export function parseColumnType(str: string) {
       throw new Error("Parsing error");
   }
 }
+
 export function getCtxSourceCode(ctx: any): string {
-  let a = ctx.start.startIndex;
-  let b = ctx.stop.stopIndex;
-  let interval = new Interval(a,b);
-  return ctx.start.inputStream.getText(interval);
-};
+  if (ctx) {
+    let a = ctx.start.startIndex;
+    let b = ctx.stop.stopIndex;
+    let interval = new Interval(a, b);
+    return ctx.start.inputStream.getText(interval);
+  }
+  return "";
+}
 
 export function columnStr(cols: Column) {
   let postfix = null;

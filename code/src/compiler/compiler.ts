@@ -3,21 +3,21 @@ import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 
 import Visitor from "../parser/generateIr";
-import { LogInternalError } from "../util/messages";
+import { DielConfig } from "../parser/dielTypes";
+import { modifyIrFromCrossfilter } from "./codeGenSql";
 
-export function getIR(code: string) {
+export function getIR(code: string, config?: DielConfig) {
   console.log("Starting compilation");
-  let l;
-  try {
-    const inputStream = new ANTLRInputStream(code);
-    l = new lexer.DIELLexer(inputStream);
-  } catch (e) {
-    LogInternalError(`Parsing failed: ${e}`);
-  }
+  const inputStream = new ANTLRInputStream(code);
+  const l = new lexer.DIELLexer(inputStream);
   const tokenStream = new CommonTokenStream(l);
   const p = new parser.DIELParser(tokenStream);
   const tree = p.queries();
   let visitor = new Visitor();
-  const ir = visitor.visitQueries(tree);
+  let ir = visitor.visitQueries(tree);
+  if (config) {
+    ir.config = config;
+  }
+  ir = modifyIrFromCrossfilter(ir);
   return ir;
 }

@@ -1,5 +1,10 @@
 import { QueryResults, Database } from "sql.js";
 
+export interface RelationTs {
+  name: string;
+  query: string;
+}
+
 // console tools
 export function d(db: Database, sql: string) {
   let r = db.exec(sql);
@@ -17,9 +22,7 @@ export function d(db: Database, sql: string) {
     console.log("NO RESULT");
   }
 }
-(<any>window).d = d;
-
-
+if (typeof window !== "undefined" && window) (<any>window).d = d;
 // debug assertions
 
 export function assertQueryHasResult(r: QueryResults, query?: string) {
@@ -27,8 +30,6 @@ export function assertQueryHasResult(r: QueryResults, query?: string) {
     throw new Error(`Query ${query} has NO result`);
   }
 }
-
-
 
 // this is needed because the groupby has non deterministic orderings
 // and I wasn't able to write a custom reducer
@@ -61,15 +62,19 @@ function prettyTimeNow() {
 }
 
 export function downloadHelper(blob: Blob, name: string, extension = "db") {
-  let a = document.createElement("a");
-  a.href = window.URL.createObjectURL(blob);
-  a.download = `${name}_${prettyTimeNow()}.${extension}`;
-  a.onclick = function() {
-    setTimeout(function() {
-      window.URL.revokeObjectURL(a.href);
-    }, 1500);
-  };
-  a.click();
+  if (typeof window !== "undefined" && window) {
+    let a = document.createElement("a");
+    a.href = window.URL.createObjectURL(blob);
+    a.download = `${name}_${prettyTimeNow()}.${extension}`;
+    a.onclick = function() {
+      setTimeout(function() {
+        window.URL.revokeObjectURL(a.href);
+      }, 1500);
+    };
+    a.click();
+  } else {
+    console.log("Not in web environment!");
+  }
 }
 
 

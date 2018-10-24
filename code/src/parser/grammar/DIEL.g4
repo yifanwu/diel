@@ -1,9 +1,21 @@
 grammar DIEL;
 
-queries : (inputStmt | outputStmt | programStmt | tableStmt | viewStmt | crossfilterStmt | templateStmt) +;
+queries : (inputStmt | outputStmt | programStmt 
+           | tableStmt | viewStmt | crossfilterStmt | templateStmt
+          )+;
+//  configStmt?
+// configStmt
+//   : CONFIG configUnit ';'
+//   ;
 
+// configUnit
+//   : NAME AS STRING    # configUnitName
+//   | LOGGING AS STRING # configUnitLogging
+//   ;
 templateStmt
-  : CREATE TEMPLATE templateName=IDENTIFIER '(' IDENTIFIER (',' IDENTIFIER)* ')' selectQuery
+  : CREATE TEMPLATE templateName=IDENTIFIER
+    '(' IDENTIFIER (',' IDENTIFIER)* ')'
+    (selectQuery | joinClause) ';'
   ;
 
 crossfilterStmt
@@ -12,7 +24,7 @@ crossfilterStmt
   ;
 
 crossfilterChartStmt
-  : OUTPUT chart=IDENTIFIER
+  : CREATE XCHART chart=IDENTIFIER
     AS definitionQuery=selectQuery
     WITH PREDICATE predicateClause=joinClause ';'
   ;
@@ -20,7 +32,7 @@ crossfilterChartStmt
 columnType
   : INT | TEXT | BOOLEAN
   ;
-  
+
 columnDefinition
   : IDENTIFIER columnType
   ;
@@ -57,11 +69,15 @@ programBody
 
 selectQuery
   : selectUnitQuery compositeSelect* # selectQueryDirect
-  | USE TEMPLATE templateName=IDENTIFIER '(' variableAssignment (',' variableAssignment)* ')'   # selectQueryTemplate
+  | templateQuery                    # selectQueryTemplate
+  ;
+
+templateQuery
+  : USE TEMPLATE templateName=IDENTIFIER '(' variableAssignment (',' variableAssignment)* ')'
   ;
 
 variableAssignment
-  : variable=STRING '=' assignment=STRING
+  : variable=IDENTIFIER '=' assignment=STRING
   ;
 
 compositeSelect
@@ -101,7 +117,8 @@ value
   ;
 
 joinClause
-  : (LEFT OUTER)? JOIN relationReference (ON predicates)?
+  : (LEFT OUTER)? JOIN relationReference (ON predicates)? # joinClauseBasic
+  | templateQuery                                         # joinClauseTemplate
   ;
 
 whereClause
@@ -124,7 +141,7 @@ selectClause
   ;
 
 expr
-  : unitExpr                                         # exprSimple
+  : unitExpr                                          # exprSimple
   | value                                             # exprStatic
   | function=IDENTIFIER '(' (funExpr)?  ')'           # exprFunction
   | expr mathOp expr                                  # exprMath
@@ -152,12 +169,14 @@ columnSelection
 
 predicates
   : singlePredicate                # predicateClauseSingle
-  | predicates AND singlePredicate # predicateClauseAnd
-  | predicates OR singlePredicate  # predicateClauseOr
+  | '(' predicates ')'             # predicateClauseParenthesis
+  | predicates AND predicates # predicateClauseAnd
+  | predicates OR predicates  # predicateClauseOr
   ;
 
 singlePredicate
-  : expr compareOp expr                     # singlePredicateColumns
+  : expr                                    # singlePredicateExpr
+  | expr compareOp expr                     # singlePredicateCompare
   | expr IS (NOT)? NULL                     # singlePredicateNull
   | expr compareOp NUMBER                   # singlePredicateNumber
   | expr compareOp '(' selectUnitQuery ')'  # singlePredicateSubQuery
@@ -187,6 +206,10 @@ CROSSFILTER: 'CROSSFILTER' | 'crossfilter';
 PREDICATE : 'PREDICATE' | 'predicate';
 TEMPLATE: 'TEMPLATE' | 'template';
 USE: 'USE' | 'use';
+XCHART: 'XCHART' | 'xchart';
+CONFIG: 'CONFIG' | 'config';
+NAME: 'NAME' | 'name';
+LOGGING: 'LOGGING' | 'logging';
 
 // SQL
 TABLE: 'TABLE' | 'table';
@@ -255,9 +278,11 @@ STRING
   ;
 
 IDENTIFIER
-  : (LETTER | DIGIT | '_')+
-  | '${' (LETTER | DIGIT | '_')+ '}'
+  : (LETTER | DIGIT | '_')* '{' (LETTER | DIGIT | '_')+ '}' (LETTER | DIGIT | '_')*
+  | (LETTER | DIGIT | '_')+
   ;
+
+test: STRING | IDENTIFIER;
 
 WS  
   : (' ' | '\t' | '\r'| '\n' | EOF ) -> channel(HIDDEN)

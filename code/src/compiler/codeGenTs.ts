@@ -1,22 +1,26 @@
 import { DielIr, RelationIr, DerivedRelationIr } from "../parser/dielTypes";
+import { RelationTs } from "../dist/dielUtils";
 
-interface relationTs {
-  name: string,
-  query: string
-}
-
-function overallTemplate(inputArray: relationTs[], outputArray: relationTs[]) {
+// scrap
+// import { RelationTs } from "diel";
+// : RelationTs[]
+function overallTemplate(inputArray: RelationTs[], outputArray: RelationTs[]) {
   return `
-export const inputRelations = ${JSON.stringify(inputArray, null, 2)};
-export const outputRelations = ${JSON.stringify(outputArray, null, 2)};
+import { RelationTs } from "../dielUtils";
+export const inputRelations: RelationTs[] = ${JSON.stringify(inputArray, null, 2)};
+export const outputRelations: RelationTs[] = ${JSON.stringify(outputArray, null, 2)};
   `;
 }
 
+// scrap
+// );`insert into ${i.name} (${i.columns.map(c => c.name).join(", ")}) values (${i.columns.map(v => `$${v.name}`).join(", ")});`
 function createInputTs(ins: RelationIr[]) {
-  return ins.map(i => ({
-    name: i.name,
-    query: `insert into ${i.name} (${i.columns.map(c => c.name).join(", ")})
-            values (${i.columns.map(v => `$${v.name}`).join(", ")});`
+  return ins.map(r => ({
+    name: r.name,
+    query: `
+    insert into ${r.name} (timestep, timestamp, ${r.columns.map(c => c.name).join(", ")})
+    select max(timestep), timeNow(), ${r.columns.map(c => c.name).map(v => `$${v}`).join(", ")}
+    from allInputs;`
   }));
 }
 
