@@ -2,15 +2,16 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, Column, RelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, TemplateIr, TemplateVariableAssignments, JoinClauseIr, DielIr } from "./dielTypes";
+import { ExpressionValue, Column, RelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, TemplateIr, TemplateVariableAssignments, JoinClauseIr, DielIr, ExprIr } from "./dielTypes";
 import { parseColumnType, getCtxSourceCode } from "../compiler/helper";
-import { LogInfo } from "../util/messages";
+import { LogInfo, LogWarning, LogTmp } from "../util/messages";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
   private ir: DielIr;
 
   defaultResult() {
+    LogWarning("All the visits should be handled");
     return "";
   }
 
@@ -111,6 +112,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitTemplateQuery(ctx: parser.TemplateQueryContext) {
     const values = ctx.variableAssignment().map(v => this.visit(v) as TemplateVariableAssignments);
     const templateName = ctx._templateName.text;
+    LogTmp(`Processed template ${templateName}`);
     const t = this.ir.templates.find(i => i.templateName === templateName);
     return this._getTemplate(t, values);
   }
@@ -158,12 +160,41 @@ implements visitor.DIELVisitor<ExpressionValue> {
     if (columns.length < 1) {
       // TODO
     }
-    const selectBody = this.visit(ctx.selectBody()) as SelectBodyIr;
+    const body = ctx.selectBody();
+    let selectBody = null;
+    if (body) {
+      selectBody = this.visit(body) as SelectBodyIr;
+    }
     return {
       columns,
       selectQuery,
-      ...selectBody,
+      selectBody,
     };
+  }
+
+  visitSelectClause(ctx: parser.SelectClauseContext) {
+    let name: string;
+    if (ctx.IDENTIFIER()) {
+      name = ctx.IDENTIFIER().text;
+    } else {
+      const expr = this.visit(ctx.expr()) as ExprIr;
+      // if there is no name, then this is a problem
+      // it's not going to have the context to give better error messages sad!!
+      if (expr.name === undefined) {
+        throw new Error(`Expression not named`);
+      }
+    }
+    return name;
+  }
+
+  visitExprSimple(ctx: parser.ExprSimpleContext): ExprIr {
+    return {
+      name: this.visit(ctx.unitExpr()) as string
+    };
+  }
+
+  visitUnitExprColumn(ctx: parser.UnitExprColumnContext) {
+    return this.visit(ctx.columnSelection());
   }
 
   visitSelectQueryAll(ctx: parser.SelectQueryAllContext): SelectQueryPartialIr {
@@ -176,7 +207,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return {
       columns,
       selectQuery,
-      ...selectBody,
+      selectBody,
     };
   }
 
@@ -232,18 +263,29 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return this.visitRelationDefintion(ctx.relationDefintion());
   }
 
-  visitTableStmt = (ctx: parser.TableStmtContext) => {
-    return this.visit(ctx.relationDefintion());
+  visitTableStmtSelect = (ctx: parser.TableStmtSelectContext): RelationIr => {
+    const q = this.visit(ctx.selectQuery()) as SelectQueryIr;
+    const name = ctx.IDENTIFIER().text;
+    const columns = q.columns;
+    const query = getCtxSourceCode(ctx);
+    return {
+      name,
+      columns,
+      query
+    };
+  }
+
+  visitTableStmtDirect = (ctx: parser.TableStmtDirectContext): RelationIr => {
+    return this.visit(ctx.relationDefintion()) as RelationIr;
   }
 
   visitRelationDefintion = (ctx: parser.RelationDefintionContext): RelationIr  => {
     const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
     const name = ctx.IDENTIFIER().text;
-    const r: RelationIr = {
+    return {
       name,
-      columns
+      columns,
     };
-    return r;
   }
 
   visitColumnDefinition(ctx: parser.ColumnDefinitionContext) {

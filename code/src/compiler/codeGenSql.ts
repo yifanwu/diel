@@ -2,7 +2,7 @@ import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateIr";
-import { DielIr, ProgramSpecIr } from "../parser/dielTypes";
+import { DielIr, ProgramSpecIr, DataType } from "../parser/dielTypes";
 import * as fs from "fs";
 import { LogInfo } from "../util/messages";
 
@@ -15,8 +15,8 @@ function triggerGeneric(program: ProgramSpecIr) {
 create trigger allInputsTrigger after insert on allInputs
   begin
     select tick();
-    ${program.selectPrograms.map(insert => insert.query).join("\n")}
-    ${program.insertPrograms.map(insert => insert.query).join("\n")}
+    ${program ? program.selectPrograms.map(insert => insert.query).join("\n") : ""}
+    ${program ? program.insertPrograms.map(insert => insert.query).join("\n") : ""}
   end;`;
 }
 
@@ -63,10 +63,10 @@ export function modifyIrFromCrossfilter(ir: DielIr) {
             select ${viewIr.selectQuery}
             from ${i.relation}
             ${filteredJoins}
-            ${viewIr.joinQuery}
-            ${viewIr.whereQuery}
-            ${viewIr.groupByQuery}
-            ${viewIr.orderByQuery}
+            ${viewIr.selectBody.joinQuery}
+            ${viewIr.selectBody.whereQuery}
+            ${viewIr.selectBody.groupByQuery}
+            ${viewIr.selectBody.orderByQuery}
            ;`;
       const outputIr = _getOutputIr(outputQuery, ir);
       ir.outputs.push(outputIr);
@@ -104,18 +104,29 @@ function _getViewIr(viewQuery: string, ir: DielIr) {
 // TODO
 // function generateAsyncSql() {
 // }
+const TypeConversionLookUp = new Map<DataType, string>([
+  [DataType.String, "TEXT"], [DataType.Number, "REAL"], [DataType.Boolean, "INTEGER"]
+]);
 
 export function genSql(ir: DielIr) {
-  const definitionQueries = ir.tables.concat(ir.inputs).map(r => `
-create table ${r.name} (timestep, timestamp, ${r.columns.map(c => c.name).join(", ")})`);
+  const inputQueries = ir.inputs.map(r => {
+    return `
+create table ${r.name} (timestep integer, timestamp real, ${r.columns.map(c => `${c.name} ${TypeConversionLookUp.get(c.type)}`).join(", ")})`;
+  });
+  const tableQueries = ir.tables.map(r => {
+    if (r.query) {
+      return r.query;
+    } else {
+      return `
+create table ${r.name} (${r.columns.map(c => `${c.name} ${TypeConversionLookUp.get(c.type)}`).join(", ")})`;
+    }
+  });
   const viewQueries = ir.views.concat(ir.outputs).map(r => `
 create view ${r.name} as ${r.query};`);
   const specificTriggers = triggerTemplate(ir);
-  const genericProgram = ir.programs.filter(p => (p.input) ? false : true);
-  let genericTrigger = null;
-  if (genericProgram.length > 0) {
-    genericTrigger = triggerGeneric(genericProgram[0]);
-  }
+  const genericProgramList = ir.programs.filter(p => (p.input) ? false : true);
+  const genericProgram = genericProgramList.length > 0 ? genericProgramList[0] : null;
+  const genericTrigger = triggerGeneric(genericProgram);
   const staticQueries = fs.readFileSync("./src/compiler/static.sql", "utf8");
-  return [staticQueries, ...definitionQueries, ...viewQueries, genericTrigger, ...specificTriggers];
+  return [staticQueries, ...inputQueries, ...tableQueries, ...viewQueries, genericTrigger, ...specificTriggers];
 }

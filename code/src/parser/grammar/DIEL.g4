@@ -3,15 +3,7 @@ grammar DIEL;
 queries : (inputStmt | outputStmt | programStmt 
            | tableStmt | viewStmt | crossfilterStmt | templateStmt
           )+;
-//  configStmt?
-// configStmt
-//   : CONFIG configUnit ';'
-//   ;
 
-// configUnit
-//   : NAME AS STRING    # configUnitName
-//   | LOGGING AS STRING # configUnitLogging
-//   ;
 templateStmt
   : CREATE TEMPLATE templateName=IDENTIFIER
     '(' IDENTIFIER (',' IDENTIFIER)* ')'
@@ -42,12 +34,12 @@ inputStmt
   ;
 
 tableStmt
-  : CREATE TABLE relationDefintion
-  | CREATE TABLE AS compositeSelect
+  : CREATE TABLE IDENTIFIER AS selectQuery DELIM # tableStmtSelect
+  | CREATE TABLE relationDefintion DELIM         # tableStmtDirect
   ;
 
 relationDefintion
-  : IDENTIFIER '(' columnDefinition (',' columnDefinition)* ')' DELIM
+  : IDENTIFIER '(' columnDefinition (',' columnDefinition)* ')'
   ;
 
 outputStmt
@@ -85,9 +77,8 @@ compositeSelect
   ;
 
 selectUnitQuery
-  : SELECT selectClause (',' selectClause)* selectBody # selectQuerySpecific
-  | SELECT STAR selectBody                             # selectQueryAll
-  | SELECT value (',' value)*                          # selectQueryStatic
+  : SELECT selectClause (',' selectClause)* selectBody? # selectQuerySpecific
+  | SELECT STAR selectBody                              # selectQueryAll
   ;
 
 selectBody

@@ -4,11 +4,12 @@ import { RelationTs } from "../dist/dielUtils";
 // scrap
 // import { RelationTs } from "diel";
 // : RelationTs[]
-function overallTemplate(inputArray: RelationTs[], outputArray: RelationTs[]) {
+function overallTemplate(inputArray: RelationTs[], outputArray: RelationTs[], viewArray: RelationTs[]) {
   return `
 import { RelationTs } from "../dielUtils";
 export const inputRelations: RelationTs[] = ${JSON.stringify(inputArray, null, 2)};
 export const outputRelations: RelationTs[] = ${JSON.stringify(outputArray, null, 2)};
+export const viewRelations: RelationTs[] = ${JSON.stringify(viewArray, null, 2)};
   `;
 }
 
@@ -34,6 +35,7 @@ function createOutputTs(outs: DerivedRelationIr[]) {
 export function genTs(ir: DielIr) {
   const inputArray = createInputTs(ir.inputs);
   const outputArray = createOutputTs(ir.outputs);
-  const file = overallTemplate(inputArray, outputArray);
+  const viewArray = createOutputTs(ir.views);
+  const file = overallTemplate(inputArray, outputArray, viewArray);
   return file;
 }

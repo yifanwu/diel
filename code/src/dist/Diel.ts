@@ -1,7 +1,7 @@
 import { Database, Statement } from "sql.js";
 import { downloadHelper } from "./dielUtils";
 import { log, timeNow } from "./dielUdfs";
-import { inputRelations, outputRelations } from "./gen/relations";
+import { inputRelations, outputRelations, viewRelations } from "./gen/relations";
 import { LogInfo } from "../util/messages";
 import * as fs from "fs";
 
@@ -71,13 +71,18 @@ export default class Diel {
    */
   public NewInput(i: string, o: any) {
     LogInfo(`NewInput for ${i}, value ${JSON.stringify(o, null, 2)}`);
-    let tsI = Object.assign({$ts: timeNow()}, o);
-    this.input.get(i).run(tsI);
+    // iterate through o and add "$" to the variable assingments
+    const keys = Object.keys(o);
+    let newO: any = {};
+    keys.map(k => {
+      newO[`$${k}`] = o[k];
+    });
+    this.input.get(i).run(newO);
   }
 
   public GetStaticView(v: string, cIn = {} as OutputConfig) {
     console.log("get view", v);
-    const s = this.output.get(v);
+    const s = this.staticOutput.get(v);
     if (!s) {
       console.log(`%c Error ${v} does not exist`, "color: red");
     }
@@ -104,6 +109,7 @@ export default class Diel {
     await this.LoadDb(this.dbPath);
     inputRelations.map(i => this.input.set(i.name, this.db.prepare(i.query)));
     outputRelations.map(i => this.output.set(i.name, this.db.prepare(i.query)));
+    viewRelations.map(i => this.staticOutput.set(i.name, this.db.prepare(i.query)));
   }
 
   private readStmt(s: Statement, view: string, c: OutputConfig) {

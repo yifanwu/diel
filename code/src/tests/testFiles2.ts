@@ -10,9 +10,6 @@ async function main() {
   d.BindOutput("clickValue", (v: {a: number}[]) => {console.log("clickValue clicked", JSON.stringify(v)); });
   LogInfo(`Created a new input for click`);
   d.NewInput("click", {a: 2});
-  setTimeout(() => {
-    console.log("waited for 3 seconds");
-  }, 3000);
   LogInfo("Finished testFiles2");
   return;
 }

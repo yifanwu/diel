@@ -31,6 +31,8 @@ export interface Column {
 export interface RelationIr {
   name: string;
   columns: Column[];
+  // query is specified when the table is defined directly...
+  query?: string;
 }
 
 // used for views and outputs
@@ -57,6 +59,10 @@ export interface DielConfig {
   loggingLevel?: string;
 }
 
+export interface ExprIr {
+  name?: string;
+}
+
 export interface DielIr {
   inputs: RelationIr[];
   tables: RelationIr[];
@@ -78,9 +84,10 @@ export interface SelectBodyIr {
   limitQuery: string;
 }
 
-export interface SelectQueryPartialIr extends SelectBodyIr {
+export interface SelectQueryPartialIr {
   columns: Column[];
   selectQuery: string;
+  selectBody: SelectBodyIr;
 }
 
 export interface SelectQueryIr extends SelectQueryPartialIr {
@@ -115,4 +122,4 @@ export interface TemplateVariableAssignments {
   assignment: string;
 }
 
-export type ExpressionValue = DielIr | RelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | TemplateIr | TemplateVariableAssignments | JoinClauseIr;
+export type ExpressionValue = DielIr | RelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | TemplateIr | TemplateVariableAssignments | JoinClauseIr | ExprIr;

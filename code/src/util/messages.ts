@@ -12,6 +12,10 @@ export function LogInternalError(m: string) {
   if (STRICT) throw new Error();
 }
 
+export function LogWarning(m: string) {
+  console.log(`${FgRed}%s${Reset}`, m);
+}
+
 export function LogInfo(m: string) {
   console.log(`${BgGreen}%s${Reset}`, m);
 }
