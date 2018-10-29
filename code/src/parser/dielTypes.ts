@@ -25,14 +25,19 @@ export interface TransferInfo {
 export interface Column {
   name: string;
   type: DataType;
+  // single column specs
+  notNull: boolean;
+  unique: boolean;
+  key: boolean;
 }
 
 // used for inputs and tables
 export interface RelationIr {
   name: string;
   columns: Column[];
-  // query is specified when the table is defined directly...
+  // used for sql that specified
   query?: string;
+  constraints?: string[];
 }
 
 // used for views and outputs
@@ -56,6 +61,7 @@ export interface ProgramsIr extends ProgramSpecIr {
 
 export interface DielConfig {
   name?: string;
+  existingDbPath?: string;
   loggingLevel?: string;
 }
 

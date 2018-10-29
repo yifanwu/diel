@@ -7,24 +7,36 @@ create view currentItx as
     where itxId = (select itxId from focusItx)
   );
 
--- infer that this is
--- single dimention categorical
-create crossfilter xFlights on flights;
+CREATE TEMPLATE ordinalChart(v)
+  select day as x, count(*) as y from flights group by {v} order by x ASC;
 
-create chart for xFlights
-begin
-  -- these are columns followed by whether its ordinal or categorical
-  day ordinal;
-  state categorical;
-  carrier categorical;
-  delays ordinal;
-end;
+CREATE TEMPLATE ordinalFilter(v)
+  join (
+    select high, low from currentItx WHERE chart = '{v}'
+  ) {v}Itx on (flights.{v} <= {v}Itx.high and flights.{v} >= {v}Itx.low)
+        or ({v}Itx.low IS NULL);
 
--- interactions so that we can match the interactions with the filtering
-create interaction for xFlights
-begin
-  day filtered by chart = 'day' in xBrushItx with predicate day <= high and day >=low;
-  state filtered by chart = 'state' in xBrushItx with predicate instr(selection, state);
-  carrier filtered by chart = 'carrier' in xBrushItx with predicate instr(selection, state);
-  delays filtered by chart = 'delays' in xBrushItx with predicate delays <= high and delays >=low;
-end;
+create template categoricalChart(v)
+  select day as x, count(*) as y from flights group by {v} order by y ASC;
+
+CREATE TEMPLATE categoricalFilter(v)
+  join (
+    select selection from currentItx WHERE chart = '{v}'
+  ) {v}Itx on instr({v}Itx.selection, flights.{v}) or ({v}Itx.selection IS NULL);
+
+-- each chart will have outputs: dayChart.filtered, dayChart.unfiltered
+CREATE CROSSFILTER xFlights on flights
+BEGIN
+  create xchart dayChart
+    as use template ordinalChart(v='day')
+    with predicate use template ordinalFilter(v='day');
+  create xchart delayChart
+    as use template ordinalChart(v='delay')
+    with predicate use template ordinalFilter(v='delay');
+  create xchart stateChart
+    as use template categoricalChart(v='state')
+    with predicate use template ordinalFilter(v='state');
+  create xchart carrierChart
+    as use template categoricalChart(v='carrier')
+    with predicate use template ordinalFilter(v='carrier');
+END;

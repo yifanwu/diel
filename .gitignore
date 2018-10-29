@@ -4,10 +4,14 @@
 *.class
 *.tokens
 *.jar
+*.tmp.*
+code/src/dist/
+code/src/tests/dir/
 node_modules/
 code/src/parser/grammar/
 code/src/debug/DIEL.g4
 DIELParser$*
+code/src/tests/T.g4
 *.js.map
 *.js
 *.old

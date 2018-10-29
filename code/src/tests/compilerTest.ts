@@ -22,8 +22,11 @@ function testQuery(q: string, createFile: boolean) {
 
 function main() {
   console.log("starting tests");
-  // ["tests", "testsComplex", "testEnd2End", "testOperators", "testXFilter", "testTemplate"].map(fn => {
-  ["testTmp"].map(fn => {
+  // ["tests", "testsComplex", "testEnd2End",
+  //  "testOperators", "testXFilter", "testTemplate",
+  //  "testTmp", "testsConstraint"].map(fn => {
+
+  ["testsConstraint"].map(fn => {
     const tests = fs.readFileSync(`./src/tests/${fn}.sql`, "utf8").split(/-- TEST: \w+\n/);
     tests.filter(t => t.length > 0).map(t => {
       LogStandout(`Running\n${t}`);

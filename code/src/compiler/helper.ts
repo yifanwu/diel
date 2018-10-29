@@ -6,13 +6,16 @@ import { Column, DataType } from "../parser/dielTypes";
 export function parseColumnType(str: string) {
   switch (str.toLowerCase()) {
     case "number":
+    case "integer":
+    case "int":
       return DataType.Number;
     case "string":
+    case "text":
       return DataType.String;
     case "boolean":
       return DataType.Boolean;
     default:
-      throw new Error("Parsing error");
+      throw new Error(`parseColumnType error, got ${str}`);
   }
 }
 
@@ -39,6 +42,8 @@ export function columnStr(cols: Column) {
 }
 
 // TODO
-export function prettyPrintSql(query: string[]) {
+// keep track of key words that indents and unindents?
+export function prettyPrintSql(query: string) {
+
   return query;
 }

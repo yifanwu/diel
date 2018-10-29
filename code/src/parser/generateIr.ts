@@ -282,16 +282,28 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitRelationDefintion = (ctx: parser.RelationDefintionContext): RelationIr  => {
     const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
     const name = ctx.IDENTIFIER().text;
+    const constraints = ctx.constraintDefinition().map(c => this.visit(c) as string);
     return {
       name,
       columns,
+      constraints
     };
   }
 
+  visitConstraintDefinition(ctx: parser.ConstraintDefinitionContext) {
+    return getCtxSourceCode(ctx);
+  }
+
   visitColumnDefinition(ctx: parser.ColumnDefinitionContext) {
+    const notNull = ctx.NULL() ? true : false;
+    const unique =  ctx.UNIQUE() ? true : false;
+    const key = ctx.KEY() ? true : false;
     return {
       name: ctx.IDENTIFIER().text,
-      type: parseColumnType(ctx.columnType().text)
+      type: parseColumnType(ctx.columnType().text),
+      notNull,
+      unique,
+      key
     };
   }
 

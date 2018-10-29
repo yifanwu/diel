@@ -26,7 +26,17 @@ columnType
   ;
 
 columnDefinition
-  : IDENTIFIER columnType
+  : IDENTIFIER columnType UNIQUE? (PRIMARY KEY)? (NOT NULL)?
+  ;
+
+constraintDefinition
+  : PRIMARY KEY columns
+  | UNIQUE columns
+  | CHECK (predicates)
+  ;
+
+columns
+  : '(' IDENTIFIER (',' IDENTIFIER)*  ')'
   ;
 
 inputStmt
@@ -39,7 +49,7 @@ tableStmt
   ;
 
 relationDefintion
-  : IDENTIFIER '(' columnDefinition (',' columnDefinition)* ')'
+  : IDENTIFIER '(' columnDefinition (',' columnDefinition)* (',' constraintDefinition)* ')'
   ;
 
 outputStmt
@@ -159,10 +169,10 @@ columnSelection
   ;
 
 predicates
-  : singlePredicate                # predicateClauseSingle
-  | '(' predicates ')'             # predicateClauseParenthesis
-  | predicates AND predicates # predicateClauseAnd
-  | predicates OR predicates  # predicateClauseOr
+  : singlePredicate             # predicateClauseSingle
+  | '(' predicates ')'          # predicateClauseParenthesis
+  | predicates AND predicates   # predicateClauseAnd
+  | predicates OR predicates    # predicateClauseOr
   ;
 
 singlePredicate
@@ -201,12 +211,18 @@ XCHART: 'XCHART' | 'xchart';
 CONFIG: 'CONFIG' | 'config';
 NAME: 'NAME' | 'name';
 LOGGING: 'LOGGING' | 'logging';
+CHECK: 'CHECK' | 'check';
 
 // SQL
+UNIQUE: 'UNIQUE' | 'unique';
+PRIMARY: 'PRIMARY' | 'primary';
+FOREIGN: 'FOREIGN' | 'foreign';
+REFERENCES: 'REFERENCES' | 'references';
+KEY: 'KEY' | 'key';
 TABLE: 'TABLE' | 'table';
 VIEW: 'VIEW' | 'view';
-INT: 'NUMBER' | 'number';
-TEXT: 'STRING' | 'string';
+INT: 'NUMBER' | 'number' | 'INTEGER' | 'integer' | 'INT' | 'int';
+TEXT: 'STRING' | 'string' | 'TEXT' | 'text';
 BOOLEAN: 'BOOLEAN' | 'boolean';
 OUTPUT: 'OUTPUT' | 'output';
 PROGRAM: 'PROGRAM' | 'program';

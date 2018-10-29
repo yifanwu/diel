@@ -11,7 +11,13 @@ export function genFiles(ir: DielIr) {
   // TS gen
   fs.writeFileSync("./src/dist/gen/relations.ts", genTs(ir));
   // SQL gen
-  const db = new Database();
+  let db;
+  if (ir.config && ir.config.existingDbPath) {
+    const buffer = fs.readFileSync(ir.config.existingDbPath);
+    db = new Database(buffer);
+  } else {
+    db = new Database();
+  }
   const sqlQueries = genSql(ir);
   for (let s of sqlQueries) {
     try {

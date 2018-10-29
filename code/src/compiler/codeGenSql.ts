@@ -2,7 +2,7 @@ import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateIr";
-import { DielIr, ProgramSpecIr, DataType } from "../parser/dielTypes";
+import { DielIr, ProgramSpecIr, DataType, Column, RelationIr } from "../parser/dielTypes";
 import * as fs from "fs";
 import { LogInfo } from "../util/messages";
 
@@ -108,17 +108,38 @@ const TypeConversionLookUp = new Map<DataType, string>([
   [DataType.String, "TEXT"], [DataType.Number, "REAL"], [DataType.Boolean, "INTEGER"]
 ]);
 
+function _genColumnDefinition(c: Column): string {
+  const notNull = c.notNull ? "NOT NULL" : "";
+  const unique = c.unique ? "UNIQUE" : "";
+  const primary = c.key ? "PRIMARY KEY" : "";
+  return `${c.name} ${TypeConversionLookUp.get(c.type)} ${notNull} ${unique} ${primary}`;
+}
+
+function _genRelation(r: RelationIr, isInput: boolean) {
+  let spec: string[] = [];
+  if (isInput) {
+    spec.push("timestep integer");
+    spec.push("timestamp real");
+  }
+  r.columns.map(c => spec.push(_genColumnDefinition(c)));
+  if (r.constraints) {
+    r.constraints.map(c => spec.push(c));
+  }
+  return `
+create table ${r.name} (
+  ${spec.join(",\n")}
+);`;
+}
+
 export function genSql(ir: DielIr) {
   const inputQueries = ir.inputs.map(r => {
-    return `
-create table ${r.name} (timestep integer, timestamp real, ${r.columns.map(c => `${c.name} ${TypeConversionLookUp.get(c.type)}`).join(", ")})`;
+    return _genRelation(r, true);
   });
   const tableQueries = ir.tables.map(r => {
     if (r.query) {
       return r.query;
     } else {
-      return `
-create table ${r.name} (${r.columns.map(c => `${c.name} ${TypeConversionLookUp.get(c.type)}`).join(", ")})`;
+      return _genRelation(r, false);
     }
   });
   const viewQueries = ir.views.concat(ir.outputs).map(r => `

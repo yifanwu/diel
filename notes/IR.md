@@ -42,6 +42,15 @@ State programs are specified in terms of inputs --- it's essentially a trigger
 
 * Need to place them into the right triggers and make sure that the bound output calls are evoked after
 
+### Templates
+
+Might need to omit aliasing in templates.
+
+### Cross-filter
+
+Obeservation that cross-filter is actually really simple logic over how to apply different filters.  Maybe we can create some simple algebra for differen SQL clauses. Ask Joe.
+
 ## Run Time
 
 Most of the work should already be done
+
