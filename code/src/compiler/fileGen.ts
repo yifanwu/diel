@@ -13,7 +13,8 @@ export function genFiles(ir: DielIr, filePath: string) {
   LogInfo(`Generating Files!`);
   // TS gen
   fs.writeFileSync(path.join(filePath, "relations.ts"), genTs(ir));
-  fs.createReadStream("./src/dist/Diel.ts").pipe(fs.createWriteStream(path.join(filePath, "Diel.ts")));
+  // diel will be imported from the repo...
+  // fs.createReadStream("./src/dist/Diel.ts").pipe(fs.createWriteStream(path.join(filePath, "Diel.ts")));
 
   // SQL gen
   let db;

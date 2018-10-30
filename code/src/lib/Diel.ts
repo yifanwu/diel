@@ -1,7 +1,6 @@
 import { Database, Statement } from "sql.js";
-import { downloadHelper } from "./dielUtils";
+import { downloadHelper, RelationTs } from "./dielUtils";
 import { log, timeNow } from "./dielUdfs";
-import { inputRelations, outputRelations, viewRelations } from "./gen/relations";
 import { LogInfo } from "../util/messages";
 
 // this is an interface class that shares all of DIEL's common abstractions
@@ -14,6 +13,12 @@ type OutputConfig = {
 
 const defaultOuptConfig = {
   notNull: false,
+};
+
+type SetupDefinitions = {
+  inputs: RelationTs[],
+  outputs: RelationTs[],
+  views: RelationTs[],
 };
 
 type TickBind = {view: string, s: Statement, f: OutputBoundFunc, c: OutputConfig};
@@ -29,6 +34,10 @@ export default class Diel {
   protected boundFns: TickBind[];
   protected dbPath: string;
 
+  /**
+   * constructor
+   * @param dbPath path to the generated db from the diel programs
+   */
   constructor(dbPath: string) {
     LogInfo(`DIEL initializing`);
     this.runOutput = this.runOutput.bind(this);
@@ -98,12 +107,12 @@ export default class Diel {
     downloadHelper(blob,  "session");
   }
 
-  public async Setup() {
+  public async Setup(relations: SetupDefinitions) {
     LogInfo(`DIEL Setting Up`);
     await this.LoadDb(this.dbPath);
-    inputRelations.map(i => this.input.set(i.name, this.db.prepare(i.query)));
-    outputRelations.map(i => this.output.set(i.name, this.db.prepare(i.query)));
-    viewRelations.map(i => this.staticOutput.set(i.name, this.db.prepare(i.query)));
+    relations.inputs.map(i => this.input.set(i.name, this.db.prepare(i.query)));
+    relations.outputs.map(i => this.output.set(i.name, this.db.prepare(i.query)));
+    relations.views.map(i => this.staticOutput.set(i.name, this.db.prepare(i.query)));
   }
 
   private readStmt(s: Statement, view: string, c: OutputConfig) {

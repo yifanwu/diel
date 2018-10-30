@@ -1,10 +1,12 @@
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
+import * as fs from "fs";
+import * as path from "path";
+
 import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateIr";
 import { DielIr, ProgramSpecIr, DataType, Column, RelationIr } from "../parser/dielTypes";
-import * as fs from "fs";
-import { LogInfo } from "../util/messages";
+import { LogInfo, LogStandout } from "../util/messages";
 
 // then there will another pass where we do the networking logic.
 // export function setupNetworking(ir: DielIr) {
@@ -53,7 +55,7 @@ export function modifyIrFromCrossfilter(ir: DielIr) {
   // returning arrays of arrays, should be flattened for execution
   ir.crossfilters.map(i => {
     return i.charts.map(c => {
-      const viewQuery = `create view ${c.chartName}Unfiltered as ${c.definition};`;
+      const viewQuery = `create public view ${c.chartName}Unfiltered as ${c.definition};`;
       const viewIr = _getViewIr(viewQuery, ir);
       ir.views.push(viewIr);
       const otherCharts = i.charts.filter(c2 => c2.chartName !== c.chartName);
@@ -148,7 +150,9 @@ create view ${r.name} as ${r.query};`);
   const genericProgramList = ir.programs.filter(p => (p.input) ? false : true);
   const genericProgram = genericProgramList.length > 0 ? genericProgramList[0] : null;
   const genericTrigger = triggerGeneric(genericProgram);
-  const staticQueries = fs.readFileSync("./src/compiler/static.sql", "utf8");
+  const staticSqlPath = path.join(path.dirname(fs.realpathSync(__filename)), "./static.sql");
+  LogStandout(`File path in codeGenSql is ${staticSqlPath}`);
+  const staticQueries = fs.readFileSync(staticSqlPath, "utf8");
   // FIXME: should prob say something about how DIEL shuffles these things around and does not respect their original order?...
   const modificiationQueries = ir.inserts.concat(ir.drops).map(i => i.query);
   return [staticQueries, ...inputQueries, ...tableQueries, ...modificiationQueries, ...viewQueries, genericTrigger, ...specificTriggers];

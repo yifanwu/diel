@@ -5,8 +5,10 @@
   "bin": {
     "diel-cli": "dist/bin/compile.js"
   },
+  "main": "dist/bin/Diel.js",
+  "types": "dist/bin/Diel.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/compiler/static.sql dist/compiler",
     "test-cli": "ts-node --no-cache src/bin/compile.ts",
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
     "test": "ts-node --no-cache src/tests/compilerTest.ts",

@@ -137,9 +137,11 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitViewStmt(ctx: parser.ViewStmtContext): DerivedRelationIr {
     const name = ctx.IDENTIFIER().text;
+    const isPublic = ctx.PUBLIC() ? true : false;
     const s = this.visit(ctx.selectQuery()) as SelectQueryIr;
     return {
       name,
+      isPublic,
       ...s
     };
   }

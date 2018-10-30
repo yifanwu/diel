@@ -24,6 +24,10 @@ function compileFromJSON(inputFilePath: string) {
   } catch {
     (`${configFile} is not defined or ill formatted`);
   }
+  if (!config) {
+    ReportDielUserError(`Cannot find config file at ${configFile}`);
+    return;
+  }
   if (!config.hasOwnProperty("src")) {
     ReportDielUserError("Config must include `src` property");
     return;
@@ -52,24 +56,21 @@ function compileFromJSON(inputFilePath: string) {
 
 commander
   .version("1.0.0")
-  .description("DIEL compiler");
+  .description("DIEL compiler")
+  .usage("optional -p flag for relative path from package.json dir")
+  .option("-p, --path [value]")
+  .parse(process.argv);
 
-commander
-  .command("compile")
-  .alias("c")
-  .option("-p [path]")
-  .description("compile diel code")
-  .action(compileFromJSON);
+console.log("path is", commander.path);
+compileFromJSON(commander.path);
 
-const dielHelp = () => {
-  console.log(`
-In the directory that contains the file dielconfig.json, e.g. {
-  "src": "./src/diel/*.sql"
-}
-run
-> diel-cli compile
-  `);
-};
-commander.on("--help", dielHelp);
-
-commander.parse(process.argv);
+// const dielHelp = () => {
+//   console.log(`
+// In the directory that contains the file dielconfig.json, e.g. {
+//   "src": "./src/diel/*.sql"
+// }
+// run
+// > diel-cli compile
+//   `);
+// };
+// commander.on("--help", dielHelp);

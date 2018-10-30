@@ -45,6 +45,7 @@ export interface RelationIr {
 // used for views and outputs
 export interface DerivedRelationIr extends SelectQueryIr {
   name: string;
+  isPublic?: boolean;
 }
 
 export interface InsertQueryIr {

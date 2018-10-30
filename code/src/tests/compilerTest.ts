@@ -15,7 +15,8 @@ function testQuery(q: string, createFile: boolean) {
   console.log(`Generated TS:\n${genTs(ir)}`);
   console.log(`Generated SQL:\n${genSql(ir).join("\n\n")}`);
   if (createFile) {
-    genFiles(ir, "src/tests/dirgen");
+    // TODO: maybe clean some files out before running each tme
+    genFiles(ir, "compiled/");
   }
   return;
 }

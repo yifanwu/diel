@@ -5,6 +5,8 @@
 *.tokens
 *.jar
 *.tmp.*
+code/compiled/
+code/dist/
 code/src/dist/
 code/src/tests/dir/
 node_modules/

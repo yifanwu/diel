@@ -55,7 +55,7 @@ outputStmt
   ;
   
 viewStmt
-  : CREATE VIEW IDENTIFIER AS selectQuery ';'
+  : CREATE PUBLIC? VIEW IDENTIFIER AS selectQuery ';'
   ;
 
 programStmt
@@ -215,6 +215,7 @@ XCHART: 'XCHART' | 'xchart';
 NAME: 'NAME' | 'name';
 STATIC: 'STATIC' | 'static';
 ACCESSIBLE: 'ACCESSIBLE' | 'accessible';
+PUBLIC: 'PUBLIC' | 'public';
 
 // SQL
 DROP: 'DROP' | 'drop';

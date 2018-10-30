@@ -1,8 +1,4 @@
-create table numbers(n integer not null, primary key(n asc));
--- insert generated sequential integers
-insert into numbers(n)
-select rowid 
-from (
+create table derived as
   -- build 200 rows using Cartesian product
   select 1
   from (
@@ -15,10 +11,17 @@ from (
     union select 7 union select 8 union select 9
   ) b, (
     select 0 union select 2
-  )c
-) derived;
+  )c;
 
-create table if not exists charts as
+create table numbers(n integer not null, primary key(n asc));
+-- insert generated sequential integers
+insert into numbers(n)
+select rowid 
+from derived;
+
+drop table derived;
+
+create table charts as
 select 'day' as chart
 union select 'state'
 union select 'carrier'

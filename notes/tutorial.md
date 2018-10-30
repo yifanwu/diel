@@ -7,6 +7,20 @@ The reason why setup has to be called separately is because there is no async co
   await d.Setup();
 ```
 
+To use diel
+```bash
+npm install diel
+# path directs to where dielconfig.json is located relative to 
+npx diel-cli compile -p <path>
+```
+
+```json
+{
+  "src": "./src/tests/dir/*.sql",
+  "dist": "./src/"
+}
+```
+
 ## Cross-filter
 
 I had to do some boiler plate since each query is slightly different and the DSL logic implements that templating.
