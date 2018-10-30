@@ -1,17 +1,47 @@
-import { DielIr, RelationIr, DerivedRelationIr } from "../parser/dielTypes";
-import { RelationTs } from "../bin/dielUtils";
+import { DielIr, RelationIr, DerivedRelationIr, DataType } from "../parser/dielTypes";
+import { RelationTs } from "../lib/dielUtils";
 
-// scrap
-// import { RelationTs } from "diel";
-// : RelationTs[]
-function overallTemplate(inputArray: RelationTs[], outputArray: RelationTs[], viewArray: RelationTs[]) {
+function generateStmts(inputArray: RelationTs[], outputArray: RelationTs[], viewArray: RelationTs[]) {
+  // generate objects for inputs based on their schema
+  const dielOutput = outputArray.length > 0
+    ? `export enum DielOutput {\n${outputArray.map(i => `${i.name} = "${i.name}"`).join(",\n")}\n}` : "";
+  const dielInput = inputArray.length > 0
+    ? `export enum DielInput {\n${inputArray.map(i => `${i.name} = "${i.name}"`).join(",\n")}\n}` : "";
+  const dielView = viewArray.length > 0
+  ? `export enum DielInput {\n${viewArray.map(i => `${i.name} = "${i.name}"`).join(",\n")}\n}` : "";
+
   return `
 export const relations = {
   inputs: ${JSON.stringify(inputArray, null, 2)},
   outputs: ${JSON.stringify(outputArray, null, 2)},
   views: ${JSON.stringify(viewArray, null, 2)},
 };
-  `;
+${dielOutput}
+${dielInput}
+${dielView}`;
+}
+
+function dataTypeToTypeScript(t: DataType) {
+  switch (t) {
+    case DataType.String:
+      return "string";
+    case DataType.Boolean:
+      return "boolean";
+    case DataType.Number:
+      return "number";
+    default:
+      throw new Error(`Diel DataType ${t} is not defined for Typescript`);
+  }
+}
+
+function generateTypes(ins: RelationIr[]) {
+  const objectDefs = ins.map(i => {
+    const capFirstLetterName = i.name.charAt(0).toUpperCase() + i.name.slice(1);
+    const fields = i.columns.map(c => `  ${c.name}: ${dataTypeToTypeScript(c.type)};`).join("\n");
+    return `
+export type ${capFirstLetterName}Input = {\n${fields}\n};`;
+});
+  return objectDefs.join("\n");
 }
 
 // scrap
@@ -44,6 +74,7 @@ export function genTs(ir: DielIr) {
   const inputArray = createInputTs(ir.inputs);
   const outputArray = createOutputTs(ir.outputs);
   const viewArray = createViewsTs(ir.views);
-  const file = overallTemplate(inputArray, outputArray, viewArray);
-  return file;
+  const stmts = generateStmts(inputArray, outputArray, viewArray);
+  const definitions = generateTypes(ir.inputs);
+  return stmts + definitions;
 }

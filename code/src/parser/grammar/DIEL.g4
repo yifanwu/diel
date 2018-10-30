@@ -38,7 +38,7 @@ constraintDefinition
   ;
 
 inputStmt
-  : CREATE INPUT relationDefintion
+  : CREATE INPUT relationDefintion ';'
   ;
 
 tableStmt

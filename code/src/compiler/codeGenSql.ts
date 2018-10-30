@@ -43,8 +43,7 @@ create trigger ${i.name}Trigger after insert on ${i.name}
 begin
   insert into allInputs (timestep) values (null);
   ${programs}
-end;
-      `;
+end;`;
   });
   return triggers;
 }
