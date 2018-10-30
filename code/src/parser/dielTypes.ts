@@ -35,6 +35,8 @@ export interface Column {
 export interface RelationIr {
   name: string;
   columns: Column[];
+  // used by table statements to figure out if it is dynamic
+  isStatic?: boolean;
   // used for sql that specified
   query?: string;
   constraints?: string[];
@@ -75,6 +77,8 @@ export interface DielIr {
   outputs: DerivedRelationIr[];
   views: DerivedRelationIr[];
   programs: ProgramsIr[];
+  inserts: InsertQueryIr[];
+  drops: InsertQueryIr[];
   crossfilters: CrossFilterIr[];
   templates: TemplateIr[];
   config?: DielConfig;

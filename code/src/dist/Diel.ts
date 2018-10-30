@@ -3,7 +3,6 @@ import { downloadHelper } from "./dielUtils";
 import { log, timeNow } from "./dielUdfs";
 import { inputRelations, outputRelations, viewRelations } from "./gen/relations";
 import { LogInfo } from "../util/messages";
-import * as fs from "fs";
 
 // this is an interface class that shares all of DIEL's common abstractions
 
@@ -49,14 +48,9 @@ export default class Diel {
       this.db.close();
     }
     let buffer;
-    if (typeof fetch === "undefined") {
-      // we are in node land, let's make this work
-      buffer = fs.readFileSync(file);
-    } else {
-      const response = await fetch(file);
-      const bufferRaw = await response.arrayBuffer();
-      buffer = new Uint8Array(bufferRaw);
-    }
+    const response = await fetch(file);
+    const bufferRaw = await response.arrayBuffer();
+    buffer = new Uint8Array(bufferRaw);
     this.db = new Database(buffer);
     this.db.create_function("timeNow", timeNow);
     this.db.create_function("log", log);

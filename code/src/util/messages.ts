@@ -35,6 +35,6 @@ export function ReportDielBasicParsingError(m: string) {
 
 // TODO: this should also report the line of the code
 // the input should be more structured
-export function ReportDielProgramError(m: string) {
+export function ReportDielUserError(m: string) {
   console.log(`Program ${FgRed}%s${Reset}`, m);
 }

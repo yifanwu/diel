@@ -1,5 +1,5 @@
 import { DielIr } from "../parser/dielTypes";
-import { ReportDielProgramError } from "../util/messages";
+import { ReportDielUserError } from "../util/messages";
 
 // this pass should inforce the following constraints:
 // - there should only be one program that's generic
@@ -11,10 +11,11 @@ export function sanityIr(ir: DielIr) {
   // TODO: no relation has no columns
   ir.tables.map(r => {
     if (r.columns.length === 0) {
-      ReportDielProgramError(`Table ${r.name} contains no columns`);
+      ReportDielUserError(`Table ${r.name} contains no columns`);
     }
   });
   return true;
   // TODO: all referenced columns actually exists; do a typo check, also do a name check to see if it exists in other tables
   // TODO: make sure that there is only one general program
+  // TODO: check that static tables are not inserted from any inputs
 }

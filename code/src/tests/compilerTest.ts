@@ -15,7 +15,7 @@ function testQuery(q: string, createFile: boolean) {
   console.log(`Generated TS:\n${genTs(ir)}`);
   console.log(`Generated SQL:\n${genSql(ir).join("\n\n")}`);
   if (createFile) {
-    genFiles(ir);
+    genFiles(ir, "src/tests/dirgen");
   }
   return;
 }

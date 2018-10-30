@@ -149,5 +149,7 @@ create view ${r.name} as ${r.query};`);
   const genericProgram = genericProgramList.length > 0 ? genericProgramList[0] : null;
   const genericTrigger = triggerGeneric(genericProgram);
   const staticQueries = fs.readFileSync("./src/compiler/static.sql", "utf8");
-  return [staticQueries, ...inputQueries, ...tableQueries, ...viewQueries, genericTrigger, ...specificTriggers];
+  // FIXME: should prob say something about how DIEL shuffles these things around and does not respect their original order?...
+  const modificiationQueries = ir.inserts.concat(ir.drops).map(i => i.query);
+  return [staticQueries, ...inputQueries, ...tableQueries, ...modificiationQueries, ...viewQueries, genericTrigger, ...specificTriggers];
 }

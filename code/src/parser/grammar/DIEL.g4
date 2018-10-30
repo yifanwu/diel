@@ -2,6 +2,8 @@ grammar DIEL;
 
 queries : (inputStmt | outputStmt | programStmt 
            | tableStmt | viewStmt | crossfilterStmt | templateStmt
+           | insertQuery
+           | dropQuery
           )+;
 
 templateStmt
@@ -30,13 +32,9 @@ columnDefinition
   ;
 
 constraintDefinition
-  : PRIMARY KEY columns
-  | UNIQUE columns
+  : PRIMARY KEY '(' IDENTIFIER (ASC|DESC)? (',' IDENTIFIER (ASC|DESC)?)* ')'
+  | UNIQUE '(' IDENTIFIER (',' IDENTIFIER)*  ')'
   | CHECK (predicates)
-  ;
-
-columns
-  : '(' IDENTIFIER (',' IDENTIFIER)*  ')'
   ;
 
 inputStmt
@@ -44,8 +42,8 @@ inputStmt
   ;
 
 tableStmt
-  : CREATE TABLE IDENTIFIER AS selectQuery DELIM # tableStmtSelect
-  | CREATE TABLE relationDefintion DELIM         # tableStmtDirect
+  : CREATE (STATIC | ACCESSIBLE)? TABLE IDENTIFIER AS selectQuery DELIM # tableStmtSelect
+  | CREATE (STATIC | ACCESSIBLE)? TABLE relationDefintion DELIM         # tableStmtDirect
   ;
 
 relationDefintion
@@ -76,6 +74,10 @@ selectQuery
 
 templateQuery
   : USE TEMPLATE templateName=IDENTIFIER '(' variableAssignment (',' variableAssignment)* ')'
+  ;
+
+dropQuery
+  : DROP TABLE IDENTIFIER
   ;
 
 variableAssignment
@@ -119,6 +121,7 @@ value
 
 joinClause
   : (LEFT OUTER)? JOIN relationReference (ON predicates)? # joinClauseBasic
+  | ',' relationReference                                 # joinClauseCross
   | templateQuery                                         # joinClauseTemplate
   ;
 
@@ -194,6 +197,7 @@ mathOp
 // still need to do has, exists etc.
 compareOp
   : '='     # compareOpEqual
+  | '!='    # compareOpNotEqual
   | '>='    # compareOpGE
   | '>'     # compareOpGreater
   | '<='    # compareOpLE
@@ -208,12 +212,13 @@ PREDICATE : 'PREDICATE' | 'predicate';
 TEMPLATE: 'TEMPLATE' | 'template';
 USE: 'USE' | 'use';
 XCHART: 'XCHART' | 'xchart';
-CONFIG: 'CONFIG' | 'config';
 NAME: 'NAME' | 'name';
-LOGGING: 'LOGGING' | 'logging';
-CHECK: 'CHECK' | 'check';
+STATIC: 'STATIC' | 'static';
+ACCESSIBLE: 'ACCESSIBLE' | 'accessible';
 
 // SQL
+DROP: 'DROP' | 'drop';
+CHECK: 'CHECK' | 'check';
 UNIQUE: 'UNIQUE' | 'unique';
 PRIMARY: 'PRIMARY' | 'primary';
 FOREIGN: 'FOREIGN' | 'foreign';

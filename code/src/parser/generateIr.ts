@@ -27,6 +27,8 @@ implements visitor.DIELVisitor<ExpressionValue> {
       tables: null,
       outputs: null,
       views: null,
+      inserts: null,
+      drops: null,
       programs: null,
       crossfilters: null,
       templates: null,
@@ -50,18 +52,25 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const views: DerivedRelationIr[] = ctx.viewStmt().map(e => (
       this.visit(e) as DerivedRelationIr
     ));
+    const inserts: InsertQueryIr[] = ctx.insertQuery().map(e => (
+      this.visit(e) as InsertQueryIr
+    ));
+    const drops: InsertQueryIr[] = ctx.dropQuery().map(e => (
+      this.visit(e) as InsertQueryIr
+    ));
     const programs: ProgramsIr[] = ctx.programStmt().map(e => (
       this.visit(e) as ProgramsIr
     ));
     const crossfilters: CrossFilterIr[] = ctx.crossfilterStmt().map(e => (
       this.visit(e) as CrossFilterIr
     ));
-    // const config: DielConfig = this.visit(ctx.configStmt()) as DielConfig;
     return {
       inputs,
       tables,
       outputs,
       views,
+      inserts,
+      drops,
       programs,
       crossfilters,
       templates,
@@ -105,6 +114,15 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return {
       query,
       ...firstQuery,
+    };
+  }
+
+  visitDropQuery(ctx: parser.DropQueryContext): InsertQueryIr {
+    const relation = ctx.IDENTIFIER().text;
+    const query = getCtxSourceCode(ctx);
+    return {
+      relation,
+      query
     };
   }
 
@@ -241,6 +259,14 @@ implements visitor.DIELVisitor<ExpressionValue> {
       query
     };
   }
+  visitJoinClauseCross(ctx: parser.JoinClauseCrossContext): JoinClauseIr {
+    const relation = this.visit(ctx.relationReference()) as string;
+    const query = getCtxSourceCode(ctx);
+    return {
+      relation,
+      query
+    };
+  }
 
   visitJoinClauseTemplate(ctx: parser.JoinClauseTemplateContext) {
     return this.visit(ctx.templateQuery());
@@ -268,15 +294,21 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const name = ctx.IDENTIFIER().text;
     const columns = q.columns;
     const query = getCtxSourceCode(ctx);
+    const isStatic = ctx.STATIC() ? true : false;
     return {
       name,
+      isStatic,
       columns,
       query
     };
   }
 
   visitTableStmtDirect = (ctx: parser.TableStmtDirectContext): RelationIr => {
-    return this.visit(ctx.relationDefintion()) as RelationIr;
+    const isStatic = ctx.STATIC() ? true : false;
+    return {
+      isStatic,
+      ...this.visit(ctx.relationDefintion()) as RelationIr
+    };
   }
 
   visitRelationDefintion = (ctx: parser.RelationDefintionContext): RelationIr  => {

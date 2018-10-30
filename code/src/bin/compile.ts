@@ -2,32 +2,36 @@
 
 import * as commander from "commander";
 import * as glob from "glob";
+import * as path from "path";
 
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
-import { LogWarning, LogInfo } from "../util/messages";
+import { LogWarning, LogInfo, ReportDielUserError } from "../util/messages";
 import { getIR } from "../compiler/compiler";
+import { genFiles } from "../compiler/fileGen";
 
 // read file dielconfig.json's src for files to read from
 const configFile = "dielconfig.json";
 
-console.log("we are running the compile file");
-console.log("your current dir", __dirname);
-console.log("trying to read", resolve(__dirname, configFile));
-
-function compileFromJSON() {
-  console.log(`DIEL compiling files speicfied in ${configFile}`);
+function compileFromJSON(inputFilePath: string) {
+  const configPath = inputFilePath ? resolve(process.cwd(), inputFilePath + "/" + configFile) : resolve(process.cwd(), configFile);
   // fixme: add config typings
   let config: any;
   try {
-    const configRaw = readFileSync(resolve(__dirname, configFile), "utf8");
-    // fs.readdirSync(`./${configFile}`);
+    console.log("Reading", configPath);
+    const configRaw = readFileSync(configPath, "utf8");
     config = JSON.parse(configRaw);
   } catch {
-    LogWarning(`${configFile} is not defined or ill formatted`);
+    (`${configFile} is not defined or ill formatted`);
   }
-  // now load in all the files, concat into one large file
-  // deal with recursive stuff later
+  if (!config.hasOwnProperty("src")) {
+    ReportDielUserError("Config must include `src` property");
+    return;
+  }
+  if (!config.hasOwnProperty("dist")) {
+    ReportDielUserError("Config must include `dist` property");
+    return;
+  }
   let diel = "";
   glob(config.src, (err, files) => {
     if (err) {
@@ -35,26 +39,37 @@ function compileFromJSON() {
     }
     console.log("your files", JSON.stringify(files));
     files.forEach(file => {
+      diel += "\n";
       diel += readFileSync(file);
     });
     LogInfo(`Now compiling\n${diel}`);
-    getIR(diel);
+    // dump this to a file
+    writeFileSync(path.join(config.dist, `inputDielStmt.sql`), diel);
+    const ir = getIR(diel);
+    genFiles(ir, config.dist);
   });
 }
 
 commander
- .version("1.0.0")
- .description("DIEL compiler")
- .command("compile")
- .alias("a")
- .description("compile diel code")
- .action(compileFromJSON);
+  .version("1.0.0")
+  .description("DIEL compiler");
 
-commander.on("--help", function() {
-  console.log("");
-  console.log("Examples:");
-  console.log("  $ custom-help --help");
-  console.log("  $ custom-help -h");
-});
+commander
+  .command("compile")
+  .alias("c")
+  .option("-p [path]")
+  .description("compile diel code")
+  .action(compileFromJSON);
+
+const dielHelp = () => {
+  console.log(`
+In the directory that contains the file dielconfig.json, e.g. {
+  "src": "./src/diel/*.sql"
+}
+run
+> diel-cli compile
+  `);
+};
+commander.on("--help", dielHelp);
 
 commander.parse(process.argv);
