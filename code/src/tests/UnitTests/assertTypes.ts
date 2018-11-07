@@ -1,5 +1,5 @@
 import { getIR } from "../../compiler/compiler";
-import { GenerateUnitTestErrorLogger, LogInfo } from "../../util/messages";
+import { GenerateUnitTestErrorLogger, LogInfo } from "../../lib/messages";
 import { DataType, Column, DielIr } from "../../parser/dielTypes";
 
 /**

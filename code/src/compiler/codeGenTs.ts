@@ -3,7 +3,7 @@ import * as stream from "stream";
 import { DielIr, RelationIr, DerivedRelationIr, DataType } from "../parser/dielTypes";
 import { RelationTs, RelationType } from "../lib/dielUtils";
 import * as fmt from "typescript-formatter";
-import { LogInternalError } from "../util/messages";
+import { LogInternalError } from "../lib/messages";
 
 
 function dataTypeToTypeScript(t: DataType) {

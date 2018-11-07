@@ -5,20 +5,18 @@ import { Database } from "sql.js";
 import { genTs } from "./codeGenTs";
 import { genSql } from "./codeGenSql";
 import { DielIr } from "../parser/dielTypes";
-import { LogInternalError, LogInfo } from "../util/messages";
+import { LogInternalError, LogInfo } from "../lib/messages";
 
-export function genFiles(ir: DielIr, filePath: string) {
+export async function genFiles(ir: DielIr, filePath: string) {
   let dbFileName = "diel.db";
   let sqlFileName = "diel.sql";
   LogInfo(`Generating Files!`);
   // TS gen
-  fs.writeFileSync(path.join(filePath, "relations.ts"), genTs(ir));
-  // diel will be imported from the repo...
-  // fs.createReadStream("./src/dist/Diel.ts").pipe(fs.createWriteStream(path.join(filePath, "Diel.ts")));
+  const doc = await genTs(ir);
+  fs.writeFileSync(path.join(filePath, "Diel.ts"), doc);
 
   // SQL gen
   let db;
-
   if (ir.config && ir.config.existingDbPath) {
     const buffer = fs.readFileSync(ir.config.existingDbPath);
     db = new Database(buffer);

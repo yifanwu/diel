@@ -6,7 +6,7 @@ import * as path from "path";
 
 import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
-import { LogWarning, LogInfo, ReportDielUserError } from "../util/messages";
+import { LogWarning, LogInfo, ReportDielUserError } from "./messages";
 import { getIR } from "../compiler/compiler";
 import { genFiles } from "../compiler/fileGen";
 

@@ -3,7 +3,7 @@ import * as fs from "fs";
 // import { genSql } from "../compiler/codeGenSql";
 import { genTs } from "../compiler/codeGenTs";
 import { getIR } from "../compiler/compiler";
-import { LogStandout } from "../util/messages";
+import { LogStandout } from "../lib/messages";
 // import { sanityIr } from "../compiler/errorChecking";
 import { genFiles } from "../compiler/fileGen";
 

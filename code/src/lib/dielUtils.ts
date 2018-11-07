@@ -1,6 +1,6 @@
 import { QueryResults, Database, Statement } from "sql.js";
 import { log, timeNow } from "./dielUdfs";
-import { LogInfo } from "../util/messages";
+import { LogInfo } from "./messages";
 
 export type OutputBoundFunc = (v: any) => any;
 

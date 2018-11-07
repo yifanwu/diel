@@ -1,5 +1,5 @@
 import { DielIr } from "../parser/dielTypes";
-import { ReportDielUserError } from "../util/messages";
+import { ReportDielUserError } from "../lib/messages";
 
 // this pass should inforce the following constraints:
 // - there should only be one program that's generic

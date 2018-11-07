@@ -1,5 +1,5 @@
 import { ANTLRErrorListener, RecognitionException, Recognizer } from "antlr4ts";
-import { ReportDielBasicParsingError } from "../util/messages";
+import { ReportDielBasicParsingError } from "../lib/messages";
 
 // modified from the original src/ConsoleErrorListener.ts
 export class ConsoleErrorListener implements ANTLRErrorListener<any> {

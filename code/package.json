@@ -1,12 +1,15 @@
 {
   "name": "diel",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "data interaction events log is a new SQL embeded DSL for managing the state of history-aware interactive applications",
   "bin": {
     "diel-cli": "dist/lib/compile.js"
   },
-  "main": "dist/lib/Diel.js",
-  "types": "dist/lib/Diel.d.ts",
+  "files": [
+    "dist"
+  ],
+  "main": "dist/lib/index.js",
+  "types": "dist/lib/index.d.ts",
   "scripts": {
     "build": "tsc && cp src/compiler/static.sql dist/compiler",
     "test-cli": "ts-node --no-cache src/lib/compile.ts",
@@ -44,7 +47,6 @@
     "typescript": "^3.0.3"
   },
   "dependencies": {
-    "@types/commander": "^2.12.2",
     "@types/glob": "^7.1.1",
     "@types/sql.js": "0.0.29",
     "antlr4ts": "^0.4.1-alpha.0",

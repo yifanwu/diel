@@ -6,7 +6,7 @@ import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateIr";
 import { DielIr, ProgramSpecIr, DataType, Column, RelationIr } from "../parser/dielTypes";
-import { LogInfo, LogStandout, LogInternalError } from "../util/messages";
+import { LogInfo, LogStandout, LogInternalError } from "../lib/messages";
 
 // then there will another pass where we do the networking logic.
 // export function setupNetworking(ir: DielIr) {

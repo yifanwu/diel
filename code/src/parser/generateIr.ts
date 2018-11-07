@@ -4,7 +4,7 @@ import * as visitor from "./grammar/DIELVisitor";
 
 import { ExpressionValue, Column, RelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, TemplateIr, TemplateVariableAssignments, JoinClauseIr, DielIr, ExprIr, ViewConstraintsIr, DataType, ColumnSelection, RelationReference, UdfType } from "./dielTypes";
 import { parseColumnType, getCtxSourceCode } from "../compiler/helper";
-import { LogInfo, LogWarning, LogTmp, ReportDielUserError } from "../util/messages";
+import { LogInfo, LogWarning, LogTmp, ReportDielUserError } from "../lib/messages";
 import { ParserInterpreter } from "antlr4ts";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>

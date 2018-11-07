@@ -5,7 +5,7 @@ import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateIr";
 import { DielConfig } from "../parser/dielTypes";
 import { modifyIrFromCrossfilter } from "./codeGenSql";
-import { LogInfo } from "../util/messages";
+import { LogInfo } from "../lib/messages";
 
 export function getIR(code: string, config?: DielConfig) {
   LogInfo("Starting compilation");
