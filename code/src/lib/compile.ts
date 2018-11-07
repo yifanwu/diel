@@ -18,7 +18,7 @@ function compileFromJSON(inputFilePath: string) {
   // fixme: add config typings
   let config: any;
   try {
-    console.log("Reading", configPath);
+    LogInfo(`Reading configuration file: ${configPath}`);
     const configRaw = readFileSync(configPath, "utf8");
     config = JSON.parse(configRaw);
   } catch {
@@ -41,7 +41,7 @@ function compileFromJSON(inputFilePath: string) {
     if (err) {
       LogWarning(`${configFile} error: ${err}`);
     }
-    console.log("your files", JSON.stringify(files));
+    LogInfo(`DIEL is processing the following files:${files.join("\n")}\n`);
     files.forEach(file => {
       diel += "\n";
       diel += readFileSync(file);
@@ -61,7 +61,6 @@ commander
   .option("-p, --path [value]")
   .parse(process.argv);
 
-console.log("path is", commander.path);
 compileFromJSON(commander.path);
 
 // const dielHelp = () => {

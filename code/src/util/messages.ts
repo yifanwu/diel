@@ -35,6 +35,16 @@ export function ReportDielBasicParsingError(m: string) {
 
 // TODO: this should also report the line of the code
 // the input should be more structured
-export function ReportDielUserError(m: string) {
-  console.log(`Program ${FgRed}%s${Reset}`, m);
+export function ReportDielUserError(m: string, q?: string) {
+  console.log(`Program Erorr: ${FgRed}%s${Reset}`, m);
+  if (q) console.log(`\nQuery: ${FgBlue}%s${Reset}\n`, q);
+  if (STRICT) throw new Error();
+}
+
+export function GenerateUnitTestErrorLogger(testName: string) {
+  console.log(`${BgYellow}Starting Test: %s${Reset}`, testName);
+  return (m: string) => {
+    console.log(`\nError for ${testName}: ${FgRed}%s${Reset}`, m);
+    throw new Error(`Unit test ${testName} failed\n`);
+  };
 }

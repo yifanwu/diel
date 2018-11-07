@@ -2,9 +2,9 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, Column, RelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, TemplateIr, TemplateVariableAssignments, JoinClauseIr, DielIr, ExprIr } from "./dielTypes";
+import { ExpressionValue, Column, RelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, TemplateIr, TemplateVariableAssignments, JoinClauseIr, DielIr, ExprIr, ViewConstraintsIr, DataType, ColumnSelection, RelationReference } from "./dielTypes";
 import { parseColumnType, getCtxSourceCode } from "../compiler/helper";
-import { LogInfo, LogWarning, LogTmp } from "../util/messages";
+import { LogInfo, LogWarning, LogTmp, ReportDielUserError } from "../util/messages";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
@@ -23,15 +23,15 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitQueries = (ctx: parser.QueriesContext): DielIr => {
     this.ir = {
-      inputs: null,
-      tables: null,
-      outputs: null,
-      views: null,
-      inserts: null,
-      drops: null,
-      programs: null,
-      crossfilters: null,
-      templates: null,
+      inputs: [],
+      tables: [],
+      outputs: [],
+      views: [],
+      inserts: [],
+      drops: [],
+      programs: [],
+      crossfilters: [],
+      templates: [],
     };
     // should only be called once and executed for setup.
     const templates: TemplateIr[] = ctx.templateStmt().map(e => (
@@ -77,32 +77,14 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  // visitConfigStmt(ctx: parser.ConfigStmtContext) {
-  //   let config: any = {};
-  //   ctx.configUnit().map(c => {
-  //     const unitConfig = this.visit(c);
-  //     config[unitConfig.key] = unitConfig.value;
-  //   });
-  //   return config;
-  // }
-  // visitConfigUnitName(ctx: parser.ConfigUnitNameContext) {
-  //   return {
-  //     key: "name",
-  //     value: ctx.STRING().text,
-  //   };
-  // }
-  // visitConfigUnitLogging(ctx: parser.ConfigUnitLoggingContext) {
-  //   return {
-  //     key: "logging",
-  //     value: ctx.STRING().text,
-  //   };
-  // }
   // outputs
   visitOutputStmt(ctx: parser.OutputStmtContext): DerivedRelationIr {
     const name = ctx.IDENTIFIER().text;
     const s = this.visit(ctx.selectQuery()) as SelectQueryIr;
+    const constraints = this.visit(ctx.viewConstraints()) as ViewConstraintsIr;
     return {
       name,
+      ...constraints,
       ...s
     };
   }
@@ -138,17 +120,27 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitViewStmt(ctx: parser.ViewStmtContext): DerivedRelationIr {
     const name = ctx.IDENTIFIER().text;
     const isPublic = ctx.PUBLIC() ? true : false;
+    const constraints = this.visit(ctx.viewConstraints()) as ViewConstraintsIr;
     const s = this.visit(ctx.selectQuery()) as SelectQueryIr;
     return {
       name,
       isPublic,
+      ...constraints,
       ...s
+    };
+  }
+
+  visitViewConstraints(ctx: parser.ViewConstraintsContext): ViewConstraintsIr {
+    const isNullable = ctx.NULL() ? false : true;
+    const isSingle = ctx.SINGLE() ? true : false;
+    return {
+      isNullable,
+      isSingle
     };
   }
 
   visitTemplateStmt(ctx: parser.TemplateStmtContext): TemplateIr {
     const templateName = ctx._templateName.text;
-    console.log("visiting", templateName);
     // make sure that this is expected
     const variables = ctx.IDENTIFIER().map(i => i.text).splice(1);
     let query;
@@ -179,12 +171,43 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const selectQuery = ctx.selectClause().map(s => getCtxSourceCode(s)).join(", ");
     if (columns.length < 1) {
       // TODO
+      throw new Error(`There should be some column values in select, query is ${selectQuery}`);
     }
     const body = ctx.selectBody();
-    let selectBody = null;
+    let selectBody: SelectBodyIr = null;
     if (body) {
       selectBody = this.visit(body) as SelectBodyIr;
     }
+    const query = getCtxSourceCode(ctx);
+    let matchedR: RelationReference;
+    // now we do the pass where we check the column types
+    columns.map(c => {
+      if (c.type === DataType.TBD) {
+        if (c.relationName) {
+          // search for the relationamte
+          matchedR = selectBody.relations.filter(r => r.name === c.relationName)[0];
+          if (!matchedR) {
+            // Fixme: the error message could be much better here...
+            // TODO: we can do some fuzzy edit distance check thing here; I've always found it nice.
+            ReportDielUserError(`column ${c.name} was specified to be from ${c.relationName} in ${query}, but ${c.relationName} is not found in the source relations.`);
+          }
+        } else {
+          // else its not from a specific relation and we need to find it...
+          matchedR = selectBody.relations.filter(r => r.columns.filter(cM => cM.name === c.name).length > 0)[0];
+          if (!matchedR) {
+            ReportDielUserError(`column ${c.name} was specified in ${query}, but we cannot find it in any of the source relations.`);
+          }
+        }
+        // now we can change the c.type
+        const matchedC = matchedR.columns.filter(cM => c.name === cM.name)[0];
+        if (!matchedC) {
+          const query = getCtxSourceCode(ctx);
+          // Fixme: the error message could be much better here...
+          ReportDielUserError(`column ${c.name} in ${query} is not found in the source relations.`);
+        }
+        c.type = matchedC.type;
+      }
+    });
     return {
       columns,
       selectQuery,
@@ -192,37 +215,77 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitSelectClause(ctx: parser.SelectClauseContext) {
+  visitSelectClause(ctx: parser.SelectClauseContext): Column {
+    const expr = this.visit(ctx.expr()) as ExprIr;
+    let type = DataType.TBD;
     let name: string;
+    // temp debugging
     if (ctx.IDENTIFIER()) {
       name = ctx.IDENTIFIER().text;
+      type = expr.type;
     } else {
-      const expr = this.visit(ctx.expr()) as ExprIr;
       // if there is no name, then this is a problem
       // it's not going to have the context to give better error messages sad!!
-      if (expr.name === undefined) {
-        throw new Error(`Expression not named`);
-      }
+      name = expr.name;
     }
-    return name;
-  }
-
-  visitExprSimple(ctx: parser.ExprSimpleContext): ExprIr {
+    if (!name) {
+      const query = getCtxSourceCode(ctx);
+      ReportDielUserError(`Expression ${query} should be named`);
+    }
+    // to infer the type, we need to look up things and take a look at the function
+    // basically some simple recursive datatypes??
+    // we need to find expression and match it with the original query... ugh this is hard.
+    // we'll get the type information in the second pass... ugh
+    // can do some expression type inference
     return {
-      name: this.visit(ctx.unitExpr()) as string
+      name,
+      type
     };
   }
 
-  visitUnitExprColumn(ctx: parser.UnitExprColumnContext) {
-    return this.visit(ctx.columnSelection());
+  visitExprSimple(ctx: parser.ExprSimpleContext): ExprIr {
+    return this.visit(ctx.unitExpr()) as ExprIr;
+  }
+
+  visitUnitExprColumn(ctx: parser.UnitExprColumnContext): ExprIr {
+    const column = this.visit(ctx.columnSelection()) as ColumnSelection;
+    return {
+      ...column,
+      type: DataType.TBD
+    };
+  }
+
+  visitUnitExprNumber(_: parser.UnitExprNumberContext): ExprIr {
+    return {
+      type: DataType.Number
+    };
+  }
+
+  visitUnitExprString(_: parser.UnitExprStringContext): ExprIr {
+    return {
+      type: DataType.String
+    };
+  }
+
+  visitExprMath(_: parser.ExprMathContext): ExprIr {
+    return {
+      type: DataType.Number
+    };
+  }
+
+  visitExprWhen(ctx: parser.ExprWhenContext): ExprIr {
+    return this.visit(ctx.expr()[0]) as ExprIr;
+  }
+
+  visitExprGroupConcat(_: parser.ExprGroupConcatContext): ExprIr {
+    return {
+      type: DataType.String
+    };
   }
 
   visitSelectQueryAll(ctx: parser.SelectQueryAllContext): SelectQueryPartialIr {
-    // we need to figure out what tables where referenced
     const selectBody = this.visit(ctx.selectBody()) as SelectBodyIr;
-    const relations = selectBody.joinRelations.concat(selectBody.fromRelation);
-    // need to look up the relations
-    const columns = relations.reduce((acc: Column[], r) => acc.concat(this._findRelationColumns(r)), []);
+    const columns = selectBody.relations.reduce((acc: Column[], r) => acc.concat(r.columns), []);
     const selectQuery = "select *";
     return {
       columns,
@@ -232,16 +295,24 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   visitSelectBody(ctx: parser.SelectBodyContext): SelectBodyIr {
-    const fromRelation = this.visit(ctx.relationReference()) as string;
+    const fromRelation = this.visit(ctx.relationReference()) as RelationReference;
     const joinRelations = ctx.joinClause().map(j => (this.visit(j) as JoinClauseIr).relation);
+    // make sure that if the fromRelation is not named, there is only one relation
+    if ((!fromRelation.name) && (joinRelations.length > 0)) {
+      const query = getCtxSourceCode(ctx);
+      ReportDielUserError(
+        `You must name the nested relation if there are more than one relation used`,
+        query
+      );
+
+    }
     const joinQuery = ctx.joinClause().map(j => getCtxSourceCode(j)).join("\n");
     const whereQuery = getCtxSourceCode(ctx.whereClause());
     const groupByQuery = getCtxSourceCode(ctx.groupByClause());
     const orderByQuery = getCtxSourceCode(ctx.orderByClause());
     const limitQuery = getCtxSourceCode(ctx.limitClause());
     return {
-      fromRelation,
-      joinRelations,
+      relations: [fromRelation, ...joinRelations],
       joinQuery,
       whereQuery,
       groupByQuery,
@@ -254,15 +325,18 @@ implements visitor.DIELVisitor<ExpressionValue> {
   // might be useful for sanity checking later
   // as well as basic materialization
   visitJoinClauseBasic(ctx: parser.JoinClauseBasicContext): JoinClauseIr {
-    const relation = this.visit(ctx.relationReference()) as string;
+    const relation = this.visit(ctx.relationReference()) as RelationReference;
     const query = getCtxSourceCode(ctx);
+    if (!relation.name) {
+      ReportDielUserError(`You did not specify a alias for a nested relation for this part of the query`, query);
+    }
     return {
       relation,
       query
     };
   }
   visitJoinClauseCross(ctx: parser.JoinClauseCrossContext): JoinClauseIr {
-    const relation = this.visit(ctx.relationReference()) as string;
+    const relation = this.visit(ctx.relationReference()) as RelationReference;
     const query = getCtxSourceCode(ctx);
     return {
       relation,
@@ -274,17 +348,39 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return this.visit(ctx.templateQuery());
   }
 
-  visitRelationReferenceSimple(ctx: parser.RelationReferenceSimpleContext) {
-    return ctx._relation.text;
+  visitRelationReferenceSimple(ctx: parser.RelationReferenceSimpleContext): RelationReference {
+
+    const name = ctx._relation.text;
+    const columns = this._findRelationColumns(name);
+    return {
+      name,
+      columns
+    };
   }
 
-  visitColumnSelectionSimple(ctx: parser.ColumnSelectionSimpleContext) {
+  visitRelationReferenceSubQuery(ctx: parser.RelationReferenceSubQueryContext): RelationReference {
+    const selectQuery = this.visit(ctx.selectQuery()) as SelectQueryIr;
+    const name = ctx._alias ? ctx._alias.text : null;
+    const q = getCtxSourceCode(ctx);
+    console.log(q);
+    return {
+      name,
+      columns: selectQuery.columns,
+    };
+  }
+
+  visitColumnSelectionSimple(ctx: parser.ColumnSelectionSimpleContext): ColumnSelection {
     // LogStandout(`visitColumnSelectionSimple ${ctx.IDENTIFIER().text}`);
-    return ctx.IDENTIFIER().text;
+    return {
+      name: ctx.IDENTIFIER().text
+    };
   }
 
-  visitColumnSelectionReference(ctx: parser.ColumnSelectionReferenceContext) {
-    return ctx._column.text;
+  visitColumnSelectionReference(ctx: parser.ColumnSelectionReferenceContext): ColumnSelection {
+    return {
+      name: ctx._column.text,
+      relationName: ctx._relation.text,
+    };
   }
 
   visitInputStmt = (ctx: parser.InputStmtContext): RelationIr => {
@@ -296,19 +392,19 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const name = ctx.IDENTIFIER().text;
     const columns = q.columns;
     const query = getCtxSourceCode(ctx);
-    const isStatic = ctx.STATIC() ? true : false;
+    const isDynamic = ctx.DYNAMIC() ? true : false;
     return {
       name,
-      isStatic,
+      isDynamic,
       columns,
       query
     };
   }
 
   visitTableStmtDirect = (ctx: parser.TableStmtDirectContext): RelationIr => {
-    const isStatic = ctx.STATIC() ? true : false;
+    const isDynamic = ctx.DYNAMIC() ? true : false;
     return {
-      isStatic,
+      isDynamic,
       ...this.visit(ctx.relationDefintion()) as RelationIr
     };
   }
@@ -317,9 +413,12 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
     const name = ctx.IDENTIFIER().text;
     const constraints = ctx.constraintDefinition().map(c => this.visit(c) as string);
+    // dummy value
+    const isDynamic = false;
     return {
       name,
       columns,
+      isDynamic,
       constraints
     };
   }
@@ -328,16 +427,18 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return getCtxSourceCode(ctx);
   }
 
-  visitColumnDefinition(ctx: parser.ColumnDefinitionContext) {
+  visitColumnDefinition(ctx: parser.ColumnDefinitionContext): Column {
     const notNull = ctx.NULL() ? true : false;
     const unique =  ctx.UNIQUE() ? true : false;
     const key = ctx.KEY() ? true : false;
     return {
       name: ctx.IDENTIFIER().text,
       type: parseColumnType(ctx.columnType().text),
-      notNull,
-      unique,
-      key
+      constraints: {
+        notNull,
+        unique,
+        key
+      }
     };
   }
 
@@ -387,7 +488,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
   // crossfilter
   visitCrossfilterStmt(ctx: parser.CrossfilterStmtContext): CrossFilterIr {
     const crossfilter = ctx._crossfilterName.text;
-    console.log("visitng crossfilter", crossfilter);
     const relation = ctx._relation.text;
     const charts = ctx.crossfilterChartStmt().map(c => this.visit(c) as CrossFilterChartIr);
     return {
@@ -418,9 +518,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
         throw new Error(errMsg);
       }
       const re = new RegExp(`{${v}}`, "g");
-      console.log("replacing", s, "with", value.assignment);
       s = s.replace(re, value.assignment);
-      console.log("to", s);
     });
     return s;
   }
@@ -428,8 +526,14 @@ implements visitor.DIELVisitor<ExpressionValue> {
   // helper
   _findRelationColumns(relation: string): Column[] {
     // find in inputs, then tables, then views, and outputs
-    const rs = this.ir.tables.concat(this.ir.inputs).concat(this.ir.views).concat(this.ir.outputs);
-    for (let i = 0; i < rs.length; i++) {
+    const extractFn = (t: DerivedRelationIr | RelationIr) => ({
+      name: t.name,
+      columns: t.columns
+    });
+    const rs = this.ir.tables.concat(this.ir.inputs).map(extractFn);
+    const derived = this.ir.views.concat(this.ir.outputs).map(extractFn);
+    const joined = rs.concat(derived);
+    for (let i = 0; i < joined.length; i++) {
       if (rs[i].name === relation) {
         return rs[i].columns;
       }

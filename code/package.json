@@ -12,6 +12,8 @@
     "test-cli": "ts-node --no-cache src/lib/compile.ts",
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
     "test": "ts-node --no-cache src/tests/compilerTest.ts",
+    "testTypes": "ts-node --no-cache src/tests/unitTests/assertTypes.ts",
+    "testTypesOnline": "node --inspect-brk -r ts-node/register src/tests/unitTests/assertTypes.ts",
     "probeTest": "ts-node --no-cache src/tests/probeTest.ts",
     "testFilesSetup": "ts-node --no-cache src/tests/testFilesSetup.ts",
     "testFiles2": "ts-node --no-cache src/tests/testFiles2.ts",
@@ -48,6 +50,7 @@
     "antlr4ts": "^0.4.1-alpha.0",
     "commander": "^2.19.0",
     "glob": "^7.1.3",
-    "sql.js": "^0.5.0"
+    "sql.js": "^0.5.0",
+    "typescript-formatter": "^7.2.2"
   }
 }

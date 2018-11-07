@@ -1,7 +1,7 @@
 import { Database, Statement } from "sql.js";
 import { downloadHelper, RelationTs } from "./dielUtils";
 import { log, timeNow } from "./dielUdfs";
-import { LogInfo } from "../util/messages";
+import { LogInfo, ReportDielUserError } from "../util/messages";
 
 // this is an interface class that shares all of DIEL's common abstractions
 
@@ -23,7 +23,7 @@ type SetupDefinitions = {
 
 type TickBind = {view: string, s: Statement, f: OutputBoundFunc, c: OutputConfig};
 
-export default class Diel {
+export default class DielStatic {
   protected db: Database;
   // reactive glues
   protected output: Map<string, Statement>;
@@ -33,25 +33,14 @@ export default class Diel {
   protected staticOutput: Map<string, Statement>;
   protected boundFns: TickBind[];
   protected dbPath: string;
-
   /**
    * constructor
    * @param dbPath path to the generated db from the diel programs
    */
   constructor(dbPath: string) {
-    LogInfo(`DIEL initializing`);
-    this.runOutput = this.runOutput.bind(this);
-    this.tick = this.tick.bind(this);
-    this.BindOutput = this.BindOutput.bind(this);
+    LogInfo("DIEL initializing");
     this.dbPath = dbPath;
-    // initialize
-    this.boundFns = [];
-    this.input = new Map();
-    this.output = new Map();
-    this.staticInput = new Map();
-    this.staticOutput = new Map();
   }
-
   public async LoadDb(file: string) {
     if (this.db) {
       this.db.close();
@@ -83,11 +72,11 @@ export default class Diel {
     this.input.get(i).run(newO);
   }
 
+
   public GetStaticView(v: string, cIn = {} as OutputConfig) {
-    console.log("get view", v);
     const s = this.staticOutput.get(v);
     if (!s) {
-      console.log(`%c Error ${v} does not exist`, "color: red");
+      ReportDielUserError(`Error ${v} does not exist`);
     }
     return this.readStmt(s, v, cIn);
   }

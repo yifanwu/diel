@@ -5,5 +5,5 @@ CREATE TABLE clickSp (aPrime number);
 
 CREATE PROGRAM AFTER click
   BEGIN
-    INSERT INTO clickSp (aPrime) select a * 2 from click;
+    INSERT INTO clickSp (aPrime) select a * 2 as derivedA from click;
   END;

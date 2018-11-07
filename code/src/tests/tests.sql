@@ -33,3 +33,9 @@ create output lastNavigate as
     SELECT MAX(itxId) AS itxId
     FROM navigateItx
   );
+
+-- TEST: nesting
+CREATE INPUT click (a number, b string);
+create view v as
+  select a, a*2 as newA
+  from (select a from click where a > 5);

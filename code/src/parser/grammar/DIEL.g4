@@ -42,8 +42,8 @@ inputStmt
   ;
 
 tableStmt
-  : CREATE (STATIC | ACCESSIBLE)? TABLE IDENTIFIER AS selectQuery DELIM # tableStmtSelect
-  | CREATE (STATIC | ACCESSIBLE)? TABLE relationDefintion DELIM         # tableStmtDirect
+  : CREATE DYNAMIC? TABLE IDENTIFIER AS selectQuery DELIM # tableStmtSelect
+  | CREATE DYNAMIC? TABLE relationDefintion DELIM         # tableStmtDirect
   ;
 
 relationDefintion
@@ -51,11 +51,15 @@ relationDefintion
   ;
 
 outputStmt
-  : CREATE OUTPUT IDENTIFIER AS selectQuery ';'
+  : CREATE OUTPUT viewConstraints IDENTIFIER AS selectQuery ';'
   ;
   
+viewConstraints
+  : (NOT NULL)? (SINGLE LINE)?
+  ;
+
 viewStmt
-  : CREATE PUBLIC? VIEW IDENTIFIER AS selectQuery ';'
+  : CREATE PUBLIC? viewConstraints VIEW IDENTIFIER AS selectQuery ';'
   ;
 
 programStmt
@@ -136,7 +140,7 @@ limitClause
 
 relationReference
   : relation=IDENTIFIER (AS? alias=IDENTIFIER)?  # relationReferenceSimple
-  | '(' selectQuery ')' (AS? alias=IDENTIFIER)?  # relationReferenceSubQuery
+  | '(' selectQuery ')' AS? alias=IDENTIFIER  # relationReferenceSubQuery
   ;
 
 // the seclectClauseCase is here and not in expr since it would allow for illegal expr
@@ -146,7 +150,6 @@ selectClause
 
 expr
   : unitExpr                                          # exprSimple
-  | value                                             # exprStatic
   | function=IDENTIFIER '(' (funExpr)?  ')'           # exprFunction
   | expr mathOp expr                                  # exprMath
   | CASE WHEN predicates THEN expr ELSE expr END      # exprWhen
@@ -216,6 +219,9 @@ NAME: 'NAME' | 'name';
 STATIC: 'STATIC' | 'static';
 ACCESSIBLE: 'ACCESSIBLE' | 'accessible';
 PUBLIC: 'PUBLIC' | 'public';
+SINGLE: 'SINGLE' | 'single';
+LINE: 'LINE' | 'line';
+DYNAMIC: 'DYNAMIC' | 'dynamic';
 
 // SQL
 DROP: 'DROP' | 'drop';

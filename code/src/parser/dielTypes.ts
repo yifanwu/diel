@@ -4,7 +4,9 @@
 export enum DataType {
   String = "String",
   Number = "Number",
-  Boolean = "Boolean"
+  Boolean = "Boolean",
+  // this needs to be inferred in the next stage
+  TBD = "TBD"
 }
 
 export enum ProgramType {
@@ -22,9 +24,17 @@ export interface TransferInfo {
   location: string;
 }
 
-export interface Column {
+export interface ColumnSelection {
   name: string;
+  relationName?: string;
+}
+
+export interface Column extends ColumnSelection {
   type: DataType;
+  constraints?: ColumnConstraints;
+}
+
+export interface ColumnConstraints {
   // single column specs
   notNull: boolean;
   unique: boolean;
@@ -35,15 +45,21 @@ export interface Column {
 export interface RelationIr {
   name: string;
   columns: Column[];
+  // used to see if we generated input from the ts side.
   // used by table statements to figure out if it is dynamic
-  isStatic?: boolean;
+  isDynamic: boolean;
   // used for sql that specified
   query?: string;
   constraints?: string[];
 }
 
+export interface ViewConstraintsIr {
+  isNullable: boolean;
+  isSingle: boolean;
+}
+
 // used for views and outputs
-export interface DerivedRelationIr extends SelectQueryIr {
+export interface DerivedRelationIr extends SelectQueryIr, ViewConstraintsIr {
   name: string;
   isPublic?: boolean;
 }
@@ -68,8 +84,11 @@ export interface DielConfig {
   loggingLevel?: string;
 }
 
+// this extends columnSection
 export interface ExprIr {
   name?: string;
+  relationName?: string;
+  type: DataType;
 }
 
 export interface DielIr {
@@ -86,8 +105,7 @@ export interface DielIr {
 }
 
 export interface SelectBodyIr {
-  fromRelation: string;
-  joinRelations: string[];
+  relations: RelationReference[];
   joinQuery: string;
   whereQuery: string;
   groupByQuery: string;
@@ -105,6 +123,17 @@ export interface SelectQueryIr extends SelectQueryPartialIr {
   query: string;
 }
 
+export interface RelationReference {
+  // it's either a reference to something defined
+  // or a new thing
+  // and it can be recursive?? how; hmmm.
+  // it's either a static one, or a dynamic one
+  // if it's a dynamic one, it has better be defined... so here we do some DFS stuff?
+  // isNested: boolean;
+  name: string;
+  columns: Column[];
+}
+
 export interface CrossFilterChartIr {
   chartName: string;
   predicate: JoinClauseIr;
@@ -112,7 +141,7 @@ export interface CrossFilterChartIr {
 }
 
 export interface JoinClauseIr {
-  relation: string;
+  relation: RelationReference;
   query: string;
 }
 
@@ -133,4 +162,4 @@ export interface TemplateVariableAssignments {
   assignment: string;
 }
 
-export type ExpressionValue = DielIr | RelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | TemplateIr | TemplateVariableAssignments | JoinClauseIr | ExprIr;
+export type ExpressionValue = DielIr | RelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | TemplateIr | TemplateVariableAssignments | JoinClauseIr | ExprIr | ViewConstraintsIr | ColumnSelection | RelationReference;

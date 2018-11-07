@@ -6,7 +6,7 @@ import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateIr";
 import { DielIr, ProgramSpecIr, DataType, Column, RelationIr } from "../parser/dielTypes";
-import { LogInfo, LogStandout } from "../util/messages";
+import { LogInfo, LogStandout, LogInternalError } from "../util/messages";
 
 // then there will another pass where we do the networking logic.
 // export function setupNetworking(ir: DielIr) {
@@ -110,9 +110,12 @@ const TypeConversionLookUp = new Map<DataType, string>([
 ]);
 
 function _genColumnDefinition(c: Column): string {
-  const notNull = c.notNull ? "NOT NULL" : "";
-  const unique = c.unique ? "UNIQUE" : "";
-  const primary = c.key ? "PRIMARY KEY" : "";
+  if (!c.constraints) {
+    LogInternalError(`Constraints for column ${c.name} is not defined`);
+  }
+  const notNull = c.constraints.notNull ? "NOT NULL" : "";
+  const unique = c.constraints.unique ? "UNIQUE" : "";
+  const primary = c.constraints.key ? "PRIMARY KEY" : "";
   return `${c.name} ${TypeConversionLookUp.get(c.type)} ${notNull} ${unique} ${primary}`;
 }
 
@@ -150,7 +153,6 @@ create view ${r.name} as ${r.query};`);
   const genericProgram = genericProgramList.length > 0 ? genericProgramList[0] : null;
   const genericTrigger = triggerGeneric(genericProgram);
   const staticSqlPath = path.join(path.dirname(fs.realpathSync(__filename)), "./static.sql");
-  LogStandout(`File path in codeGenSql is ${staticSqlPath}`);
   const staticQueries = fs.readFileSync(staticSqlPath, "utf8");
   // FIXME: should prob say something about how DIEL shuffles these things around and does not respect their original order?...
   const modificiationQueries = ir.inserts.concat(ir.drops).map(i => i.query);

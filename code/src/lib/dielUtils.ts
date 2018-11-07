@@ -1,8 +1,35 @@
-import { QueryResults, Database } from "sql.js";
+import { QueryResults, Database, Statement } from "sql.js";
+import { log, timeNow } from "./dielUdfs";
+import { LogInfo } from "../util/messages";
+
+export type OutputBoundFunc = (v: any) => any;
+
+export enum RelationType {
+  Input = "input",
+  View = "view",
+  Output = "output",
+  Table = "table"
+}
 
 export interface RelationTs {
+  // relationType: RelationType;
   name: string;
   query: string;
+}
+
+export async function loadDbHelper(db: Database, file: string, tick: () => () => void) {
+  if (db) {
+    db.close();
+  }
+  let buffer;
+  const response = await fetch(file);
+  const bufferRaw = await response.arrayBuffer();
+  buffer = new Uint8Array(bufferRaw);
+  db = new Database(buffer);
+  db.create_function("timeNow", timeNow);
+  db.create_function("log", log);
+  db.create_function("tick", tick());
+  LogInfo(`DIEL Loaded DB Successfully`);
 }
 
 // console tools

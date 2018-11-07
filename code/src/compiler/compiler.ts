@@ -5,9 +5,10 @@ import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateIr";
 import { DielConfig } from "../parser/dielTypes";
 import { modifyIrFromCrossfilter } from "./codeGenSql";
+import { LogInfo } from "../util/messages";
 
 export function getIR(code: string, config?: DielConfig) {
-  console.log("Starting compilation");
+  LogInfo("Starting compilation");
   const inputStream = new ANTLRInputStream(code);
   const l = new lexer.DIELLexer(inputStream);
   const tokenStream = new CommonTokenStream(l);

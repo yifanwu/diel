@@ -5,7 +5,7 @@ import { Database } from "sql.js";
 import { genTs } from "./codeGenTs";
 import { genSql } from "./codeGenSql";
 import { DielIr } from "../parser/dielTypes";
-import { LogInternalError, LogInfo, LogTmp } from "../util/messages";
+import { LogInternalError, LogInfo } from "../util/messages";
 
 export function genFiles(ir: DielIr, filePath: string) {
   let dbFileName = "diel.db";
@@ -35,7 +35,6 @@ export function genFiles(ir: DielIr, filePath: string) {
     } catch (error) {
       LogInternalError(`Error while running\n${s}\n${error}`);
     }
-    LogTmp(`Successfully ran\n${s}`);
   }
   // FIXME: awk place for config
   if (ir.config && ir.config.name) {
