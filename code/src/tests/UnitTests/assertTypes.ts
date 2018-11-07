@@ -41,12 +41,20 @@ function assertDerivedFromNested() {
   const logger = GenerateUnitTestErrorLogger("assertDerivedFromNested");
   const q = `
   create table t (a int, b string);
+  register udf type int;
+  register udf2 type boolean;
   create view v as
     select b, a*2 as newA
-    from (select a, b from t where a > 5);`;
+    from (select a, b from t where a > 5);
+  create view v2 as
+    select udf(b) as udfB, udf2(a) as udfA
+    from t;`;
+  console.log(`Testing ${q}`);
   let ir = getIR(q);
   _checkView(ir, "v", {name: "b", type: DataType.String}, logger);
   _checkView(ir, "v", {name: "newA", type: DataType.Number}, logger);
+  _checkView(ir, "v2", {name: "udfB", type: DataType.Number}, logger);
+  _checkView(ir, "v2", {name: "udfA", type: DataType.Boolean}, logger);
   LogInfo(`assertDerivedFromNested passed`);
   return true;
 }

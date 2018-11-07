@@ -9,6 +9,7 @@ export enum DataType {
   TBD = "TBD"
 }
 
+
 export enum ProgramType {
   Udf = "Udf",
   Insert = "Insert"
@@ -22,6 +23,11 @@ export enum LoggingLevels {
 export interface TransferInfo {
   depViews: string;
   location: string;
+}
+
+export interface UdfType {
+  udf: string;
+  type: DataType;
 }
 
 export interface ColumnSelection {
@@ -84,6 +90,8 @@ export interface DielConfig {
   loggingLevel?: string;
 }
 
+// type UndefinedName = "undefined";
+
 // this extends columnSection
 export interface ExprIr {
   name?: string;
@@ -101,6 +109,7 @@ export interface DielIr {
   drops: InsertQueryIr[];
   crossfilters: CrossFilterIr[];
   templates: TemplateIr[];
+  udfTypes: UdfType[];
   config?: DielConfig;
 }
 
@@ -162,4 +171,4 @@ export interface TemplateVariableAssignments {
   assignment: string;
 }
 
-export type ExpressionValue = DielIr | RelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | TemplateIr | TemplateVariableAssignments | JoinClauseIr | ExprIr | ViewConstraintsIr | ColumnSelection | RelationReference;
+export type ExpressionValue = DielIr | RelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | TemplateIr | TemplateVariableAssignments | JoinClauseIr | ExprIr | ViewConstraintsIr | ColumnSelection | RelationReference | UdfType;

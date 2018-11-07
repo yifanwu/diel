@@ -2,9 +2,10 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, Column, RelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, TemplateIr, TemplateVariableAssignments, JoinClauseIr, DielIr, ExprIr, ViewConstraintsIr, DataType, ColumnSelection, RelationReference } from "./dielTypes";
+import { ExpressionValue, Column, RelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, TemplateIr, TemplateVariableAssignments, JoinClauseIr, DielIr, ExprIr, ViewConstraintsIr, DataType, ColumnSelection, RelationReference, UdfType } from "./dielTypes";
 import { parseColumnType, getCtxSourceCode } from "../compiler/helper";
 import { LogInfo, LogWarning, LogTmp, ReportDielUserError } from "../util/messages";
+import { ParserInterpreter } from "antlr4ts";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
@@ -23,6 +24,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitQueries = (ctx: parser.QueriesContext): DielIr => {
     this.ir = {
+      udfTypes: [],
       inputs: [],
       tables: [],
       outputs: [],
@@ -33,47 +35,46 @@ implements visitor.DIELVisitor<ExpressionValue> {
       crossfilters: [],
       templates: [],
     };
+    this.ir.udfTypes = ctx.registerType().map(e => (
+      this.visit(e) as UdfType
+    ));
     // should only be called once and executed for setup.
-    const templates: TemplateIr[] = ctx.templateStmt().map(e => (
+    this.ir.templates = ctx.templateStmt().map(e => (
       this.visit(e) as TemplateIr
     ));
-    this.ir.templates = templates;
-    const inputs: RelationIr[] = ctx.inputStmt().map(e => (
+    this.ir.inputs = ctx.inputStmt().map(e => (
       this.visitInputStmt(e)
     ));
-    this.ir.inputs = inputs;
-    const tables: RelationIr[] = ctx.tableStmt().map(e => (
+    this.ir.tables = ctx.tableStmt().map(e => (
       this.visit(e) as RelationIr
     ));
-    this.ir.tables = tables;
-    const outputs: DerivedRelationIr[] = ctx.outputStmt().map(e => (
+    this.ir.outputs = ctx.outputStmt().map(e => (
       this.visit(e) as DerivedRelationIr
     ));
-    const views: DerivedRelationIr[] = ctx.viewStmt().map(e => (
+    this.ir.views = ctx.viewStmt().map(e => (
       this.visit(e) as DerivedRelationIr
     ));
-    const inserts: InsertQueryIr[] = ctx.insertQuery().map(e => (
+    this.ir.inserts = ctx.insertQuery().map(e => (
       this.visit(e) as InsertQueryIr
     ));
-    const drops: InsertQueryIr[] = ctx.dropQuery().map(e => (
+    this.ir.drops = ctx.dropQuery().map(e => (
       this.visit(e) as InsertQueryIr
     ));
-    const programs: ProgramsIr[] = ctx.programStmt().map(e => (
+    this.ir.programs = ctx.programStmt().map(e => (
       this.visit(e) as ProgramsIr
     ));
-    const crossfilters: CrossFilterIr[] = ctx.crossfilterStmt().map(e => (
+    this.ir.crossfilters = ctx.crossfilterStmt().map(e => (
       this.visit(e) as CrossFilterIr
     ));
+    return this.ir;
+  }
+
+  visitRegisterType(ctx: parser.RegisterTypeContext): UdfType {
+    const udf = ctx.IDENTIFIER().text;
+    const type = parseColumnType(ctx.dataType().text);
     return {
-      inputs,
-      tables,
-      outputs,
-      views,
-      inserts,
-      drops,
-      programs,
-      crossfilters,
-      templates,
+      udf,
+      type
     };
   }
 
@@ -283,6 +284,19 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
+  visitExprFunction(ctx: parser.ExprFunctionContext): ExprIr {
+    const udf = ctx._function.text;
+    const typeLookup = this.ir.udfTypes.filter(t => t.udf === udf)[0];
+    if (!typeLookup) {
+      const query = getCtxSourceCode(ctx);
+      ReportDielUserError(`Type not defined `, query);
+    }
+    return {
+      type: typeLookup.type
+    };
+
+  }
+
   visitSelectQueryAll(ctx: parser.SelectQueryAllContext): SelectQueryPartialIr {
     const selectBody = this.visit(ctx.selectBody()) as SelectBodyIr;
     const columns = selectBody.relations.reduce((acc: Column[], r) => acc.concat(r.columns), []);
@@ -335,6 +349,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
       query
     };
   }
+
   visitJoinClauseCross(ctx: parser.JoinClauseCrossContext): JoinClauseIr {
     const relation = this.visit(ctx.relationReference()) as RelationReference;
     const query = getCtxSourceCode(ctx);
@@ -433,7 +448,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const key = ctx.KEY() ? true : false;
     return {
       name: ctx.IDENTIFIER().text,
-      type: parseColumnType(ctx.columnType().text),
+      type: parseColumnType(ctx.dataType().text),
       constraints: {
         notNull,
         unique,

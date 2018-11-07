@@ -1,10 +1,16 @@
 grammar DIEL;
 
 queries : (inputStmt | outputStmt | programStmt 
-           | tableStmt | viewStmt | crossfilterStmt | templateStmt
+           | tableStmt | viewStmt | crossfilterStmt
+           | templateStmt
+           | registerType
            | insertQuery
            | dropQuery
           )+;
+
+registerType
+  : REGISTER IDENTIFIER TYPE dataType DELIM
+  ;
 
 templateStmt
   : CREATE TEMPLATE templateName=IDENTIFIER
@@ -23,12 +29,12 @@ crossfilterChartStmt
     WITH PREDICATE predicateClause=joinClause ';'
   ;
 
-columnType
+dataType
   : INT | TEXT | BOOLEAN
   ;
 
 columnDefinition
-  : IDENTIFIER columnType UNIQUE? (PRIMARY KEY)? (NOT NULL)?
+  : IDENTIFIER dataType UNIQUE? (PRIMARY KEY)? (NOT NULL)?
   ;
 
 constraintDefinition
@@ -140,7 +146,7 @@ limitClause
 
 relationReference
   : relation=IDENTIFIER (AS? alias=IDENTIFIER)?  # relationReferenceSimple
-  | '(' selectQuery ')' AS? alias=IDENTIFIER  # relationReferenceSubQuery
+  | '(' selectQuery ')' (AS? alias=IDENTIFIER)?  # relationReferenceSubQuery
   ;
 
 // the seclectClauseCase is here and not in expr since it would allow for illegal expr
@@ -222,7 +228,8 @@ PUBLIC: 'PUBLIC' | 'public';
 SINGLE: 'SINGLE' | 'single';
 LINE: 'LINE' | 'line';
 DYNAMIC: 'DYNAMIC' | 'dynamic';
-
+REGISTER: 'REGISTER' | 'register';
+TYPE: 'TYPE' | 'type';
 // SQL
 DROP: 'DROP' | 'drop';
 CHECK: 'CHECK' | 'check';
