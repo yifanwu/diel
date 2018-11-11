@@ -2,14 +2,14 @@ grammar DIEL;
 
 queries : (
           outputStmt
-           | programStmt 
-           | dynamicTableStmt
-           | staticTableStmt
            | viewStmt
+           | programStmt
+           | staticTableStmt
            | crossfilterStmt
            | templateStmt
            | insertQuery
            //  the rest does not require templating
+           | dynamicTableStmt
            | inputStmt
            | registerTypeUdf
            | registerTypeTable
@@ -18,7 +18,7 @@ queries : (
 
 staticTableStmt
   : CREATE TABLE IDENTIFIER AS selectQuery DELIM    # staticTableStmtSelect
-  | CREATE WEBWORKER? TABLE relationDefintion DELIM # staticTableStmtDefined
+  | CREATE WEBWORKER? TABLE IDENTIFIER relationDefintion DELIM # staticTableStmtDefined
   ;
 
 registerTypeUdf
@@ -32,7 +32,7 @@ registerTypeTable
 templateStmt
   : CREATE TEMPLATE templateName=IDENTIFIER
     '(' IDENTIFIER (',' IDENTIFIER)* ')'
-    (selectQuery | joinClause) ';'
+    (selectQuery | joinClause | relationDefintion) ';'
   ;
 
 crossfilterStmt
@@ -61,15 +61,16 @@ constraintDefinition
   ;
 
 inputStmt
-  : CREATE INPUT relationDefintion ';'
+  : CREATE INPUT IDENTIFIER relationDefintion ';'
   ;
 
 dynamicTableStmt
-  : CREATE DYNAMIC TABLE relationDefintion DELIM
+  : CREATE DYNAMIC TABLE IDENTIFIER relationDefintion DELIM
   ;
 
 relationDefintion
-  : IDENTIFIER '(' columnDefinition (',' columnDefinition)* (',' constraintDefinition)* ')'
+  :  '(' columnDefinition (',' columnDefinition)* (',' constraintDefinition)* ')' # relationDefintionSimple
+  | templateQuery        # relationDefintionTemplate
   ;
 
 outputStmt
@@ -115,8 +116,8 @@ compositeSelect
   ;
 
 selectUnitQuery
-  : SELECT selectClause (',' selectClause)* selectBody? # selectQuerySpecific
-  | SELECT STAR selectBody                              # selectQueryAll
+  : SELECT selectClause (',' selectClause)* selectBody? # selectUnitQuerySpecific
+  | SELECT STAR selectBody                              # selectUnitQueryAll
   ;
 
 selectBody

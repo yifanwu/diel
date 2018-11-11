@@ -82,13 +82,15 @@ export interface ColumnConstraints {
   key: boolean;
 }
 
-
-// used for inputs and tables that are accessed by programs
-export interface DynamicRelationIr {
-  name: string;
+export interface PartialDynamicRelationIr {
   columns: Column[];
   query?: string;
   constraints?: string[];
+}
+
+// used for inputs and tables that are accessed by programs
+export interface DynamicRelationIr extends PartialDynamicRelationIr {
+  name: string;
 }
 
 export interface StaticRelationIr extends DynamicRelationIr {
@@ -203,4 +205,4 @@ export interface CrossFilterIr {
 }
 
 
-export type ExpressionValue = DielIr | DynamicRelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | JoinClauseIr | ExprIr | ViewConstraintsIr | ColumnSelection | RelationReference | UdfType;
+export type ExpressionValue = DielIr | DynamicRelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | JoinClauseIr | ExprIr | ViewConstraintsIr | ColumnSelection | RelationReference | UdfType | PartialDynamicRelationIr;

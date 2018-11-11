@@ -2,11 +2,29 @@ import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 
-import templateVisitor from "../parser/compileTemplate";
+import TemplateVisitor from "../parser/compileTemplate";
 import Visitor from "../parser/generateIr";
 import { DielConfig } from "../parser/dielTypes";
 import { modifyIrFromCrossfilter } from "./codeGenSql";
 import { LogInfo } from "../lib/messages";
+
+export function applyTempalates(code: string, config?: DielConfig) {
+  // optimization step: see if there are templates; if there are not, don't run the queries
+  if (code.toUpperCase().includes("CREATE TEMPLATE")) {
+    // then do the thing
+    const inputStream = new ANTLRInputStream(code);
+    const l = new lexer.DIELLexer(inputStream);
+    const tokenStream = new CommonTokenStream(l);
+    const p = new parser.DIELParser(tokenStream);
+    const tree = p.queries();
+    let visitor = new TemplateVisitor();
+    // template pass
+    const templatedCode = visitor.visitQueries(tree);
+    return templatedCode;
+  } else {
+    return code;
+  }
+}
 
 export function getIR(code: string, config?: DielConfig) {
   LogInfo("Starting compilation");

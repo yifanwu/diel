@@ -1,11 +1,11 @@
 import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
-import { TemplateExpressionValue, TemplateIr, TemplateVisitorIr, TemplateVariableAssignments } from "./dielTemplateTypes";
-import { LogWarning, LogTmp } from "../lib/messages";
+import { TemplateExpressionValue, TemplateIr, TemplateVisitorIr, TemplateVariableAssignments, TemplateType } from "./dielTemplateTypes";
+import { LogWarning, LogTmp, ReportDielUserError } from "../lib/messages";
 import { getCtxSourceCode } from "../compiler/helper";
 
-export default class Visitor extends AbstractParseTreeVisitor<TemplateExpressionValue>
+export default class TemplateVisitor extends AbstractParseTreeVisitor<TemplateExpressionValue>
 implements visitor.DIELVisitor<TemplateExpressionValue> {
   private ir: TemplateVisitorIr;
 
@@ -19,22 +19,47 @@ implements visitor.DIELVisitor<TemplateExpressionValue> {
     ));
 
     // stuff that does not need to be processed
-    const original = ctx.inputStmt().map(e => (
-        this.visitInputStmt(e)
-      )).concat(ctx.dropQuery().map(e => (
+    const original = ctx.dropQuery().map(e => (
         this.visitDropQuery(e)
-      ))).concat(ctx.registerTypeTable().map(e => (
+      )).concat(ctx.registerTypeTable().map(e => (
         this.visitRegisterTypeTable(e)
       ))).concat(ctx.registerTypeUdf().map(e => (
         this.visitRegisterTypeUdf(e)
       )));
-    const templated: string[] = [];
+    // TODO: haven't added templating to all the statements yet...?
+    const templated: string[] = ctx.outputStmt().map(e => (
+      this.visitOutputStmt(e)
+    )).concat(ctx.viewStmt().map(e => (
+      this.visitViewStmt(e)
+    ))).concat( ctx.inputStmt().map(e => (
+      this.visitInputStmt(e)
+    )));
 
-    return original.concat(templated).join("\n");
+    return original.concat(templated).join("\n--gen\n");
+  }
+
+  visitInputStmt(ctx: parser.InputStmtContext): string {
+    return `CREATE INPUT ${ctx.IDENTIFIER().text} ${this.visit(ctx.relationDefintion())};`;
   }
 
   visitOutputStmt(ctx: parser.OutputStmtContext): string {
     return `CREATE OUTPUT ${ctx.viewConstraints().text} ${ctx.IDENTIFIER().text} AS ${this.visit(ctx.selectQuery())};`;
+  }
+  visitViewStmt(ctx: parser.ViewStmtContext): string {
+    return `
+      CREATE ${ctx.PUBLIC() ? "PUBLIC" : ""}
+      ${getCtxSourceCode(ctx.viewConstraints())}
+      VIEW ${ctx.IDENTIFIER().text}
+      AS ${this.visit(ctx.selectQuery())};`;
+  }
+  visitDynamicTableStm(ctx: parser.DynamicTableStmtContext) {
+    return `CREATE DYNAMIC TABLE ${ctx.IDENTIFIER().text} ${this.visit(ctx.relationDefintion())};`;
+  }
+  visitRelationDefintionSimple(ctx: parser.RelationDefintionSimpleContext)  {
+    return getCtxSourceCode(ctx);
+  }
+  visitRelationDefintionTemplate(ctx: parser.RelationDefintionTemplateContext) {
+    return this.visit(ctx.templateQuery());
   }
   visitSelectQueryDirect(ctx: parser.SelectQueryDirectContext): string {
     const composite = ctx.compositeSelect().map(e => this.visit(e)).join("\n");
@@ -43,12 +68,12 @@ implements visitor.DIELVisitor<TemplateExpressionValue> {
   visitSelectQueryTemplate(ctx: parser.SelectQueryTemplateContext): string {
     return this.visitTemplateQuery(ctx.templateQuery());
   }
-  visitSelectUnitQuerySpecific(ctx: parser.SelectQuerySpecificContext): string {
+  visitSelectUnitQuerySpecific(ctx: parser.SelectUnitQuerySpecificContext): string {
     const selects = ctx.selectClause().map(e => getCtxSourceCode(e)).join(", ");
     const body = ctx.selectBody() ? this.visit(ctx.selectBody()) : "";
     return `SELECT ${selects} ${body}`;
   }
-  visitSelectQueryAll(ctx: parser.SelectQueryAllContext) {
+  visitSelectUnitQueryAll(ctx: parser.SelectUnitQueryAllContext) {
     const body = this.visit(ctx.selectBody());
     return `SELECT * ${body}`;
   }
@@ -57,17 +82,42 @@ implements visitor.DIELVisitor<TemplateExpressionValue> {
     const groupByClause = getCtxSourceCode(ctx.groupByClause());
     const orderByClause = getCtxSourceCode(ctx.orderByClause());
     const limitClause = getCtxSourceCode(ctx.limitClause());
-    return `FROM ${joins} ${this.visit(ctx.whereClause())} ${groupByClause} ${orderByClause} ${limitClause}`;
+    const whereClause = ctx.whereClause() ? this.visit(ctx.whereClause()) : "";
+    return `FROM ${joins} ${whereClause} ${groupByClause} ${orderByClause} ${limitClause}`;
   }
+  visitJoinClauseBasic(ctx: parser.JoinClauseBasicContext) {
+    const relationReference = this.visit(ctx.relationReference());
+    const predicate = ctx.predicates() ? `ON ${this.visit(ctx.predicates())}` : "";
+    return `${ctx.LEFT() ? "LEFT OUTER" : ""} JOIN ${relationReference} ${predicate}`;
+  }
+  visitJoinClauseCross(ctx: parser.JoinClauseCrossContext) {
+    return `, ${this.visit(ctx.relationReference())}`;
+  }
+  visitJoinClauseTemplate(ctx: parser.JoinClauseTemplateContext) {
+    return this.visit(ctx.templateQuery());
+  }
+  visitRelationReferenceSimple(ctx: parser.RelationReferenceSimpleContext) {
+    return getCtxSourceCode(ctx);
+  }
+  visitRelationReferenceSubQuery(ctx: parser.RelationReferenceSubQueryContext) {
+    const selectQuery = this.visit(ctx.selectQuery());
+    const alias = ctx.AS() ? `AS ${ctx._alias.text}` : "";
+    return `(${selectQuery}) ${alias}`;
+  }
+
   visitWhereClause(ctx: parser.WhereClauseContext) {
-    return `WHERE ${this.visit(ctx.predicates())}`;
+    // split for debugger inspection
+    const r = `WHERE ${this.visit(ctx.predicates())}`;
+    return r;
   }
   // now predicates... wow this is a mini nightmare
   visitPredicateClauseSingle(ctx: parser.PredicateClauseSingleContext): string {
-    return this.visit(ctx.singlePredicate()) as string;
+    const r = this.visit(ctx.singlePredicate()) as string;
+    return r;
   }
   visitSinglePredicateExpr(ctx: parser.SinglePredicateExprContext) {
-    return this.visit(ctx.expr());
+    const r = this.visit(ctx.expr());
+    return r;
   }
   visitSinglePredicateCompare(ctx: parser.SinglePredicateCompareContext): string {
     return `${this.visit(ctx.expr()[0])} ${ctx.compareOp().text} ${this.visit(ctx.expr()[1])}`;
@@ -115,9 +165,6 @@ implements visitor.DIELVisitor<TemplateExpressionValue> {
 
   // these are just filler code
   // TODO: think about optimizing
-  visitInputStmt(ctx: parser.InputStmtContext): string {
-    return getCtxSourceCode(ctx);
-  }
   visitRegisterTypeTable(ctx: parser.RegisterTypeTableContext): string {
     return getCtxSourceCode(ctx);
   }
@@ -133,12 +180,22 @@ implements visitor.DIELVisitor<TemplateExpressionValue> {
     // make sure that this is expected
     const variables = ctx.IDENTIFIER().map(i => i.text).splice(1);
     let query;
+    let templateType: TemplateType = null;
     if (ctx.selectQuery()) {
       query = getCtxSourceCode(ctx.selectQuery());
-    } else {
+      templateType = TemplateType.Select;
+    } else if (ctx.joinClause()) {
       query = getCtxSourceCode(ctx.joinClause());
+      templateType = TemplateType.Join;
+    } else if (ctx.joinClause()) {
+       query = getCtxSourceCode(ctx.joinClause());
+      templateType = TemplateType.Join;
+    } else {
+      const raw = getCtxSourceCode(ctx);
+      ReportDielUserError(`Template must be either select, join, or schema definition, but we had:\n${raw}`);
     }
     return {
+      templateType,
       templateName,
       variables,
       query,

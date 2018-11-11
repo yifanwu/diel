@@ -16,6 +16,8 @@
     "testCliOnline": "node --inspect-brk -r ts-node/register src/lib/compile.ts",
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
     "test": "ts-node --no-cache src/tests/compilerTest.ts",
+    "testTemplate": "ts-node --no-cache src/tests/unitTests/assertTemplates.ts",
+    "testTemplateOnline": "node --inspect-brk -r ts-node/register  src/tests/unitTests/assertTemplates.ts",
     "testTypes": "ts-node --no-cache src/tests/unitTests/assertTypes.ts",
     "testTypesOnline": "node --inspect-brk -r ts-node/register src/tests/unitTests/assertTypes.ts",
     "probeTest": "ts-node --no-cache src/tests/probeTest.ts",

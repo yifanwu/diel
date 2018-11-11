@@ -2,7 +2,7 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, Column, DynamicRelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, JoinClauseIr, DielIr, ExprIr, ViewConstraintsIr, DataType, ColumnSelection, RelationReference, UdfType, BuiltInUdfTypes, StaticRelationIr, DielRemoteType } from "./dielTypes";
+import { ExpressionValue, Column, DynamicRelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, JoinClauseIr, DielIr, ExprIr, ViewConstraintsIr, DataType, ColumnSelection, RelationReference, UdfType, BuiltInUdfTypes, StaticRelationIr, DielRemoteType, PartialDynamicRelationIr } from "./dielTypes";
 import { parseColumnType, getCtxSourceCode } from "../compiler/helper";
 import { LogInfo, LogWarning, LogTmp, ReportDielUserError } from "../lib/messages";
 
@@ -145,8 +145,19 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
+  visitSelectUnitQueryAll(ctx: parser.SelectUnitQueryAllContext): SelectQueryPartialIr {
+    const selectBody = this.visit(ctx.selectBody()) as SelectBodyIr;
+    const columns = selectBody.relations.reduce((acc: Column[], r) => acc.concat(r.columns), []);
+    const selectQuery = "select *";
+    return {
+      columns,
+      selectQuery,
+      selectBody,
+    };
+  }
+
   // TODO: do some type checking/inference on the selected.
-  visitSelectQuerySpecific(ctx: parser.SelectQuerySpecificContext): SelectQueryPartialIr {
+  visitSelectUnitQuerySpecific(ctx: parser.SelectUnitQuerySpecificContext): SelectQueryPartialIr {
     const columns = ctx.selectClause().map(s => this.visit(s) as Column);
     const selectQuery = ctx.selectClause().map(s => getCtxSourceCode(s)).join(", ");
     if (columns.length < 1) {
@@ -271,17 +282,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   }
 
-  visitSelectQueryAll(ctx: parser.SelectQueryAllContext): SelectQueryPartialIr {
-    const selectBody = this.visit(ctx.selectBody()) as SelectBodyIr;
-    const columns = selectBody.relations.reduce((acc: Column[], r) => acc.concat(r.columns), []);
-    const selectQuery = "select *";
-    return {
-      columns,
-      selectQuery,
-      selectBody,
-    };
-  }
-
   visitSelectBody(ctx: parser.SelectBodyContext): SelectBodyIr {
     const fromRelation = this.visit(ctx.relationReference()) as RelationReference;
     const joinRelations = ctx.joinClause().map(j => (this.visit(j) as JoinClauseIr).relation);
@@ -373,15 +373,21 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   visitInputStmt(ctx: parser.InputStmtContext): DynamicRelationIr {
-    return this.visitRelationDefintion(ctx.relationDefintion());
+    const name = ctx.IDENTIFIER().text;
+    return {
+      name,
+      ...this.visit(ctx.relationDefintion()) as PartialDynamicRelationIr
+    };
   }
 
   visitStaticTableStmtDefined(ctx: parser.StaticTableStmtDefinedContext): StaticRelationIr {
     // it would not be the case of server here.
     const remoteType = ctx.WEBWORKER() ? DielRemoteType.WebWorker : DielRemoteType.Local;
+    const name = ctx.IDENTIFIER().text;
     return {
+      name,
       remoteType,
-      ...this.visitRelationDefintion(ctx.relationDefintion())
+      ...this.visit(ctx.relationDefintion()) as PartialDynamicRelationIr
     };
   }
 
@@ -405,12 +411,10 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitRelationDefintion = (ctx: parser.RelationDefintionContext): DynamicRelationIr  => {
+  visitRelationDefintionSimple = (ctx: parser.RelationDefintionSimpleContext): PartialDynamicRelationIr  => {
     const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
-    const name = ctx.IDENTIFIER().text;
     const constraints = ctx.constraintDefinition().map(c => this.visit(c) as string);
     return {
-      name,
       columns,
       constraints
     };
