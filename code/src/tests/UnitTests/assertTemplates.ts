@@ -1,14 +1,19 @@
 import { applyTempalates } from "../../compiler/compiler";
 import { GenerateUnitTestErrorLogger, LogInfo, LogStandout } from "../../lib/messages";
 
+function trimStr(s: string) {
+  return s.replace(/\s|\n/gm, "").toLowerCase();
+}
+
 function _assertMapped(logger:  (m: string) => void, snippets: string[], filterString: string, expectedString: string ) {
-  const processedFilterString = filterString.replace(/(\n|" ")/gm, "").toLowerCase();
-  const genV1Find = snippets.filter(c => c.includes(filterString))[0];
+  const processedFilterString = trimStr(filterString);
+  const genV1Find = snippets.filter(c => c.includes(processedFilterString))[0];
   if (!genV1Find) {
-    logger(`${filterString} Not found`);
+    logger(`${processedFilterString} Not found in snippets ${snippets.join("\n")}`);
   }
-  if (!genV1Find.includes(expectedString)) {
-    logger(`Did not compile template ordinalChart properly for view v1. The generated queries are as follows: \n${genV1Find}`);
+  const processedExpectedString = trimStr(expectedString);
+  if (!genV1Find.includes(processedExpectedString)) {
+    logger(`Did not compile template ordinalChart properly for view v1. The generated queries are as follows: \n${genV1Find}, but I expected\n${processedExpectedString}`);
   }
 }
 
@@ -21,7 +26,7 @@ function assertTemplateBasic() {
     `;
   const genCode = applyTempalates(q);
   LogStandout(`Tempalated Query:\n${genCode}`);
-  const snippets = genCode.split("\n--gen\n").map(s => s.replace(/(\n|" ")/gm, "").toLowerCase());
+  const snippets = genCode.split("\n--gen\n").map(s => trimStr(s));
   const genV1 = `create view v1 as select day as x, count(*) as y from flights`;
   const filterString = "view v1";
   _assertMapped(logger, snippets, filterString, genV1);
@@ -32,19 +37,34 @@ function assertTemplateBasic() {
   return true;
 }
 
-// function assertTemplateJoin() {
-//   const q = `  CREATE TEMPLATE ordinalFilter(v)
-//   join (
-//     select high, low from currentItx WHERE chart = '{v}'
-//   ) {v}Itx on (flights.{v} <= {v}Itx.high and flights.{v} >= {v}Itx.low)
-//         or ({v}Itx.low IS NULL);
-//   CREATE CROSSFILTER xFlights on flights
-//   BEGIN
-//     create xchart dayChart
-//     as select a from test1
-//     with predicate use template ordinalFilter(v='day');
-//   END;
-// `;
-// }
+function assertTemplateJoin() {
+  const logger = GenerateUnitTestErrorLogger("assertTemplateJoin");
+  const q = `
+    CREATE TEMPLATE ordinalFilter(v)
+    join (
+      select high, low from currentItx WHERE chart = '{v}'
+    ) {v}Itx on flights.{v} <= {v}Itx.high;
+    CREATE CROSSFILTER xFlights on flights
+    BEGIN
+      create xchart dayChart
+      as select a from test1
+      with predicate use template ordinalFilter(v='day');
+    END;
+  `;
+  const genCode = applyTempalates(q);
+  LogStandout(`Tempalated Query:\n${genCode}`);
+  const trimmed = trimStr(genCode);
+  const crossfiltergenerated = trimStr(`
+  create xchart dayChart
+  as select a from test1
+  with predicate join (
+    select high, low from currentItx WHERE chart = 'day'
+  ) dayItx on flights.day <= dayItx.high;`);
 
+  if (!trimmed.includes(crossfiltergenerated)) {
+    logger(`ordinalFilter was not correctly created in the generated query:\n${trimmed}\ndid not have\n${crossfiltergenerated}`);
+  }
+}
+
+assertTemplateJoin();
 assertTemplateBasic();

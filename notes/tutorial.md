@@ -23,7 +23,7 @@ npx diel-cli compile -p <path>
 
 ## Templating
 
-
+Note that there can only be one level of templates --- cannot have templates within templates.
 
 ## Cross-filter
 

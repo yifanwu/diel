@@ -31,13 +31,33 @@ implements visitor.DIELVisitor<TemplateExpressionValue> {
       this.visitOutputStmt(e)
     )).concat(ctx.viewStmt().map(e => (
       this.visitViewStmt(e)
-    ))).concat( ctx.inputStmt().map(e => (
+    ))).concat(ctx.inputStmt().map(e => (
       this.visitInputStmt(e)
+    ))).concat(ctx.crossfilterStmt().map(e => (
+      this.visitCrossfilterStmt(e)
     )));
 
     return original.concat(templated).join("\n--gen\n");
   }
 
+  // now we need to do programStmt and crossftilerStmt
+  // TODO: check if missing others
+  visitCrossfilterStmt(ctx: parser.CrossfilterStmtContext) {
+    const crossfilterChartStmts = ctx.crossfilterChartStmt().map(e => this.visit(e));
+    return `
+      CREATE CROSSFILTER ${ctx._crossfilterName.text} ON ${ctx._relation.text}
+      BEGIN
+        ${crossfilterChartStmts.join("\n")}
+      END;
+    `;
+  }
+  visitCrossfilterChartStmt(ctx: parser.CrossfilterChartStmtContext) {
+    return `
+    CREATE XCHART ${ctx._chart.text}
+    AS ${this.visit(ctx._definitionQuery)}
+    WITH PREDICATE ${this.visit(ctx._predicateClause)};
+    `;
+  }
   visitInputStmt(ctx: parser.InputStmtContext): string {
     return `CREATE INPUT ${ctx.IDENTIFIER().text} ${this.visit(ctx.relationDefintion())};`;
   }
@@ -78,12 +98,13 @@ implements visitor.DIELVisitor<TemplateExpressionValue> {
     return `SELECT * ${body}`;
   }
   visitSelectBody(ctx: parser.SelectBodyContext) {
+    const relationReference = this.visit(ctx.relationReference());
     const joins = ctx.joinClause().map(e => this.visit(e)).join("\n");
     const groupByClause = getCtxSourceCode(ctx.groupByClause());
     const orderByClause = getCtxSourceCode(ctx.orderByClause());
     const limitClause = getCtxSourceCode(ctx.limitClause());
     const whereClause = ctx.whereClause() ? this.visit(ctx.whereClause()) : "";
-    return `FROM ${joins} ${whereClause} ${groupByClause} ${orderByClause} ${limitClause}`;
+    return `FROM ${relationReference} ${joins} ${whereClause} ${groupByClause} ${orderByClause} ${limitClause}`;
   }
   visitJoinClauseBasic(ctx: parser.JoinClauseBasicContext) {
     const relationReference = this.visit(ctx.relationReference());
