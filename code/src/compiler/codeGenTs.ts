@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as stream from "stream";
-import { DielIr, RelationIr, DerivedRelationIr, DataType } from "../parser/dielTypes";
+import { DielIr, DynamicRelationIr, DerivedRelationIr, DataType } from "../parser/dielTypes";
 import { RelationTs, RelationType } from "../lib/dielUtils";
 import * as fmt from "typescript-formatter";
 import { LogInternalError } from "../lib/messages";
@@ -19,11 +19,11 @@ function dataTypeToTypeScript(t: DataType) {
   }
 }
 
-function generateInputDelcaration(i: RelationIr) {
+function generateInputDelcaration(i: DynamicRelationIr) {
   return `${i.name}: (val: {${i.columns.map(c => `${c.name}: ${dataTypeToTypeScript(c.type)}`).join(", ")}}) => void`;
 }
 
-function generateInput(i: RelationIr) {
+function generateInput(i: DynamicRelationIr) {
     return `${i.name}: (val: {${i.columns.map(c => `${c.name}: ${dataTypeToTypeScript(c.type)}`).join(", ")}}) => {
       this.input.${i.name}.run(val);
     }`;
@@ -77,7 +77,7 @@ function generateDepMapString(m: Map<string, string[]>) {
 
 function generateStatements(ir: DielIr) {
   const genPrep = (a: RelationTs[]) => a.map(o => `${o.name}: this.db.prepare(\`${o.query}\`)`).join(",\n");
-  const genDeclaration = (a: (RelationIr | DerivedRelationIr)[]) => a.map(o => `${o.name}: Statement,`).join("\n");
+  const genDeclaration = (a: (DynamicRelationIr | DerivedRelationIr)[]) => a.map(o => `${o.name}: Statement,`).join("\n");
   console.log("genDeclaration of inputs", genDeclaration(ir.inputs));
   let assignment: string[] = [];
   let declaration: string[] = [];
@@ -90,10 +90,9 @@ function generateStatements(ir: DielIr) {
     declaration.push(`private view: {${genDeclaration(allViews)}};`);
     assignment.push(`this.view = {${genPrep(createOutputTs(allViews))}};`);
   }
-  const dynamicTables = ir.tables.filter(t => t.isDynamic);
-  if (dynamicTables.length > 0) {
-    declaration.push(`private dynamicTable: {${genDeclaration(dynamicTables)}};`);
-    assignment.push(`this.dynamicTable = {${genPrep(createDynamicTableTs(dynamicTables))}};`);
+  if (ir.dynamicTables.length > 0) {
+    declaration.push(`private dynamicTable: {${genDeclaration(ir.dynamicTables)}};`);
+    assignment.push(`this.dynamicTable = {${genPrep(createDynamicTableTs(ir.dynamicTables))}};`);
   }
   return {
     declaration,
@@ -126,10 +125,9 @@ function generateApi(ir: DielIr) {
     declaration.push(`public NewInput: {${ir.inputs.map(generateInputDelcaration).join(",\n")}};`);
     assignment.push(`this.NewInput = {${ir.inputs.map(generateInput)}};`);
   }
-  const pubTables = ir.tables.filter(t => t.isDynamic);
-  if (pubTables.length > 0) {
-    declaration.push(`public TableInput: {${pubTables.map(generateInputDelcaration).join(",\n")}};`);
-    assignment.push(`this.TableInput = {${pubTables.map(generateInput)}};`);
+  if (ir.dynamicTables.length > 0) {
+    declaration.push(`public TableInput: {${ir.dynamicTables.map(generateInputDelcaration).join(",\n")}};`);
+    assignment.push(`this.TableInput = {${ir.dynamicTables.map(generateInput)}};`);
   }
   if (ir.outputs.length > 0) {
     declaration.push(`public BindOutput: {${ir.outputs.map(generateBindOutputDeclaration).join(",\n")}};`);
@@ -156,6 +154,7 @@ import { loadDbHelper, OutputBoundFunc, LogInfo } from "diel";
 
 export class Diel {
   private db: Database;
+  private workers: Worker[];
   private dbPath: string;
   private sideEffects: {[index: string]: () => void};
   ${statements.declaration.join("\n")}
@@ -184,7 +183,7 @@ export class Diel {
 }`;
 }
 
-function createInputTs(ins: RelationIr[]): RelationTs[] {
+function createInputTs(ins: DynamicRelationIr[]): RelationTs[] {
   return ins.map(r => ({
     // relationType: RelationType.Input,
     name: r.name,
@@ -195,7 +194,7 @@ function createInputTs(ins: RelationIr[]): RelationTs[] {
   }));
 }
 
-function createDynamicTableTs(tables: RelationIr[]): RelationTs[] {
+function createDynamicTableTs(tables: DynamicRelationIr[]): RelationTs[] {
   return tables.map(t => ({
     // relationType: RelationType.Table,
     name: t.name,

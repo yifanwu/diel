@@ -3,8 +3,8 @@
 import * as commander from "commander";
 import * as glob from "glob";
 import * as path from "path";
+import * as fs from "fs";
 
-import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { LogWarning, LogInfo, ReportDielUserError } from "./messages";
 import { getIR } from "../compiler/compiler";
@@ -19,7 +19,7 @@ function compileFromJSON(inputFilePath: string) {
   let config: any;
   try {
     LogInfo(`Reading configuration file: ${configPath}`);
-    const configRaw = readFileSync(configPath, "utf8");
+    const configRaw = fs.readFileSync(configPath, "utf8");
     config = JSON.parse(configRaw);
   } catch {
     (`${configFile} is not defined or ill formatted`);
@@ -44,11 +44,19 @@ function compileFromJSON(inputFilePath: string) {
     LogInfo(`DIEL is processing the following files:${files.join("\n")}\n`);
     files.forEach(file => {
       diel += "\n";
-      diel += readFileSync(file);
+      diel += fs.readFileSync(file);
     });
     LogInfo(`Now compiling\n${diel}`);
+    // check if the destination exists
+    if (!fs.existsSync(config.dist)) {
+      try {
+        fs.mkdirSync(config.dist);
+      } catch (e) {
+        ReportDielUserError(`The output directory, ${config.dist}, in dielconfig.json is not specified. Please fix it before running again.`);
+      }
+    }
     // dump this to a file
-    writeFileSync(path.join(config.dist, `inputDielStmt.sql`), diel);
+    fs.writeFileSync(path.join(config.dist, `inputDielStmt.sql`), diel);
     const ir = getIR(diel);
     genFiles(ir, config.dist);
   });

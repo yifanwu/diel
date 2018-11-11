@@ -1,10 +1,12 @@
 .DS_Store
+*.tgz
 .antlr
 *.java
 *.class
 *.tokens
 *.jar
-*.tmp.*
+*tmp.*
+code/dirgen/
 code/compiled/
 code/dist/
 code/src/dist/

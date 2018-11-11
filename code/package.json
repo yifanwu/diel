@@ -12,7 +12,8 @@
   "types": "dist/lib/index.d.ts",
   "scripts": {
     "build": "tsc && cp src/compiler/static.sql dist/compiler",
-    "test-cli": "ts-node --no-cache src/lib/compile.ts",
+    "testCli": "ts-node --no-cache src/lib/compile.ts",
+    "testCliOnline": "node --inspect-brk -r ts-node/register src/lib/compile.ts",
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
     "test": "ts-node --no-cache src/tests/compilerTest.ts",
     "testTypes": "ts-node --no-cache src/tests/unitTests/assertTypes.ts",

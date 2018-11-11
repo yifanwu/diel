@@ -9,6 +9,22 @@ export enum DataType {
   TBD = "TBD"
 }
 
+export enum RelationType {
+  Input = "Input",
+  View = "View",
+  StaticTable = "StaticTable",
+  DynamicTable = "DynamicTable",
+  Output = "Output",
+  // this is when it is used as parts of a subquery
+  SubQuery = "SubQuery"
+}
+
+
+export enum DielRemoteType {
+  Local = "Local",
+  WebWorker = "WebWorker",
+  Server = "Server"
+}
 
 export enum ProgramType {
   Udf = "Udf",
@@ -30,6 +46,25 @@ export interface UdfType {
   type: DataType;
 }
 
+export const BuiltInUdfTypes: UdfType[] = [
+  {
+    udf: "count",
+    type: DataType.Number
+  },
+  {
+    udf: "sum",
+    type: DataType.Number
+  },
+  {
+    udf: "avg",
+    type: DataType.Number
+  },
+  {
+    udf: "group_concat",
+    type: DataType.String
+  },
+];
+
 export interface ColumnSelection {
   name: string;
   relationName?: string;
@@ -47,16 +82,23 @@ export interface ColumnConstraints {
   key: boolean;
 }
 
-// used for inputs and tables
-export interface RelationIr {
+
+// used for inputs and tables that are accessed by programs
+export interface DynamicRelationIr {
   name: string;
   columns: Column[];
-  // used to see if we generated input from the ts side.
-  // used by table statements to figure out if it is dynamic
-  isDynamic: boolean;
-  // used for sql that specified
   query?: string;
   constraints?: string[];
+}
+
+export interface StaticRelationIr extends DynamicRelationIr {
+  remoteType: DielRemoteType;
+  serverInfo?: ServerConnection;
+}
+
+// TODO
+export interface ServerConnection {
+  serverName: string;
 }
 
 export interface ViewConstraintsIr {
@@ -100,15 +142,15 @@ export interface ExprIr {
 }
 
 export interface DielIr {
-  inputs: RelationIr[];
-  tables: RelationIr[];
+  inputs: DynamicRelationIr[];
+  dynamicTables: DynamicRelationIr[];
+  staticTables: StaticRelationIr[];
   outputs: DerivedRelationIr[];
   views: DerivedRelationIr[];
   programs: ProgramsIr[];
   inserts: InsertQueryIr[];
   drops: InsertQueryIr[];
   crossfilters: CrossFilterIr[];
-  templates: TemplateIr[];
   udfTypes: UdfType[];
   config?: DielConfig;
 }
@@ -160,15 +202,5 @@ export interface CrossFilterIr {
   charts: CrossFilterChartIr[];
 }
 
-export interface TemplateIr {
-  templateName: string;
-  variables: string[];
-  query: string;
-}
 
-export interface TemplateVariableAssignments {
-  variable: string;
-  assignment: string;
-}
-
-export type ExpressionValue = DielIr | RelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | TemplateIr | TemplateVariableAssignments | JoinClauseIr | ExprIr | ViewConstraintsIr | ColumnSelection | RelationReference | UdfType;
+export type ExpressionValue = DielIr | DynamicRelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | JoinClauseIr | ExprIr | ViewConstraintsIr | ColumnSelection | RelationReference | UdfType;

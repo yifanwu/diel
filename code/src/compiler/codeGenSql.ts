@@ -5,7 +5,7 @@ import * as path from "path";
 import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateIr";
-import { DielIr, ProgramSpecIr, DataType, Column, RelationIr } from "../parser/dielTypes";
+import { DielIr, ProgramSpecIr, DataType, Column, DynamicRelationIr } from "../parser/dielTypes";
 import { LogInfo, LogStandout, LogInternalError } from "../lib/messages";
 
 // then there will another pass where we do the networking logic.
@@ -119,7 +119,7 @@ function _genColumnDefinition(c: Column): string {
   return `${c.name} ${TypeConversionLookUp.get(c.type)} ${notNull} ${unique} ${primary}`;
 }
 
-function _genRelation(r: RelationIr, isInput: boolean) {
+function _genRelation(r: DynamicRelationIr, isInput: boolean) {
   let spec: string[] = [];
   if (isInput) {
     spec.push("timestep integer");
@@ -139,7 +139,7 @@ export function genSql(ir: DielIr) {
   const inputQueries = ir.inputs.map(r => {
     return _genRelation(r, true);
   });
-  const tableQueries = ir.tables.map(r => {
+  const tableQueries = ir.dynamicTables.map(r => {
     if (r.query) {
       return r.query;
     } else {

@@ -1,15 +1,32 @@
 grammar DIEL;
 
-queries : (inputStmt | outputStmt | programStmt 
-           | tableStmt | viewStmt | crossfilterStmt
+queries : (
+          outputStmt
+           | programStmt 
+           | dynamicTableStmt
+           | staticTableStmt
+           | viewStmt
+           | crossfilterStmt
            | templateStmt
-           | registerType
            | insertQuery
+           //  the rest does not require templating
+           | inputStmt
+           | registerTypeUdf
+           | registerTypeTable
            | dropQuery
           )+;
 
-registerType
-  : REGISTER IDENTIFIER TYPE dataType DELIM
+staticTableStmt
+  : CREATE TABLE IDENTIFIER AS selectQuery DELIM    # staticTableStmtSelect
+  | CREATE WEBWORKER? TABLE relationDefintion DELIM # staticTableStmtDefined
+  ;
+
+registerTypeUdf
+  : REGISTER UDF IDENTIFIER TYPE dataType DELIM
+  ;
+
+registerTypeTable
+  : REGISTER WEBWORKER? TABLE tableName=IDENTIFIER '(' columnDefinition (',' columnDefinition)* ')' DELIM
   ;
 
 templateStmt
@@ -47,9 +64,8 @@ inputStmt
   : CREATE INPUT relationDefintion ';'
   ;
 
-tableStmt
-  : CREATE DYNAMIC? TABLE IDENTIFIER AS selectQuery DELIM # tableStmtSelect
-  | CREATE DYNAMIC? TABLE relationDefintion DELIM         # tableStmtDirect
+dynamicTableStmt
+  : CREATE DYNAMIC TABLE relationDefintion DELIM
   ;
 
 relationDefintion
@@ -159,19 +175,19 @@ expr
   | function=IDENTIFIER '(' (funExpr)?  ')'           # exprFunction
   | expr mathOp expr                                  # exprMath
   | CASE WHEN predicates THEN expr ELSE expr END      # exprWhen
-  | 'group_concat' '(' unitExpr ('||' unitExpr)*  ')' # exprGroupConcat
   ;
 
 unitExpr
-  : columnSelection # unitExprColumn
-  | NUMBER          # unitExprNumber
-  | STRING          # unitExprString
+  : columnSelection          # unitExprColumn
+  | '(' selectUnitQuery ')'  # unitExprSubQuery
+  | NUMBER                   # unitExprNumber
+  | STRING                   # unitExprString
   ;
 
 funExpr
-  : expr (',' expr)* 
-  | STAR
-  | relation=IDENTIFIER '.' STAR
+  : expr                            # funExprSingle
+  | (relation=IDENTIFIER '.')? STAR # funExprStar
+  | funExpr (COMMA|PIPE) funExpr    # funExprMultiple
   ;
 
 columnSelection
@@ -183,17 +199,14 @@ columnSelection
 predicates
   : singlePredicate             # predicateClauseSingle
   | '(' predicates ')'          # predicateClauseParenthesis
-  | predicates AND predicates   # predicateClauseAnd
-  | predicates OR predicates    # predicateClauseOr
+  | predicates (AND|OR) predicates   # predicateClauseComposite
   ;
 
 singlePredicate
   : expr                                    # singlePredicateExpr
   | expr compareOp expr                     # singlePredicateCompare
   | expr IS (NOT)? NULL                     # singlePredicateNull
-  | expr compareOp NUMBER                   # singlePredicateNumber
-  | expr compareOp '(' selectUnitQuery ')'  # singlePredicateSubQuery
-  | NOT EXIST '(' selectUnitQuery ')'       # singlePredicateNotExist
+  | (NOT)? EXIST '(' selectUnitQuery ')'    # singlePredicateNotExist
   ;
 
 mathOp
@@ -230,6 +243,9 @@ LINE: 'LINE' | 'line';
 DYNAMIC: 'DYNAMIC' | 'dynamic';
 REGISTER: 'REGISTER' | 'register';
 TYPE: 'TYPE' | 'type';
+UDF: 'UDF' | 'udf';
+WEBWORKER: 'WEBWORKER' | 'webworker' | 'WebWorker';
+
 // SQL
 DROP: 'DROP' | 'drop';
 CHECK: 'CHECK' | 'check';
@@ -252,6 +268,8 @@ WITH: 'WITH' | 'with';
 INSERT: 'INSERT' | 'insert';
 INTO: 'INTO' | 'into';
 STAR: '*';
+COMMA: ',';
+PIPE: '||';
 VALUES: 'VALUES' | 'values';
 AS: 'AS' | 'as';
 SELECT: 'SELECT' | 'select';

@@ -2,10 +2,9 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, Column, RelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, TemplateIr, TemplateVariableAssignments, JoinClauseIr, DielIr, ExprIr, ViewConstraintsIr, DataType, ColumnSelection, RelationReference, UdfType } from "./dielTypes";
+import { ExpressionValue, Column, DynamicRelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, JoinClauseIr, DielIr, ExprIr, ViewConstraintsIr, DataType, ColumnSelection, RelationReference, UdfType, BuiltInUdfTypes, StaticRelationIr, DielRemoteType } from "./dielTypes";
 import { parseColumnType, getCtxSourceCode } from "../compiler/helper";
 import { LogInfo, LogWarning, LogTmp, ReportDielUserError } from "../lib/messages";
-import { ParserInterpreter } from "antlr4ts";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
@@ -26,27 +25,30 @@ implements visitor.DIELVisitor<ExpressionValue> {
     this.ir = {
       udfTypes: [],
       inputs: [],
-      tables: [],
+      dynamicTables: [],
+      staticTables: [],
       outputs: [],
       views: [],
       inserts: [],
       drops: [],
       programs: [],
       crossfilters: [],
-      templates: [],
     };
-    this.ir.udfTypes = ctx.registerType().map(e => (
+    this.ir.udfTypes = ctx.registerTypeUdf().map(e => (
       this.visit(e) as UdfType
-    ));
-    // should only be called once and executed for setup.
-    this.ir.templates = ctx.templateStmt().map(e => (
-      this.visit(e) as TemplateIr
-    ));
+    )).concat(BuiltInUdfTypes);
+    // two kinds of specifications
+    this.ir.staticTables = ctx.registerTypeTable().map(e => (
+      this.visit(e) as StaticRelationIr
+    )).concat(ctx.registerTypeTable().map(e => (
+      this.visit(e) as StaticRelationIr
+    )));
+
     this.ir.inputs = ctx.inputStmt().map(e => (
       this.visitInputStmt(e)
     ));
-    this.ir.tables = ctx.tableStmt().map(e => (
-      this.visit(e) as RelationIr
+    this.ir.dynamicTables = ctx.dynamicTableStmt().map(e => (
+      this.visit(e) as DynamicRelationIr
     ));
     this.ir.outputs = ctx.outputStmt().map(e => (
       this.visit(e) as DerivedRelationIr
@@ -69,12 +71,23 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return this.ir;
   }
 
-  visitRegisterType(ctx: parser.RegisterTypeContext): UdfType {
+  visitRegisterTypeUdf(ctx: parser.RegisterTypeUdfContext): UdfType {
     const udf = ctx.IDENTIFIER().text;
     const type = parseColumnType(ctx.dataType().text);
     return {
       udf,
       type
+    };
+  }
+
+  visitRegisterTypeTable(ctx: parser.RegisterTypeTableContext): StaticRelationIr {
+    const name = ctx._tableName.text;
+    const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
+    const remoteType = ctx.WEBWORKER() ? DielRemoteType.WebWorker : DielRemoteType.Server;
+    return {
+      name,
+      columns,
+      remoteType
     };
   }
 
@@ -109,14 +122,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  // This is for using the template
-  visitTemplateQuery(ctx: parser.TemplateQueryContext) {
-    const values = ctx.variableAssignment().map(v => this.visit(v) as TemplateVariableAssignments);
-    const templateName = ctx._templateName.text;
-    LogTmp(`Processed template ${templateName}`);
-    const t = this.ir.templates.find(i => i.templateName === templateName);
-    return this._getTemplate(t, values);
-  }
 
   visitViewStmt(ctx: parser.ViewStmtContext): DerivedRelationIr {
     const name = ctx.IDENTIFIER().text;
@@ -137,32 +142,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return {
       isNullable,
       isSingle
-    };
-  }
-
-  visitTemplateStmt(ctx: parser.TemplateStmtContext): TemplateIr {
-    const templateName = ctx._templateName.text;
-    // make sure that this is expected
-    const variables = ctx.IDENTIFIER().map(i => i.text).splice(1);
-    let query;
-    if (ctx.selectQuery()) {
-      query = this.visit(ctx.selectQuery()) as SelectQueryIr;
-    } else {
-      query = this.visit(ctx.joinClause()) as JoinClauseIr;
-    }
-    return {
-      templateName,
-      variables,
-      query: query.query,
-    };
-  }
-
-  visitVariableAssignment(ctx: parser.VariableAssignmentContext): TemplateVariableAssignments {
-    // need to get rid of the quotes
-    const str = ctx._assignment.text;
-    return {
-      variable: ctx._variable.text,
-      assignment: str.slice(1, str.length - 1)
     };
   }
 
@@ -278,15 +257,10 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return this.visit(ctx.expr()[0]) as ExprIr;
   }
 
-  visitExprGroupConcat(_: parser.ExprGroupConcatContext): ExprIr {
-    return {
-      type: DataType.String
-    };
-  }
-
   visitExprFunction(ctx: parser.ExprFunctionContext): ExprIr {
     const udf = ctx._function.text;
-    const typeLookup = this.ir.udfTypes.filter(t => t.udf === udf)[0];
+    // think about a more elegant comparison
+    const typeLookup = this.ir.udfTypes.filter(t => t.udf.toLowerCase() === udf.toLowerCase())[0];
     if (!typeLookup) {
       const query = getCtxSourceCode(ctx);
       ReportDielUserError(`Type not defined `, query);
@@ -398,42 +372,46 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitInputStmt = (ctx: parser.InputStmtContext): RelationIr => {
+  visitInputStmt(ctx: parser.InputStmtContext): DynamicRelationIr {
     return this.visitRelationDefintion(ctx.relationDefintion());
   }
 
-  visitTableStmtSelect = (ctx: parser.TableStmtSelectContext): RelationIr => {
+  visitStaticTableStmtDefined(ctx: parser.StaticTableStmtDefinedContext): StaticRelationIr {
+    // it would not be the case of server here.
+    const remoteType = ctx.WEBWORKER() ? DielRemoteType.WebWorker : DielRemoteType.Local;
+    return {
+      remoteType,
+      ...this.visitRelationDefintion(ctx.relationDefintion())
+    };
+  }
+
+  visitStaticTableStmtSelect(ctx: parser.StaticTableStmtSelectContext): StaticRelationIr {
     const q = this.visit(ctx.selectQuery()) as SelectQueryIr;
     const name = ctx.IDENTIFIER().text;
     const columns = q.columns;
     const query = getCtxSourceCode(ctx);
-    const isDynamic = ctx.DYNAMIC() ? true : false;
+    const remoteType = DielRemoteType.Local;
     return {
       name,
-      isDynamic,
       columns,
+      remoteType,
       query
     };
   }
 
-  visitTableStmtDirect = (ctx: parser.TableStmtDirectContext): RelationIr => {
-    const isDynamic = ctx.DYNAMIC() ? true : false;
+  visitDynamicTableStmt = (ctx: parser.DynamicTableStmtContext): DynamicRelationIr => {
     return {
-      isDynamic,
-      ...this.visit(ctx.relationDefintion()) as RelationIr
+      ...this.visit(ctx.relationDefintion()) as DynamicRelationIr
     };
   }
 
-  visitRelationDefintion = (ctx: parser.RelationDefintionContext): RelationIr  => {
+  visitRelationDefintion = (ctx: parser.RelationDefintionContext): DynamicRelationIr  => {
     const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
     const name = ctx.IDENTIFIER().text;
     const constraints = ctx.constraintDefinition().map(c => this.visit(c) as string);
-    // dummy value
-    const isDynamic = false;
     return {
       name,
       columns,
-      isDynamic,
       constraints
     };
   }
@@ -523,34 +501,24 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  _getTemplate(t: TemplateIr, values: TemplateVariableAssignments[]) {
-    // basically find and replace
-    let s = t.query.slice();
-    t.variables.map(v => {
-      const value = values.find(i => i.variable === v);
-      if (!value) {
-        const errMsg = `Variable ${v} not found, among ${JSON.stringify(values)}`;
-        throw new Error(errMsg);
-      }
-      const re = new RegExp(`{${v}}`, "g");
-      s = s.replace(re, value.assignment);
-    });
-    return s;
-  }
 
   // helper
   _findRelationColumns(relation: string): Column[] {
     // find in inputs, then tables, then views, and outputs
-    const extractFn = (t: DerivedRelationIr | RelationIr) => ({
+    const extractFn = (t: DerivedRelationIr | DynamicRelationIr) => ({
       name: t.name,
       columns: t.columns
     });
-    const rs = this.ir.tables.concat(this.ir.inputs).map(extractFn);
+    const rs = this.ir.dynamicTables.concat(this.ir.inputs).map(extractFn);
+    const staticTables = this.ir.staticTables.map(extractFn);
     const derived = this.ir.views.concat(this.ir.outputs).map(extractFn);
-    const joined = rs.concat(derived);
+    const joined = rs.concat(staticTables).concat(derived);
     for (let i = 0; i < joined.length; i++) {
-      if (rs[i].name === relation) {
-        return rs[i].columns;
+      if (!joined[i]) {
+        console.log("weird");
+      }
+      if (joined[i].name === relation) {
+        return joined[i].columns;
       }
     }
     return [];

@@ -34,6 +34,12 @@ syntax: `create output <name> as <query>`
 
 * be bound with state update functions (we currently support logic for the likes of React) --- exposed via `diel.bind(diel.views.viewX, reactLifeCycleFunc)`.  `diel` will call `reactLifeCycleFunc` when there is a new interaction and pass it the input of `viewX` as specified.
 
+## tables
+
+There are a few types of relations --- one that's defined in diel, ones that are loaded in as a starting point db file (we also support merging multiple together), one that is loaded in webworker, and one that is loaded on remotes.
+
+If the table is defined with WebWorker in front of it, then the tables will be prepared into a different db that's in a webworker
+
 ### state program
 
 syntax: `after input <input name> begin <insert program> end` (can only insert, and cannot insert into other inputs). The execution is in order and will be executed before the views are evaluted.

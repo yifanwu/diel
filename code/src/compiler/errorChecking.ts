@@ -9,7 +9,7 @@ import { ReportDielUserError } from "../lib/messages";
 
 export function sanityIr(ir: DielIr) {
   // TODO: no relation has no columns
-  ir.tables.map(r => {
+  ir.dynamicTables.map(r => {
     if (r.columns.length === 0) {
       ReportDielUserError(`Table ${r.name} contains no columns`);
     }
