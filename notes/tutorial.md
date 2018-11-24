@@ -52,6 +52,10 @@ For tables that will be loaded in, for now we ask the developer to provide us wi
 
 Webworker tables have to be loaded into a .db file and loaded in already.
 
+## Things to watch out for
+
+We assume some order dependence based on the relations defined prior.
+
 ## Diff from Paper
 
 Note: got rid of the `LATEST` because it's not very clean.

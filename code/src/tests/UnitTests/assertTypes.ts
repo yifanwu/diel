@@ -1,6 +1,6 @@
 import { getIR } from "../../compiler/compiler";
 import { GenerateUnitTestErrorLogger, LogInfo } from "../../lib/messages";
-import { DataType, Column, DielIr } from "../../parser/dielTypes";
+import { DataType, Column, DielAst } from "../../parser/dielAstTypes";
 
 /**
  * _checkView is a helper method
@@ -9,12 +9,12 @@ import { DataType, Column, DielIr } from "../../parser/dielTypes";
  * @param column column spec
  * @param logger logging function
  */
-function _checkView(ir: DielIr, view: string, column: Column, logger: (m: string) => void) {
+function _checkView(ir: DielAst, view: string, column: Column, logger: (m: string) => void) {
   const v = ir.views.filter(vItr => vItr.name === view)[0];
   if (!v) {
     logger(`Cannt find the definition for view ${view}`);
   }
-  const c = v.columns.filter(v => v.name === column.name)[0];
+  const c = v.columns.filter(v => v.columnName === column.name)[0];
   if (!c) {
     logger(`column ${column.name} of view ${view} was not found`);
   }

@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as stream from "stream";
-import { DielIr, DynamicRelationIr, DerivedRelationIr, DataType } from "../parser/dielTypes";
+import { DielAst, DynamicRelationIr, DerivedRelationIr, DataType } from "../parser/dielAstTypes";
 import { RelationTs, RelationType } from "../lib/dielUtils";
 import * as fmt from "typescript-formatter";
 import { LogInternalError } from "../lib/messages";
@@ -50,7 +50,7 @@ function generateView(v: DerivedRelationIr) {
   }`;
 }
 
-function generateDependencies(ir: DielIr) {
+function generateDependencies(ir: DielAst) {
   // build the graph of read/write dependencies
   // ir.outputs.map
   // for each output, look at its inputs
@@ -75,7 +75,7 @@ function generateDepMapString(m: Map<string, string[]>) {
   return `[${strings.join(", ")}]`;
 }
 
-function generateStatements(ir: DielIr) {
+function generateStatements(ir: DielAst) {
   const genPrep = (a: RelationTs[]) => a.map(o => `${o.name}: this.db.prepare(\`${o.query}\`)`).join(",\n");
   const genDeclaration = (a: (DynamicRelationIr | DerivedRelationIr)[]) => a.map(o => `${o.name}: Statement,`).join("\n");
   console.log("genDeclaration of inputs", genDeclaration(ir.inputs));
@@ -106,7 +106,7 @@ function generateBindOutputDeclaration(o: DerivedRelationIr) {
 
 function generateGetViewDeclaration(o: DerivedRelationIr) {
   // do some casting
-  return `${o.name}: () => {${o.columns.map(c => `${c.name}: ${dataTypeToTypeScript(c.type)}`)}}[]`;
+  return `${o.name}: () => {${o.columns.map(c => `${c.columnName}: ${dataTypeToTypeScript(c.type)}`)}}[]`;
 }
 
 function generateBindOutput(o: DerivedRelationIr) {
@@ -118,7 +118,7 @@ function generateBindOutput(o: DerivedRelationIr) {
   }`;
 }
 
-function generateApi(ir: DielIr) {
+function generateApi(ir: DielAst) {
   let assignment: string[] = [];
   let declaration: string[] = [];
   if (ir.inputs.length > 0) {
@@ -144,7 +144,7 @@ function generateApi(ir: DielIr) {
   };
 }
 
-function generateDiel(ir: DielIr) {
+function generateDiel(ir: DielAst) {
   const dependencies = generateDepMapString(generateDependencies(ir));
   const statements = generateStatements(ir);
   const apis = generateApi(ir);
@@ -218,7 +218,7 @@ function createViewsTs(views: DerivedRelationIr[]): RelationTs[]  {
   }));
 }
 
-export async function genTs(ir: DielIr) {
+export async function genTs(ir: DielAst) {
   const rawText = generateDiel(ir);
   fs.writeFileSync("tmpUnformatted.ts", rawText);
   let input = new stream.Readable();

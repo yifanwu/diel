@@ -10,4 +10,5 @@ Doing a separate pass, and the intermediate representations are all strings, to 
 
 Alex has an [indentation manager in P](https://github.com/p-org/P/blob/ssa/Src/Pc/CompilerCore/Backend/Prt/PrtCodeGenerator.cs). I can create a mal indented file and then put it through another parsing layer that basically does indentation based on {}'s and ()'s.
 
-Actually ended up just using third party prettifier; more conveneint, since I'm generating TS and SQL (both of which have existing implementations; should have thought earlier!).
+Actually ended up just using third party prettifier; more conveneint, since I'm generating TS and SQL (both of which have existing implementations; should have thought earlier!). Was going to use [Prettier](https://prettier.io/docs/en/) but they don't have SQL support, so ended up using separate SQL and JS ones... sigh.
+

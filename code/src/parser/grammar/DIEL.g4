@@ -57,7 +57,7 @@ columnDefinition
 constraintDefinition
   : PRIMARY KEY '(' IDENTIFIER (ASC|DESC)? (',' IDENTIFIER (ASC|DESC)?)* ')'
   | UNIQUE '(' IDENTIFIER (',' IDENTIFIER)*  ')'
-  | CHECK (predicates)
+  | CHECK (expr)
   ;
 
 inputStmt
@@ -116,12 +116,27 @@ compositeSelect
   ;
 
 selectUnitQuery
-  : SELECT selectClause (',' selectClause)* selectBody? # selectUnitQuerySpecific
-  | SELECT STAR selectBody                              # selectUnitQueryAll
+  : SELECT
+      selectClause (',' selectClause)*
+      (
+        FROM
+          relationReference
+          joinClause*
+          whereClause?
+          groupByClause?
+          orderByClause?
+          limitClause?
+      )?
   ;
 
-selectBody
-  : FROM relationReference joinClause* whereClause? groupByClause? orderByClause? limitClause?
+// the seclectClauseCase is here and not in expr since it would allow for illegal expr
+selectClause
+  : expr (AS IDENTIFIER)?  # selectClauseSpecific
+  | (IDENTIFIER '.')? STAR # selectClauseAll
+  ;
+
+whereClause
+  : WHERE expr
   ;
 
 groupByClause
@@ -133,7 +148,10 @@ orderByClause
   ;
 
 insertQuery
-  : INSERT INTO relation=IDENTIFIER '(' column=IDENTIFIER (',' column=IDENTIFIER)* ')' insertBody DELIM
+  : INSERT INTO relation=IDENTIFIER
+    '(' column=IDENTIFIER (',' column=IDENTIFIER)* ')' 
+    insertBody
+    DELIM
   ;
 
 insertBody
@@ -141,24 +159,13 @@ insertBody
   | selectUnitQuery                   # insertQuerySelect
   ;
 
-value
-  : NUMBER # valueNumber
-  | STRING # valueString
-  ;
-
 joinClause
-  : (LEFT OUTER)? JOIN relationReference (ON predicates)? # joinClauseBasic
-  | ',' relationReference                                 # joinClauseCross
-  | templateQuery                                         # joinClauseTemplate
-  ;
-
-whereClause
-  : WHERE predicates
+  : (((LEFT OUTER)? JOIN) | ',') relationReference (ON expr)? # joinClauseBasic
+  | templateQuery                                             # joinClauseTemplate
   ;
 
 limitClause
-  : LIMIT NUMBER                  # limitClauseSimple
-  | LIMIT '(' selectUnitQuery ')' # limitClauseQuery
+  : LIMIT expr
   ;
 
 relationReference
@@ -166,29 +173,20 @@ relationReference
   | '(' selectQuery ')' (AS? alias=IDENTIFIER)?  # relationReferenceSubQuery
   ;
 
-// the seclectClauseCase is here and not in expr since it would allow for illegal expr
-selectClause
-  : expr (AS IDENTIFIER)?
-  ;
-
 expr
-  : unitExpr                                          # exprSimple
-  | function=IDENTIFIER '(' (funExpr)?  ')'           # exprFunction
-  | expr mathOp expr                                  # exprMath
-  | CASE WHEN predicates THEN expr ELSE expr END      # exprWhen
+  : unitExpr                                 # exprSimple
+  | '(' expr ')'                             # exprParenthesis
+  | function=IDENTIFIER '(' (expr ((COMMA|PIPE) expr))?  ')'  # exprFunction
+  | expr binOp expr                          # exprBinOp
+  | expr IS (NOT)? NULL                      # exprNull
+  | (NOT)? EXIST '(' selectUnitQuery ')'     # exprExist
+  | CASE WHEN expr THEN expr ELSE expr END   # exprWhen
   ;
 
 unitExpr
   : columnSelection          # unitExprColumn
-  | '(' selectUnitQuery ')'  # unitExprSubQuery
-  | NUMBER                   # unitExprNumber
-  | STRING                   # unitExprString
-  ;
-
-funExpr
-  : expr                            # funExprSingle
-  | (relation=IDENTIFIER '.')? STAR # funExprStar
-  | funExpr (COMMA|PIPE) funExpr    # funExprMultiple
+  | '(' selectUnitQuery ')'  # unitExprSubQuery // check to make sure it's a single value
+  | value                    # unitExprValue
   ;
 
 columnSelection
@@ -197,35 +195,39 @@ columnSelection
   | IDENTIFIER '.' STAR                        # columnSelectionAll
   ;
 
-predicates
-  : singlePredicate             # predicateClauseSingle
-  | '(' predicates ')'          # predicateClauseParenthesis
-  | predicates (AND|OR) predicates   # predicateClauseComposite
-  ;
+// they do not need to be named
 
-singlePredicate
-  : expr                                    # singlePredicateExpr
-  | expr compareOp expr                     # singlePredicateCompare
-  | expr IS (NOT)? NULL                     # singlePredicateNull
-  | (NOT)? EXIST '(' selectUnitQuery ')'    # singlePredicateNotExist
+binOp
+  : mathOp
+  | compareOp
+  | logicOp
   ;
 
 mathOp
-  : '+' #mathOpAdd
-  | '-' #mathOpSub
-  | '*' #mathOpMul
-  | '/' #mathOpDiv
+  : '+' 
+  | '-' 
+  | '*' 
+  | '/' 
   ;
 
 // still need to do has, exists etc.
 compareOp
-  : '='     # compareOpEqual
-  | '!='    # compareOpNotEqual
-  | '>='    # compareOpGE
-  | '>'     # compareOpGreater
-  | '<='    # compareOpLE
-  | '<'     # compareOpLess
-  | funExpr # compareOpFunction 
+  : '='     
+  | '!='    
+  | '>='    
+  | '>'     
+  | '<='    
+  | '<'     
+  ;
+
+logicOp
+  : AND
+  | OR
+  ;
+
+value
+  : NUMBER # valueNumber
+  | STRING # valueString
   ;
 
 CREATE: 'CREATE' | 'create';

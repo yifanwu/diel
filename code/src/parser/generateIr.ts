@@ -2,13 +2,17 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, Column, DynamicRelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, JoinClauseIr, DielIr, ExprIr, ViewConstraintsIr, DataType, ColumnSelection, RelationReference, UdfType, BuiltInUdfTypes, StaticRelationIr, DielRemoteType, PartialDynamicRelationIr } from "./dielTypes";
+import { ExpressionValue, Column, DynamicRelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, JoinClauseIr, DielAst, ExprIr, ViewConstraintsIr, DataType, ColumnSelection, RelationReference, UdfType, BuiltInUdfTypes, StaticRelationIr, DielRemoteType, PartialDynamicRelationIr, BuiltInColumns, DielContext, DielSummary } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "../compiler/helper";
 import { LogInfo, LogWarning, LogTmp, ReportDielUserError } from "../lib/messages";
+import { findType, findRelationColumns } from "./visitorHelper";
+import { checkIsInput } from "./parseTimeErrorChecking";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
-  private ir: DielIr;
+  private ir: DielAst;
+  private dielSummary: DielSummary;
+  private context: DielContext;
 
   defaultResult() {
     LogWarning("All the visits should be handled");
@@ -16,12 +20,13 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   // this is useful for compiling partial queries
-  setContext(ir: DielIr) {
+  setContext(ir: DielAst) {
     LogInfo("setting context");
     this.ir = ir;
   }
 
-  visitQueries = (ctx: parser.QueriesContext): DielIr => {
+  visitQueries = (ctx: parser.QueriesContext): DielAst => {
+    this.context = null;
     this.ir = {
       udfTypes: [],
       inputs: [],
@@ -43,7 +48,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
     )).concat(ctx.registerTypeTable().map(e => (
       this.visit(e) as StaticRelationIr
     )));
-
     this.ir.inputs = ctx.inputStmt().map(e => (
       this.visitInputStmt(e)
     ));
@@ -165,40 +169,8 @@ implements visitor.DIELVisitor<ExpressionValue> {
       throw new Error(`There should be some column values in select, query is ${selectQuery}`);
     }
     const body = ctx.selectBody();
-    let selectBody: SelectBodyIr = null;
-    if (body) {
-      selectBody = this.visit(body) as SelectBodyIr;
-    }
-    const query = getCtxSourceCode(ctx);
-    let matchedR: RelationReference;
+    const selectBody = body ? this.visit(body) as SelectBodyIr : null;
     // now we do the pass where we check the column types
-    columns.map(c => {
-      if (c.type === DataType.TBD) {
-        if (c.relationName) {
-          // search for the relationamte
-          matchedR = selectBody.relations.filter(r => r.name === c.relationName)[0];
-          if (!matchedR) {
-            // Fixme: the error message could be much better here...
-            // TODO: we can do some fuzzy edit distance check thing here; I've always found it nice.
-            ReportDielUserError(`column ${c.name} was specified to be from ${c.relationName} in ${query}, but ${c.relationName} is not found in the source relations.`);
-          }
-        } else {
-          // else its not from a specific relation and we need to find it...
-          matchedR = selectBody.relations.filter(r => r.columns.filter(cM => cM.name === c.name).length > 0)[0];
-          if (!matchedR) {
-            ReportDielUserError(`column ${c.name} was specified in ${query}, but we cannot find it in any of the source relations.`);
-          }
-        }
-        // now we can change the c.type
-        const matchedC = matchedR.columns.filter(cM => c.name === cM.name)[0];
-        if (!matchedC) {
-          const query = getCtxSourceCode(ctx);
-          // Fixme: the error message could be much better here...
-          ReportDielUserError(`column ${c.name} in ${query} is not found in the source relations.`);
-        }
-        c.type = matchedC.type;
-      }
-    });
     return {
       columns,
       selectQuery,
@@ -230,6 +202,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     // can do some expression type inference
     return {
       name,
+      relationName: expr.relationName,
       type
     };
   }
@@ -338,11 +311,13 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   visitRelationReferenceSimple(ctx: parser.RelationReferenceSimpleContext): RelationReference {
-
     const name = ctx._relation.text;
-    const columns = this._findRelationColumns(name);
+    // check if the name is a relation
+    const alias = ctx._alias ? ctx._alias.text : name;
+    const columns = findRelationColumns(name, this.ir);
     return {
       name,
+      alias,
       columns
     };
   }
@@ -354,6 +329,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     console.log(q);
     return {
       name,
+      alias: name,
       columns: selectQuery.columns,
     };
   }
@@ -442,11 +418,16 @@ implements visitor.DIELVisitor<ExpressionValue> {
   // programs
   visitProgramStmtGeneral(ctx: parser.ProgramStmtGeneralContext) {
     const programs = this.visit(ctx.programBody());
+    // set the context
+    this.context = {program : {isGeneral: true}};
     return programs;
   }
 
   visitProgramStmtSpecific(ctx: parser.ProgramStmtSpecificContext): ProgramsIr {
     const input = ctx.IDENTIFIER().text;
+    // TODO: check that this is actually an input
+    checkIsInput(input, this.ir);
+    this.context = {program : {isGeneral: false, name: input}};
     const programs = this.visit(ctx.programBody()) as ProgramSpecIr;
     return {
       input,
@@ -505,26 +486,5 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-
-  // helper
-  _findRelationColumns(relation: string): Column[] {
-    // find in inputs, then tables, then views, and outputs
-    const extractFn = (t: DerivedRelationIr | DynamicRelationIr) => ({
-      name: t.name,
-      columns: t.columns
-    });
-    const rs = this.ir.dynamicTables.concat(this.ir.inputs).map(extractFn);
-    const staticTables = this.ir.staticTables.map(extractFn);
-    const derived = this.ir.views.concat(this.ir.outputs).map(extractFn);
-    const joined = rs.concat(staticTables).concat(derived);
-    for (let i = 0; i < joined.length; i++) {
-      if (!joined[i]) {
-        console.log("weird");
-      }
-      if (joined[i].name === relation) {
-        return joined[i].columns;
-      }
-    }
-    return [];
-  }
+  // helpers
 }

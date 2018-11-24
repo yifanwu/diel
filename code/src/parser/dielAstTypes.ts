@@ -1,3 +1,5 @@
+import { DynamicRelationIr, SelectQueryIr, Column, JoinClauseIr, SelectQueryPartialIr, SelectBodyIr, ExprAst, RelationReference } from "./sqlAstTypes";
+
 // must return all the possible types that the intermediate nodes can return
 // for now it's just strings; can add to later
 
@@ -46,6 +48,26 @@ export interface UdfType {
   type: DataType;
 }
 
+interface BuiltInColumnType {
+  column: string;
+  type: DataType;
+}
+
+export const BuiltInColumns: BuiltInColumnType[] = [
+  {
+    column: "rowid",
+    type: DataType.Number
+  },
+  {
+    column: "timestep",
+    type: DataType.Number
+  },
+  {
+    column: "timestamp",
+    type: DataType.Number
+  }
+];
+
 export const BuiltInUdfTypes: UdfType[] = [
   {
     udf: "count",
@@ -65,33 +87,9 @@ export const BuiltInUdfTypes: UdfType[] = [
   },
 ];
 
-export interface ColumnSelection {
-  name: string;
-  relationName?: string;
-}
+// only DIEL ones know
+type: RelationType;
 
-export interface Column extends ColumnSelection {
-  type: DataType;
-  constraints?: ColumnConstraints;
-}
-
-export interface ColumnConstraints {
-  // single column specs
-  notNull: boolean;
-  unique: boolean;
-  key: boolean;
-}
-
-export interface PartialDynamicRelationIr {
-  columns: Column[];
-  query?: string;
-  constraints?: string[];
-}
-
-// used for inputs and tables that are accessed by programs
-export interface DynamicRelationIr extends PartialDynamicRelationIr {
-  name: string;
-}
 
 export interface StaticRelationIr extends DynamicRelationIr {
   remoteType: DielRemoteType;
@@ -136,14 +134,22 @@ export interface DielConfig {
 
 // type UndefinedName = "undefined";
 
-// this extends columnSection
-export interface ExprIr {
-  name?: string;
-  relationName?: string;
-  type: DataType;
+export interface DielSummary {
+  // this is for searching through relations and column definitions
+  // during the error checking and type inference phase
+  allRelations: {name: string, columns: Column};
 }
 
-export interface DielIr {
+// one need of context is to know whether it is in a program
+// using null to overload whether it's defined or not
+export interface DielContext {
+  program?: {
+    isGeneral: boolean;
+    name?: string;
+  };
+}
+
+export interface DielAst {
   inputs: DynamicRelationIr[];
   dynamicTables: DynamicRelationIr[];
   staticTables: StaticRelationIr[];
@@ -157,45 +163,12 @@ export interface DielIr {
   config?: DielConfig;
 }
 
-export interface SelectBodyIr {
-  relations: RelationReference[];
-  joinQuery: string;
-  whereQuery: string;
-  groupByQuery: string;
-  orderByQuery: string;
-  limitQuery: string;
-}
 
-export interface SelectQueryPartialIr {
-  columns: Column[];
-  selectQuery: string;
-  selectBody: SelectBodyIr;
-}
-
-export interface SelectQueryIr extends SelectQueryPartialIr {
-  query: string;
-}
-
-export interface RelationReference {
-  // it's either a reference to something defined
-  // or a new thing
-  // and it can be recursive?? how; hmmm.
-  // it's either a static one, or a dynamic one
-  // if it's a dynamic one, it has better be defined... so here we do some DFS stuff?
-  // isNested: boolean;
-  name: string;
-  columns: Column[];
-}
 
 export interface CrossFilterChartIr {
   chartName: string;
   predicate: JoinClauseIr;
   definition: SelectQueryIr;
-}
-
-export interface JoinClauseIr {
-  relation: RelationReference;
-  query: string;
 }
 
 export interface CrossFilterIr {
@@ -205,4 +178,4 @@ export interface CrossFilterIr {
 }
 
 
-export type ExpressionValue = DielIr | DynamicRelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | JoinClauseIr | ExprIr | ViewConstraintsIr | ColumnSelection | RelationReference | UdfType | PartialDynamicRelationIr;
+export type ExpressionValue = DielAst | DynamicRelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | JoinClauseIr | ExprAst | ViewConstraintsIr | RelationReference | UdfType;

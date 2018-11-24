@@ -5,7 +5,7 @@ import * as path from "path";
 import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateIr";
-import { DielIr, ProgramSpecIr, DataType, Column, DynamicRelationIr } from "../parser/dielTypes";
+import { DielAst, ProgramSpecIr, DataType, Column, DynamicRelationIr } from "../parser/dielAstTypes";
 import { LogInfo, LogStandout, LogInternalError } from "../lib/messages";
 
 // then there will another pass where we do the networking logic.
@@ -29,7 +29,7 @@ create trigger allInputsTrigger after insert on allInputs
 // function transpileLatest() {
 // }
 
-function triggerTemplate(ir: DielIr) {
+function triggerTemplate(ir: DielAst) {
   let triggers = ir.inputs.map(i => {
     // also need to get the individual programs
     const matchingTrigger = ir.programs.filter(p => p.input === i.name);
@@ -48,7 +48,7 @@ end;`;
   return triggers;
 }
 
-export function modifyIrFromCrossfilter(ir: DielIr) {
+export function modifyIrFromCrossfilter(ir: DielAst) {
   // filtered & unfiltered
   // register filtered to output
   // returning arrays of arrays, should be flattened for execution
@@ -83,7 +83,7 @@ function _parse(query: string) {
   return new parser.DIELParser(tokenStream);
 }
 
-function _getOutputIr(outputQuery: string, ir: DielIr) {
+function _getOutputIr(outputQuery: string, ir: DielAst) {
   LogInfo(`Parsing Output\n ${outputQuery}`);
   const p = _parse(outputQuery);
   const tree = p.outputStmt();
@@ -92,7 +92,7 @@ function _getOutputIr(outputQuery: string, ir: DielIr) {
   return visitor.visitOutputStmt(tree);
 }
 
-function _getViewIr(viewQuery: string, ir: DielIr) {
+function _getViewIr(viewQuery: string, ir: DielAst) {
   LogInfo(`Parsing View\n ${viewQuery}`);
   const p = _parse(viewQuery);
   const tree = p.viewStmt();
@@ -135,7 +135,7 @@ create table ${r.name} (
 );`;
 }
 
-export function genSql(ir: DielIr) {
+export function genSql(ir: DielAst) {
   const inputQueries = ir.inputs.map(r => {
     return _genRelation(r, true);
   });

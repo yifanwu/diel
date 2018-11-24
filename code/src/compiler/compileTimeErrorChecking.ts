@@ -1,4 +1,4 @@
-import { DielIr } from "../parser/dielTypes";
+import { DielAst } from "../parser/dielAstTypes";
 import { ReportDielUserError } from "../lib/messages";
 
 // this pass should inforce the following constraints:
@@ -7,7 +7,7 @@ import { ReportDielUserError } from "../lib/messages";
 // - check that the generic program does not reference the relation new
 // - also make sure that the number of inserts match the number of selects in a state program
 
-export function sanityIr(ir: DielIr) {
+export function sanityIr(ir: DielAst) {
   // TODO: no relation has no columns
   ir.dynamicTables.map(r => {
     if (r.columns.length === 0) {

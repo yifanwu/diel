@@ -1,6 +1,6 @@
 import { Interval } from "antlr4ts/misc";
 
-import { Column, DataType } from "../parser/dielTypes";
+import { Column, DataType } from "../parser/dielAstTypes";
 
 
 export function parseColumnType(str: string) {

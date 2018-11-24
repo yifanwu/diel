@@ -1,10 +1,12 @@
+/// <reference path="../@types/sql-formatter/index.d.ts" />a
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
+import * as sqlFormatter from "sql-formatter";
 
 import TemplateVisitor from "../parser/compileTemplate";
 import Visitor from "../parser/generateIr";
-import { DielConfig } from "../parser/dielTypes";
+import { DielConfig } from "../parser/dielAstTypes";
 import { modifyIrFromCrossfilter } from "./codeGenSql";
 import { LogInfo } from "../lib/messages";
 
@@ -19,7 +21,9 @@ export function applyTempalates(code: string, config?: DielConfig) {
     const tree = p.queries();
     let visitor = new TemplateVisitor();
     // template pass
-    const templatedCode = visitor.visitQueries(tree);
+    const templatedCodeRaw = visitor.visitQueries(tree);
+    const templatedCode = sqlFormatter.format(templatedCodeRaw);
+    // take templatedCode and format them
     return templatedCode;
   } else {
     return code;

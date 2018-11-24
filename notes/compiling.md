@@ -1,5 +1,9 @@
 # Compiling Notes
 
+## Parsing
+
+Had originally tried not to have the full AST, but it's becoming increasingly handicapping, referencing [code school](https://github.com/codeschool/sqlite-parser)'s implementation to created the IR.
+
 ## Template and Code Gen
 
 [ ] might need to do a 2 stage one to unpack the templates!
@@ -16,6 +20,10 @@ Doing it all together after basic parsing; this way it might be able to infer so
 
 One common issue is the extra "," the error message currently is very opaque and does not point at the ",".
 
+Use [fuzzy search](http://fusejs.io/) to suggest to developers what they might mean instead --- basically insert the table names into fusejs list and search against that --- it's pretty fast!
+
+The relation reference should check against IR, and the column reference should check against the select body.
+
 ## Current Design Issues
 
 Right now we can load custom DB but not custom TS definition, which does not make sense.
@@ -23,6 +31,14 @@ Right now we can load custom DB but not custom TS definition, which does not mak
 Adding types to DIEL:
 
 Keeping the string interface now since it's easy to implement, but 
+
+## Typing
+
+So when parsing the ones in triggers, the parser need to access the context ---> currently throwing this into a context, global variable. I sense that this can be improved if we delayed evaluating the query until the end. But I'll defer that to refactoring maybe? Or ask Michael about how to anticipate these patterns.
+
+Typing need to take into account:
+* simple aliased relations --> just need to put it into the select body the aliasing
+* subqueries --- they are already fetched and visited i think by the time they show up (I should double check --- just a matter of returning it by the time it's at the tree.)
 
 ## Constraint checking
 
