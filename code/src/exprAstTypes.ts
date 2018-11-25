@@ -1,5 +1,5 @@
 import { DataType } from "./dielAstTypes";
-import { ColumnSelection } from "./sqlAstTypes";
+import { ColumnSelection, SimpleColumSelection } from "./sqlAstTypes";
 
 /**
  * Notes
@@ -8,23 +8,40 @@ import { ColumnSelection } from "./sqlAstTypes";
 export type ExprAst = ExprFunAst | ExprValAst | ExprColumnAst;
 
 export interface ExprBase {
-  type: DataType;
+  dataType: DataType;
 }
 
-export enum FunctionTypes {
+export enum BuiltInFunc {
+  ConcatStrings = "ConcatStrings",
+  ValueIsNull = "ValueIsNull",
+  ValueIsNotNull = "ValueIsNotNull",
+  SetEmpty = "SetEmpty",
+  SetNotEmpty = "SetNotEmpty",
+  IfThisThen = "IfThisThen"
+}
+
+// export const BuiltInFuncReference: Map<BuiltInFunc, string> = new Map([
+//   [BuiltInFunc.ConcatStrings, "concat"],
+//   [BuiltInFunc.ValueIsNull, ""]
+// ]);
+
+export enum FunctionType {
   Math,
   Compare,
+  Logic,
+  BuiltIn,
   Custom
 }
 
 export interface ExprFunAst extends ExprBase {
-  function: FunctionTypes;
+  functionType: FunctionType;
   functionReference: string;
-  arguments: ExprAst[];
+  args: ExprAst[];
 }
 
+// hm there might be multiple here...
 export interface ExprColumnAst extends ExprBase  {
-  column: ColumnSelection;
+  column: SimpleColumSelection;
 }
 
 export interface ExprValAst extends ExprBase {

@@ -1,11 +1,16 @@
 import { DataType } from "./dielAstTypes";
 import { ExprAst } from "./exprAstTypes";
 
-// this is really awkward
+export interface SimpleColumSelection {
+  hasStar: boolean;
+  columnName: string;
+  relationName?: string;
+}
+
 export interface ColumnSelection {
   hasStar: boolean;
   relationName?: string;
-  expr?: ExprAst;
+  expr?: ExprAst; // the column name is subsumed by the ExprAst...
 }
 
 export interface Column {
@@ -28,11 +33,6 @@ export enum JoinType {
   CROSS = "Cross"
 }
 
-export interface Join {
-  joinType: JoinType;
-  relation: ColumnSelection;
-  condition: ExprAst;
-}
 
 export interface CompositeSelectionUnit {
   // sequence of unions and intersections; SQL does not allow parenthesis here, they can create subqueries though
@@ -62,12 +62,13 @@ export interface SelectionUnit {
 }
 
 export interface RelationReference {
-  relationName: string;
+  relationName?: string;
   alias?: string;
   subquery?: RelationSelection;
 }
 
 export interface JoinAst {
+  joinType: JoinType;
   relation: RelationReference;
   alias?: string;
   predicate: ExprAst;
@@ -75,7 +76,7 @@ export interface JoinAst {
 
 export interface InsertionClause {
   relation: string;
-  selection: ColumnSelection;
+  selection: RelationSelection;
 }
 
 export enum Order {

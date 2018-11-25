@@ -1,8 +1,14 @@
 import { Column, JoinAst, RelationReference, ColumnSelection, ColumnConstraints, InsertionClause, Drop, RelationSelection, CompositeSelectionUnit, OrderByAst, SelectionUnit } from "./sqlAstTypes";
-import { ExprAst, ExprBaseAst } from "./exprAstTypes";
+import { ExprAst, ExprValAst } from "./exprAstTypes";
 
 // must return all the possible types that the intermediate nodes can return
 // for now it's just strings; can add to later
+
+export interface DielTemplate {
+  templateName: string;
+  variables: string[];
+  ast: JoinAst | RelationSelection | Column[];
+}
 
 export enum DataType {
   String = "String",
@@ -26,7 +32,6 @@ export enum StaticRelationType {
   Local = "Local",
   WebWorker = "WebWorker",
   Server = "Server"
-
 }
 
 export enum ProgramType {
@@ -87,7 +92,6 @@ export const BuiltInUdfTypes: UdfType[] = [
     type: DataType.String
   },
 ];
-
 
 export interface RelationConstraints {
   viewConstraints: ViewConstraints;
@@ -176,7 +180,6 @@ export interface CrossFilterIr {
   charts: CrossFilterChartIr[];
 }
 
-
 export type ExpressionValue = DielAst
   | DynamicRelation
   | DerivedRelation
@@ -195,7 +198,7 @@ export type ExpressionValue = DielAst
   | CrossFilterIr
   | CrossFilterChartIr
   | JoinAst
-  | ExprBaseAst
+  | ExprValAst
   | ExprAst
   | ViewConstraints
   | RelationReference

@@ -23,3 +23,10 @@ export function sanityIr(ir: DielAst) {
 // also want to see if there are recursive relations --- i dont think recursive stuff is useful anyways.
 
 // also need to check to make sure that the columns are properly *named*
+
+// something about making subqueries run?
+
+// const query = getCtxSourceCode(ctx);
+//     if (!relation.name) {
+//       ReportDielUserError(`You did not specify a alias for a nested relation for this part of the query`, query);
+//     }

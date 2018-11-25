@@ -155,12 +155,6 @@ selectUnitQuery
     )?
   ;
 
-// the seclectClauseCase is here and not in expr since it would allow for illegal expr
-selectColumnClause
-  : expr (AS IDENTIFIER)?  # selectClauseSpecific
-  | (IDENTIFIER '.')? STAR # selectClauseAll
-  ;
-
 whereClause
   : WHERE expr
   ;
@@ -195,31 +189,35 @@ limitClause
   ;
 
 relationReference
-  : relation=IDENTIFIER (AS? alias=IDENTIFIER)?  # relationReferenceSimple
-  | '(' selectQuery ')' (AS? alias=IDENTIFIER)?  # relationReferenceSubQuery
+  : relation=IDENTIFIER (AS? alias=IDENTIFIER)? # relationReferenceSimple
+  | '(' selectQuery ')' (AS? alias=IDENTIFIER)? # relationReferenceSubQuery
   ;
 
 expr
   : unitExpr                                 # exprSimple
+  | expr (PIPE expr)+                        # exprConcat
   | '(' expr ')'                             # exprParenthesis
-  | function=IDENTIFIER '(' (expr ((COMMA|PIPE) expr))? ')' # exprFunction
-  | expr (mathOp | compareOp | logicOp) expr          # exprBinOp
+  | function=IDENTIFIER '(' (expr (COMMA expr)*)? ')' # exprFunction
+  | lhs=expr (mathOp | compareOp | logicOp) rhs=expr  # exprBinOp
   | expr IS (NOT)? NULL                      # exprNull
-  | (NOT)? EXIST '(' selectUnitQuery ')'     # exprExist
-  | CASE WHEN expr THEN expr ELSE expr END   # exprWhen
+  | (NOT)? EXIST '(' expr ')'                # exprExist
+  | CASE WHEN cond=expr THEN thenValue=expr ELSE elseValue=expr END   # exprWhen
   ;
 
+// note that for the column one we should not recuycle th earlier selectColumnClause because
+// that's recursive and we want to keep unit as the base case IMO (not a concrete pattern yet)
 unitExpr
-  : columnSelection          # unitExprColumn
+  : (relation=IDENTIFIER '.')? (column=IDENTIFIER | STAR)       # unitExprColumn
   | '(' selectUnitQuery ')'  # unitExprSubQuery // check to make sure it's a single value
   | value                    # unitExprValue
   ;
 
-columnSelection
-  : IDENTIFIER                                 # columnSelectionSimple
-  | relation=IDENTIFIER '.' column=IDENTIFIER  # columnSelectionReference
-  | IDENTIFIER '.' STAR                        # columnSelectionAll
+// the seclectClauseCase is here and not in expr since it would allow for illegal expr
+selectColumnClause
+  : expr (AS IDENTIFIER)?  # selectClauseSpecific
+  | (IDENTIFIER '.')? STAR # selectClauseAll
   ;
+
 
 value
   : NUMBER # valueNumber
@@ -346,12 +344,12 @@ STRING
   ;
 
 IDENTIFIER
-  : (LETTER | DIGIT | '_')* '{' (LETTER | DIGIT | '_')+ '}' (LETTER | DIGIT | '_')*
-  | (LETTER | DIGIT | '_')+
+  : (LETTER | DIGIT | '_')+
   ;
 
-test: STRING | IDENTIFIER;
+TEMPLATE_VARIABLE
+  : '{' (LETTER | DIGIT | '_')+ '}';
 
-WS  
+WS
   : (' ' | '\t' | '\r'| '\n' | EOF ) -> channel(HIDDEN)
   ;
