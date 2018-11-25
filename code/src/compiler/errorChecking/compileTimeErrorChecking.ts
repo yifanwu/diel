@@ -30,3 +30,5 @@ export function sanityIr(ir: DielAst) {
 //     if (!relation.name) {
 //       ReportDielUserError(`You did not specify a alias for a nested relation for this part of the query`, query);
 //     }
+
+// need to check that the StaticTable are only over non-input tables.

@@ -18,6 +18,7 @@ export enum DataType {
   TBD = "TBD"
 }
 export enum DerivedRelationType {
+  StaticTable = "StaticTable",
   PublicView = "PublicView",
   PrivateView = "PrivateView",
   Output = "Output",
@@ -93,11 +94,6 @@ export const BuiltInUdfTypes: UdfType[] = [
   },
 ];
 
-export interface RelationConstraints {
-  viewConstraints: ViewConstraints;
-  columnConstraints: ColumnConstraints[];
-}
-
 interface RelationBase {
   name: string;
   constraints?: RelationConstraints;
@@ -125,9 +121,17 @@ export interface ServerConnection {
   serverName: string;
 }
 
-export interface ViewConstraints {
-  isNullable: boolean;
-  isSingle: boolean;
+// wow constraints are complicated
+// they are not recursive though
+// evaluating them will be a pain probably as well
+// I wonder if there is a similar dataflow structure for constraints???
+export interface RelationConstraints {
+  relationNotNull?: boolean;
+  relationHasOneRow?: boolean;
+  primaryKeys: string[];
+  uniques: string[][]; // there could be multiple unique claueses
+  exprChecks?: ExprAst[]; // these are actually on colunmn level, a bit weird here
+  // the other parts are in columns.. ugh
 }
 
 export interface ProgramSpec {
@@ -187,6 +191,7 @@ export type ExpressionValue = DielAst
   | ColumnSelection
   | ColumnSelection[]
   | Column
+  | Column[]
   | OrderByAst[]
   | CompositeSelectionUnit
   | RelationSelection

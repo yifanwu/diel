@@ -40,6 +40,8 @@ There are a few types of relations --- one that's defined in diel, ones that are
 
 If the table is defined with WebWorker in front of it, then the tables will be prepared into a different db that's in a webworker
 
+dynamic vs static tables --- dynamic tables are inserted, static tables are views over non input relations (ugh why are there so many types already?)
+
 ### state program
 
 syntax: `after input <input name> begin <insert program> end` (can only insert, and cannot insert into other inputs). The execution is in order and will be executed before the views are evaluted.

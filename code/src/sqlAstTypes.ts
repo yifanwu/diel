@@ -14,7 +14,7 @@ export interface ColumnSelection {
 }
 
 export interface Column {
-  columnName: string;
+  name: string;
   type: DataType;
   constraints?: ColumnConstraints;
 }
@@ -23,9 +23,7 @@ export interface ColumnConstraints {
   notNull: boolean;
   unique: boolean;
   key: boolean;
-  checks: ExprAst[];
 }
-
 
 export enum JoinType {
   LeftOuter = "LeftOuter",
@@ -74,9 +72,17 @@ export interface JoinAst {
   predicate: ExprAst;
 }
 
+export type rawValues = (string|number|boolean)[];
+
+/**
+ * Insertion clause is either direct insertion of values
+ *   or derived another view
+ */
 export interface InsertionClause {
   relation: string;
-  selection: RelationSelection;
+  columns: string[];
+  selection?: RelationSelection;
+  values?: rawValues;
 }
 
 export enum Order {

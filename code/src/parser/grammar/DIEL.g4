@@ -17,8 +17,7 @@ queries : (
           )+;
 
 staticTableStmt
-  : CREATE TABLE IDENTIFIER AS selectQuery DELIM    # staticTableStmtSelect
-  | CREATE WEBWORKER? TABLE IDENTIFIER relationDefintion DELIM # staticTableStmtDefined
+  : CREATE TABLE IDENTIFIER AS selectQuery DELIM
   ;
 
 registerTypeUdf
@@ -58,8 +57,10 @@ columnDefinition
   ;
 
 constraintDefinition
-  : PRIMARY KEY '(' IDENTIFIER (ASC|DESC)? (',' IDENTIFIER (ASC|DESC)?)* ')'
+  : PRIMARY KEY '(' IDENTIFIER (',' IDENTIFIER)* ')'
   | UNIQUE '(' IDENTIFIER (',' IDENTIFIER)*  ')'
+  | IDENTIFIER NOT NULL
+  | SINGLE LINE
   | CHECK (expr)
   ;
 
@@ -72,8 +73,7 @@ dynamicTableStmt
   ;
 
 relationDefintion
-  :  '(' columnDefinition (',' columnDefinition)* (',' constraintDefinition)* ')' # relationDefintionSimple
-  | templateQuery        # relationDefintionTemplate
+  :  '(' columnDefinition (',' columnDefinition)* (',' constraintDefinition)* ')'
   ;
 
 outputStmt
@@ -83,19 +83,13 @@ outputStmt
   ;
 
 constraintClause
-  :  CONSTRAIN (VIEW (viewConstraints)*)?
-    (CHECK (expr))*
+  :  CONSTRAIN  constraintDefinition (',' constraintDefinition)*
   ;
 
 columnConstraints
   : UNIQUE
   | PRIMARY KEY
   | NOT NULL
-  ;
-
-viewConstraints
-  : NOT NULL
-  | SINGLE LINE
   ;
 
 viewStmt
@@ -175,8 +169,8 @@ insertQuery
   ;
 
 insertBody
-  : VALUES '(' value (',' value)* ')' # insertQueryDirect
-  | selectUnitQuery                   # insertQuerySelect
+  : VALUES '(' value (',' value)* ')' # insertBodyDirect
+  | selectUnitQuery                   # insertBodySelect
   ;
 
 joinClause
