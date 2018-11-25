@@ -2,7 +2,7 @@ import * as fs from "fs";
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
-import Visitor from "../parser/generateIr";
+import Visitor from "../parser/generateAst";
 
 function main() {
   console.log("starting probe tests");

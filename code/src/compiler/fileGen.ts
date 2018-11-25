@@ -2,9 +2,9 @@ import * as fs from "fs";
 import * as path from "path";
 import { Database } from "sql.js";
 
-import { genTs } from "./codeGenTs";
-import { genSql } from "./codeGenSql";
-import { DielAst } from "../parser/dielAstTypes";
+import { genTs } from "./codegen/codeGenTs";
+import { genSql } from "./codegen/codeGenSql";
+import { DielAst } from "../dielAstTypes";
 import { LogInternalError, LogInfo } from "../lib/messages";
 
 export async function genFiles(ir: DielAst, filePath: string) {

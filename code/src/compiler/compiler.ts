@@ -5,9 +5,9 @@ import * as lexer from "../parser/grammar/DIELLexer";
 import * as sqlFormatter from "sql-formatter";
 
 import TemplateVisitor from "../parser/compileTemplate";
-import Visitor from "../parser/generateIr";
-import { DielConfig } from "../parser/dielAstTypes";
-import { modifyIrFromCrossfilter } from "./codeGenSql";
+import Visitor from "../parser/generateAst";
+import { DielConfig } from "../dielAstTypes";
+import { modifyIrFromCrossfilter } from "./codegen/codeGenSql";
 import { LogInfo } from "../lib/messages";
 
 export function applyTempalates(code: string, config?: DielConfig) {

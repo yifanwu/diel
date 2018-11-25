@@ -2,17 +2,17 @@ import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as fs from "fs";
 import * as path from "path";
 
-import * as parser from "../parser/grammar/DIELParser";
-import * as lexer from "../parser/grammar/DIELLexer";
-import Visitor from "../parser/generateIr";
-import { DielAst, ProgramSpecIr, DataType, Column, DynamicRelationIr } from "../parser/dielAstTypes";
-import { LogInfo, LogStandout, LogInternalError } from "../lib/messages";
+import * as parser from "../../parser/grammar/DIELParser";
+import * as lexer from "../../parser/grammar/DIELLexer";
+import Visitor from "../../parser/generateAst";
+import { DielAst, ProgramSpec, DataType, Column, DynamicRelation } from "../../dielAstTypes";
+import { LogInfo, LogStandout, LogInternalError } from "../../lib/messages";
 
 // then there will another pass where we do the networking logic.
 // export function setupNetworking(ir: DielIr) {
 // }
 
-function triggerGeneric(program: ProgramSpecIr) {
+function triggerGeneric(program: ProgramSpec) {
   return `
 create trigger allInputsTrigger after insert on allInputs
   begin
@@ -54,7 +54,7 @@ export function modifyIrFromCrossfilter(ir: DielAst) {
   // returning arrays of arrays, should be flattened for execution
   ir.crossfilters.map(i => {
     return i.charts.map(c => {
-      const viewQuery = `create public view ${c.chartName}Unfiltered as ${c.definition};`;
+      const viewQuery = `create public view ${c.chartName}Unfiltered as ${c.denormalizedRelation};`;
       const viewIr = _getViewIr(viewQuery, ir);
       ir.views.push(viewIr);
       const otherCharts = i.charts.filter(c2 => c2.chartName !== c.chartName);
@@ -119,7 +119,7 @@ function _genColumnDefinition(c: Column): string {
   return `${c.name} ${TypeConversionLookUp.get(c.type)} ${notNull} ${unique} ${primary}`;
 }
 
-function _genRelation(r: DynamicRelationIr, isInput: boolean) {
+function _genRelation(r: DynamicRelation, isInput: boolean) {
   let spec: string[] = [];
   if (isInput) {
     spec.push("timestep integer");

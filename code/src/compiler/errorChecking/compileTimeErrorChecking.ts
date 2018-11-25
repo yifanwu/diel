@@ -1,5 +1,5 @@
-import { DielAst } from "../parser/dielAstTypes";
-import { ReportDielUserError } from "../lib/messages";
+import { DielAst } from "../../dielAstTypes";
+import { ReportDielUserError } from "../../lib/messages";
 
 // this pass should inforce the following constraints:
 // - there should only be one program that's generic
@@ -19,3 +19,7 @@ export function sanityIr(ir: DielAst) {
   // TODO: make sure that there is only one general program
   // TODO: check that static tables are not inserted from any inputs
 }
+
+// also want to see if there are recursive relations --- i dont think recursive stuff is useful anyways.
+
+// also need to check to make sure that the columns are properly *named*

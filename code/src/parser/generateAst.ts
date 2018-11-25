@@ -2,17 +2,16 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, Column, DynamicRelationIr, DerivedRelationIr, SelectQueryIr, ProgramSpecIr, ProgramsIr, InsertQueryIr, SelectBodyIr, SelectQueryPartialIr, CrossFilterChartIr, CrossFilterIr, JoinClauseIr, DielAst, ExprIr, ViewConstraintsIr, DataType, ColumnSelection, RelationReference, UdfType, BuiltInUdfTypes, StaticRelationIr, DielRemoteType, PartialDynamicRelationIr, BuiltInColumns, DielContext, DielSummary } from "./dielAstTypes";
+import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, ViewConstraints, DataType, UdfType, BuiltInUdfTypes, ExistingRelation, DynamicRelation, StaticRelationType, RelationConstraints, DerivedRelationType } from "../dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "../compiler/helper";
-import { LogInfo, LogWarning, LogTmp, ReportDielUserError } from "../lib/messages";
-import { findType, findRelationColumns } from "./visitorHelper";
+import { LogInfo, LogWarning, ReportDielUserError } from "../lib/messages";
 import { checkIsInput } from "./parseTimeErrorChecking";
+import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst } from "../sqlAstTypes";
+import { ExprAst } from "../exprAstTypes";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
   private ir: DielAst;
-  private dielSummary: DielSummary;
-  private context: DielContext;
 
   defaultResult() {
     LogWarning("All the visits should be handled");
@@ -26,7 +25,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   visitQueries = (ctx: parser.QueriesContext): DielAst => {
-    this.context = null;
     this.ir = {
       udfTypes: [],
       inputs: [],
@@ -44,27 +42,27 @@ implements visitor.DIELVisitor<ExpressionValue> {
     )).concat(BuiltInUdfTypes);
     // two kinds of specifications
     this.ir.staticTables = ctx.registerTypeTable().map(e => (
-      this.visit(e) as StaticRelationIr
+      this.visit(e) as ExistingRelation
     )).concat(ctx.registerTypeTable().map(e => (
-      this.visit(e) as StaticRelationIr
+      this.visit(e) as ExistingRelation
     )));
     this.ir.inputs = ctx.inputStmt().map(e => (
       this.visitInputStmt(e)
     ));
     this.ir.dynamicTables = ctx.dynamicTableStmt().map(e => (
-      this.visit(e) as DynamicRelationIr
+      this.visit(e) as DynamicRelation
     ));
     this.ir.outputs = ctx.outputStmt().map(e => (
-      this.visit(e) as DerivedRelationIr
+      this.visit(e) as DerivedRelation
     ));
     this.ir.views = ctx.viewStmt().map(e => (
-      this.visit(e) as DerivedRelationIr
+      this.visit(e) as DerivedRelation
     ));
     this.ir.inserts = ctx.insertQuery().map(e => (
-      this.visit(e) as InsertQueryIr
+      this.visit(e) as InsertionClause
     ));
     this.ir.drops = ctx.dropQuery().map(e => (
-      this.visit(e) as InsertQueryIr
+      this.visit(e) as Drop
     ));
     this.ir.programs = ctx.programStmt().map(e => (
       this.visit(e) as ProgramsIr
@@ -84,63 +82,59 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitRegisterTypeTable(ctx: parser.RegisterTypeTableContext): StaticRelationIr {
+  visitRegisterTypeTable(ctx: parser.RegisterTypeTableContext): ExistingRelation {
     const name = ctx._tableName.text;
     const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
-    const remoteType = ctx.WEBWORKER() ? DielRemoteType.WebWorker : DielRemoteType.Server;
+    const relationType = ctx.WEBWORKER() ? StaticRelationType.WebWorker : StaticRelationType.Server;
     return {
       name,
       columns,
-      remoteType
+      relationType,
     };
   }
 
   // outputs
-  visitOutputStmt(ctx: parser.OutputStmtContext): DerivedRelationIr {
+  visitOutputStmt(ctx: parser.OutputStmtContext): DerivedRelation {
     const name = ctx.IDENTIFIER().text;
-    const s = this.visit(ctx.selectQuery()) as SelectQueryIr;
-    const constraints = this.visit(ctx.viewConstraints()) as ViewConstraintsIr;
+    const selection = this.visit(ctx.selectQuery()) as RelationSelection;
+    const constraints = this.visit(ctx.constraintClause()) as RelationConstraints;
     return {
       name,
-      ...constraints,
-      ...s
+      relationType: DerivedRelationType.Output,
+      constraints,
+      selection
     };
   }
 
-  visitSelectQueryDirect(ctx: parser.SelectQueryDirectContext) {
+  visitSelectQueryDirect(ctx: parser.SelectQueryDirectContext): RelationSelection {
     // this is lazy, assume union or intersection to a hve the same columns
-    const firstQuery = this.visit(ctx.selectUnitQuery()) as SelectQueryIr;
-    const query = getCtxSourceCode(ctx);
-    return {
-      query,
-      ...firstQuery,
-    };
+    const firstQuery = this.visit(ctx.selectUnitQuery()) as SelectionUnit;
+    const compositeSelections = ctx.compositeSelect().map(e => this.visit(e) as CompositeSelectionUnit);
+    return [{op: SetOperator.UNION, relation: firstQuery}, ...compositeSelections];
   }
 
-  visitDropQuery(ctx: parser.DropQueryContext): InsertQueryIr {
-    const relation = ctx.IDENTIFIER().text;
-    const query = getCtxSourceCode(ctx);
+  visitDropQuery(ctx: parser.DropQueryContext): Drop {
+    const relationName = ctx.IDENTIFIER().text;
     return {
-      relation,
-      query
+      relationName
     };
   }
 
 
-  visitViewStmt(ctx: parser.ViewStmtContext): DerivedRelationIr {
+  visitViewStmt(ctx: parser.ViewStmtContext): DerivedRelation {
     const name = ctx.IDENTIFIER().text;
-    const isPublic = ctx.PUBLIC() ? true : false;
-    const constraints = this.visit(ctx.viewConstraints()) as ViewConstraintsIr;
-    const s = this.visit(ctx.selectQuery()) as SelectQueryIr;
+    const relationType = ctx.PUBLIC() ? DerivedRelationType.PublicView : DerivedRelationType.PrivateView;
+    const constraints = this.visit(ctx.constraintClause()) as RelationConstraints;
+    const selection = this.visit(ctx.selectQuery()) as RelationSelection;
     return {
       name,
-      isPublic,
-      ...constraints,
-      ...s
+      relationType,
+      constraints,
+      selection
     };
   }
 
-  visitViewConstraints(ctx: parser.ViewConstraintsContext): ViewConstraintsIr {
+  visitViewConstraints(ctx: parser.ViewConstraintsContext): ViewConstraints {
     const isNullable = ctx.NULL() ? false : true;
     const isSingle = ctx.SINGLE() ? true : false;
     return {
@@ -149,69 +143,58 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitSelectUnitQueryAll(ctx: parser.SelectUnitQueryAllContext): SelectQueryPartialIr {
-    const selectBody = this.visit(ctx.selectBody()) as SelectBodyIr;
-    const columns = selectBody.relations.reduce((acc: Column[], r) => acc.concat(r.columns), []);
-    const selectQuery = "select *";
-    return {
-      columns,
-      selectQuery,
-      selectBody,
-    };
-  }
-
   // TODO: do some type checking/inference on the selected.
-  visitSelectUnitQuerySpecific(ctx: parser.SelectUnitQuerySpecificContext): SelectQueryPartialIr {
-    const columns = ctx.selectClause().map(s => this.visit(s) as Column);
-    const selectQuery = ctx.selectClause().map(s => getCtxSourceCode(s)).join(", ");
-    if (columns.length < 1) {
-      // TODO
+  visitSelectUnitQuery(ctx: parser.SelectUnitQueryContext): SelectionUnit {
+    const selections = ctx.selectClause().map(s => this.visit(s) as ColumnSelection);
+    if (selections.length < 1) {
+      const selectQuery = ctx.selectClause().map(s => getCtxSourceCode(s)).join(", ");
       throw new Error(`There should be some column values in select, query is ${selectQuery}`);
     }
-    const body = ctx.selectBody();
-    const selectBody = body ? this.visit(body) as SelectBodyIr : null;
-    // now we do the pass where we check the column types
+    let body = null;
+    if (ctx.FROM()) {
+      const baseRelation = this.visit(ctx.relationReference()) as RelationReference;
+      const joinClauses = ctx.joinClause().map(e => this.visit(e) as JoinAst);
+      const whereClause = this.visit(ctx.whereClause()) as ExprAst;
+      const groupByClause = this.visit(ctx.groupByClause()) as ColumnSelection[];
+      const orderByClause = this.visit(ctx.orderByClause()) as OrderByAst[];
+      const limitClause = this.visit(ctx.limitClause()) as ExprAst;
+      body = {
+        baseRelation,
+        joinClauses,
+        whereClause,
+        groupByClause,
+        orderByClause,
+        limitClause
+      };
+    }
     return {
-      columns,
-      selectQuery,
-      selectBody,
+      selections,
+      ...body,
     };
   }
 
-  visitSelectClause(ctx: parser.SelectClauseContext): Column {
-    const expr = this.visit(ctx.expr()) as ExprIr;
-    let type = DataType.TBD;
-    let name: string;
-    // temp debugging
-    if (ctx.IDENTIFIER()) {
-      name = ctx.IDENTIFIER().text;
-      type = expr.type;
-    } else {
-      // if there is no name, then this is a problem
-      // it's not going to have the context to give better error messages sad!!
-      name = expr.name;
-    }
-    if (!name) {
-      const query = getCtxSourceCode(ctx);
-      ReportDielUserError(`Expression ${query} should be named`);
-    }
-    // to infer the type, we need to look up things and take a look at the function
-    // basically some simple recursive datatypes??
-    // we need to find expression and match it with the original query... ugh this is hard.
-    // we'll get the type information in the second pass... ugh
-    // can do some expression type inference
+  visitSelectClauseSpecific(ctx: parser.SelectClauseSpecificContext): ColumnSelection {
+    const expr = this.visit(ctx.expr()) as ExprAst;
     return {
-      name,
-      relationName: expr.relationName,
-      type
+      hasStar: false,
+      expr
     };
   }
 
-  visitExprSimple(ctx: parser.ExprSimpleContext): ExprIr {
-    return this.visit(ctx.unitExpr()) as ExprIr;
+  visitSelectClauseAll(ctx: parser.SelectClauseAllContext): ColumnSelection {
+    const hasStar = true;
+    const relationName = ctx.IDENTIFIER().text;
+    return {
+      hasStar,
+      relationName
+    };
   }
 
-  visitUnitExprColumn(ctx: parser.UnitExprColumnContext): ExprIr {
+  visitExprSimple(ctx: parser.ExprSimpleContext): ExprAst {
+    return this.visit(ctx.unitExpr()) as ExprAst;
+  }
+
+  visitUnitExprColumn(ctx: parser.UnitExprColumnContext): ExprAst {
     const column = this.visit(ctx.columnSelection()) as ColumnSelection;
     return {
       ...column,
@@ -219,9 +202,10 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitUnitExprNumber(_: parser.UnitExprNumberContext): ExprIr {
+  visitUnitExprNumber(ctx: parser.UnitExprNumberContext): ExprBaseAst {
     return {
-      type: DataType.Number
+      type: DataType.Number,
+      value: 
     };
   }
 
@@ -255,32 +239,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   }
 
-  visitSelectBody(ctx: parser.SelectBodyContext): SelectBodyIr {
-    const fromRelation = this.visit(ctx.relationReference()) as RelationReference;
-    const joinRelations = ctx.joinClause().map(j => (this.visit(j) as JoinClauseIr).relation);
-    // make sure that if the fromRelation is not named, there is only one relation
-    if ((!fromRelation.name) && (joinRelations.length > 0)) {
-      const query = getCtxSourceCode(ctx);
-      ReportDielUserError(
-        `You must name the nested relation if there are more than one relation used`,
-        query
-      );
-
-    }
-    const joinQuery = ctx.joinClause().map(j => getCtxSourceCode(j)).join("\n");
-    const whereQuery = getCtxSourceCode(ctx.whereClause());
-    const groupByQuery = getCtxSourceCode(ctx.groupByClause());
-    const orderByQuery = getCtxSourceCode(ctx.orderByClause());
-    const limitQuery = getCtxSourceCode(ctx.limitClause());
-    return {
-      relations: [fromRelation, ...joinRelations],
-      joinQuery,
-      whereQuery,
-      groupByQuery,
-      orderByQuery,
-      limitQuery,
-    };
-  }
 
   // ignore the predicates for now
   // might be useful for sanity checking later
@@ -428,14 +386,14 @@ implements visitor.DIELVisitor<ExpressionValue> {
     // TODO: check that this is actually an input
     checkIsInput(input, this.ir);
     this.context = {program : {isGeneral: false, name: input}};
-    const programs = this.visit(ctx.programBody()) as ProgramSpecIr;
+    const programs = this.visit(ctx.programBody()) as ProgramSpec;
     return {
       input,
       ...programs
     };
   }
 
-  visitProgramBody(ctx: parser.ProgramBodyContext): ProgramSpecIr {
+  visitProgramBody(ctx: parser.ProgramBodyContext): ProgramSpec {
     const insertPrograms = ctx.insertQuery().map(e => (
       this.visit(e) as InsertQueryIr
     ));
@@ -481,7 +439,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const predicate = this.visit(ctx._predicateClause) as JoinClauseIr;
     return {
       chartName,
-      definition,
+      denormalizedRelation,
       predicate
     };
   }

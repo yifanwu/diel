@@ -1,6 +1,6 @@
 import { getIR } from "../../compiler/compiler";
 import { GenerateUnitTestErrorLogger, LogInfo } from "../../lib/messages";
-import { DataType, Column, DielAst } from "../../parser/dielAstTypes";
+import { DataType, Column, DielAst } from "../../dielAstTypes";
 
 /**
  * _checkView is a helper method

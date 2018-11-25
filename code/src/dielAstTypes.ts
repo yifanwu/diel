@@ -1,4 +1,5 @@
-import { DynamicRelationIr, SelectQueryIr, Column, JoinClauseIr, SelectQueryPartialIr, SelectBodyIr, ExprAst, RelationReference } from "./sqlAstTypes";
+import { Column, JoinAst, RelationReference, ColumnSelection, ColumnConstraints, InsertionClause, Drop, RelationSelection, CompositeSelectionUnit, OrderByAst, SelectionUnit } from "./sqlAstTypes";
+import { ExprAst, ExprBaseAst } from "./exprAstTypes";
 
 // must return all the possible types that the intermediate nodes can return
 // for now it's just strings; can add to later
@@ -10,22 +11,22 @@ export enum DataType {
   // this needs to be inferred in the next stage
   TBD = "TBD"
 }
-
-export enum RelationType {
-  Input = "Input",
-  View = "View",
-  StaticTable = "StaticTable",
-  DynamicTable = "DynamicTable",
+export enum DerivedRelationType {
+  PublicView = "PublicView",
+  PrivateView = "PrivateView",
   Output = "Output",
-  // this is when it is used as parts of a subquery
-  SubQuery = "SubQuery"
 }
 
+export enum DynamicRelationType {
+  Input = "Input",
+  DynamicTable = "DynamicTable",
+}
 
-export enum DielRemoteType {
+export enum StaticRelationType {
   Local = "Local",
   WebWorker = "WebWorker",
   Server = "Server"
+
 }
 
 export enum ProgramType {
@@ -87,13 +88,32 @@ export const BuiltInUdfTypes: UdfType[] = [
   },
 ];
 
-// only DIEL ones know
-type: RelationType;
 
+export interface RelationConstraints {
+  viewConstraints: ViewConstraints;
+  columnConstraints: ColumnConstraints[];
+}
 
-export interface StaticRelationIr extends DynamicRelationIr {
-  remoteType: DielRemoteType;
+interface RelationBase {
+  name: string;
+  constraints?: RelationConstraints;
+}
+
+export interface DerivedRelation extends RelationBase {
+  relationType: DerivedRelationType;
+  selection: RelationSelection;
+}
+
+export interface ExistingRelation extends RelationBase {
+  relationType: StaticRelationType;
+  columns: Column[];
   serverInfo?: ServerConnection;
+}
+
+// used for inputs and tables that are accessed by programs
+export interface DynamicRelation extends RelationBase {
+  relationType: DynamicRelationType;
+  columns: Column[];
 }
 
 // TODO
@@ -101,28 +121,17 @@ export interface ServerConnection {
   serverName: string;
 }
 
-export interface ViewConstraintsIr {
+export interface ViewConstraints {
   isNullable: boolean;
   isSingle: boolean;
 }
 
-// used for views and outputs
-export interface DerivedRelationIr extends SelectQueryIr, ViewConstraintsIr {
-  name: string;
-  isPublic?: boolean;
+export interface ProgramSpec {
+  selectPrograms: ColumnSelection[];
+  insertPrograms: InsertionClause[];
 }
 
-export interface InsertQueryIr {
-  relation: string;
-  query: string;
-}
-
-export interface ProgramSpecIr {
-  selectPrograms: SelectQueryIr[];
-  insertPrograms: InsertQueryIr[];
-}
-
-export interface ProgramsIr extends ProgramSpecIr {
+export interface ProgramsIr extends ProgramSpec {
   input: string;
 }
 
@@ -130,14 +139,6 @@ export interface DielConfig {
   name?: string;
   existingDbPath?: string;
   loggingLevel?: string;
-}
-
-// type UndefinedName = "undefined";
-
-export interface DielSummary {
-  // this is for searching through relations and column definitions
-  // during the error checking and type inference phase
-  allRelations: {name: string, columns: Column};
 }
 
 // one need of context is to know whether it is in a program
@@ -150,25 +151,23 @@ export interface DielContext {
 }
 
 export interface DielAst {
-  inputs: DynamicRelationIr[];
-  dynamicTables: DynamicRelationIr[];
-  staticTables: StaticRelationIr[];
-  outputs: DerivedRelationIr[];
-  views: DerivedRelationIr[];
+  inputs: DynamicRelation[];
+  dynamicTables: DynamicRelation[];
+  staticTables: ExistingRelation[];
+  outputs: DerivedRelation[];
+  views: DerivedRelation[];
   programs: ProgramsIr[];
-  inserts: InsertQueryIr[];
-  drops: InsertQueryIr[];
+  inserts: InsertionClause[];
+  drops: Drop[];
   crossfilters: CrossFilterIr[];
   udfTypes: UdfType[];
   config?: DielConfig;
 }
 
-
-
 export interface CrossFilterChartIr {
   chartName: string;
-  predicate: JoinClauseIr;
-  definition: SelectQueryIr;
+  predicate: JoinAst;
+  denormalizedRelation: string;
 }
 
 export interface CrossFilterIr {
@@ -178,4 +177,29 @@ export interface CrossFilterIr {
 }
 
 
-export type ExpressionValue = DielAst | DynamicRelationIr | DerivedRelationIr | Column | SelectQueryIr | SelectQueryPartialIr | InsertQueryIr | InsertQueryIr[] | ProgramSpecIr | string | string[] | ProgramsIr | SelectBodyIr | CrossFilterIr | CrossFilterChartIr | JoinClauseIr | ExprAst | ViewConstraintsIr | RelationReference | UdfType;
+export type ExpressionValue = DielAst
+  | DynamicRelation
+  | DerivedRelation
+  | ExistingRelation
+  | ColumnSelection
+  | ColumnSelection[]
+  | Column
+  | OrderByAst[]
+  | CompositeSelectionUnit
+  | RelationSelection
+  | RelationConstraints
+  | ProgramSpec
+  | string
+  | string[]
+  | ProgramsIr
+  | CrossFilterIr
+  | CrossFilterChartIr
+  | JoinAst
+  | ExprBaseAst
+  | ExprAst
+  | ViewConstraints
+  | RelationReference
+  | SelectionUnit
+  | InsertionClause
+  | UdfType
+  ;

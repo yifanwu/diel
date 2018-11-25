@@ -1,9 +1,9 @@
 import * as fs from "fs";
 import * as stream from "stream";
-import { DielAst, DynamicRelationIr, DerivedRelationIr, DataType } from "../parser/dielAstTypes";
-import { RelationTs, RelationType } from "../lib/dielUtils";
+import { DielAst, DynamicRelation, DerivedRelation, DataType } from "../../dielAstTypes";
+import { RelationTs, RelationType } from "../../lib/dielUtils";
 import * as fmt from "typescript-formatter";
-import { LogInternalError } from "../lib/messages";
+import { LogInternalError } from "../../lib/messages";
 
 
 function dataTypeToTypeScript(t: DataType) {
@@ -19,17 +19,17 @@ function dataTypeToTypeScript(t: DataType) {
   }
 }
 
-function generateInputDelcaration(i: DynamicRelationIr) {
+function generateInputDelcaration(i: DynamicRelation) {
   return `${i.name}: (val: {${i.columns.map(c => `${c.name}: ${dataTypeToTypeScript(c.type)}`).join(", ")}}) => void`;
 }
 
-function generateInput(i: DynamicRelationIr) {
+function generateInput(i: DynamicRelation) {
     return `${i.name}: (val: {${i.columns.map(c => `${c.name}: ${dataTypeToTypeScript(c.type)}`).join(", ")}}) => {
       this.input.${i.name}.run(val);
     }`;
 }
 
-function generateView(v: DerivedRelationIr) {
+function generateView(v: DerivedRelation) {
   const checkNull = v.isNullable ? "" : `if (r.length === 0) {
     throw new Error(${v.name} should not be null);
   }`;
@@ -77,7 +77,7 @@ function generateDepMapString(m: Map<string, string[]>) {
 
 function generateStatements(ir: DielAst) {
   const genPrep = (a: RelationTs[]) => a.map(o => `${o.name}: this.db.prepare(\`${o.query}\`)`).join(",\n");
-  const genDeclaration = (a: (DynamicRelationIr | DerivedRelationIr)[]) => a.map(o => `${o.name}: Statement,`).join("\n");
+  const genDeclaration = (a: (DynamicRelation | DerivedRelation)[]) => a.map(o => `${o.name}: Statement,`).join("\n");
   console.log("genDeclaration of inputs", genDeclaration(ir.inputs));
   let assignment: string[] = [];
   let declaration: string[] = [];
@@ -100,16 +100,16 @@ function generateStatements(ir: DielAst) {
   };
 }
 
-function generateBindOutputDeclaration(o: DerivedRelationIr) {
+function generateBindOutputDeclaration(o: DerivedRelation) {
   return `${o.name}: (f: OutputBoundFunc) => void`;
 }
 
-function generateGetViewDeclaration(o: DerivedRelationIr) {
+function generateGetViewDeclaration(o: DerivedRelation) {
   // do some casting
   return `${o.name}: () => {${o.columns.map(c => `${c.columnName}: ${dataTypeToTypeScript(c.type)}`)}}[]`;
 }
 
-function generateBindOutput(o: DerivedRelationIr) {
+function generateBindOutput(o: DerivedRelation) {
   return `${o.name}: (f: OutputBoundFunc) => {
     this.sideEffects["${o.name}"] = () => {
       const r = this.GetView.${o.name}();
@@ -183,7 +183,7 @@ export class Diel {
 }`;
 }
 
-function createInputTs(ins: DynamicRelationIr[]): RelationTs[] {
+function createInputTs(ins: DynamicRelation[]): RelationTs[] {
   return ins.map(r => ({
     // relationType: RelationType.Input,
     name: r.name,
@@ -194,7 +194,7 @@ function createInputTs(ins: DynamicRelationIr[]): RelationTs[] {
   }));
 }
 
-function createDynamicTableTs(tables: DynamicRelationIr[]): RelationTs[] {
+function createDynamicTableTs(tables: DynamicRelation[]): RelationTs[] {
   return tables.map(t => ({
     // relationType: RelationType.Table,
     name: t.name,
@@ -202,7 +202,7 @@ function createDynamicTableTs(tables: DynamicRelationIr[]): RelationTs[] {
   }));
 }
 
-function createOutputTs(outs: DerivedRelationIr[]): RelationTs[] {
+function createOutputTs(outs: DerivedRelation[]): RelationTs[] {
   return outs.map(r => ({
     // relationType: RelationType.Output,
     name: r.name,
@@ -210,7 +210,7 @@ function createOutputTs(outs: DerivedRelationIr[]): RelationTs[] {
   }));
 }
 
-function createViewsTs(views: DerivedRelationIr[]): RelationTs[]  {
+function createViewsTs(views: DerivedRelation[]): RelationTs[]  {
   return views.filter(v => v.isPublic).map(r => ({
     // relationType: RelationType.View,
     name: r.name,

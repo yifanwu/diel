@@ -32,18 +32,21 @@ registerTypeTable
 templateStmt
   : CREATE TEMPLATE templateName=IDENTIFIER
     '(' IDENTIFIER (',' IDENTIFIER)* ')'
-    (selectQuery | joinClause | relationDefintion) ';'
+    (selectQuery | joinClause | relationDefintion)
+    DELIM
   ;
 
 crossfilterStmt
   : CREATE CROSSFILTER crossfilterName=IDENTIFIER ON relation=IDENTIFIER
-    BEGIN crossfilterChartStmt+ END ';'
+    BEGIN crossfilterChartStmt+ END
+    DELIM
   ;
 
 crossfilterChartStmt
   : CREATE XCHART chart=IDENTIFIER
     AS definitionQuery=selectQuery
-    WITH PREDICATE predicateClause=joinClause ';'
+    WITH PREDICATE predicateClause=joinClause
+    DELIM
   ;
 
 dataType
@@ -51,7 +54,7 @@ dataType
   ;
 
 columnDefinition
-  : IDENTIFIER dataType UNIQUE? (PRIMARY KEY)? (NOT NULL)?
+  : IDENTIFIER dataType columnConstraints*
   ;
 
 constraintDefinition
@@ -61,7 +64,7 @@ constraintDefinition
   ;
 
 inputStmt
-  : CREATE INPUT IDENTIFIER relationDefintion ';'
+  : CREATE INPUT IDENTIFIER relationDefintion DELIM
   ;
 
 dynamicTableStmt
@@ -74,15 +77,31 @@ relationDefintion
   ;
 
 outputStmt
-  : CREATE OUTPUT viewConstraints IDENTIFIER AS selectQuery ';'
+  : CREATE OUTPUT IDENTIFIER AS selectQuery
+    constraintClause
+    DELIM
   ;
-  
+
+constraintClause
+  :  CONSTRAIN (VIEW (viewConstraints)*)?
+    (CHECK (expr))*
+  ;
+
+columnConstraints
+  : UNIQUE
+  | PRIMARY KEY
+  | NOT NULL
+  ;
+
 viewConstraints
-  : (NOT NULL)? (SINGLE LINE)?
+  : NOT NULL
+  | SINGLE LINE
   ;
 
 viewStmt
-  : CREATE PUBLIC? viewConstraints VIEW IDENTIFIER AS selectQuery ';'
+  : CREATE PUBLIC? VIEW IDENTIFIER AS selectQuery
+    constraintClause
+    DELIM
   ;
 
 programStmt
@@ -112,25 +131,32 @@ variableAssignment
   ;
 
 compositeSelect
-  : compoundOp=(UNION|INTERSECT) selectUnitQuery
+  : setOp selectUnitQuery
+  ;
+
+setOp
+  : UNION
+  | INTERSECT
+  | UNION ALL 
+  | EXCEPT
   ;
 
 selectUnitQuery
   : SELECT
-      selectClause (',' selectClause)*
-      (
-        FROM
-          relationReference
-          joinClause*
-          whereClause?
-          groupByClause?
-          orderByClause?
-          limitClause?
-      )?
+    selectColumnClause (',' selectColumnClause)*
+    (
+      FROM
+      relationReference
+      joinClause*
+      whereClause?
+      groupByClause?
+      orderByClause?
+      limitClause?
+    )?
   ;
 
 // the seclectClauseCase is here and not in expr since it would allow for illegal expr
-selectClause
+selectColumnClause
   : expr (AS IDENTIFIER)?  # selectClauseSpecific
   | (IDENTIFIER '.')? STAR # selectClauseAll
   ;
@@ -176,8 +202,8 @@ relationReference
 expr
   : unitExpr                                 # exprSimple
   | '(' expr ')'                             # exprParenthesis
-  | function=IDENTIFIER '(' (expr ((COMMA|PIPE) expr))?  ')'  # exprFunction
-  | expr binOp expr                          # exprBinOp
+  | function=IDENTIFIER '(' (expr ((COMMA|PIPE) expr))? ')' # exprFunction
+  | expr (mathOp | compareOp | logicOp) expr          # exprBinOp
   | expr IS (NOT)? NULL                      # exprNull
   | (NOT)? EXIST '(' selectUnitQuery ')'     # exprExist
   | CASE WHEN expr THEN expr ELSE expr END   # exprWhen
@@ -195,12 +221,9 @@ columnSelection
   | IDENTIFIER '.' STAR                        # columnSelectionAll
   ;
 
-// they do not need to be named
-
-binOp
-  : mathOp
-  | compareOp
-  | logicOp
+value
+  : NUMBER # valueNumber
+  | STRING # valueString
   ;
 
 mathOp
@@ -225,21 +248,16 @@ logicOp
   | OR
   ;
 
-value
-  : NUMBER # valueNumber
-  | STRING # valueString
-  ;
 
-CREATE: 'CREATE' | 'create';
 INPUT: 'INPUT' | 'input';
 CROSSFILTER: 'CROSSFILTER' | 'crossfilter';
 PREDICATE : 'PREDICATE' | 'predicate';
+CONSTRAIN: 'CONSTRAIN' | 'constrain';
 TEMPLATE: 'TEMPLATE' | 'template';
 USE: 'USE' | 'use';
 XCHART: 'XCHART' | 'xchart';
 NAME: 'NAME' | 'name';
 STATIC: 'STATIC' | 'static';
-ACCESSIBLE: 'ACCESSIBLE' | 'accessible';
 PUBLIC: 'PUBLIC' | 'public';
 SINGLE: 'SINGLE' | 'single';
 LINE: 'LINE' | 'line';
@@ -250,6 +268,9 @@ UDF: 'UDF' | 'udf';
 WEBWORKER: 'WEBWORKER' | 'webworker' | 'WebWorker';
 
 // SQL
+CREATE: 'CREATE' | 'create';
+EXCEPT: 'EXCEPT' | 'except';
+ALL: 'ALL' | 'all';
 DROP: 'DROP' | 'drop';
 CHECK: 'CHECK' | 'check';
 UNIQUE: 'UNIQUE' | 'unique';

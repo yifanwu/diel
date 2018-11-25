@@ -2,8 +2,8 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 import { TemplateExpressionValue, TemplateIr, TemplateVisitorIr, TemplateVariableAssignments, TemplateType } from "./dielTemplateTypes";
-import { LogWarning, LogTmp, ReportDielUserError } from "../lib/messages";
-import { getCtxSourceCode } from "../compiler/helper";
+import { LogWarning, LogTmp, ReportDielUserError } from "../../lib/messages";
+import { getCtxSourceCode } from "../helper";
 
 export default class TemplateVisitor extends AbstractParseTreeVisitor<TemplateExpressionValue>
 implements visitor.DIELVisitor<TemplateExpressionValue> {

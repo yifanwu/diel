@@ -4,13 +4,6 @@ import { LogInfo } from "./messages";
 
 export type OutputBoundFunc = (v: any) => any;
 
-export enum RelationType {
-  Input = "input",
-  View = "view",
-  Output = "output",
-  Table = "table"
-}
-
 export interface RelationTs {
   // relationType: RelationType;
   name: string;
