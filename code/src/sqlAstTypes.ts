@@ -1,4 +1,4 @@
-import { DataType } from "./dielAstTypes";
+import { DataType, TemplateVariableAssignments } from "./dielAstTypes";
 import { ExprAst } from "./exprAstTypes";
 
 export interface SimpleColumSelection {
@@ -46,7 +46,10 @@ export enum SetOperator {
 }
 
 // ugh cannot be called selection because the DOM apparently is using this...
-export type RelationSelection = CompositeSelectionUnit[];
+export type RelationSelection = {
+  templateSpec?: TemplateVariableAssignments[];
+  selections: CompositeSelectionUnit[];
+};
 
 // recursive!!
 export interface SelectionUnit {
@@ -66,13 +69,14 @@ export interface RelationReference {
 }
 
 export interface JoinAst {
+  templateSpec?: TemplateVariableAssignments[];
   joinType: JoinType;
   relation: RelationReference;
   alias?: string;
   predicate: ExprAst;
 }
 
-export type rawValues = (string|number|boolean)[];
+export type RawValues = (string|number|boolean)[];
 
 /**
  * Insertion clause is either direct insertion of values
@@ -82,7 +86,7 @@ export interface InsertionClause {
   relation: string;
   columns: string[];
   selection?: RelationSelection;
-  values?: rawValues;
+  values?: RawValues;
 }
 
 export enum Order {

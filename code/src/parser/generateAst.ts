@@ -2,21 +2,19 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, ExistingRelation, DynamicRelation, StaticRelationType, RelationConstraints, DerivedRelationType, DielTemplate, DynamicRelationType } from "../dielAstTypes";
+import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, ExistingRelation, DynamicRelation, StaticRelationType, RelationConstraints, DerivedRelationType, DynamicRelationType, DielTemplate, TemplateVariableAssignments } from "../dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "../compiler/helper";
-import { LogInfo, LogWarning } from "../lib/messages";
-import { checkIsInput } from "./parseTimeErrorChecking";
-import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, ColumnConstraints, rawValues } from "../sqlAstTypes";
+import { LogInfo, LogInternalError } from "../lib/messages";
+import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues } from "../sqlAstTypes";
 import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst } from "../exprAstTypes";
-import { notNull } from "antlr4ts/misc";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
   private ir: DielAst;
-  // private templates: Map<string, DielTemplate>;
+  private templates: Map<string, DielTemplate>;
 
   defaultResult() {
-    LogWarning("All the visits should be handled");
+    LogInternalError("All the visits should be handled");
     return "";
   }
 
@@ -112,7 +110,9 @@ implements visitor.DIELVisitor<ExpressionValue> {
     // this is lazy, assume union or intersection to a hve the same columns
     const firstQuery = this.visit(ctx.selectUnitQuery()) as SelectionUnit;
     const compositeSelections = ctx.compositeSelect().map(e => this.visit(e) as CompositeSelectionUnit);
-    return [{op: SetOperator.UNION, relation: firstQuery}, ...compositeSelections];
+    return {
+      selections: [{op: SetOperator.UNION, relation: firstQuery}, ...compositeSelections]
+    };
   }
 
   visitDropQuery(ctx: parser.DropQueryContext): Drop {
@@ -322,15 +322,47 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   // template basically saves the AST and the AST gets parsed again when evaluated here
-  // visitTemplateStmt(ctx: parser.TemplateStmtContext) {
-  //   // not going to return anything, modify global
-  // }
-
-  visitJoinClauseTemplate(ctx: parser.JoinClauseTemplateContext) {
-    // return this.visit(ctx.templateQuery());
-    throw new Error("Template not yet implemented");
+  visitTemplateStmt(ctx: parser.TemplateStmtContext): string {
+    // not going to return anything, modify global
+    const templateName = ctx._templateName.text;
+    const variables = ctx.IDENTIFIER().map(i => i.text).splice(1);
+    let ast: RelationSelection | JoinAst;
+    if (ctx.selectQuery()) {
+      ast = this.visit(ctx.selectQuery()) as RelationSelection;
+    } else if (ctx.joinClause()) {
+      ast = this.visit(ctx.joinClause()) as JoinAst;
+    }
+    this.templates.set(templateName, {
+      variables,
+      ast
+    });
     return "";
   }
+
+  visitJoinClauseTemplate(ctx: parser.JoinClauseTemplateContext): JoinAst {
+    return this.visit(ctx.templateQuery()) as JoinAst;
+  }
+
+  visitSelectQueryTemplate(ctx: parser.SelectQueryTemplateContext): RelationSelection {
+    return this.visit(ctx.templateQuery()) as RelationSelection;
+  }
+
+  visitVariableAssignment(ctx: parser.VariableAssignmentContext): TemplateVariableAssignments {
+    const str = ctx._assignment.text;
+    return {
+      variable: ctx._variable.text,
+      assignment: str.slice(1, str.length - 1)
+    };
+  }
+
+  visitTemplateQuery(ctx: parser.TemplateQueryContext): JoinAst | RelationSelection {
+    const templateName = ctx._templateName.text;
+    const templateSpec = ctx.variableAssignment().map(v => this.visit(v) as TemplateVariableAssignments);
+    const template = this.templates.get(templateName);
+    template.ast.templateSpec = templateSpec;
+    return template.ast;
+  }
+
 
   visitRelationReferenceSimple(ctx: parser.RelationReferenceSimpleContext): RelationReference {
     const relationName = ctx._relation.text;
@@ -340,10 +372,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
       alias,
       relationName
     };
-
-  // relationName: string;
-  // alias?: string;
-  // subquery?: RelationSelection;
   }
 
   visitRelationReferenceSubQuery(ctx: parser.RelationReferenceSubQueryContext): RelationReference {
@@ -380,20 +408,33 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitDynamicTableStmt = (ctx: parser.DynamicTableStmtContext): DynamicRelation => {
+  visitDynamicTableStmt (ctx: parser.DynamicTableStmtContext): DynamicRelation {
     const name = ctx.IDENTIFIER().text;
     const relationType = DynamicRelationType.DynamicTable;
-    const columns = this.visit(ctx.relationDefintion()) as Column[];
+    let columns: Column[] = [];
+    let copyFrom = undefined;
+    const v = this.visit(ctx.relationDefintion());
+    if (typeof v === "string") {
+      copyFrom = v as string;
+    } else {
+      columns = v as Column[];
+    }
+
     return {
       name,
       relationType,
-      columns
+      columns,
+      copyFrom
     };
   }
 
-  visitRelationDefintion = (ctx: parser.RelationDefintionContext): Column[]  => {
+  visitRelationDefintionDirect(ctx: parser.RelationDefintionDirectContext): Column[] {
     const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
     return columns;
+  }
+
+  visitRelationDefintionCopy(ctx: parser.RelationDefintionCopyContext) {
+
   }
 
   visitConstraintClause(ctx: parser.ConstraintClauseContext): RelationConstraints {
@@ -417,7 +458,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
       } else if (e.NULL()) {
         notNull.push(e.IDENTIFIER()[0].text);
       } else if (e.CHECK()) {
-        exprChecks.push(this.visit(e.expr()));
+        exprChecks.push(this.visit(e.expr()) as ExprAst);
       }
     });
     return constraints;
@@ -477,13 +518,13 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const identifiers = ctx.IDENTIFIER().map(e => e.text);
     const relation = identifiers[0];
     const columns = identifiers.slice(1);
-    const v = this.visit(ctx.insertBody());
+    const v = this.visit(ctx.insertBody()) as any[];
     let selection;
     let values;
-    if ("op" in v[0]) {
+    if ("selections" in v) {
       selection = v as RelationSelection;
     } else {
-      values = v as rawValues;
+      values = v as RawValues;
     }
     return {
       relation,
@@ -493,7 +534,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitInsertBodyDirect(ctx: parser.InsertBodyDirectContext): rawValues {
+  visitInsertBodyDirect(ctx: parser.InsertBodyDirectContext): RawValues {
     return ctx.value().map(e => {
       const t = this.visit(e) as ExprValAst;
       return t.value;
@@ -501,7 +542,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   visitInsertBodySelect(ctx: parser.InsertBodySelectContext): RelationSelection {
-    return this.visit(ctx.selectUnitQuery());
+    return this.visit(ctx.selectQuery()) as RelationSelection;
   }
 
   // crossfilter

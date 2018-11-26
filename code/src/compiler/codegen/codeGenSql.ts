@@ -54,7 +54,7 @@ export function modifyIrFromCrossfilter(ir: DielAst) {
   // returning arrays of arrays, should be flattened for execution
   ir.crossfilters.map(i => {
     return i.charts.map(c => {
-      const viewQuery = `create public view ${c.chartName}Unfiltered as ${c.denormalizedRelation};`;
+      const viewQuery = `create public view ${c.chartName}Unfiltered as ${c.view};`;
       const viewIr = _getViewIr(viewQuery, ir);
       ir.views.push(viewIr);
       const otherCharts = i.charts.filter(c2 => c2.chartName !== c.chartName);

@@ -14,6 +14,12 @@ export function addTypes(ir: DielAst) {
 }
 
 
+    // // set the context
+    // this.context = {program : {isGeneral: true}};
+    // TODO: check that this is actually an input
+    // checkIsInput(input, this.ir);
+    // this.context = {program : {isGeneral: false, name: input}};
+
 export function dielIrComplain(reason: string) {
   LogInternalError(reason);
 }

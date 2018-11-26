@@ -1,13 +1,14 @@
-import { Column, JoinAst, RelationReference, ColumnSelection, ColumnConstraints, InsertionClause, Drop, RelationSelection, CompositeSelectionUnit, OrderByAst, SelectionUnit } from "./sqlAstTypes";
+import { Column, JoinAst, RelationReference, ColumnSelection, InsertionClause, Drop, RelationSelection, CompositeSelectionUnit, OrderByAst, SelectionUnit, RawValues } from "./sqlAstTypes";
 import { ExprAst, ExprValAst } from "./exprAstTypes";
 
-// must return all the possible types that the intermediate nodes can return
-// for now it's just strings; can add to later
-
 export interface DielTemplate {
-  templateName: string;
   variables: string[];
-  ast: JoinAst | RelationSelection | Column[];
+  ast: JoinAst | RelationSelection;
+}
+
+export interface TemplateVariableAssignments {
+  variable: string;
+  assignment: string;
 }
 
 export enum DataType {
@@ -17,6 +18,7 @@ export enum DataType {
   // this needs to be inferred in the next stage
   TBD = "TBD"
 }
+
 export enum DerivedRelationType {
   StaticTable = "StaticTable",
   PublicView = "PublicView",
@@ -114,6 +116,7 @@ export interface ExistingRelation extends RelationBase {
 export interface DynamicRelation extends RelationBase {
   relationType: DynamicRelationType;
   columns: Column[];
+  copyFrom?: string;
 }
 
 // TODO
@@ -125,17 +128,19 @@ export interface ServerConnection {
 // they are not recursive though
 // evaluating them will be a pain probably as well
 // I wonder if there is a similar dataflow structure for constraints???
+// also need to merge this with the column constraints later... ugh ugly
 export interface RelationConstraints {
-  relationNotNull?: boolean;
-  relationHasOneRow?: boolean;
-  primaryKeys: string[];
-  uniques: string[][]; // there could be multiple unique claueses
+  relationNotNull: boolean;
+  relationHasOneRow: boolean;
+  primaryKeys?: string[];
+  notNull?: string[];
+  uniques?: string[][]; // there could be multiple unique claueses
   exprChecks?: ExprAst[]; // these are actually on colunmn level, a bit weird here
   // the other parts are in columns.. ugh
 }
 
 export interface ProgramSpec {
-  selectPrograms: ColumnSelection[];
+  selectPrograms: RelationSelection[];
   insertPrograms: InsertionClause[];
 }
 
@@ -175,7 +180,7 @@ export interface DielAst {
 export interface CrossFilterChartIr {
   chartName: string;
   predicate: JoinAst;
-  denormalizedRelation: string;
+  selection: RelationSelection;
 }
 
 export interface CrossFilterIr {
@@ -199,15 +204,16 @@ export type ExpressionValue = DielAst
   | ProgramSpec
   | string
   | string[]
+  | RawValues
   | ProgramsIr
   | CrossFilterIr
   | CrossFilterChartIr
   | JoinAst
   | ExprValAst
   | ExprAst
-  | ViewConstraints
   | RelationReference
   | SelectionUnit
   | InsertionClause
   | UdfType
+  | TemplateVariableAssignments
   ;

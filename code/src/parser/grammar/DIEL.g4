@@ -31,7 +31,7 @@ registerTypeTable
 templateStmt
   : CREATE TEMPLATE templateName=IDENTIFIER
     '(' IDENTIFIER (',' IDENTIFIER)* ')'
-    (selectQuery | joinClause | relationDefintion)
+    (selectQuery | joinClause)
     DELIM
   ;
 
@@ -73,7 +73,8 @@ dynamicTableStmt
   ;
 
 relationDefintion
-  :  '(' columnDefinition (',' columnDefinition)* (',' constraintDefinition)* ')'
+  :  '(' columnDefinition (',' columnDefinition)* (',' constraintDefinition)* ')' # relationDefintionDirect
+  | AS IDENTIFIER # relationDefintionCopy
   ;
 
 outputStmt
@@ -170,7 +171,7 @@ insertQuery
 
 insertBody
   : VALUES '(' value (',' value)* ')' # insertBodyDirect
-  | selectUnitQuery                   # insertBodySelect
+  | selectQuery                       # insertBodySelect
   ;
 
 joinClause
@@ -339,10 +340,11 @@ STRING
 
 IDENTIFIER
   : (LETTER | DIGIT | '_')+
+  | '{' (LETTER | DIGIT | '_')+ '}'
   ;
 
-TEMPLATE_VARIABLE
-  : '{' (LETTER | DIGIT | '_')+ '}';
+// TEMPLATE_VARIABLE
+//   : ;
 
 WS
   : (' ' | '\t' | '\r'| '\n' | EOF ) -> channel(HIDDEN)
