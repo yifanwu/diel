@@ -6,7 +6,9 @@ export interface DielTemplate {
   ast: JoinAst | RelationSelection;
 }
 
-export interface TemplateVariableAssignments {
+export type TemplateVariableAssignments = Map<string, string>;
+
+export interface TemplateVariableAssignmentUnit {
   variable: string;
   assignment: string;
 }
@@ -15,6 +17,7 @@ export enum DataType {
   String = "String",
   Number = "Number",
   Boolean = "Boolean",
+  Relation = "Relation",
   // this needs to be inferred in the next stage
   TBD = "TBD"
 }
@@ -139,13 +142,14 @@ export interface RelationConstraints {
   // the other parts are in columns.. ugh
 }
 
-export interface ProgramSpec {
-  selectPrograms: RelationSelection[];
-  insertPrograms: InsertionClause[];
-}
+export type ProgramSpec = RelationSelection | InsertionClause;
 
-export interface ProgramsIr extends ProgramSpec {
-  input: string;
+/**
+ * If input is not specified, it's over all inputs.
+ */
+export interface ProgramsIr {
+  input?: string;
+  programs: ProgramSpec[];
 }
 
 export interface DielConfig {
@@ -201,7 +205,7 @@ export type ExpressionValue = DielAst
   | CompositeSelectionUnit
   | RelationSelection
   | RelationConstraints
-  | ProgramSpec
+  | ProgramSpec[]
   | string
   | string[]
   | RawValues
@@ -215,5 +219,5 @@ export type ExpressionValue = DielAst
   | SelectionUnit
   | InsertionClause
   | UdfType
-  | TemplateVariableAssignments
+  | TemplateVariableAssignmentUnit
   ;

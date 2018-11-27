@@ -38,18 +38,32 @@ export interface CompositeSelectionUnit {
   relation: SelectionUnit;
 }
 
+/**
+ * NA is used fort he first relation
+ */
 export enum SetOperator {
+  NA,
   UNION,
   UNIONALL,
   INTERSECT,
   EXCEPT
 }
 
+export enum AstType {
+  Insert,
+  Join,
+  RelationSelection
+}
+
+interface AstBase {
+  astType: AstType;
+}
+
 // ugh cannot be called selection because the DOM apparently is using this...
-export type RelationSelection = {
-  templateSpec?: TemplateVariableAssignments[];
+export interface RelationSelection extends AstBase {
+  templateSpec?: TemplateVariableAssignments;
   selections: CompositeSelectionUnit[];
-};
+}
 
 // recursive!!
 export interface SelectionUnit {
@@ -68,8 +82,8 @@ export interface RelationReference {
   subquery?: RelationSelection;
 }
 
-export interface JoinAst {
-  templateSpec?: TemplateVariableAssignments[];
+export interface JoinAst extends AstBase {
+  templateSpec?: TemplateVariableAssignments;
   joinType: JoinType;
   relation: RelationReference;
   alias?: string;
@@ -82,7 +96,7 @@ export type RawValues = (string|number|boolean)[];
  * Insertion clause is either direct insertion of values
  *   or derived another view
  */
-export interface InsertionClause {
+export interface InsertionClause extends AstBase {
   relation: string;
   columns: string[];
   selection?: RelationSelection;
@@ -101,4 +115,10 @@ export interface OrderByAst {
 
 export interface Drop {
   relationName: string;
+}
+
+// this is not used by Parser but by Compiler
+// putting it here since it's related
+export interface TriggerAst {
+  
 }

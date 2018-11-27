@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as stream from "stream";
-import { DielAst, DynamicRelation, DerivedRelation, DataType } from "../../dielAstTypes";
+import { DielAst, DynamicRelation, DerivedRelation, DataType } from "../../parser/dielAstTypes";
 import { RelationTs, RelationType } from "../../lib/dielUtils";
 import * as fmt from "typescript-formatter";
 import { LogInternalError } from "../../lib/messages";

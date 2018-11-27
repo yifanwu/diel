@@ -5,7 +5,7 @@ import * as path from "path";
 import * as parser from "../../parser/grammar/DIELParser";
 import * as lexer from "../../parser/grammar/DIELLexer";
 import Visitor from "../../parser/generateAst";
-import { DielAst, ProgramSpec, DataType, Column, DynamicRelation } from "../../dielAstTypes";
+import { DielAst, ProgramSpec, DataType, DynamicRelation } from "../../parser/dielAstTypes";
 import { LogInfo, LogStandout, LogInternalError } from "../../lib/messages";
 
 // then there will another pass where we do the networking logic.

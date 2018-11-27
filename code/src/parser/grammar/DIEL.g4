@@ -104,8 +104,14 @@ programStmt
   | CREATE PROGRAM AFTER IDENTIFIER programBody ';' # programStmtSpecific
   ;
 
+// defining aProgram so that we can retrieve the order of the specification
 programBody
-  : BEGIN (insertQuery | selectQuery)+ END
+  : BEGIN aProgram+ END
+  ;
+
+aProgram
+  : insertQuery 
+  | selectQuery
   ;
 
 selectQuery

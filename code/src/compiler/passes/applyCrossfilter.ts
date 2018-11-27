@@ -1,0 +1,45 @@
+import { DielAst, DerivedRelation, CrossFilterIr, DerivedRelationType } from "../../parser/dielAstTypes";
+import { SetOperator, SelectionUnit, RelationSelection, AstType } from "../../parser/sqlAstTypes";
+
+/**
+ * Notes:
+ * - We are assuming that crossfitlers do not have unions
+ * @param ast DielAst
+ */
+export function applyCrossfilter(ast: DielAst): void {
+  const newSetsOfViews = ast.crossfilters.map(c => _getViews(c));
+  ast.outputs = ast.outputs.concat(...newSetsOfViews);
+}
+
+function _getViews(xIr: CrossFilterIr): DerivedRelation[] {
+  // we need to create different views
+  // first the static ones
+  const unfilteredViews: DerivedRelation[] = xIr.charts.map(c => {
+    return {
+      relationType: DerivedRelationType.PublicView,
+      name: `${c.chartName}Unfiltered`,
+      selection: c.selection
+    };
+  });
+  const filteredViews: DerivedRelation[] = xIr.charts.map(c => {
+    const otherCharts = xIr.charts.filter(c2 => c2.chartName !== c.chartName);
+    const base = c.selection.selections[0].relation;
+    // might not be the most performant.
+    let relation = JSON.parse(JSON.stringify(base)) as SelectionUnit;
+    relation.joinClauses = base.joinClauses.concat(otherCharts.map(o => o.predicate));
+    const selection: RelationSelection = {
+      astType: AstType.RelationSelection,
+      selections: [{
+        op: SetOperator.NA,
+        relation
+      }]
+    };
+    return {
+      name: `${c.chartName}Filtered`,
+      relationType: DerivedRelationType.Output,
+      selection
+    };
+  });
+  // then the dynamic ones
+  return unfilteredViews.concat(filteredViews);
+}

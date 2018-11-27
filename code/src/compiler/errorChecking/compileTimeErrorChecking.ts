@@ -1,4 +1,4 @@
-import { DielAst } from "../../dielAstTypes";
+import { DielAst } from "../../parser/dielAstTypes";
 import { ReportDielUserError } from "../../lib/messages";
 
 // this pass should inforce the following constraints:

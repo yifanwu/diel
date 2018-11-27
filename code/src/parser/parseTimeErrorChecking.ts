@@ -1,4 +1,4 @@
-import { DielAst } from "../dielAstTypes";
+import { DielAst } from "./dielAstTypes";
 import { ReportDielUserError } from "../lib/messages";
 
 export function checkIsInput(name: string, ir: DielAst) {

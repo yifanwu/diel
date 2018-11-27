@@ -6,7 +6,7 @@ import * as sqlFormatter from "sql-formatter";
 
 import TemplateVisitor from "../parser/compileTemplate";
 import Visitor from "../parser/generateAst";
-import { DielConfig } from "../dielAstTypes";
+import { DielConfig } from "../parser/dielAstTypes";
 import { modifyIrFromCrossfilter } from "./codegen/codeGenSql";
 import { LogInfo } from "../lib/messages";
 

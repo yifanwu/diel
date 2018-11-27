@@ -1,6 +1,6 @@
-import { DielAst } from "../../dielAstTypes";
+import { DielAst } from "../../parser/dielAstTypes";
 import { LogInternalError, ReportDielUserError } from "../../lib/messages";
-import { Column, ColumnSelection, RelationReference } from "../../sqlAstTypes";
+import { Column, ColumnSelection, RelationReference } from "../../parser/sqlAstTypes";
 
 
 export function addTypes(ir: DielAst) {

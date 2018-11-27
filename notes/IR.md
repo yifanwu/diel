@@ -42,6 +42,8 @@ If the table is defined with WebWorker in front of it, then the tables will be p
 
 dynamic vs static tables --- dynamic tables are inserted, static tables are views over non input relations (ugh why are there so many types already?)
 
+Decided to unify the constraints and deviate a litlte from original SQL syntax for convenience (for now; easy to change!) ugh but not null is weird 
+
 ### state program
 
 syntax: `after input <input name> begin <insert program> end` (can only insert, and cannot insert into other inputs). The execution is in order and will be executed before the views are evaluted.

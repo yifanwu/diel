@@ -1,13 +1,23 @@
 import { DataType } from "./dielAstTypes";
-import { ColumnSelection, SimpleColumSelection } from "./sqlAstTypes";
+import { ColumnSelection, SimpleColumSelection, RelationSelection } from "./sqlAstTypes";
 
 /**
  * Notes
- * * expression has to be a recursive dataype
+ * - expression has to be a recursive dataype
+ * - we allow for sets in the Expr to make the set-oriented functions expressible.
  */
-export type ExprAst = ExprFunAst | ExprValAst | ExprColumnAst;
+
+export enum ExprType {
+  Func,
+  Val,
+  Column,
+  Relation
+}
+
+export type ExprAst = ExprFunAst | ExprValAst | ExprColumnAst | ExprRelationAst;
 
 export interface ExprBase {
+  exprType: ExprType;
   dataType: DataType;
 }
 
@@ -31,6 +41,10 @@ export enum FunctionType {
   Logic,
   BuiltIn,
   Custom
+}
+
+export interface ExprRelationAst extends ExprBase {
+  selection: RelationSelection;
 }
 
 export interface ExprFunAst extends ExprBase {
