@@ -3,7 +3,7 @@ import { LogInternalError, ReportDielUserError } from "../../lib/messages";
 import { Column, ColumnSelection, RelationReference } from "../../parser/sqlAstTypes";
 
 
-export function addTypes(ir: DielAst) {
+export function applyTypes(ast: DielAst): void {
   // walk through all the select queries in the IR
   // it's really annoying to organize the internal objects as I want to filter them by different attributes --- would be nice to have a relational representation internally haha
 

@@ -64,8 +64,11 @@ export interface RelationSelection extends AstBase {
   selections: CompositeSelectionUnit[];
 }
 
-// recursive!!
+// recursive!!!
 export interface SelectionUnit {
+  // this is first filled in by getting rid of the stars
+  // then it's filled by the type inference pass
+  columns?: Column[];
   selections: ColumnSelection[];
   baseRelation: RelationReference;
   joinClauses?: JoinAst[];

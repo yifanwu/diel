@@ -16,13 +16,13 @@ import { DielAst, DynamicRelation } from "../../parser/dielAstTypes";
  * - dynamicTables
  * @param ast diel ast
  */
-export function templatePass(ast: DielAst) {
+export function applyTemplates(ast: DielAst) {
   // note: i think the concat should be fine with modifying in place?
-  ast.views.concat(ast.outputs).map(r => applyTemplate(r.selection));
+  ast.views.concat(ast.outputs).map(r => applyATemplate(r.selection));
   ast.crossfilters.map(x => {
     x.charts.map(c => {
-      applyTemplate(c.predicate);
-      applyTemplate(c.selection);
+      applyATemplate(c.predicate);
+      applyATemplate(c.selection);
     });
   });
 
@@ -50,7 +50,7 @@ export function templatePass(ast: DielAst) {
  * modify in place
  * @param ast
  */
-function applyTemplate(ast: RelationSelection | JoinAst): void {
+function applyATemplate(ast: RelationSelection | JoinAst): void {
 
   if (!ast.templateSpec) {
     LogInternalError(`Template variables not specified`);
