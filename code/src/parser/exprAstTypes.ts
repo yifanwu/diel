@@ -11,10 +11,11 @@ export enum ExprType {
   Func,
   Val,
   Column,
-  Relation
+  Relation,
+  Parenthesis
 }
 
-export type ExprAst = ExprFunAst | ExprValAst | ExprColumnAst | ExprRelationAst;
+export type ExprAst = ExprFunAst | ExprValAst | ExprColumnAst | ExprRelationAst | ExprParen;
 
 export interface ExprBase {
   exprType: ExprType;
@@ -41,6 +42,10 @@ export enum FunctionType {
   Logic,
   BuiltIn,
   Custom
+}
+
+export interface ExprParen extends ExprBase {
+  content: ExprAst;
 }
 
 export interface ExprRelationAst extends ExprBase {

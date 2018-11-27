@@ -1,12 +1,56 @@
 import { JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType } from "../../parser/sqlAstTypes";
 import { LogInternalError, ReportDielUserError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprRelationAst } from "../../parser/exprAstTypes";
+import { DielAst, DynamicRelation } from "../../parser/dielAstTypes";
+
+/**
+ * Find all the top level selections for:
+ * - views
+ * - outputs
+ *
+ * Possibly also joins for
+ * - crossfilters
+ *
+ * Do the copy pass for:
+ * - inputs
+ * - dynamicTables
+ * @param ast diel ast
+ */
+export function templatePass(ast: DielAst) {
+  // note: i think the concat should be fine with modifying in place?
+  ast.views.concat(ast.outputs).map(r => applyTemplate(r.selection));
+  ast.crossfilters.map(x => {
+    x.charts.map(c => {
+      applyTemplate(c.predicate);
+      applyTemplate(c.selection);
+    });
+  });
+
+  // defined here since it needs to access the global definition
+  function copyRelationSpec(r: DynamicRelation): void {
+    if (r.copyFrom) {
+      // make sure it's not copying from itself
+      if (r.copyFrom === r.name) {
+        ReportDielUserError(`You cannot copy ${r.name} from itself!`);
+      }
+      // find the relation
+      const sourceRelation = ast.inputs.concat(ast.dynamicTables).filter(r => r.name === r.copyFrom);
+      if (sourceRelation.length === 0) {
+        ReportDielUserError(`The relation definition you are trying to copy from, ${r.copyFrom}, does not exist`);
+      } else {
+        r.columns = sourceRelation[0].columns;
+      }
+    }
+  }
+  // and the copy pass
+  ast.inputs.concat(ast.dynamicTables).map(r => copyRelationSpec(r));
+}
 
 /**
  * modify in place
  * @param ast
  */
-export function applyTemplate(ast: RelationSelection | JoinAst): void {
+function applyTemplate(ast: RelationSelection | JoinAst): void {
 
   if (!ast.templateSpec) {
     LogInternalError(`Template variables not specified`);

@@ -105,19 +105,6 @@ function _getViewIr(viewQuery: string, ir: DielAst) {
 // TODO
 // function generateAsyncSql() {
 // }
-const TypeConversionLookUp = new Map<DataType, string>([
-  [DataType.String, "TEXT"], [DataType.Number, "REAL"], [DataType.Boolean, "INTEGER"]
-]);
-
-function _genColumnDefinition(c: Column): string {
-  if (!c.constraints) {
-    LogInternalError(`Constraints for column ${c.name} is not defined`);
-  }
-  const notNull = c.constraints.notNull ? "NOT NULL" : "";
-  const unique = c.constraints.unique ? "UNIQUE" : "";
-  const primary = c.constraints.key ? "PRIMARY KEY" : "";
-  return `${c.name} ${TypeConversionLookUp.get(c.type)} ${notNull} ${unique} ${primary}`;
-}
 
 function _genRelation(r: DynamicRelation, isInput: boolean) {
   let spec: string[] = [];

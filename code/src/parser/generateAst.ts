@@ -6,7 +6,7 @@ import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterC
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError } from "../lib/messages";
 import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType } from "./sqlAstTypes";
-import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType } from "./exprAstTypes";
+import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen } from "./exprAstTypes";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
@@ -225,8 +225,12 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   // begin paren
-  visitExprParenthesis(ctx: parser.ExprParenthesisContext): ExprAst {
-    return this.visit(ctx.expr()) as ExprAst;
+  visitExprParenthesis(ctx: parser.ExprParenthesisContext): ExprParen {
+    return {
+      dataType: DataType.TBD,
+      exprType: ExprType.Parenthesis,
+      content: this.visit(ctx.expr()) as ExprAst
+    };
   }
 
   // begin

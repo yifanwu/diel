@@ -13,6 +13,8 @@ export function addTypes(ir: DielAst) {
 
 }
 
+// we will also get rid of the stars...
+
 
     // // set the context
     // this.context = {program : {isGeneral: true}};

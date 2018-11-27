@@ -20,9 +20,9 @@ export interface Column {
 }
 
 export interface ColumnConstraints {
-  notNull: boolean;
-  unique: boolean;
-  key: boolean;
+  notNull?: boolean;
+  unique?: boolean;
+  key?: boolean;
 }
 
 export enum JoinType {
@@ -30,7 +30,6 @@ export enum JoinType {
   Inner = "Inner",
   CROSS = "Cross"
 }
-
 
 export interface CompositeSelectionUnit {
   // sequence of unions and intersections; SQL does not allow parenthesis here, they can create subqueries though
@@ -87,7 +86,7 @@ export interface JoinAst extends AstBase {
   joinType: JoinType;
   relation: RelationReference;
   alias?: string;
-  predicate: ExprAst;
+  predicate?: ExprAst;
 }
 
 export type RawValues = (string|number|boolean)[];
@@ -115,10 +114,4 @@ export interface OrderByAst {
 
 export interface Drop {
   relationName: string;
-}
-
-// this is not used by Parser but by Compiler
-// putting it here since it's related
-export interface TriggerAst {
-  
 }
