@@ -31,11 +31,6 @@ export enum BuiltInFunc {
   IfThisThen = "IfThisThen"
 }
 
-// export const BuiltInFuncReference: Map<BuiltInFunc, string> = new Map([
-//   [BuiltInFunc.ConcatStrings, "concat"],
-//   [BuiltInFunc.ValueIsNull, ""]
-// ]);
-
 export enum FunctionType {
   Math,
   Compare,

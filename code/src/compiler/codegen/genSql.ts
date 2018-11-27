@@ -1,14 +1,14 @@
 import { DielAst, DynamicRelation, ProgramsIr, DataType } from "../../parser/dielAstTypes";
-import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType } from "../../parser/sqlAstTypes";
+import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType } from "../../parser/sqlAstTypes";
 import { RelationSpec, RelationQuery, SqlIr } from "../passes/createSqlIr";
 import { LogInternalError, ReportDielUserError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
-// taking in the interface in SqlIr
 
 export function generateSqlFromIr(ir: SqlIr) {
   const tables = ir.tables.map(t => generateTableSpec(t));
   const views = ir.views.map(v => generateViews(v));
-  return tables.concat(views);
+  const triggers = ir.triggers.map(t => generateTrigger(t));
+  return tables.concat(views).concat(triggers);
 }
 
 function generateTableSpec(t: RelationSpec): string {
@@ -129,11 +129,11 @@ function generateExpr(e: ExprAst): string {
 }
 
 function generateGroupBy(s: ColumnSelection[]): string {
-
+  return `GROUP BY ${generateColumnSelection(s)}`;
 }
 
 function generateOrderBy(o: OrderByAst[]): string {
-
+  return `ORDER BY ${o.map(i => i.selection)}`;
 }
 
 function generateLimit(e: ExprAst): string {
@@ -141,13 +141,30 @@ function generateLimit(e: ExprAst): string {
 }
 
 function generateTrigger(t: ProgramsIr): string {
-
+  if (!t.input) {
+    // this is the general one
+    return "";
+  }
+  let program = `CREATE TRIGGER ${t.input}DielProgram AFTER INSERT ON ${t.input}\nBEGIN\n`;
+  program += t.programs.map(p => {
+    if (p.astType === AstType.RelationSelection) {
+      const r = p as RelationSelection;
+      return generateSelect(r.selections);
+    } else {
+      const i = p as InsertionClause;
+      return generateInserts(i);
+    }
+  }).join(";\n");
+  program += "\nEND;";
+  return program;
 }
 
 function generateInserts(i: InsertionClause): string {
-
+  const values = i.values
+    ? i.values.map(v => v.toString()).join(", ")
+    : generateSelect(i.selection.selections);
+  return `INSERT INTO ${i.relation} ${values}`;
 }
-
 
 const TypeConversionLookUp = new Map<DataType, string>([
   [DataType.String, "TEXT"], [DataType.Number, "REAL"], [DataType.Boolean, "INTEGER"]
