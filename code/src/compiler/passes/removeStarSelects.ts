@@ -1,5 +1,5 @@
-import { DielAst } from "../../parser/dielAstTypes";
-import { RelationSelection, SelectionUnit, RelationReference, Column } from "../../parser/sqlAstTypes";
+import { DielAst, DataType } from "../../parser/dielAstTypes";
+import { RelationSelection, SelectionUnit, RelationReference, Column, getRelationReferenceName } from "../../parser/sqlAstTypes";
 import { ReportDielUserError } from "../../lib/messages";
 import { ExprColumnAst, ExprType } from "../../parser/exprAstTypes";
 
@@ -79,8 +79,16 @@ interface RelationColumns {
     ReportDielUserError(`Relation not defined`);
   }
 
-  function createExprColumn(cols: Column[]) {
-
+  function createExprColumn(cols: Column[], relation: string): ExprColumnAst[] {
+    return cols.map(c => ({
+      exprType: ExprType.Column,
+      dataType: DataType.TBD,
+      column: {
+        hasStar: false,
+        columnName: c.name,
+        relationName: relation,
+      }
+    }));
   }
 
   function visitSelectionUnit(s: SelectionUnit): void {
@@ -117,11 +125,10 @@ interface RelationColumns {
             }
           }));
           s.joinClauses.map(j => {
-            populatedColumns.push(getColumnsFromRelationReference(j.relation).map(found => ({
-
-            })));
+            const newColumns = createExprColumn(getColumnsFromRelationReference(j.relation), getRelationReferenceName(j.relation));
+            populatedColumns = newColumns.concat(newColumns);
           });
-          
+          return populatedColumns;
         }
       }
     });
