@@ -24,9 +24,9 @@ export function getIR(code: string, config?: DielConfig) {
     ir.config = config;
   }
   // apply the templates
-  applyTemplates(ir);
-  applyCrossfilter(ir);
-  applyStarReferences(ir);
-  applyTypes(ir);
+  // applyTemplates(ir);
+  // applyCrossfilter(ir);
+  // applyStarReferences(ir);
+  // applyTypes(ir);
   return ir;
 }

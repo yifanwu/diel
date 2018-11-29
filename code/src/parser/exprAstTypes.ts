@@ -8,11 +8,11 @@ import { ColumnSelection, SimpleColumSelection, RelationSelection } from "./sqlA
  */
 
 export enum ExprType {
-  Func,
-  Val,
-  Column,
-  Relation,
-  Parenthesis
+  Func = "Func",
+  Val = "Val",
+  Column = "Column",
+  Relation = "Relation",
+  Parenthesis = "Parenthesis"
 }
 
 export type ExprAst = ExprFunAst | ExprValAst | ExprColumnAst | ExprRelationAst | ExprParen;
@@ -32,11 +32,11 @@ export enum BuiltInFunc {
 }
 
 export enum FunctionType {
-  Math,
-  Compare,
-  Logic,
-  BuiltIn,
-  Custom
+  Math = "Math",
+  Compare = "Compare",
+  Logic = "Logic",
+  BuiltIn = "BuiltIn",
+  Custom = "Custom"
 }
 
 export interface ExprParen extends ExprBase {

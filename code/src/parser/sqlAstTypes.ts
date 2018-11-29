@@ -1,10 +1,13 @@
 import { DataType, TemplateVariableAssignments } from "./dielAstTypes";
 import { ExprAst } from "./exprAstTypes";
 
-export interface SimpleColumSelection {
-  hasStar: boolean;
+export interface DirectColumnSelection {
   columnName: string;
   relationName?: string;
+}
+
+export interface SimpleColumSelection extends DirectColumnSelection {
+  hasStar: boolean;
 }
 
 export interface ColumnSelection {
@@ -82,6 +85,15 @@ export interface RelationReference {
   relationName?: string;
   alias?: string;
   subquery?: RelationSelection;
+}
+
+// it's a bit ugly to put here but better than turning everything into a class??
+// maybe i should refactor later
+export function getRelationReferenceName(r: RelationReference) {
+  if (r.alias) {
+    return r.alias;
+  }
+  return r.relationName;
 }
 
 export interface JoinAst extends AstBase {

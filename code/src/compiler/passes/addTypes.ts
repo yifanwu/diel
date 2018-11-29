@@ -9,8 +9,6 @@ export function applyTypes(ast: DielAst): void {
 
   // const query = getCtxSourceCode(ctx);
   // columns.filter(c => c.type === DataType.TBD).map(c => findType(c, selectBody, query, this.context));
-
-
 }
 
 // we will also get rid of the stars...

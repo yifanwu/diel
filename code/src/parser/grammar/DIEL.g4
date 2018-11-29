@@ -79,7 +79,7 @@ relationDefintion
 
 outputStmt
   : CREATE OUTPUT IDENTIFIER AS selectQuery
-    constraintClause
+    (constraintClause)?
     DELIM
   ;
 
@@ -95,7 +95,7 @@ columnConstraints
 
 viewStmt
   : CREATE PUBLIC? VIEW IDENTIFIER AS selectQuery
-    constraintClause
+    (constraintClause)?
     DELIM
   ;
 
@@ -209,7 +209,7 @@ expr
 // that's recursive and we want to keep unit as the base case IMO (not a concrete pattern yet)
 unitExpr
   : (relation=IDENTIFIER '.')? (column=IDENTIFIER | STAR)       # unitExprColumn
-  | '(' selectUnitQuery ')'  # unitExprSubQuery // check to make sure it's a single value
+  | '(' selectQuery ')'  # unitExprSubQuery // check to make sure it's a single value
   | value                    # unitExprValue
   ;
 

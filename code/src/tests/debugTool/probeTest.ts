@@ -1,8 +1,10 @@
 import * as fs from "fs";
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
-import * as parser from "../parser/grammar/DIELParser";
-import * as lexer from "../parser/grammar/DIELLexer";
-import Visitor from "../parser/generateAst";
+import * as parser from "../../parser/grammar/DIELParser";
+import * as lexer from "../../parser/grammar/DIELLexer";
+import Visitor from "../../parser/generateAst";
+
+// this is a helper for looking at the IR.
 
 function main() {
   console.log("starting probe tests");

@@ -21,7 +21,6 @@ interface RelationColumns {
  export function applyStarReferences(ast: DielAst): void {
   // views/output, and programs
   // similar structure
-  let context;
   ast.views.map(v => visitSelection(v.selection));
 
   function findGolbalRelation(refName: string): Column[] {

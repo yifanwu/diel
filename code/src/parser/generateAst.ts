@@ -6,7 +6,7 @@ import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterC
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError } from "../lib/messages";
 import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType } from "./sqlAstTypes";
-import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen } from "./exprAstTypes";
+import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst } from "./exprAstTypes";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
@@ -97,7 +97,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitOutputStmt(ctx: parser.OutputStmtContext): DerivedRelation {
     const name = ctx.IDENTIFIER().text;
     const selection = this.visit(ctx.selectQuery()) as RelationSelection;
-    const constraints = this.visit(ctx.constraintClause()) as RelationConstraints;
+    const constraints = ctx.constraintClause() ? this.visit(ctx.constraintClause()) as RelationConstraints : null;
     return {
       name,
       relationType: DerivedRelationType.Output,
@@ -126,7 +126,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitViewStmt(ctx: parser.ViewStmtContext): DerivedRelation {
     const name = ctx.IDENTIFIER().text;
     const relationType = ctx.PUBLIC() ? DerivedRelationType.PublicView : DerivedRelationType.PrivateView;
-    const constraints = this.visit(ctx.constraintClause()) as RelationConstraints;
+    const constraints = ctx.constraintClause() ? this.visit(ctx.constraintClause()) as RelationConstraints : null;
     const selection = this.visit(ctx.selectQuery()) as RelationSelection;
     return {
       name,
@@ -147,10 +147,10 @@ implements visitor.DIELVisitor<ExpressionValue> {
     if (ctx.FROM()) {
       const baseRelation = this.visit(ctx.relationReference()) as RelationReference;
       const joinClauses = ctx.joinClause().map(e => this.visit(e) as JoinAst);
-      const whereClause = this.visit(ctx.whereClause()) as ExprAst;
-      const groupByClause = this.visit(ctx.groupByClause()) as ColumnSelection[];
-      const orderByClause = this.visit(ctx.orderByClause()) as OrderByAst[];
-      const limitClause = this.visit(ctx.limitClause()) as ExprAst;
+      const whereClause = ctx.whereClause() ? this.visit(ctx.whereClause()) as ExprAst : null;
+      const groupByClause = ctx.groupByClause() ? this.visit(ctx.groupByClause()) as ColumnSelection[] : null;
+      const orderByClause = ctx.orderByClause() ? this.visit(ctx.orderByClause()) as OrderByAst[] : null;
+      const limitClause = ctx.limitClause() ? this.visit(ctx.limitClause()) as ExprAst : null;
       body = {
         baseRelation,
         joinClauses,
@@ -201,6 +201,15 @@ implements visitor.DIELVisitor<ExpressionValue> {
       exprType: ExprType.Column,
       column,
       dataType: DataType.TBD
+    };
+  }
+
+  visitUnitExprSubQuery(ctx: parser.UnitExprSubQueryContext): ExprRelationAst {
+    const selection = this.visit(ctx.selectQuery()) as RelationSelection;
+    return {
+      exprType: ExprType.Relation,
+      dataType: DataType.Relation,
+      selection,
     };
   }
 
@@ -336,6 +345,10 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
+  visitWhereClause(ctx: parser.WhereClauseContext): ExprAst {
+    return this.visit(ctx.expr()) as ExprAst;
+  }
+
   // template basically saves the AST and the AST gets parsed again when evaluated here
   visitTemplateStmt(ctx: parser.TemplateStmtContext): string {
     // not going to return anything, modify global
@@ -378,7 +391,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitRelationReferenceSimple(ctx: parser.RelationReferenceSimpleContext): RelationReference {
     const relationName = ctx._relation.text;
     // check if the name is a relation
-    const alias = ctx._alias ? ctx._alias.text : name;
+    const alias = ctx._alias ? ctx._alias.text : relationName;
     return {
       alias,
       relationName
