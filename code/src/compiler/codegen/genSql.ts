@@ -42,7 +42,7 @@ function generateCompositeSelectionUnit(c: CompositeSelectionUnit): string {
 }
 
 function generateSelectionUnit(v: SelectionUnit): string {
-  return `select ${generateColumnSelection(v.selections)}
+  return `select ${generateColumnSelection(v.columnSelections)}
     from ${v.baseRelation}
     ${v.joinClauses.map(j => generateJoin(j))}
     ${generateWhere(v.whereClause)}
@@ -58,7 +58,7 @@ function generateRelationReference(r: RelationReference): string {
   if (r.relationName) {
     query += r.relationName;
   } else {
-    query += generateSelect(r.subquery.selections);
+    query += generateSelect(r.subquery.compositeSelections);
   }
   if (r.alias) {
     query += `AS ${r.alias}`;
@@ -104,7 +104,7 @@ function generateExpr(e: ExprAst): string {
     return `${c.column.relationName ? `${c.column.relationName}.` : ""}${c.column.columnName}`;
   } else if (e.exprType === ExprType.Relation) {
     const r = e as ExprRelationAst;
-    return generateSelect(r.selection.selections);
+    return generateSelect(r.selection.compositeSelections);
   } else if (e.exprType === ExprType.Parenthesis) {
     const p = e as ExprParen;
     return `(${generateExpr(p.content)})`;
@@ -146,10 +146,10 @@ function generateTrigger(t: ProgramsIr): string {
     return "";
   }
   let program = `CREATE TRIGGER ${t.input}DielProgram AFTER INSERT ON ${t.input}\nBEGIN\n`;
-  program += t.programs.map(p => {
+  program += t.queries.map(p => {
     if (p.astType === AstType.RelationSelection) {
       const r = p as RelationSelection;
-      return generateSelect(r.selections);
+      return generateSelect(r.compositeSelections);
     } else {
       const i = p as InsertionClause;
       return generateInserts(i);
@@ -162,7 +162,7 @@ function generateTrigger(t: ProgramsIr): string {
 function generateInserts(i: InsertionClause): string {
   const values = i.values
     ? i.values.map(v => v.toString()).join(", ")
-    : generateSelect(i.selection.selections);
+    : generateSelect(i.selection.compositeSelections);
   return `INSERT INTO ${i.relation} ${values}`;
 }
 

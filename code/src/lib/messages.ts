@@ -48,3 +48,9 @@ export function GenerateUnitTestErrorLogger(testName: string) {
     throw new Error(`Unit test ${testName} failed\n`);
   };
 }
+
+export function sanityAssert(b: boolean, msg: string) {
+  if (!b) {
+    LogInternalError(`Assertion error: ${msg}`);
+  }
+}

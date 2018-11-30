@@ -149,7 +149,7 @@ export type ProgramSpec = RelationSelection | InsertionClause;
  */
 export interface ProgramsIr {
   input?: string;
-  programs: ProgramSpec[];
+  queries: ProgramSpec[];
 }
 
 export interface DielConfig {

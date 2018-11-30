@@ -112,7 +112,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const compositeSelections = ctx.compositeSelect().map(e => this.visit(e) as CompositeSelectionUnit);
     return {
       astType: AstType.RelationSelection,
-      selections: [{op: SetOperator.UNION, relation: firstQuery}, ...compositeSelections]
+      compositeSelections: [{op: SetOperator.NA, relation: firstQuery}, ...compositeSelections]
     };
   }
 
@@ -138,8 +138,8 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   // TODO: do some type checking/inference on the selected.
   visitSelectUnitQuery(ctx: parser.SelectUnitQueryContext): SelectionUnit {
-    const selections = ctx.selectColumnClause().map(s => this.visit(s) as ColumnSelection);
-    if (selections.length < 1) {
+    const columnSelections = ctx.selectColumnClause().map(s => this.visit(s) as ColumnSelection);
+    if (columnSelections.length < 1) {
       const selectQuery = ctx.selectColumnClause().map(s => getCtxSourceCode(s)).join(", ");
       throw new Error(`There should be some column values in select, query is ${selectQuery}`);
     }
@@ -161,7 +161,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
       };
     }
     return {
-      selections,
+      columnSelections,
       ...body,
     };
   }
@@ -391,7 +391,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitRelationReferenceSimple(ctx: parser.RelationReferenceSimpleContext): RelationReference {
     const relationName = ctx._relation.text;
     // check if the name is a relation
-    const alias = ctx._alias ? ctx._alias.text : relationName;
+    const alias = ctx._alias ? ctx._alias.text : null;
     return {
       alias,
       relationName
@@ -515,18 +515,18 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   // programs
   visitProgramStmtGeneral(ctx: parser.ProgramStmtGeneralContext): ProgramsIr {
-    const programs = this.visit(ctx.programBody()) as ProgramSpec[];
+    const queries = this.visit(ctx.programBody()) as ProgramSpec[];
     return {
-      programs
+      queries
     };
   }
 
   visitProgramStmtSpecific(ctx: parser.ProgramStmtSpecificContext): ProgramsIr {
     const input = ctx.IDENTIFIER().text;
-    const programs = this.visit(ctx.programBody()) as ProgramSpec[];
+    const queries = this.visit(ctx.programBody()) as ProgramSpec[];
     return {
       input,
-      programs
+      queries
     };
   }
 

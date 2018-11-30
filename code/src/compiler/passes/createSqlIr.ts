@@ -68,18 +68,18 @@ export function createSqlIr(ast: DielAst): SqlIr {
     .map(v => ({
       name: v.name,
       sqlRelationType: SqlRelationType.View,
-      query: v.selection.selections
+      query: v.selection.compositeSelections
     }));
 
   const programsAll = ast.programs.filter(p => (p.input));
   const programsToAdd = programsAll.length > 0
-    ? programsAll[0].programs
+    ? programsAll[0].queries
     : [];
 
   const triggers = ast.programs.map(p => {
     return {
       input: p.input,
-      programs: programsToAdd.concat(p.programs)
+      queries: programsToAdd.concat(p.queries)
     };
   });
 

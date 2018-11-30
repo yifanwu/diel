@@ -1,6 +1,6 @@
 import * as fs from "fs";
 
-import { getIR } from "../../compiler/compiler";
+import { getDielAst } from "../../compiler/compiler";
 import { LogStandout } from "../../lib/messages";
 
 
@@ -14,7 +14,7 @@ async function main() {
     const tests = fs.readFileSync(`./src/tests/testPrograms/${fn}.sql`, "utf8").split(/-- TEST: \w+\n/);
     tests.filter(t => t.length > 0).map(t => {
       LogStandout(`Running\n${t}`);
-      let ir = getIR(t);
+      let ir = getDielAst(t);
       console.log(`Generated IR:\n${JSON.stringify(ir, null, 2)}\n`);
     });
   });

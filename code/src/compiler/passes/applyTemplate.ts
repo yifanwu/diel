@@ -113,7 +113,7 @@ function applyATemplate(ast: RelationSelection | JoinAst): void {
   }
 
   function _visitCompositeSelectionUnit(ast: CompositeSelectionUnit): void {
-    ast.relation.selections.map(c => _visitColumnSelection(c));
+    ast.relation.columnSelections.map(c => _visitColumnSelection(c));
     _visitRelationReference(ast.relation.baseRelation);
     ast.relation.joinClauses.map(j => _visitJoinAst(j));
     _visitExprAst(ast.relation.whereClause);
@@ -123,6 +123,6 @@ function applyATemplate(ast: RelationSelection | JoinAst): void {
   }
 
   function _visitSelection(subAst: RelationSelection) {
-    subAst.selections.map(s => _visitCompositeSelectionUnit(s));
+    subAst.compositeSelections.map(s => _visitCompositeSelectionUnit(s));
   }
 }

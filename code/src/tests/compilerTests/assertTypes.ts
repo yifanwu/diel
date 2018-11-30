@@ -1,4 +1,4 @@
-import { getIR } from "../../compiler/compiler";
+import { getDielAst } from "../../compiler/compiler";
 import { GenerateUnitTestErrorLogger, LogInfo } from "../../lib/messages";
 import { DataType, Column, DielAst } from "../../parser/dielAstTypes";
 
@@ -30,7 +30,7 @@ function assertBasic() {
     create view v1 as select a from t;
     create view v2 as select a*2 as newA from t;
     `;
-  let ir = getIR(q);
+  let ir = getDielAst(q);
   _checkView(ir, "v1", {name: "a", type: DataType.Number}, logger);
   _checkView(ir, "v2", {name: "newA", type: DataType.Number}, logger);
   LogInfo(`assertBasic passed`);
@@ -50,7 +50,7 @@ function assertDerivedFromNested() {
     select udf(b) as udfB, udf2(a) as udfA
     from t;`;
   console.log(`Testing ${q}`);
-  let ir = getIR(q);
+  let ir = getDielAst(q);
   _checkView(ir, "v", {name: "b", type: DataType.String}, logger);
   _checkView(ir, "v", {name: "newA", type: DataType.Number}, logger);
   _checkView(ir, "v2", {name: "udfB", type: DataType.Number}, logger);

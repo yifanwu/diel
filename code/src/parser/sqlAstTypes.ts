@@ -44,17 +44,17 @@ export interface CompositeSelectionUnit {
  * NA is used fort he first relation
  */
 export enum SetOperator {
-  NA,
-  UNION,
-  UNIONALL,
-  INTERSECT,
-  EXCEPT
+  NA = "NA",
+  UNION = "UNION",
+  UNIONALL = "UNIONALL",
+  INTERSECT = "INTERSECT",
+  EXCEPT = "EXCEPT"
 }
 
 export enum AstType {
-  Insert,
-  Join,
-  RelationSelection
+  Insert = "INSERT",
+  Join = "Join",
+  RelationSelection = "RelationSelection"
 }
 
 interface AstBase {
@@ -64,7 +64,7 @@ interface AstBase {
 // ugh cannot be called selection because the DOM apparently is using this...
 export interface RelationSelection extends AstBase {
   templateSpec?: TemplateVariableAssignments;
-  selections: CompositeSelectionUnit[];
+  compositeSelections: CompositeSelectionUnit[];
 }
 
 // recursive!!!
@@ -72,7 +72,7 @@ export interface SelectionUnit {
   // this is first filled in by getting rid of the stars
   // then it's filled by the type inference pass
   columns?: Column[];
-  selections: ColumnSelection[];
+  columnSelections: ColumnSelection[];
   baseRelation: RelationReference;
   joinClauses?: JoinAst[];
   whereClause?: ExprAst;
@@ -90,10 +90,7 @@ export interface RelationReference {
 // it's a bit ugly to put here but better than turning everything into a class??
 // maybe i should refactor later
 export function getRelationReferenceName(r: RelationReference) {
-  if (r.alias) {
-    return r.alias;
-  }
-  return r.relationName;
+  return r.alias ? r.alias : r.relationName;
 }
 
 export interface JoinAst extends AstBase {

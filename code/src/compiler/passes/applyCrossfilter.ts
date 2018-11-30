@@ -23,13 +23,13 @@ function _getViews(xIr: CrossFilterIr): DerivedRelation[] {
   });
   const filteredViews: DerivedRelation[] = xIr.charts.map(c => {
     const otherCharts = xIr.charts.filter(c2 => c2.chartName !== c.chartName);
-    const base = c.selection.selections[0].relation;
+    const base = c.selection.compositeSelections[0].relation;
     // might not be the most performant.
     let relation = JSON.parse(JSON.stringify(base)) as SelectionUnit;
     relation.joinClauses = base.joinClauses.concat(otherCharts.map(o => o.predicate));
     const selection: RelationSelection = {
       astType: AstType.RelationSelection,
-      selections: [{
+      compositeSelections: [{
         op: SetOperator.NA,
         relation
       }]

@@ -1,4 +1,13 @@
-// basically will augment the AST??
+/**
+ * Ways that the IR is different from the AST:
+ * - the selection will only have Expressions, and all Column Expressions
+ *   must have a source table, as well as functions that take in only one column
+ * - there will be no templates
+ * - all the types will be cast
+ */
 
-// we know that the columns will now have to be typed
-// but we cannot type the final thing, since we might need to type the intermediate stuff...
+// this is the normalized representation...
+// i wonder how to compose this with the others
+export interface SelectionUnitIr {
+
+}

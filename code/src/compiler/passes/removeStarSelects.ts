@@ -1,7 +1,8 @@
 import { DielAst, DataType } from "../../parser/dielAstTypes";
-import { RelationSelection, SelectionUnit, RelationReference, Column, getRelationReferenceName } from "../../parser/sqlAstTypes";
-import { ReportDielUserError } from "../../lib/messages";
+import { RelationSelection, SelectionUnit, RelationReference, Column, getRelationReferenceName, AstType, ColumnSelection, SimpleColumSelection } from "../../parser/sqlAstTypes";
+import { ReportDielUserError, sanityAssert } from "../../lib/messages";
 import { ExprColumnAst, ExprType } from "../../parser/exprAstTypes";
+import { visitSelections } from "../dielVisitors";
 
 interface RelationColumns {
   refName: string;
@@ -18,11 +19,15 @@ interface RelationColumns {
  * can we do it such that we revursively do it --- like if it's not done, trigger the function again until it's done (is this why it's so fractal-ly???)
  */
 
- export function applyStarReferences(ast: DielAst): void {
+export function normalizeColumnSelection(ast: DielAst): void {
   // views/output, and programs
   // similar structure
-  ast.views.map(v => visitSelection(v.selection));
+  visitSelections(ast, visitSelection);
+  function visitSelection(r: RelationSelection): void {
+    r.compositeSelections.map(s => visitSelectionUnit(s.relation));
+  }
 
+  // helper functions
   function findGolbalRelation(refName: string): Column[] {
     const dynamicResult = ast.inputs.concat(ast.dynamicTables).filter(r => r.name === refName);
     if (dynamicResult.length > 0) {
@@ -31,7 +36,8 @@ interface RelationColumns {
     // now check the other relations
     const staticResult = ast.outputs.concat(ast.views).filter(r => r.name === refName);
     if (staticResult.length > 0) {
-      const staticResultUnitSelection = staticResult[0].selection.selections[0].relation;
+      // there should really just be one?
+      const staticResultUnitSelection = staticResult[0].selection.compositeSelections[0].relation;
       if (!staticResultUnitSelection.columns) {
         // recursive!
         visitSelectionUnit(staticResultUnitSelection);
@@ -45,7 +51,7 @@ interface RelationColumns {
       return null;
     }
     if (ref.subquery) {
-      const refRelation = ref.subquery.selections[0].relation;
+      const refRelation = ref.subquery.compositeSelections[0].relation;
       if (!refRelation.columns) {
         // recursive!
         visitSelectionUnit(refRelation);
@@ -55,11 +61,6 @@ interface RelationColumns {
       return findGolbalRelation(ref.relationName);
     }
   }
-
-  function visitSelection(r: RelationSelection): void {
-    r.selections.map(s => visitSelectionUnit(s.relation));
-  }
-
   function findLocalRelation(s: SelectionUnit, refName: string): Column[] {
 
     const baseResult = getColumnsFromRelationReference(s.baseRelation, refName);
@@ -90,9 +91,21 @@ interface RelationColumns {
     }));
   }
 
+  function findColumn(currentColumn: SimpleColumSelection, relation: RelationReference) {
+    const columns = getColumnsFromRelationReference(relation);
+    if (columns) {
+      if (columns.find(searchColumn => searchColumn.name === currentColumn.columnName)) {
+        currentColumn.relationName = getRelationReferenceName(relation);
+        return true;
+      }
+    }
+    return false;
+  }
+
   function visitSelectionUnit(s: SelectionUnit): void {
     // the body of the function
-    const columnSet = s.selections.map(c => {
+    const columnSet = s.columnSelections.map(c => {
+      // this is the star part
       if (c.hasStar) {
         if (c.relationName) {
           // find the relation
@@ -120,7 +133,7 @@ interface RelationColumns {
             column: {
               hasStar: false,
               columnName: newColumn.name,
-              relationName: s.baseRelation.alias ? s.baseRelation.alias : s.baseRelation.relationName
+              relationName: getRelationReferenceName(s.baseRelation)
             }
           }));
           s.joinClauses.map(j => {
@@ -129,8 +142,26 @@ interface RelationColumns {
           });
           return populatedColumns;
         }
+      } else if (c.expr.exprType === ExprType.Column) {
+        // we are applying this only for vanilla selections...
+        // can do fancier things later
+        const currentColumn = (c.expr as ExprColumnAst).column;
+        if (!currentColumn.relationName) {
+          if (!findColumn(currentColumn, s.baseRelation)) {
+            sanityAssert((s.joinClauses) && (s.joinClauses.length > 0), "We cannot find the column in the relations you specified");
+            for (let j = 0; j < s.joinClauses.length; j ++) {
+              if (findColumn(currentColumn, s.joinClauses[j].relation)) {
+                return [currentColumn];
+              }
+            }
+            // if we are here it's bad
+            ReportDielUserError(`We were not able to find column: ${currentColumn.columnName}`);
+          }
+        }
       }
+      return [c];
     });
-    s.selections = [].concat(...columnSet);
+    // fixme: this is incorrect right now since we need to append
+    s.columnSelections = [].concat(...columnSet);
   }
 }
