@@ -89,7 +89,7 @@ interface RuntimeQuery {
  * generates the IR
  * also creatre the APIs for querying a single column
  */
-export class DieRuntime {
+export class DielRuntime {
   queries: RuntimeQuery[];
   db: Database;
   constructor(db?: Database) {

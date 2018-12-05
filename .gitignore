@@ -6,6 +6,7 @@
 *.tokens
 *.jar
 *tmp.*
+trash/
 code/dirgen/
 code/compiled/
 code/dist/

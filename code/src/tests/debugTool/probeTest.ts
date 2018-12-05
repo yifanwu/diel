@@ -3,8 +3,9 @@ import { getDielAst } from "../../compiler/compiler";
 // this is a helper for looking at the IR.
 
 const query = `
-  create DYNAMIC table t (a int, b int);
-  create view v1 as select a, b+1 from t;
+  create DYNAMIC table t1 (a int, b int);
+  create DYNAMIC table t2 (c int, b int);
+  create view v1 as select a, c from t1 join (select b from t2) as t on t1.b = t.b where t1.a > 1;
 `;
 
 function main() {
