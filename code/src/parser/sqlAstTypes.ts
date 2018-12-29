@@ -1,6 +1,8 @@
 import { DataType, TemplateVariableAssignments } from "./dielAstTypes";
 import { ExprAst } from "./exprAstTypes";
 
+// internal types
+
 export interface DirectColumnSelection {
   columnName: string;
   relationName?: string;
@@ -61,10 +63,12 @@ interface AstBase {
   astType: AstType;
 }
 
+export type CompositeSelection = CompositeSelectionUnit[];
+
 // ugh cannot be called selection because the DOM apparently is using this...
 export interface RelationSelection extends AstBase {
   templateSpec?: TemplateVariableAssignments;
-  compositeSelections: CompositeSelectionUnit[];
+  compositeSelections: CompositeSelection;
 }
 
 // recursive!!!

@@ -6,10 +6,6 @@ import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateAst";
 import { DielConfig } from "../parser/dielAstTypes";
 import { LogInfo } from "../lib/messages";
-import { normalizeColumnSelection } from "./passes/removeStarSelects";
-import { applyCrossfilter } from "./passes/applyCrossfilter";
-import { applyTemplates } from "./passes/applyTemplate";
-import { applyTypes } from "./passes/addTypes";
 
 export function getDielAst(code: string, config?: DielConfig) {
   LogInfo("Starting compilation");
@@ -24,10 +20,6 @@ export function getDielAst(code: string, config?: DielConfig) {
     ir.config = config;
   }
   // apply the templates
-  // applyTemplates(ir);
-  // applyCrossfilter(ir);
-  // normalizeColumnSelection(ir);
-  // applyTypes(ir);
   return ir;
 }
 

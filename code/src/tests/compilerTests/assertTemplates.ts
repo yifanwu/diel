@@ -1,4 +1,4 @@
-import { applyTempalates } from "../../compiler/compiler";
+import { applyTemplates } from "../../compiler/passes/applyTemplate";
 import { GenerateUnitTestErrorLogger, LogInfo, LogStandout } from "../../lib/messages";
 
 function trimStr(s: string) {
@@ -24,7 +24,7 @@ function assertTemplateBasic() {
   create view v1 as use template ordinalChart(v='day');
   create output v2 as select a, b from table1 join (use template ordinalChart(v='day')) as table2;
     `;
-  const genCode = applyTempalates(q);
+  const genCode = applyTemplates(q);
   LogStandout(`Tempalated Query:\n${genCode}`);
   const snippets = genCode.split("\n--gen\n").map(s => trimStr(s));
   const genV1 = `create view v1 as select day as x, count(*) as y from flights`;

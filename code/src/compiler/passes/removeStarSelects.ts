@@ -1,26 +1,23 @@
 import { DielAst, DataType } from "../../parser/dielAstTypes";
-import { RelationSelection, SelectionUnit, RelationReference, Column, getRelationReferenceName, AstType, ColumnSelection, SimpleColumSelection } from "../../parser/sqlAstTypes";
+import { RelationSelection, SelectionUnit, RelationReference, Column, getRelationReferenceName, SimpleColumSelection } from "../../parser/sqlAstTypes";
 import { ReportDielUserError, sanityAssert } from "../../lib/messages";
 import { ExprColumnAst, ExprType } from "../../parser/exprAstTypes";
 import { visitSelections } from "../dielVisitors";
 
-interface RelationColumns {
-  refName: string;
-  columns: Column[];
-}
+// interface RelationColumns {
+//   refName: string;
+//   columns: Column[];
+// }
 
 /**
- * this pass removes the .*
- * to find all the selects, we need to find all the relations
- * [ ] we can make this generalizable, like a walker to find all relation and then apply some function on it
- * notes:
+ * this pass removes the .* as well as filling in where the columns comes from if it's not specified
+ *
  * - we need to keep track of subqueries, e.g., select k.* from (select * from t1) k;
  * the visitation order matters. We probably want to start with the leaves
  * can we do it such that we revursively do it --- like if it's not done, trigger the function again until it's done (is this why it's so fractal-ly???)
  */
 
 export function normalizeColumnSelection(ast: DielAst): void {
-  // views/output, and programs
   // similar structure
   visitSelections(ast, visitSelection);
   function visitSelection(r: RelationSelection): void {

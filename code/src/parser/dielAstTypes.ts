@@ -55,6 +55,7 @@ export interface TransferInfo {
   location: string;
 }
 
+// currently only support a single output
 export interface UdfType {
   udf: string;
   type: DataType;

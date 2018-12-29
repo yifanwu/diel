@@ -12,3 +12,5 @@ Any views that are used more than once will be materialiazed, and it will be del
 This should also work with the caching layer with asynchronous sources... 
 
 ## Plan for more advanced
+
+Note: hm, there are a lot of subtle order dependencies every where.
