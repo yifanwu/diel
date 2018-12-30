@@ -1,9 +1,11 @@
 import * as fs from "fs";
 import * as stream from "stream";
-import { DielAst, DynamicRelation, DerivedRelation, DataType } from "../../parser/dielAstTypes";
-import { RelationTs, RelationType } from "../../lib/dielUtils";
+import { DielIr } from "../DielIr";
+import { DielAst, DynamicRelation, DerivedRelation, DataType, DerivedRelationType } from "../../parser/dielAstTypes";
+import { RelationTs } from "../../lib/dielUtils";
 import * as fmt from "typescript-formatter";
 import { LogInternalError } from "../../lib/messages";
+import { DependencyTree } from "../passes/passesHelper";
 
 
 function dataTypeToTypeScript(t: DataType) {
@@ -30,10 +32,10 @@ function generateInput(i: DynamicRelation) {
 }
 
 function generateView(v: DerivedRelation) {
-  const checkNull = v.isNullable ? "" : `if (r.length === 0) {
+  const checkNull = v.constraints.notNull ? "" : `if (r.length === 0) {
     throw new Error(${v.name} should not be null);
   }`;
-  const returnStmt = v.isSingle
+  const returnStmt = v.constraints.relationHasOneRow
     ? `if (r.length > 1) throw new Error (${v.name} should have single value);
         return r[0];`
     : `return r;`;
@@ -48,23 +50,6 @@ function generateView(v: DerivedRelation) {
     ${checkNull}
     ${returnStmt}
   }`;
-}
-
-function generateDependencies(ir: DielAst) {
-  // build the graph of read/write dependencies
-  // ir.outputs.map
-  // for each output, look at its inputs
-  const inputDependency = new Map<string, string[]>();
-  ir.outputs.map(o => {
-    o.selectBody.relations.map(r => {
-      if (inputDependency.has(r.name)) {
-        inputDependency.get(r.name).push(o.name);
-      } else {
-        inputDependency.set(r.name, [o.name]);
-      }
-    });
-  });
-  return inputDependency;
 }
 
 function generateDepMapString(m: Map<string, string[]>) {
@@ -106,7 +91,7 @@ function generateBindOutputDeclaration(o: DerivedRelation) {
 
 function generateGetViewDeclaration(o: DerivedRelation) {
   // do some casting
-  return `${o.name}: () => {${o.columns.map(c => `${c.columnName}: ${dataTypeToTypeScript(c.type)}`)}}[]`;
+  return `${o.name}: () => {${o.selection.compositeSelections[0].relation.columns.map(c => `${c.name}: ${dataTypeToTypeScript(c.type)}`)}}[]`;
 }
 
 function generateBindOutput(o: DerivedRelation) {
@@ -133,7 +118,7 @@ function generateApi(ir: DielAst) {
     declaration.push(`public BindOutput: {${ir.outputs.map(generateBindOutputDeclaration).join(",\n")}};`);
     assignment.push(`this.BindOutput = {${ir.outputs.map(generateBindOutput)}};`);
   }
-  const pubViews = ir.views.filter(v => v.isPublic).concat(ir.outputs);
+  const pubViews = ir.views.filter(v => v.relationType === DerivedRelationType.PublicView).concat(ir.outputs);
   if (pubViews.length > 0) {
     declaration.push(`public GetView: {${pubViews.map(generateGetViewDeclaration).join("\n")}};`);
     assignment.push(`this.GetView = {${pubViews.map(generateView)}};`);
@@ -144,10 +129,26 @@ function generateApi(ir: DielAst) {
   };
 }
 
-function generateDiel(ir: DielAst) {
-  const dependencies = generateDepMapString(generateDependencies(ir));
-  const statements = generateStatements(ir);
-  const apis = generateApi(ir);
+function generateDependencies(ast: DielAst, depTree: DependencyTree) {
+  const inputDependency = new Map<string, string[]>();
+  ast.inputs.map(i => {
+    let affectedOutputs: string[] = [];
+    // search through dependency
+    // ugh would have been easier if the schemas were also in relations...
+    for (let [key, value] of depTree) {
+      if (value.dependsOn.filter(d => d === i.name)) {
+        affectedOutputs.push(key);
+      }
+    }
+    inputDependency.set(i.name, affectedOutputs);
+  });
+  return inputDependency;
+}
+
+function generateTsCode(ast: DielAst, depTree: DependencyTree) {
+  const dependencies = generateDepMapString(generateDependencies(ast, depTree));
+  const statements = generateStatements(ast);
+  const apis = generateApi(ast);
   return `
 import { Database, Statement } from "sql.js";
 import { loadDbHelper, OutputBoundFunc, LogInfo } from "diel";
@@ -210,16 +211,16 @@ function createOutputTs(outs: DerivedRelation[]): RelationTs[] {
   }));
 }
 
-function createViewsTs(views: DerivedRelation[]): RelationTs[]  {
-  return views.filter(v => v.isPublic).map(r => ({
-    // relationType: RelationType.View,
-    name: r.name,
-    query: `select * from ${r.name};`
-  }));
-}
+// function createViewsTs(views: DerivedRelation[]): RelationTs[]  {
+//   return views.filter(v => v.relationType === DerivedRelationType.PublicView).map(r => ({
+//     // relationType: RelationType.View,
+//     name: r.name,
+//     query: `select * from ${r.name};`
+//   }));
+// }
 
-export async function genTs(ir: DielAst) {
-  const rawText = generateDiel(ir);
+export async function genTs(ast: DielAst, depTree: DependencyTree) {
+  const rawText = generateTsCode(ast, depTree);
   fs.writeFileSync("tmpUnformatted.ts", rawText);
   let input = new stream.Readable();
   input.push(rawText);

@@ -30,7 +30,7 @@ export function getSelectionUnitDep(s: SelectionUnit): string[] {
   s.joinClauses.map(j => {
     deps = deps.concat(getRelationReferenceDep(j.relation));
   });
-  if (s.whereClause.exprType === ExprType.Relation) {
+  if (s.whereClause && s.whereClause.exprType === ExprType.Relation) {
     const relationExpr = s.whereClause as ExprRelationAst;
     deps = deps.concat(relationExpr.selection.compositeSelections.reduce((acc, c) => acc.concat(getSelectionUnitDep(c.relation)), []));
   }
@@ -43,6 +43,7 @@ export function getTopologicalOrder(depTree: DependencyTree) {
   // this code is so dumb
   let visitedStringToNumber = new Map<string, number>();
   let visitedArray: { visited: boolean, relationName: string }[] = [];
+  let topoSorted: string[] = [];
   let i = 0;
   for (let key of depTree.keys()) {
     visitedStringToNumber.set(key, i);
@@ -52,20 +53,26 @@ export function getTopologicalOrder(depTree: DependencyTree) {
   let hasUnmarked = visitedArray.filter(v => !v.visited);
   while (hasUnmarked.length > 0) {
     topoVisit(hasUnmarked[0].relationName);
+    hasUnmarked = visitedArray.filter(v => !v.visited);
+    console.log("another topo loop");
   }
-  let sorted: string[] = [];
   function topoVisit(relation: string) {
-    if (visitedArray[visitedStringToNumber.get(relation)].visited) {
+    if (!visitedStringToNumber.has(relation)) {
+      // this should be the case where a static relation is referred
+      // in which case we can just skip; enhance later #FIXMELATER
       return;
     }
-    for (let d in depTree.get(relation).dependsOn) {
+    const idx = visitedStringToNumber.get(relation);
+    if (visitedArray[idx].visited) {
+      return;
+    }
+    // ugh of vs in
+    for (let d of depTree.get(relation).dependsOn) {
       topoVisit(d);
     }
-    visitedArray[visitedStringToNumber.get(relation)].visited = true;
-    sorted.push(relation);
+    visitedArray[idx].visited = true;
+    topoSorted.push(relation);
   }
-  return sorted;
-}
-function checkColumnFoundForType(columnFound: Column[]) {
-
+  // there are no dangling leaves; they will just have no dependencies
+  return topoSorted;
 }

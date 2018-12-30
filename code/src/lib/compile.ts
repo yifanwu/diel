@@ -7,8 +7,8 @@ import * as fs from "fs";
 
 import { resolve } from "path";
 import { LogWarning, LogInfo, ReportDielUserError } from "./messages";
-import { getDielAst } from "../compiler/compiler";
-import { genFiles } from "../compiler/fileGen";
+import { getDielIr } from "../compiler/compiler";
+import { genFiles } from "../compiler/codegen/fileGen";
 
 // read file dielconfig.json's src for files to read from
 const configFile = "dielconfig.json";
@@ -57,7 +57,7 @@ function compileFromJSON(inputFilePath: string) {
     }
     // dump this to a file
     fs.writeFileSync(path.join(config.dist, `inputDielStmt.sql`), diel);
-    const ir = getDielAst(diel);
+    const ir = getDielIr(diel);
     genFiles(ir, config.dist);
   });
 }

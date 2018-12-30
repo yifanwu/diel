@@ -166,20 +166,12 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitSelectClauseSpecific(ctx: parser.SelectClauseSpecificContext): ColumnSelection {
+  visitSelectColumnClause(ctx: parser.SelectColumnClauseContext): ColumnSelection {
     const expr = this.visit(ctx.expr()) as ExprAst;
+    const alias = ctx.IDENTIFIER().text;
     return {
-      hasStar: false,
+      alias,
       expr
-    };
-  }
-
-  visitSelectClauseAll(ctx: parser.SelectClauseAllContext): ColumnSelection {
-    const hasStar = true;
-    const relationName = ctx.IDENTIFIER().text;
-    return {
-      hasStar,
-      relationName
     };
   }
 
@@ -192,15 +184,12 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const hasStar = ctx.STAR() ? true : false;
     const columnName = ctx._column ? ctx._column.text : undefined;
     const relationName = ctx._relation ? ctx._relation.text : undefined;
-    const column = {
-      hasStar,
-      columnName,
-      relationName
-    };
     return {
       exprType: ExprType.Column,
-      column,
-      dataType: DataType.TBD
+      dataType: DataType.TBD,
+      hasStar,
+      columnName,
+      relationName,
     };
   }
 

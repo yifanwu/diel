@@ -2,17 +2,15 @@ import * as fs from "fs";
 import * as path from "path";
 import { Database } from "sql.js";
 
-import { genTs } from "./codegen/codeGenTs";
-import { genSql } from "./codegen/codeGenSql";
-import { DielAst } from "../parser/dielAstTypes";
-import { LogInternalError, LogInfo } from "../lib/messages";
+import { LogInternalError, LogInfo } from "../../lib/messages";
+import { DielIr } from "../DielIr";
 
-export async function genFiles(ir: DielAst, filePath: string) {
+export async function genFiles(ir: DielIr, filePath: string) {
   let dbFileName = "diel.db";
   let sqlFileName = "diel.sql";
   LogInfo(`Generating Files!`);
   // TS gen
-  const doc = await genTs(ir);
+  const doc = await ir.GenerateTs();
   fs.writeFileSync(path.join(filePath, "Diel.ts"), doc);
 
   // SQL gen
@@ -24,8 +22,7 @@ export async function genFiles(ir: DielAst, filePath: string) {
     db = new Database();
   }
 
-  const sqlQueries = genSql(ir);
-
+  const sqlQueries = ir.GenerateSql();
   fs.writeFileSync(path.join(filePath, sqlFileName), sqlQueries.join("\n"));
   for (let s of sqlQueries) {
     try {

@@ -6,8 +6,9 @@ import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateAst";
 import { DielConfig } from "../parser/dielAstTypes";
 import { LogInfo } from "../lib/messages";
+import { DielIr } from "./DielIr";
 
-export function getDielAst(code: string, config?: DielConfig) {
+export function getDielIr(code: string, config?: DielConfig) {
   LogInfo("Starting compilation");
   const inputStream = new ANTLRInputStream(code);
   const l = new lexer.DIELLexer(inputStream);
@@ -15,22 +16,19 @@ export function getDielAst(code: string, config?: DielConfig) {
   const p = new parser.DIELParser(tokenStream);
   const tree = p.queries();
   let visitor = new Visitor();
-  let ir = visitor.visitQueries(tree);
-  if (config) {
-    ir.config = config;
-  }
+  let ast = visitor.visitQueries(tree);
   // apply the templates
-  return ir;
+  return new DielIr(ast, config);
 }
 
-export function getSelectionUnitAst(code: string) {
-  const inputStream = new ANTLRInputStream(code);
-  const l = new lexer.DIELLexer(inputStream);
-  const tokenStream = new CommonTokenStream(l);
-  const p = new parser.DIELParser(tokenStream);
-  const tree = p.selectUnitQuery();
-  let visitor = new Visitor();
-  let ir = visitor.visitSelectUnitQuery(tree);
-  // FIXME: do the things.
-  return ir;
-}
+// export function getSelectionUnitAst(code: string) {
+//   const inputStream = new ANTLRInputStream(code);
+//   const l = new lexer.DIELLexer(inputStream);
+//   const tokenStream = new CommonTokenStream(l);
+//   const p = new parser.DIELParser(tokenStream);
+//   const tree = p.selectUnitQuery();
+//   let visitor = new Visitor();
+//   let ast = visitor.visitSelectUnitQuery(tree);
+//   // FIXME: do the things.
+//   return ast;
+// }

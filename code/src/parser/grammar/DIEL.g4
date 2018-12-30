@@ -213,10 +213,10 @@ unitExpr
   | value                    # unitExprValue
   ;
 
-// the seclectClauseCase is here and not in expr since it would allow for illegal expr
 selectColumnClause
-  : expr (AS IDENTIFIER)?  # selectClauseSpecific
-  | (IDENTIFIER '.')? STAR # selectClauseAll
+  : expr (AS IDENTIFIER)?
+  // # selectClauseSpecific
+  // | (IDENTIFIER '.')? STAR # selectClauseAll
   ;
 
 

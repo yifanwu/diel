@@ -1,28 +1,30 @@
--- TEST: simplePrimary
-CREATE TABLE t1 (
-  itxId INTEGER PRIMARY KEY
-);
+import { getDielIr } from "../../compiler/compiler";
+import { LogStandout } from "../../lib/messages";
 
--- TEST: simpleNull
+const primaryKey = `CREATE TABLE t1 (
+  itxId INTEGER PRIMARY KEY
+);`;
+
+const notNull = `
 CREATE TABLE t2 (
   ts INTEGER NOT NULL,
   chart TEXT NOT NULL
-);
+);`;
 
--- TEST: simpleUnique
+const simpleUnique = `
 CREATE TABLE t3 (
   ts INTEGER UNIQUE
-);
+);`;
 
--- TEST: unique
+const unique = `
 CREATE TABLE t4 (
   ts INTEGER NOT NULL,
   chart TEXT NOT NULL,
   UNIQUE(ts, chart)
-);
+);`;
 
--- TEST: check
+const check = `
 CREATE TABLE t5 (
   chart TEXT,
   CHECK (chart = 'a' or chart = 'b')
-);
+);`;

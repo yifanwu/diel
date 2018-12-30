@@ -1,21 +1,9 @@
 import { DataType, TemplateVariableAssignments } from "./dielAstTypes";
 import { ExprAst } from "./exprAstTypes";
 
-// internal types
-
-export interface DirectColumnSelection {
-  columnName: string;
-  relationName?: string;
-}
-
-export interface SimpleColumSelection extends DirectColumnSelection {
-  hasStar: boolean;
-}
-
 export interface ColumnSelection {
-  hasStar: boolean;
-  relationName?: string;
-  expr?: ExprAst; // the column name is subsumed by the ExprAst...
+  expr: ExprAst; // the column name is subsumed by the ExprAst...
+  alias?: string;
 }
 
 export interface Column {
@@ -71,11 +59,20 @@ export interface RelationSelection extends AstBase {
   compositeSelections: CompositeSelection;
 }
 
-// recursive!!!
+/**
+ * This is the meat of DIEL IR
+ * - it is recursive
+ * - derivedColumnSelections contains normalized selections
+ *   (all selections have specified source relations)
+ * - columns are derived types
+ * - note that the original query is left intact, so that the
+ *   user's original representation are kept as is.
+ */
 export interface SelectionUnit {
   // this is first filled in by getting rid of the stars
   // then it's filled by the type inference pass
-  columns?: Column[];
+  derivedColumnSelections?: ColumnSelection[];
+  // these are filled in the parsing step
   columnSelections: ColumnSelection[];
   baseRelation: RelationReference;
   joinClauses?: JoinAst[];

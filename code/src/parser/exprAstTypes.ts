@@ -1,5 +1,5 @@
 import { DataType } from "./dielAstTypes";
-import { ColumnSelection, SimpleColumSelection, RelationSelection } from "./sqlAstTypes";
+import { ColumnSelection, RelationSelection } from "./sqlAstTypes";
 
 /**
  * Notes
@@ -55,7 +55,10 @@ export interface ExprFunAst extends ExprBase {
 
 // hm there might be multiple here...
 export interface ExprColumnAst extends ExprBase  {
-  column: SimpleColumSelection;
+  // column: SimpleColumSelection;
+  columnName: string;
+  hasStar: boolean;
+  relationName?: string;
 }
 
 export interface ExprValAst extends ExprBase {

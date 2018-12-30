@@ -1,4 +1,4 @@
-import { getDielAst } from "../../compiler/compiler";
+import { getDielIr } from "../../compiler/compiler";
 
 // this is a helper for looking at the IR.
 
@@ -9,7 +9,7 @@ const query = `
 `;
 
 function main() {
-  const ir = getDielAst(query);
+  const ir = getDielIr(query);
   console.log(JSON.stringify(ir, null, 2));
 }
 

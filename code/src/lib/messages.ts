@@ -41,8 +41,8 @@ export function ReportDielUserError(m: string, q?: string) {
   if (STRICT) throw new Error();
 }
 
-export function GenerateUnitTestErrorLogger(testName: string) {
-  console.log(`${BgYellow}Starting Test: %s${Reset}`, testName);
+export function GenerateUnitTestErrorLogger(testName: string, q: string) {
+  console.log(`${BgYellow}Starting Test: %s${Reset}\nWith query:\n%s`, testName, q);
   return (m: string) => {
     console.log(`\nError for ${testName}: ${FgRed}%s${Reset}`, m);
     throw new Error(`Unit test ${testName} failed\n`);

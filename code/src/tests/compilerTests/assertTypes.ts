@@ -1,67 +1,22 @@
-import { getDielAst } from "../../compiler/compiler";
+import { getDielIr } from "../../compiler/compiler";
 import { GenerateUnitTestErrorLogger, LogInfo } from "../../lib/messages";
-import { DataType, Column, DielAst } from "../../parser/dielAstTypes";
+import { DataType, DielAst } from "../../parser/dielAstTypes";
+import { Column } from "../../parser/sqlAstTypes";
 
-/**
- * _checkView is a helper method
- * @param ir ir
- * @param view view
- * @param column column spec
- * @param logger logging function
- */
-function _checkView(ir: DielAst, view: string, column: Column, logger: (m: string) => void) {
-  const v = ir.views.filter(vItr => vItr.name === view)[0];
-  if (!v) {
-    logger(`Cannt find the definition for view ${view}`);
-  }
-  const c = v.columns.filter(v => v.columnName === column.name)[0];
-  if (!c) {
-    logger(`column ${column.name} of view ${view} was not found`);
-  }
-  if (!(c.type === column.type)) {
-    logger(`column ${column.name} was not treated as an ${column.type} but rather ${c.type}`);
-  }
-}
-
-function assertBasic() {
-  const logger = GenerateUnitTestErrorLogger("assertBasic");
+export function assertMultiplyType() {
   const q = `
-    create table t (a int);
-    create view v1 as select a from t;
-    create view v2 as select a*2 as newA from t;
-    `;
-  let ir = getDielAst(q);
-  _checkView(ir, "v1", {name: "a", type: DataType.Number}, logger);
-  _checkView(ir, "v2", {name: "newA", type: DataType.Number}, logger);
-  LogInfo(`assertBasic passed`);
+  create input t (a int);
+  create view v1 as select a from t;
+  create view v2 as select a*2 as newA from t;
+  `;
+  const logger = GenerateUnitTestErrorLogger("assertMultiplyType", q);
+  let ir = getDielIr(q);
+  if (ir.GetRelationColumnType("v1", "a") !== DataType.Number) {
+    logger(`Column "a" of "v1" is not correctly typed`);
+  }
+  if (ir.GetRelationColumnType("v2", "newA") !== DataType.Number) {
+    logger(`Column "newA" of "v2" is not correctly typed`);
+  }
+  LogInfo(`assertMultiplyType passed`);
   return true;
 }
-
-function assertDerivedFromNested() {
-  const logger = GenerateUnitTestErrorLogger("assertDerivedFromNested");
-  const q = `
-  create table t (a int, b string);
-  register udf type int;
-  register udf2 type boolean;
-  create view v as
-    select b, a*2 as newA
-    from (select a, b from t where a > 5);
-  create view v2 as
-    select udf(b) as udfB, udf2(a) as udfA
-    from t;`;
-  console.log(`Testing ${q}`);
-  let ir = getDielAst(q);
-  _checkView(ir, "v", {name: "b", type: DataType.String}, logger);
-  _checkView(ir, "v", {name: "newA", type: DataType.Number}, logger);
-  _checkView(ir, "v2", {name: "udfB", type: DataType.Number}, logger);
-  _checkView(ir, "v2", {name: "udfA", type: DataType.Boolean}, logger);
-  LogInfo(`assertDerivedFromNested passed`);
-  return true;
-}
-
-export function assertTypes() {
-  assertBasic();
-  assertDerivedFromNested();
-}
-
-assertTypes();

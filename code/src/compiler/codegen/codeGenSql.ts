@@ -1,6 +1,6 @@
 import { DielAst, DynamicRelation, ProgramsIr, DataType } from "../../parser/dielAstTypes";
 import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType } from "../../parser/sqlAstTypes";
-import { RelationSpec, RelationQuery, SqlIr } from "../passes/createSqlIr";
+import { RelationSpec, RelationQuery, SqlIr } from "./createSqlIr";
 import { LogInternalError, ReportDielUserError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
 

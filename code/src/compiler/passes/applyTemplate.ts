@@ -18,11 +18,11 @@ import { DielAst, DynamicRelation } from "../../parser/dielAstTypes";
  */
 export function applyTemplates(ast: DielAst) {
   // note: i think the concat should be fine with modifying in place?
-  ast.views.concat(ast.outputs).map(r => applyATemplate(r.selection));
+  ast.views.concat(ast.outputs).map(r => tryToApplyATemplate(r.selection));
   ast.crossfilters.map(x => {
     x.charts.map(c => {
-      applyATemplate(c.predicate);
-      applyATemplate(c.selection);
+      tryToApplyATemplate(c.predicate);
+      tryToApplyATemplate(c.selection);
     });
   });
 
@@ -50,10 +50,12 @@ export function applyTemplates(ast: DielAst) {
  * modify in place
  * @param ast
  */
-function applyATemplate(ast: RelationSelection | JoinAst): void {
+function tryToApplyATemplate(ast: RelationSelection | JoinAst): void {
 
   if (!ast.templateSpec) {
-    LogInternalError(`Template variables not specified`);
+    // there is no template to apply here!
+    // LogInternalError(`Template variables not specified`);
+    return;
   }
 
   if (ast.astType === AstType.RelationSelection) {

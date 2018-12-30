@@ -120,7 +120,7 @@ export interface ExistingRelation extends RelationBase {
 export interface DynamicRelation extends RelationBase {
   relationType: DynamicRelationType;
   columns: Column[];
-  copyFrom?: string;
+  copyFrom?: string; // this is used by templates
 }
 
 // TODO
@@ -179,7 +179,6 @@ export interface DielAst {
   drops: Drop[];
   crossfilters: CrossFilterIr[];
   udfTypes: UdfType[];
-  config?: DielConfig;
 }
 
 export interface CrossFilterChartIr {
