@@ -1,6 +1,7 @@
 import { SelectionUnit, RelationReference, Column } from "../../parser/sqlAstTypes";
 import { ExprType, ExprRelationAst } from "../../parser/exprAstTypes";
 import { DerivedRelation } from "../../parser/dielAstTypes";
+import { LogInternalError } from "../../lib/messages";
 
 
 export type DependencyTree = Map<string, {
@@ -51,10 +52,14 @@ export function getTopologicalOrder(depTree: DependencyTree) {
     visitedArray.push({visited: false, relationName: key});
   }
   let hasUnmarked = visitedArray.filter(v => !v.visited);
+  let loopCount = 1;
   while (hasUnmarked.length > 0) {
     topoVisit(hasUnmarked[0].relationName);
     hasUnmarked = visitedArray.filter(v => !v.visited);
-    console.log("another topo loop");
+    loopCount += 1;
+    if (loopCount > 1000) { // this is brittle, and temporarily for debugging #FIXME
+      LogInternalError(`Too many loops in toplogical sort`);
+    }
   }
   function topoVisit(relation: string) {
     if (!visitedStringToNumber.has(relation)) {

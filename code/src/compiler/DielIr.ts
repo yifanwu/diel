@@ -102,7 +102,7 @@ export class DielIr {
       }
     });
     if (column.length > 0) {
-      column[0].expr.dataType;
+      return column[0].expr.dataType;
     } else {
       return null;
     }
@@ -250,9 +250,12 @@ export class DielIr {
   }
 
   inferTypeForSelection(r: SelectionUnit) {
-    r.columnSelections.map(cs => {
+    r.derivedColumnSelections.map(cs => {
       if (!cs.expr) {
         LogInternalError(`the selection must have been parsed`);
+      }
+      if (!cs.expr.dataType) {
+        LogInternalError(`derivedColumnSelections should be defined`);
       }
       if (cs.expr.dataType === DataType.TBD) {
         cs.expr.dataType = this.getTypeForColumnSelection(cs.expr, r);
@@ -269,6 +272,10 @@ export class DielIr {
       return this.getUdfType(funExpr.functionReference);
     } else if (expr.exprType === ExprType.Column) {
       const columnExpr = expr as ExprColumnAst;
+      // make sure that the source is specified
+      if (!columnExpr.relationName) {
+        LogInternalError(`The normalization pass screwed up and did not specify the source relation for ${JSON.stringify(columnExpr)}`);
+      }
       const cn = columnExpr.columnName;
       // case 1: check for keywords
       const special = BuiltInColumns.filter(sc => sc.column === cn)[0];
