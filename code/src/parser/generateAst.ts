@@ -168,7 +168,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitSelectColumnClause(ctx: parser.SelectColumnClauseContext): ColumnSelection {
     const expr = this.visit(ctx.expr()) as ExprAst;
-    const alias = ctx.IDENTIFIER().text;
+    const alias = ctx.IDENTIFIER() ? ctx.IDENTIFIER().text : null;
     return {
       alias,
       expr

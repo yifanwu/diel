@@ -71,7 +71,7 @@ function generateRelationReference(r: RelationReference): string {
  * @param s
  */
 function generateColumnSelection(s: ColumnSelection[]): string {
-  return `${s.map(c => c.relationName)}`;
+  return `${s.map(c => generateExpr(c.expr))}`;
 }
 
 const joinOpToString = new Map([
@@ -101,7 +101,7 @@ function generateExpr(e: ExprAst): string {
   } else if (e.exprType === ExprType.Column) {
     const c = e as ExprColumnAst;
     // again the columns should have no stars anymore!
-    return `${c.column.relationName ? `${c.column.relationName}.` : ""}${c.column.columnName}`;
+    return `${c.relationName ? `${c.relationName}.` : ""}${c.columnName}`;
   } else if (e.exprType === ExprType.Relation) {
     const r = e as ExprRelationAst;
     return generateSelect(r.selection.compositeSelections);

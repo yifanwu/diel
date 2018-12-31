@@ -77,18 +77,20 @@ function tryToApplyATemplate(ast: RelationSelection | JoinAst): void {
   }
 
   function _visitColumnSelection(c: ColumnSelection) {
-    c.relationName = _changeString(c.relationName);
+    // only change if it's a column
+    // in theory this also needs to be recursive... but only deal with shallow stuff for now
+    _visitExprAst(c.expr);
   }
 
   function _visitOrderByAst(c: OrderByAst) {
-    c.selection.relationName = _changeString(c.selection.relationName);
+    _visitColumnSelection(c.selection);
   }
 
   function _visitExprAst(e: ExprAst) {
     if (e.exprType === ExprType.Column) {
       const c = e as ExprColumnAst;
-      c.column.columnName = _changeString(c.column.columnName);
-      c.column.relationName = _changeString(c.column.relationName);
+      c.columnName = _changeString(c.columnName);
+      c.relationName = _changeString(c.relationName);
     } else if (e.exprType === ExprType.Func) {
       const f = e as ExprFunAst;
       // recursive!
