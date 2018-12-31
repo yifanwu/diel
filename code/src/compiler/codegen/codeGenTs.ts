@@ -1,11 +1,11 @@
 import * as fs from "fs";
 import * as stream from "stream";
-import { DielIr } from "../DielIr";
 import { DielAst, DynamicRelation, DerivedRelation, DataType, DerivedRelationType } from "../../parser/dielAstTypes";
 import { RelationTs } from "../../lib/dielUtils";
 import * as fmt from "typescript-formatter";
 import { LogInternalError } from "../../lib/messages";
 import { DependencyTree } from "../passes/passesHelper";
+import { DielIr, SimpleColumn } from "../DielIr";
 
 
 function dataTypeToTypeScript(t: DataType) {
@@ -89,9 +89,9 @@ function generateBindOutputDeclaration(o: DerivedRelation) {
   return `${o.name}: (f: OutputBoundFunc) => void`;
 }
 
-function generateGetViewDeclaration(o: DerivedRelation) {
+function generateGetViewDeclaration(relationName: string, columns: SimpleColumn[]) {
   // do some casting
-  return `${o.name}: () => {${o.selection.compositeSelections[0].relation.columns.map(c => `${c.name}: ${dataTypeToTypeScript(c.type)}`)}}[]`;
+  return `${relationName}: () => {${columns.map(c => `${c.columnName}: ${dataTypeToTypeScript(c.type)}`)}}[]`;
 }
 
 function generateBindOutput(o: DerivedRelation) {
@@ -103,24 +103,28 @@ function generateBindOutput(o: DerivedRelation) {
   }`;
 }
 
-function generateApi(ir: DielAst) {
+function generateApi(ir: DielIr) {
   let assignment: string[] = [];
   let declaration: string[] = [];
-  if (ir.inputs.length > 0) {
-    declaration.push(`public NewInput: {${ir.inputs.map(generateInputDelcaration).join(",\n")}};`);
-    assignment.push(`this.NewInput = {${ir.inputs.map(generateInput)}};`);
+  const ast = ir.ast;
+  if (ast.inputs.length > 0) {
+    declaration.push(`public NewInput: {${ast.inputs.map(generateInputDelcaration).join(",\n")}};`);
+    assignment.push(`this.NewInput = {${ast.inputs.map(generateInput)}};`);
   }
-  if (ir.dynamicTables.length > 0) {
-    declaration.push(`public TableInput: {${ir.dynamicTables.map(generateInputDelcaration).join(",\n")}};`);
-    assignment.push(`this.TableInput = {${ir.dynamicTables.map(generateInput)}};`);
+  if (ast.dynamicTables.length > 0) {
+    declaration.push(`public TableInput: {${ast.dynamicTables.map(generateInputDelcaration).join(",\n")}};`);
+    assignment.push(`this.TableInput = {${ast.dynamicTables.map(generateInput)}};`);
   }
-  if (ir.outputs.length > 0) {
-    declaration.push(`public BindOutput: {${ir.outputs.map(generateBindOutputDeclaration).join(",\n")}};`);
-    assignment.push(`this.BindOutput = {${ir.outputs.map(generateBindOutput)}};`);
+  if (ast.outputs.length > 0) {
+    declaration.push(`public BindOutput: {${ast.outputs.map(generateBindOutputDeclaration).join(",\n")}};`);
+    assignment.push(`this.BindOutput = {${ast.outputs.map(generateBindOutput)}};`);
   }
-  const pubViews = ir.views.filter(v => v.relationType === DerivedRelationType.PublicView).concat(ir.outputs);
+  const pubViews = ast.views.filter(v => v.relationType === DerivedRelationType.PublicView).concat(ast.outputs);
   if (pubViews.length > 0) {
-    declaration.push(`public GetView: {${pubViews.map(generateGetViewDeclaration).join("\n")}};`);
+    declaration.push(`public GetView: {${pubViews.map(v => {
+      const columns = ir.GetSimpleColumnsFromSelectionUnit(v.selection.compositeSelections[0].relation);
+      return generateGetViewDeclaration(v.name, columns);
+    }).join("\n")}};`);
     assignment.push(`this.GetView = {${pubViews.map(generateView)}};`);
   }
   return {
@@ -145,10 +149,11 @@ function generateDependencies(ast: DielAst, depTree: DependencyTree) {
   return inputDependency;
 }
 
-function generateTsCode(ast: DielAst, depTree: DependencyTree) {
+function generateTsCode(ir: DielIr, depTree: DependencyTree) {
+  const ast = ir.ast;
   const dependencies = generateDepMapString(generateDependencies(ast, depTree));
   const statements = generateStatements(ast);
-  const apis = generateApi(ast);
+  const apis = generateApi(ir);
   return `
 import { Database, Statement } from "sql.js";
 import { loadDbHelper, OutputBoundFunc, LogInfo } from "diel";
@@ -219,8 +224,8 @@ function createOutputTs(outs: DerivedRelation[]): RelationTs[] {
 //   }));
 // }
 
-export async function genTs(ast: DielAst, depTree: DependencyTree) {
-  const rawText = generateTsCode(ast, depTree);
+export async function genTs(ir: DielIr, depTree: DependencyTree) {
+  const rawText = generateTsCode(ir, depTree);
   fs.writeFileSync("tmpUnformatted.ts", rawText);
   let input = new stream.Readable();
   input.push(rawText);

@@ -1,5 +1,6 @@
 import { DataType, TemplateVariableAssignments } from "./dielAstTypes";
 import { ExprAst } from "./exprAstTypes";
+import { LogInternalError } from "../lib/messages";
 
 export interface ColumnSelection {
   expr: ExprAst; // the column name is subsumed by the ExprAst...
@@ -88,10 +89,16 @@ export interface RelationReference {
   subquery?: RelationSelection;
 }
 
-// it's a bit ugly to put here but better than turning everything into a class??
-// maybe i should refactor later
+/**
+ * If there is a subquery, then use alias, otherwise use the original relation name
+ * @param r relation reference
+ */
 export function getRelationReferenceName(r: RelationReference) {
-  return r.alias ? r.alias : r.relationName;
+  const n = r.subquery ? r.alias : r.relationName;
+  if (!n) {
+    LogInternalError(`RelationReference either does not have an alias or name:\n ${JSON.stringify(r)}`);
+  }
+  return n;
 }
 
 export interface JoinAst extends AstBase {

@@ -1,6 +1,5 @@
 import { DielAst, DerivedRelation, DataType, BuiltInColumns, DielConfig } from "../parser/dielAstTypes";
-import { SelectionUnit, CompositeSelection, Column } from "../parser/sqlAstTypes";
-import { normalizeColumnSelection } from "./passes/removeStarSelects";
+import { SelectionUnit, CompositeSelection, Column, ColumnSelection, RelationReference, getRelationReferenceName } from "../parser/sqlAstTypes";
 import { applyCrossfilter } from "./passes/applyCrossfilter";
 import { getSelectionUnitDep, DependencyInfo, getTopologicalOrder } from "./passes/passesHelper";
 import { applyTemplates } from "./passes/applyTemplate";
@@ -8,11 +7,14 @@ import { LogInternalError, ReportDielUserError, LogInfo } from "../lib/messages"
 import { ExprType, ExprFunAst, ExprColumnAst, ExprAst } from "../parser/exprAstTypes";
 import { createSqlIr } from "./codegen/createSqlIr";
 import { genTs } from "./codegen/codeGenTs";
+import { copyColumnSelection } from "./passes/helper";
 import { generateSqlFromIr } from "./codegen/codeGenSql";
 
 type SelectionUnitFunction<T> = (s: SelectionUnit, relationName?: string) => T;
 type CompositeSelectionFunction<T> = (s: CompositeSelection, relationName?: string) => T;
 type ExistingRelationFunction<T> = (s: Column[], relationName?: string) => T;
+export type SimpleColumn = {columnName: string, type: DataType};
+
 
 // helpers
 function applyToDerivedRelation<T>(r: DerivedRelation, fun: SelectionUnitFunction<T>): T[] {
@@ -42,7 +44,7 @@ export class DielIr {
     this.getDependnecies();
     applyTemplates(this.ast);
     applyCrossfilter(this.ast);
-    normalizeColumnSelection(this.ast);
+    this.normalizeColumnSelection();
     this.inferType();
   }
 
@@ -60,8 +62,11 @@ export class DielIr {
     }
   }
 
+  /**
+   * passing this around, since it's getting rather large...
+   */
   async GenerateTs() {
-    return genTs(this.ast, this.dependencies.depTree);
+    return genTs(this, this.dependencies.depTree);
   }
 
   /**
@@ -72,18 +77,7 @@ export class DielIr {
     // first search the derived, then the source relations
     const derived = this.allDerivedRelations.get(relationName);
     if (derived) {
-      const column = derived[0].relation.derivedColumnSelections.filter(s => {
-        if (s.expr.exprType === ExprType.Column) {
-          return (s.expr as ExprColumnAst).columnName === columnName;
-        } else if (s.expr.exprType === ExprType.Func) {
-          return (s.alias === columnName);
-        }
-      });
-      if (column.length > 0) {
-        column[0].expr.dataType;
-      } else {
-        return null;
-      }
+      return this.GetTypeFromDerivedRelationColumn(derived[0].relation, columnName);
     } else {
       const original = this.allOriginalRelations.get(relationName);
       if (!original) {
@@ -98,6 +92,40 @@ export class DielIr {
       }
     }
   }
+
+  GetTypeFromDerivedRelationColumn(unit: SelectionUnit, columnName: string): DataType {
+    const column = unit.derivedColumnSelections.filter(s => {
+      if (s.expr.exprType === ExprType.Column) {
+        return (s.expr as ExprColumnAst).columnName === columnName;
+      } else if (s.expr.exprType === ExprType.Func) {
+        return (s.alias === columnName);
+      }
+    });
+    if (column.length > 0) {
+      column[0].expr.dataType;
+    } else {
+      return null;
+    }
+  }
+
+  GetSimpleColumnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[] {
+    return su.derivedColumnSelections.map(cs => {
+      if (cs.expr.exprType === ExprType.Column) {
+        const columnExpr = cs.expr as ExprColumnAst;
+        return {
+          columnName: cs.alias ? cs.alias : columnExpr.columnName,
+          type: columnExpr.dataType
+        };
+      } else {
+        const functionExpr = cs.expr as ExprFunAst;
+        return {
+          columnName: cs.alias,
+          type: functionExpr.dataType
+        };
+      }
+    });
+  }
+
   /**
    * below are all internal methods
    */
@@ -141,6 +169,81 @@ export class DielIr {
       topologicalOrder
     };
   }
+  /**
+   * the pass removes the .* as well as filling in where the columns comes from if it's not specified
+   * - visit by topological order
+   * - supports subqueries, e.g., select k.* from (select * from t1) k;
+   */
+  normalizeColumnSelection() {
+    this.applyToAllSelectionUnits(this.normalizeColumnForSelectionUnit.bind(this), true);
+  }
+
+  normalizeColumnForSelectionUnit(s: SelectionUnit) {
+    const derivedColumnSelections: ColumnSelection[][] = s.columnSelections.map(c => {
+      if (c.expr.exprType === ExprType.Column) {
+        const currentColumnExpr = c.expr as ExprColumnAst;
+        if (currentColumnExpr.hasStar) {
+          // both of the following options will need to append to the selections
+          if (currentColumnExpr.relationName) {
+            // case 1: find the columns of just the relations specified
+            const populatedColumns = this.getSimpleColumnsFromLocalSelectionUnit(s, currentColumnExpr.relationName)
+              .map(newColumn => ({
+                expr: {
+                  exprType: ExprType.Column,
+                  dataType: newColumn.type,
+                  hasStar: false,
+                  columnName: newColumn.columnName,
+                  relationName: currentColumnExpr.relationName
+                },
+                // cannot alias stars
+                alias: null,
+              }));
+            return populatedColumns;
+          } else {
+            // case 2: find all the relations
+            let populatedColumns: ColumnSelection[] = this.getSimpleColumnsFromRelationReference(s.baseRelation)
+              .map(newColumn => ({
+                expr: {
+                  exprType: ExprType.Column,
+                  dataType: newColumn.type,
+                  hasStar: false,
+                  columnName: newColumn.columnName,
+                  relationName: getRelationReferenceName(s.baseRelation)
+                },
+                // cannot alias stars
+                alias: null
+              }));
+            s.joinClauses.map(j => {
+              const relationName = getRelationReferenceName(j.relation);
+              const newColumns: ColumnSelection[] = this.getSimpleColumnsFromRelationReference(j.relation).map(c => ({
+                expr: {
+                  exprType: ExprType.Column,
+                  dataType: DataType.TBD,
+                  hasStar: false,
+                  columnName: c.columnName,
+                  relationName: relationName,
+                },
+                alias: null
+              }));
+              populatedColumns = newColumns.concat(newColumns);
+            });
+            return populatedColumns;
+          }
+        } else if (!currentColumnExpr.relationName) {
+          // not need to change; copy the column
+          return [copyColumnSelection(c)];
+        }
+      } else {
+        // this as to be a function
+        if (c.expr.exprType !== ExprType.Func) {
+          ReportDielUserError(`selections must be columns or functions`);
+        }
+        // now add it to derived; copy by rendrence for now... #FIXME
+        return [c];
+      }
+    });
+    s.derivedColumnSelections = [].concat(...derivedColumnSelections);
+  }
 
   inferType() {
     this.applyToAllSelectionUnits(this.inferTypeForSelection.bind(this), true);
@@ -166,44 +269,30 @@ export class DielIr {
       return this.getUdfType(funExpr.functionReference);
     } else if (expr.exprType === ExprType.Column) {
       const columnExpr = expr as ExprColumnAst;
+      const cn = columnExpr.columnName;
       // case 1: check for keywords
-      const special = BuiltInColumns.filter(sc => sc.column === columnExpr.column.columnName)[0];
+      const special = BuiltInColumns.filter(sc => sc.column === cn)[0];
       if (special) {
         return special.type;
       }
-
-      const foundRelation = this.allDerivedRelations.get(columnExpr.column.relationName);
-      let foundColumns: Column[];
-      let columnFound: Column[];
-      if (foundRelation) {
-        // case 2: defined relations
-        foundColumns = foundRelation[0].relation.columns;
+      // directly see if it's found
+      const existingType = this.GetRelationColumnType(columnExpr.relationName, cn);
+      if (!existingType) {
+        // case 3: must be a temp table defined in a join or aliased
+        // we need to access the scope of the current selection
+        r.joinClauses.map(j => {
+          // temp table can only be defined as alias...
+          if (j.relation.alias === columnExpr.relationName) {
+            // found it
+            const tempRelation = j.relation.subquery.compositeSelections[0].relation;
+            this.inferTypeForSelection.bind(this)(tempRelation);
+            // now access it, should be fine...
+            return this.GetTypeFromDerivedRelationColumn(tempRelation, cn);
+          }
+        });
       } else {
-        // let's try the existing relations
-        foundColumns = this.allOriginalRelations.get(columnExpr.column.relationName);
-        if (!foundColumns) {
-          // case 3: must be a temp table defined in a join
-          // we need to access the scope of the current selection
-          r.joinClauses.map(j => {
-            // temp table can only be defined as alias...
-            if (j.relation.alias === columnExpr.column.relationName) {
-              // found it
-              const tempRelation = j.relation.subquery.compositeSelections[0].relation;
-              this.inferTypeForSelection.bind(this)(tempRelation);
-              // now access it, should be fine...
-              foundColumns = tempRelation.columns;
-            }
-          });
-        }
+        return existingType;
       }
-      if (!foundColumns) {
-        ReportDielUserError(`We cannot find the column ${columnExpr.column.columnName} from relation ${columnExpr.column.relationName}`);
-      }
-      columnFound = foundColumns.filter(c => c.name === columnExpr.column.columnName);
-      if (!columnFound || columnFound.length !== 1) {
-        throw ReportDielUserError(`Your referenced column ${columnExpr.column.columnName} does not exist in relation ${columnExpr.column.relationName}`);
-      }
-      return columnFound[0].type;
     }
   }
 
@@ -213,6 +302,47 @@ export class DielIr {
       LogInternalError(`Type of ${funName} not defined.`);
     }
     return r[0].type;
+  }
+
+  getSimpleColumnsFromLocalSelectionUnit(s: SelectionUnit, refName: string): SimpleColumn[] {
+    const baseResult = this.getSimpleColumnsFromRelationReference(s.baseRelation, refName);
+    if (!baseResult) {
+      // in joinClause
+      for (let i = 0; i < s.joinClauses.length; i ++) {
+        const joinRef = s.joinClauses[i];
+        const joinResult = this.getSimpleColumnsFromRelationReference(joinRef.relation, refName);
+        if (joinResult) {
+          return joinResult;
+        }
+      }
+    } else {
+      return baseResult;
+    }
+    ReportDielUserError(`Relation not defined`);
+  }
+
+  getSimpleColumnsFromRelationReference(ref: RelationReference, refName?: string): SimpleColumn[] {
+    if (refName && !((ref.alias === refName) || (ref.relationName === refName))) {
+      return null;
+    }
+    if (ref.subquery) {
+      return this.GetSimpleColumnsFromSelectionUnit(ref.subquery.compositeSelections[0].relation);
+    } else {
+      return this.getSimpleColumnsFromRelationName(ref.relationName);
+    }
+  }
+
+
+  getSimpleColumnsFromRelationName(relationName: string): SimpleColumn[] {
+    const derived = this.allDerivedRelations.get(relationName);
+    if (derived) {
+      return this.GetSimpleColumnsFromSelectionUnit(derived[0].relation);
+    }
+    const original = this.allOriginalRelations.get(relationName);
+    if (original) {
+      return original.map(c => ({columnName: c.name, type: c.type}));
+    }
+    LogInternalError(`Cannot find relation ${relationName}`);
   }
 
   /**
@@ -237,6 +367,7 @@ export class DielIr {
       return initial;
     }
   }
+
   applyToAllCompositeSelection<T>(fun: CompositeSelectionFunction<T>, byDependency = false): T[] {
     if (byDependency) {
       let initial: T[] = [];
