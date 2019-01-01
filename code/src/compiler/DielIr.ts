@@ -1,20 +1,14 @@
 import { DielAst, DerivedRelation, DataType, BuiltInColumns, DielConfig } from "../parser/dielAstTypes";
 import { SelectionUnit, CompositeSelection, Column, ColumnSelection, RelationReference, getRelationReferenceName } from "../parser/sqlAstTypes";
-import { applyCrossfilter } from "./passes/applyCrossfilter";
-import { getSelectionUnitDep, DependencyInfo, getTopologicalOrder } from "./passes/passesHelper";
-import { applyTemplates } from "./passes/applyTemplate";
-import { LogInternalError, ReportDielUserError, LogInfo } from "../lib/messages";
+import { DependencyInfo } from "./passes/passesHelper";
+import { LogInternalError, ReportDielUserError } from "../lib/messages";
 import { ExprType, ExprFunAst, ExprColumnAst, ExprAst } from "../parser/exprAstTypes";
-import { createSqlIr } from "./codegen/createSqlIr";
-import { genTs } from "./codegen/codeGenTs";
 import { copyColumnSelection } from "./passes/helper";
-import { generateSqlFromIr } from "./codegen/codeGenSql";
 
 type SelectionUnitFunction<T> = (s: SelectionUnit, relationName?: string) => T;
 type CompositeSelectionFunction<T> = (s: CompositeSelection, relationName?: string) => T;
 type ExistingRelationFunction<T> = (s: Column[], relationName?: string) => T;
 export type SimpleColumn = {columnName: string, type: DataType};
-
 
 // helpers
 function applyToDerivedRelation<T>(r: DerivedRelation, fun: SelectionUnitFunction<T>): T[] {
@@ -35,39 +29,6 @@ export class DielIr {
   allOriginalRelations: Map<string, Column[]>;
   // viewTypes: Map<string, Map<string, DataType>>;
 
-  constructor(ast: DielAst, config: DielConfig) {
-    this.ast = ast;
-    this.config = config;
-    this.buildIndicesToIr();
-    // build the tree
-    // the follow mismash of this vs passing variable around should be fixed.
-    this.getDependnecies();
-    applyTemplates(this.ast);
-    applyCrossfilter(this.ast);
-    this.normalizeColumnSelection();
-    this.inferType();
-  }
-
-  /**
-   * returns an array of SQL queries
-   * @param relationName If not specified, will generate for all
-   */
-  GenerateSql(relationName?: string) {
-    if (!relationName) {
-      const sqlIr = createSqlIr(this.ast);
-      return generateSqlFromIr(sqlIr);
-    } else {
-      throw new Error(`Not implemented`);
-      // look up the relation
-    }
-  }
-
-  /**
-   * passing this around, since it's getting rather large...
-   */
-  async GenerateTs() {
-    return genTs(this, this.dependencies.depTree);
-  }
 
   /**
    * Public helper functions
@@ -124,58 +85,6 @@ export class DielIr {
         };
       }
     });
-  }
-
-  /**
-   * below are all internal methods
-   */
-  buildIndicesToIr() {
-    const allDerivedRelations = new Map();
-    this.applyToAllCompositeSelection<void>((r, name) => {
-      allDerivedRelations.set(name, r);
-    });
-    this.allDerivedRelations = allDerivedRelations;
-    const allOriginalRelations = new Map();
-    this.applyToAllExistingRelation<void>((r, name) => {
-      allOriginalRelations.set(name, r);
-    });
-    this.allOriginalRelations = allOriginalRelations;
-  }
-
-  getDependnecies() {
-    // first build the tree
-    let depTree = new Map();
-    this.applyToAllSelectionUnits<void>((s, rName) => {
-      if (!rName) {
-        throw new Error(`relation name must be defined`);
-      }
-      const deps = getSelectionUnitDep(s);
-      let dependsOn;
-      if (depTree.has(rName)) {
-        const existingDep = depTree.get(rName);
-        dependsOn = deps.concat(existingDep);
-      } else {
-        dependsOn = deps;
-      }
-      depTree.set(rName, {
-        dependsOn,
-        isDependentOn: null
-      });
-    });
-    // TODO need to do another pass to set the isDependentOn
-    const topologicalOrder = getTopologicalOrder(depTree);
-    this.dependencies = {
-      depTree,
-      topologicalOrder
-    };
-  }
-  /**
-   * the pass removes the .* as well as filling in where the columns comes from if it's not specified
-   * - visit by topological order
-   * - supports subqueries, e.g., select k.* from (select * from t1) k;
-   */
-  normalizeColumnSelection() {
-    this.applyToAllSelectionUnits(this.normalizeColumnForSelectionUnit.bind(this), true);
   }
 
   normalizeColumnForSelectionUnit(s: SelectionUnit) {
@@ -245,9 +154,6 @@ export class DielIr {
     s.derivedColumnSelections = [].concat(...derivedColumnSelections);
   }
 
-  inferType() {
-    this.applyToAllSelectionUnits(this.inferTypeForSelection.bind(this), true);
-  }
 
   inferTypeForSelection(r: SelectionUnit) {
     r.derivedColumnSelections.map(cs => {

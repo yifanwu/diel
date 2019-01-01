@@ -6,7 +6,7 @@ import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateAst";
 import { DielConfig } from "../parser/dielAstTypes";
 import { LogInfo } from "../lib/messages";
-import { DielIr } from "./DielIr";
+import DielCompiler from "./DielCompiler";
 
 export function getDielIr(code: string, config?: DielConfig) {
   LogInfo("Starting compilation");
@@ -18,17 +18,17 @@ export function getDielIr(code: string, config?: DielConfig) {
   let visitor = new Visitor();
   let ast = visitor.visitQueries(tree);
   // apply the templates
-  return new DielIr(ast, config);
+  return new DielCompiler(ast, config);
 }
 
-// export function getSelectionUnitAst(code: string) {
-//   const inputStream = new ANTLRInputStream(code);
-//   const l = new lexer.DIELLexer(inputStream);
-//   const tokenStream = new CommonTokenStream(l);
-//   const p = new parser.DIELParser(tokenStream);
-//   const tree = p.selectUnitQuery();
-//   let visitor = new Visitor();
-//   let ast = visitor.visitSelectUnitQuery(tree);
-//   // FIXME: do the things.
-//   return ast;
-// }
+export function getSelectionUnitAst(code: string) {
+  const inputStream = new ANTLRInputStream(code);
+  const l = new lexer.DIELLexer(inputStream);
+  const tokenStream = new CommonTokenStream(l);
+  const p = new parser.DIELParser(tokenStream);
+  const tree = p.selectUnitQuery();
+  let visitor = new Visitor();
+  let ast = visitor.visitSelectUnitQuery(tree);
+  // FIXME: do the things.
+  return ast;
+}

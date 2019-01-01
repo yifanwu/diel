@@ -3,5 +3,5 @@ import { assertMultiplyType } from "./compilerTests/assertTypes";
 import { assertAllStar } from "./compilerTests/testStarExpantion";
 
 // testTopologicalSort();
-// assertAllStar();
+assertAllStar();
 assertMultiplyType();

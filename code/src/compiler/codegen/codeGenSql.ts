@@ -6,7 +6,7 @@ import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunA
 
 export function generateSqlFromIr(ir: SqlIr) {
   const tables = ir.tables.map(t => generateTableSpec(t));
-  const views = ir.views.map(v => generateViews(v));
+  const views = ir.views.map(v => generateSqlViews(v));
   const triggers = ir.triggers.map(t => generateTrigger(t));
   return tables.concat(views).concat(triggers);
 }
@@ -17,7 +17,7 @@ function generateTableSpec(t: RelationSpec): string {
   )`;
 }
 
-function generateViews(v: RelationQuery): string {
+export function generateSqlViews(v: RelationQuery): string {
   return `create view ${v.name} as
   ${generateSelect(v.query)}
   `;
