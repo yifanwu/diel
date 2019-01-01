@@ -1,6 +1,7 @@
 import { AnnotedSelectionUnit, AnnotateColumnSelection, RuntimeColumnSelectionInfo } from "./runtimeTypes";
 import { SelectionUnit } from "../parser/sqlAstTypes";
-import { ExprColumnAst } from "../parser/exprAstTypes";
+import { ExprColumnAst, ExprType, FunctionType } from "../parser/exprAstTypes";
+import { DataType } from "../parser/dielAstTypes";
 
 /**
  * TODO: unclear what the interactions with the stars are for now...
@@ -15,11 +16,25 @@ export function getSelectionUnitAnnotation(ast: SelectionUnit): AnnotedSelection
     const ast: SelectionUnit = {
       derivedColumnSelections: [{
         expr: Object.assign({}, s.expr),
+        alias: "x"
+      },
+      {
+        expr: {
+          exprType: ExprType.Func,
+          dataType: DataType.Number,
+          functionType: FunctionType.BuiltIn,
+          functionReference: "count",
+          args: [Object.assign({}, s.expr)]
+        },
+        alias: "y"
       }],
       columnSelections: null,
       baseRelation: {
         relationName: (s.expr as ExprColumnAst).relationName
-      }
+      },
+      groupByClause: [{
+        expr: Object.assign({}, s.expr),
+      }]
     };
     const rtSelectionUnit: RuntimeColumnSelectionInfo = {
       ast

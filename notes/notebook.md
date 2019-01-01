@@ -28,4 +28,12 @@ Developers will not be able to create views --- they can only write queries --> 
 
 ## Implementation
 
+
+### query gen
 For the cards, for one dimentional data, we are just showing distributions; right now just going to do something naive and count the number of unique values, if it's less than 10, just do a group by that value and count, if it's numeric, then devide into ten buckets.
+
+### cell representation
+
+I'm going to basically use spans to directly annotate the AST --> rolling my own highlighter too I suppose.
+
+met: on the performance side, really don't know how to do the aprsing progressively.
