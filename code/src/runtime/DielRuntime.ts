@@ -1,10 +1,18 @@
 import { DielIr } from "../compiler/DielIr";
 import { Database } from "sql.js";
 import { SelectionUnit, SetOperator, AstType } from "../parser/sqlAstTypes";
-import { QueryId, RuntimeCell, CellType } from "./runtimeTypes";
+import { QueryId, RuntimeCell, CellType,  } from "./runtimeTypes";
 import { getSelectionUnitAst } from "../compiler/compiler";
 import { getSelectionUnitAnnotation } from "./annotations";
 import { DerivedRelationType, DerivedRelation } from "../parser/dielAstTypes";
+
+/**
+ * run time cache for performance
+ */
+interface RuntimeQueryCache {
+  query: string;
+  result: OneDimData[] | TwoDimData[];
+}
 
 /**
  * DielIr would now take an empty ast
@@ -16,14 +24,32 @@ export default class DielRuntime extends DielIr {
   cells: RuntimeCell[];
   db: Database;
 
-  constructor(db?: Database) {
+  constructor(loadPage: () => void, dbPath?: string) {
     super();
     this.cells = [];
-    if (!db) {
+    this.setup(loadPage, dbPath);
+  }
+
+  async setup(loadPage: () => void, dbPath?: string) {
+    if (!dbPath) {
       this.db = new Database();
     } else {
-      this.db = db;
+      const response = await fetch(dbPath);
+      const bufferRaw = await response.arrayBuffer();
+      const buffer = new Uint8Array(bufferRaw);
+      this.db = new Database(buffer);
+      loadPage();
     }
+  }
+
+  /**
+   * 
+   */
+  ExecuteAstQuery(ast: SelectionUnit) {
+  }
+
+  ExecuteStringQuery() {
+
   }
 
   // TODO low pri

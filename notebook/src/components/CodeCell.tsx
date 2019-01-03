@@ -1,17 +1,20 @@
 import * as React from "react";
-// import Popup from "./Popup";
+import { ToolTip } from "./ToolTip";
 import { runtime } from "../setup";
 // FIXME: this import is really sketch, we should break the two files apart
-import { AnnotedSelectionUnit } from "../../../code/src/runtime/runtimeTypes";
+import { AnnotedSelectionUnit, ChartData } from "../../../code/src/runtime/runtimeTypes";
+import { CodeDiv } from "./CodeDiv";
 
 interface CodeCardState {
   query: string;
   annotation: AnnotedSelectionUnit;
-  // popup: {
-  //   data: number|string[]
-  //   x: number;
-  //   y: number;
-  // };
+  popup: {
+    data: ChartData,
+    position: {
+      x: number;
+      y: number;
+    }
+  };
 }
 
 export default class CodeCard extends React.Component<{}, CodeCardState> {
@@ -22,7 +25,13 @@ export default class CodeCard extends React.Component<{}, CodeCardState> {
     this.handleKeyPress = this.handleKeyPress.bind(this);
     this.state = {
       query: "",
+      annotation: null,
+      popup: null,
     };
+  }
+
+  setPopup() {
+    // todo
   }
 
   handleKeyPress(e: any) {
@@ -43,7 +52,6 @@ export default class CodeCard extends React.Component<{}, CodeCardState> {
   }
 
   render() {
-    const codeDivs = this.abstractUi.map(e => <span onMouseOver={}></span>);
     return (<div className="code-card">
       <textarea
         rows={5}
@@ -54,9 +62,10 @@ export default class CodeCard extends React.Component<{}, CodeCardState> {
         onKeyUp = { this.handleKeyPress }
         >
       </textarea>
-      <div className="code-annotated">
-        {codeDivs}
-      </div>
+      <CodeDiv
+        annotation={this.state.annotation}
+        setPopup={this.setPopup}
+      />
     </div>);
   }
 }

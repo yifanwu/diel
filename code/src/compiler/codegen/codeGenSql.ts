@@ -42,14 +42,23 @@ function generateCompositeSelectionUnit(c: CompositeSelectionUnit): string {
 }
 
 function generateSelectionUnit(v: SelectionUnit): string {
-  return `select ${generateColumnSelection(v.columnSelections)}
-    from ${v.baseRelation}
-    ${v.joinClauses.map(j => generateJoin(j))}
-    ${generateWhere(v.whereClause)}
-    ${generateGroupBy(v.groupByClause)}
-    ${generateOrderBy(v.orderByClause)}
-    ${generateLimit(v.limitClause)}
+  return `SELECT ${generateColumnSelection(v.columnSelections)}
+    ${generateSelectionUnitBody(v)}
   `;
+}
+
+/**
+ * this is exported so that the codeDiv can use it
+ * need to be cleaner for the future
+ * @param v
+ */
+export function generateSelectionUnitBody(v: SelectionUnit) {
+  return `FROM ${v.baseRelation}
+  ${v.joinClauses.map(j => generateJoin(j))}
+  ${generateWhere(v.whereClause)}
+  ${generateGroupBy(v.groupByClause)}
+  ${generateOrderBy(v.orderByClause)}
+  ${generateLimit(v.limitClause)}`;
 }
 
 function generateRelationReference(r: RelationReference): string {

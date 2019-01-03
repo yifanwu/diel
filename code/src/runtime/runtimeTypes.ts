@@ -7,33 +7,13 @@ export enum ChartDataType {
   TwoDim = "TwoDim"
 }
 
-// might need some metadata in the future...
-export interface ChartData {
-  type: ChartDataType;
-}
-
-export interface TwoDimData extends ChartData {
-  x: number;
-  y: number;
-  z: string | number;
-}
-
-export interface OneDimData extends ChartData {
-  x: string | number;
-  y: number;
-}
-
 /**
- * There is an intersting question of whether we should generate the AST (and map to query)
- * or generate the query directly...
- * - pro for ast is that it's a bit more robust than just string manipulation...
+ * #IMPROVE can do some generics here.
  */
-export interface RuntimeColumnSelectionInfo {
-  ast: SelectionUnit;
-  cached?: {
-    query: string;
-    result: OneDimData[];
-  };
+export interface ChartData {
+  chartType: ChartDataType;
+  dimension: number;
+  data: (string | number)[][];
 }
 
 /**
@@ -41,7 +21,7 @@ export interface RuntimeColumnSelectionInfo {
  * -- though we should probably use DIEL to do that; thinka bout later..
  */
 export interface AnnotateColumnSelection {
-  rtSelectionUnit: RuntimeColumnSelectionInfo;
+  ast: SelectionUnit;
 }
 
 /**
@@ -49,6 +29,7 @@ export interface AnnotateColumnSelection {
  */
 export interface AnnotedSelectionUnit {
   columnSelections: AnnotateColumnSelection[];
+  ast: SelectionUnit;
 }
 
 /**
