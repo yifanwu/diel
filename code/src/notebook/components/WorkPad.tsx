@@ -16,14 +16,14 @@ export default class WorkPad extends React.Component<{}, WorkPadState> {
     super(props);
     this.addCell = this.addCell.bind(this);
     this.state = {
-      cells: []
+      cells: [{key: "1"}]
     };
   }
 
   addCell() {
     this.setState(prevState => {
       prevState.cells.push({
-        key: prevState.cells.length.toString()
+        key: (prevState.cells.length + 1).toString()
       });
       return prevState;
     });
@@ -31,7 +31,7 @@ export default class WorkPad extends React.Component<{}, WorkPadState> {
 
   render() {
     return <>
-       {this.state.cells.map(c => <Cell key={c.key}/>)}
+      {this.state.cells.map(c => <Cell key={c.key}/>)}
       <button className="new-cell-btn" onClick={this.addCell}>new cell</button>
     </>;
   }

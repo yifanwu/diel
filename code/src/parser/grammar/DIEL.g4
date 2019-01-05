@@ -69,7 +69,7 @@ inputStmt
   ;
 
 dynamicTableStmt
-  : CREATE DYNAMIC TABLE IDENTIFIER relationDefintion DELIM
+  : CREATE TABLE IDENTIFIER relationDefintion DELIM
   ;
 
 relationDefintion

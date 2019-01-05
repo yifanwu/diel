@@ -5,14 +5,21 @@ import * as lexer from "../parser/grammar/DIELLexer";
 
 import Visitor from "../parser/generateAst";
 
-export function getSelectionUnitAst(code: string) {
+export function parse(code: string) {
   const inputStream = new ANTLRInputStream(code);
   const l = new lexer.DIELLexer(inputStream);
   const tokenStream = new CommonTokenStream(l);
-  const p = new parser.DIELParser(tokenStream);
-  const tree = p.selectUnitQuery();
-  let visitor = new Visitor();
-  let ast = visitor.visitSelectUnitQuery(tree);
-  // FIXME: do the things.
-  return ast;
+  return new parser.DIELParser(tokenStream);
 }
+
+// export function getSelectionUnitAst(code: string) {
+
+//   const tree = p.selectUnitQuery();
+//   let visitor = new Visitor();
+//   let ast = visitor.visitSelectUnitQuery(tree);
+//   // FIXME: do the things
+//   // normalizeColumnSelection
+//   // inferType
+//   return ast;
+// }
+

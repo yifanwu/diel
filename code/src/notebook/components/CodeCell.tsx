@@ -17,6 +17,7 @@ export default class CodeCell extends React.Component<{}, CodeCardState> {
   constructor(props: {}) {
     super(props);
     this.onChange = this.onChange.bind(this);
+    this.addQuery = this.addQuery.bind(this);
     // this.handleKeyPress = this.handleKeyPress.bind(this);
     this.state = {
       query: "",
@@ -76,11 +77,14 @@ export default class CodeCell extends React.Component<{}, CodeCardState> {
         // onKeyUp = { this.handleKeyPress }
         >
       </textarea>
-      <button className="submit-query"></button>
-      <CodeDiv
-        annotation={this.state.annotation}
-        setPopup={this.setPopup}
-      />
+      <button className="submit-query" onClick={this.addQuery}>run query</button>
+      { this.state.annotation
+        ? <CodeDiv
+          annotation={this.state.annotation}
+          setPopup={this.setPopup}
+        />
+        : null
+      }
     </div>);
   }
 }

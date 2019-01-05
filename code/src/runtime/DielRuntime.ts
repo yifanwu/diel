@@ -5,11 +5,11 @@ import { loadPage } from "../notebook/index";
 import { Database } from "sql.js";
 import { SelectionUnit, SetOperator, AstType } from "../parser/sqlAstTypes";
 import { QueryId, RuntimeCell, CellType, DbRow, AnnotedSelectionUnit,  } from "./runtimeTypes";
-import { getSelectionUnitAst } from "../compiler/compiler";
 import { getSelectionUnitAnnotation } from "./annotations";
-import { DerivedRelationType, DerivedRelation } from "../parser/dielAstTypes";
+import { DerivedRelationType, DerivedRelation, StaticRelationType } from "../parser/dielAstTypes";
 import { generateSelectionUnit } from "../compiler/codegen/codeGenSql";
-
+import Visitor from "../parser/generateAst";
+import { parse } from "../compiler/compiler";
 /**
  * DielIr would now take an empty ast
  * - we would then progressively add queries, also contains the setup logic with the db here
@@ -19,11 +19,26 @@ import { generateSelectionUnit } from "../compiler/codegen/codeGenSql";
 export default class DielRuntime extends DielIr {
   cells: RuntimeCell[];
   db: Database;
+  visitor: Visitor;
 
   constructor(dbPath?: string) {
     super();
     console.log(`Setting up DielRuntime with path to db ${dbPath}.`);
     this.cells = [];
+    this.visitor = new Visitor();
+    // initialize
+    this.ast = {
+      udfTypes: [],
+      inputs: [],
+      dynamicTables: [],
+      staticTables: [],
+      outputs: [],
+      views: [],
+      inserts: [],
+      drops: [],
+      programs: [],
+      crossfilters: [],
+    };
     this.setup(dbPath);
   }
 
@@ -35,6 +50,9 @@ export default class DielRuntime extends DielIr {
       const bufferRaw = await response.arrayBuffer();
       const buffer = new Uint8Array(bufferRaw);
       this.db = new Database(buffer);
+      // we need to integrate the dbs in the existing db
+      // SELECT name,sql FROM sqlite_master WHERE type='table';
+      // then parse the definitions into the existing ast...
       loadPage();
     }
   }
@@ -59,7 +77,7 @@ export default class DielRuntime extends DielIr {
   // }
 
   AddQuery(query: string): AnnotedSelectionUnit {
-    const viewAst = getSelectionUnitAst(query);
+    const viewAst = this.parseSelectionUnit(query);
     const cId = this.generateQId();
     const name = this.createCellName(cId);
     const derivedRelation: DerivedRelation = {
@@ -91,6 +109,32 @@ export default class DielRuntime extends DielIr {
     q.currentVersionIdx += 1;
     // bookkeeping the views?
     // refresh the annotation
+  }
+
+  parseSelectionUnit(code: string) {
+    const tree = parse(code).selectUnitQuery();
+    return this.visitor.visitSelectUnitQuery(tree);
+  }
+
+  /**
+   * Fixme: need to think about templating stuff.
+   * @param code
+   */
+  parseTableDefinition(code: string) {
+    const tree = parse(code).dynamicTableStmt();
+    return this.visitor.visitDynamicTableStmt(tree);
+  }
+
+  /**
+   * we are going to assume that all the tables are defined by simple dedinition
+   * FIXME
+   */
+  parseExistingTablesToIr() {
+    const q = `SELECT name, sql FROM sqlite_master WHERE type='table'`;
+    this.db.each(q, (o) => {
+      const dynamicRelation = this.parseTableDefinition(o.sql as string);
+      this.ast.dynamicTables.push(dynamicRelation);
+    }, null);
   }
 
   /**
