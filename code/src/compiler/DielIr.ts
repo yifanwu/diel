@@ -21,6 +21,9 @@ function applyToDerivedRelation<T>(r: DerivedRelation, fun: SelectionUnitFunctio
  *   just easier to reason about for now)
  */
 export class DielIr {
+  static GetSimpleColumnsFromSelectionUnit(ast: SelectionUnit): any {
+    throw new Error("Method not implemented.");
+  }
   ast: DielAst;
   config: DielConfig;
   dependencies: DependencyInfo;

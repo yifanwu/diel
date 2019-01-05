@@ -18,6 +18,9 @@ It gets a little weird if we have interactions enable on views that are already 
 
 Developers will not be able to create views --- they can only write queries --> they can change how they are referenced by changing the name
 
+## Arch
+
+Need to think about how we are capturing the contextual knowledge and how to pass that around.
 
 ## Features
 

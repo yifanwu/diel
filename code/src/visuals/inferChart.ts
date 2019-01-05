@@ -1,0 +1,1 @@
+// this file contains the logic to infer what kind of charts we want to show.

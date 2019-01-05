@@ -41,7 +41,7 @@ function generateCompositeSelectionUnit(c: CompositeSelectionUnit): string {
   return `${op} ${query}`;
 }
 
-function generateSelectionUnit(v: SelectionUnit): string {
+export function generateSelectionUnit(v: SelectionUnit): string {
   return `SELECT ${generateColumnSelection(v.columnSelections)}
     ${generateSelectionUnitBody(v)}
   `;

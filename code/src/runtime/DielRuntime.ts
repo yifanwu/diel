@@ -1,18 +1,18 @@
 import { DielIr } from "../compiler/DielIr";
 import { Database } from "sql.js";
 import { SelectionUnit, SetOperator, AstType } from "../parser/sqlAstTypes";
-import { QueryId, RuntimeCell, CellType,  } from "./runtimeTypes";
+import { QueryId, RuntimeCell, CellType, ChartData, AnnotatedRows, DbRow,  } from "./runtimeTypes";
 import { getSelectionUnitAst } from "../compiler/compiler";
 import { getSelectionUnitAnnotation } from "./annotations";
 import { DerivedRelationType, DerivedRelation } from "../parser/dielAstTypes";
-
-/**
- * run time cache for performance
- */
-interface RuntimeQueryCache {
-  query: string;
-  result: OneDimData[] | TwoDimData[];
-}
+import { generateSelectionUnit } from "../compiler/codegen/codeGenSql";
+// /**
+//  * run time cache for performance
+//  */
+// interface RuntimeQueryCache {
+//   query: string;
+//   result: OneDimData[] | TwoDimData[];
+// }
 
 /**
  * DielIr would now take an empty ast
@@ -43,13 +43,18 @@ export default class DielRuntime extends DielIr {
   }
 
   /**
-   * 
+   * returns the results as an array of objects (sql.js)
    */
-  ExecuteAstQuery(ast: SelectionUnit) {
+  ExecuteAstQuery(ast: SelectionUnit): DbRow[] {
+    // const columnTypes = DielIr.GetSimpleColumnsFromSelectionUnit(ast);
+    const queryString = generateSelectionUnit(ast);
+    return this.ExecuteStringQuery(queryString);
   }
 
-  ExecuteStringQuery() {
-
+  ExecuteStringQuery(q: string): DbRow[] {
+    let r: DbRow[] = [];
+    this.db.each(q, (row) => { r.push(row as DbRow); }, () => {});
+    return r;
   }
 
   // TODO low pri

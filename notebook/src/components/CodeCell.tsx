@@ -2,19 +2,20 @@ import * as React from "react";
 import { ToolTip } from "./ToolTip";
 import { runtime } from "../setup";
 // FIXME: this import is really sketch, we should break the two files apart
-import { AnnotedSelectionUnit, ChartData } from "../../../code/src/runtime/runtimeTypes";
+import { AnnotedSelectionUnit, ChartData, AnnotationSpec } from "../../../code/src/runtime/runtimeTypes";
 import { CodeDiv } from "./CodeDiv";
+import { SelectionUnit } from "../../../code/src/parser/sqlAstTypes";
+
+interface ToolTipProps {
+  chartData: ChartData;
+  xPos: number;
+  yPos: number;
+}
 
 interface CodeCardState {
   query: string;
   annotation: AnnotedSelectionUnit;
-  popup: {
-    data: ChartData,
-    position: {
-      x: number;
-      y: number;
-    }
-  };
+  toolTipProps: ToolTipProps;
 }
 
 export default class CodeCard extends React.Component<{}, CodeCardState> {
@@ -26,12 +27,26 @@ export default class CodeCard extends React.Component<{}, CodeCardState> {
     this.state = {
       query: "",
       annotation: null,
-      popup: null,
+      toolTipProps: null,
     };
   }
 
-  setPopup() {
+  /**
+   * this function should take the query, execute it, and show the visualization
+   */
+  setPopup(spec: AnnotationSpec, xPos: number, yPos: number) {
     // todo
+    const chartData = {
+      data: runtime.ExecuteAstQuery(spec.ast),
+      dimension: spec.dimension,
+      chartType: spec.chartType
+    };
+    const popup: ToolTipProps = {
+      chartData,
+      xPos,
+      yPos
+    };
+    this.setState({toolTipProps: popup});
   }
 
   handleKeyPress(e: any) {

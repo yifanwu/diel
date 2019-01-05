@@ -1,26 +1,38 @@
 import { SelectionUnit } from "../parser/sqlAstTypes";
+import { SimpleColumn } from "../compiler/DielIr";
 
 export type QueryId = number;
 
-export enum ChartDataType {
-  OneDim = "OneDim",
-  TwoDim = "TwoDim"
+export enum ChartType {
+  Bar = "Bar",
+  Scatter = "Scatter"
+}
+
+export type DbRow = {[index: string]: number | string};
+
+export interface AnnotatedRows {
+  columnTypes: SimpleColumn[];
+  data: DbRow[];
+}
+
+interface ChartSpec {
+  chartType: ChartType;
+  dimension: number;
 }
 
 /**
  * #IMPROVE can do some generics here.
  */
-export interface ChartData {
-  chartType: ChartDataType;
-  dimension: number;
-  data: (string | number)[][];
+export interface ChartData extends ChartSpec {
+  data: DbRow[];
 }
 
 /**
  * keeping it as an independent object in case we want to keep track of user interactions?
  * -- though we should probably use DIEL to do that; thinka bout later..
  */
-export interface AnnotateColumnSelection {
+export interface AnnotationSpec extends ChartSpec {
+  semanticId: string;
   ast: SelectionUnit;
 }
 
@@ -28,7 +40,7 @@ export interface AnnotateColumnSelection {
  * hard coding for demo right now
  */
 export interface AnnotedSelectionUnit {
-  columnSelections: AnnotateColumnSelection[];
+  columnSelections: AnnotationSpec[];
   ast: SelectionUnit;
 }
 

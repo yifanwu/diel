@@ -1,4 +1,4 @@
-import { AnnotedSelectionUnit, AnnotateColumnSelection, RuntimeColumnSelectionInfo } from "./runtimeTypes";
+import { AnnotedSelectionUnit, AnnotationSpec, ChartType } from "./runtimeTypes";
 import { SelectionUnit } from "../parser/sqlAstTypes";
 import { ExprColumnAst, ExprType, FunctionType } from "../parser/exprAstTypes";
 import { DataType } from "../parser/dielAstTypes";
@@ -9,10 +9,13 @@ import { DataType } from "../parser/dielAstTypes";
  * @param ast
  */
 export function getSelectionUnitAnnotation(ast: SelectionUnit): AnnotedSelectionUnit {
-  const columnSelections: AnnotateColumnSelection[] = ast.derivedColumnSelections.map(s => {
+  const columnSelections: AnnotationSpec[] = ast.derivedColumnSelections.map(s => {
     // just gonna do the group by for now
     // and just gonna do derived directy
     // a shallow copy is enough, but a little brittle since the object might become deep...
+    const cExpr = s.expr as ExprColumnAst;
+    const relationName = cExpr.relationName;
+    const columnName = cExpr.columnName;
     const ast: SelectionUnit = {
       derivedColumnSelections: [{
         expr: Object.assign({}, s.expr),
@@ -30,20 +33,22 @@ export function getSelectionUnitAnnotation(ast: SelectionUnit): AnnotedSelection
       }],
       columnSelections: null,
       baseRelation: {
-        relationName: (s.expr as ExprColumnAst).relationName
+        relationName
       },
       groupByClause: [{
         expr: Object.assign({}, s.expr),
       }]
     };
-    const rtSelectionUnit: RuntimeColumnSelectionInfo = {
-      ast
-    };
+    const semanticId = `column-tool-tip-${columnName}-${relationName}`;
     return {
-      rtSelectionUnit
+      ast,
+      dimension: 1,
+      chartType: ChartType.Bar,
+      semanticId
     };
   });
   return {
-    columnSelections
+    columnSelections,
+    ast
   };
 }
