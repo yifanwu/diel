@@ -22,6 +22,8 @@ Developers will not be able to create views --- they can only write queries --> 
 
 Need to think about how we are capturing the contextual knowledge and how to pass that around.
 
+It's also not clear how we should encode the information --- casting the information seems to lose stuff, and the best is be able to reflect --- it seems like most parts of the notebook should know where the others come from.
+
 ## Features
 
 **high light difference**

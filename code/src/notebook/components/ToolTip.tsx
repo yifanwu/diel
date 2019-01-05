@@ -1,12 +1,12 @@
 import * as React from "react";
-import { ChartData } from "../../../code/src/runtime/runtimeTypes";
+import { ChartData } from "../../runtime/runtimeTypes";
 import {BarChart} from "./charts/BarChart";
 
-interface ToolTipProps {
-  x: number;
-  y: number;
-  maxWidth?: number;
-  data: ChartData;
+export interface ToolTipProps {
+  xPos: number;
+  yPos: number;
+  // maxWidth?: number;
+  chartData: ChartData;
 }
 
 /**
@@ -16,9 +16,9 @@ interface ToolTipProps {
  */
 export const ToolTip: React.StatelessComponent<ToolTipProps> = (p) => {
   // TODO: make the tool tip dynamic
-  return <div style={{position: "absolute", left: p.x, top: p.y}}>
+  return <div style={{position: "absolute", left: p.xPos, top: p.yPos}}>
     <BarChart
-      data={p.data}
+      data={p.chartData}
     />
   </div>;
 };

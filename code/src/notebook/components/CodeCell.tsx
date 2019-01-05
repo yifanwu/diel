@@ -1,31 +1,26 @@
 import * as React from "react";
-import { ToolTip } from "./ToolTip";
+import { ToolTip, ToolTipProps } from "./ToolTip";
 import { runtime } from "../setup";
 // FIXME: this import is really sketch, we should break the two files apart
-import { AnnotedSelectionUnit, ChartData, AnnotationSpec } from "../../../code/src/runtime/runtimeTypes";
+import { AnnotedSelectionUnit, ChartData, AnnotationSpec, CellStatus } from "../../runtime/runtimeTypes";
 import { CodeDiv } from "./CodeDiv";
-import { SelectionUnit } from "../../../code/src/parser/sqlAstTypes";
-
-interface ToolTipProps {
-  chartData: ChartData;
-  xPos: number;
-  yPos: number;
-}
 
 interface CodeCardState {
+  cellStatus: CellStatus;
   query: string;
   annotation: AnnotedSelectionUnit;
   toolTipProps: ToolTipProps;
 }
 
-export default class CodeCard extends React.Component<{}, CodeCardState> {
+export default class CodeCell extends React.Component<{}, CodeCardState> {
 
   constructor(props: {}) {
     super(props);
     this.onChange = this.onChange.bind(this);
-    this.handleKeyPress = this.handleKeyPress.bind(this);
+    // this.handleKeyPress = this.handleKeyPress.bind(this);
     this.state = {
       query: "",
+      cellStatus: CellStatus.Initial,
       annotation: null,
       toolTipProps: null,
     };
@@ -49,34 +44,39 @@ export default class CodeCard extends React.Component<{}, CodeCardState> {
     this.setState({toolTipProps: popup});
   }
 
-  handleKeyPress(e: any) {
-    if (e.nativeEvent.keyCode === 13) {
-      if (e.nativeEvent.shiftKey) {
-        this.refreshAnnotation();
-      }
-    }
-  }
+  // handleKeyPress(e: any) {
+  //   if (e.nativeEvent.keyCode === 13) {
+  //     if (e.nativeEvent.shiftKey) {
+  //       this.refreshAnnotation();
+  //     }
+  //   }
+  // }
 
   onChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
     this.setState({query: event.target.value });
   }
 
-  refreshAnnotation() {
-    // const abstractUi = runtime.addQuery(this.state.query);
-    // this.setState({abstractUi});
+  addQuery() {
+    const annotation = runtime.AddQuery(this.state.query);
+    this.setState({
+      annotation,
+      cellStatus: CellStatus.Committed
+    });
   }
 
   render() {
-    return (<div className="code-card">
+    return (<div className="code-cell">
+      { this.state.toolTipProps ? <ToolTip {...this.state.toolTipProps}/> : null }
       <textarea
         rows={5}
         cols={50}
         id="comments"
         name="comments"
         onChange={ this.onChange }
-        onKeyUp = { this.handleKeyPress }
+        // onKeyUp = { this.handleKeyPress }
         >
       </textarea>
+      <button className="submit-query"></button>
       <CodeDiv
         annotation={this.state.annotation}
         setPopup={this.setPopup}

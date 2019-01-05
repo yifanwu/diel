@@ -1,4 +1,4 @@
-import { getDielIr } from "../../compiler/compiler";
+import { getDielIr } from "../../lib/cli-compiler";
 import { GenerateUnitTestErrorLogger, LogInfo } from "../../lib/messages";
 import { ExprColumnAst } from "../../parser/exprAstTypes";
 import { DataType } from "../../parser/dielAstTypes";

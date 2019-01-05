@@ -8,6 +8,11 @@ export enum ChartType {
   Scatter = "Scatter"
 }
 
+export enum CellStatus {
+  Initial = "Initial",
+  Committed = "Committed"
+}
+
 export type DbRow = {[index: string]: number | string};
 
 export interface AnnotatedRows {

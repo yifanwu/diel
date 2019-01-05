@@ -2,7 +2,8 @@
     "enable": true,
     "linterOptions": {
         "exclude": [
-            "src/parser/grammar/*.ts"
+            "src/parser/grammar/*.ts",
+            "node_modules/**"
         ]
     },
     "jsRules": {

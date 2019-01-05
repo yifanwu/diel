@@ -1,6 +1,6 @@
 import * as React from "react";
 import * as d3 from "d3";
-import { ChartData } from "../../../../code/src/runtime/runtimeTypes";
+import { ChartData } from "../../../runtime/runtimeTypes";
 
 interface BarChartProp {
   data: ChartData;

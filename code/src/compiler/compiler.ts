@@ -4,22 +4,6 @@ import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 
 import Visitor from "../parser/generateAst";
-import { DielConfig } from "../parser/dielAstTypes";
-import { LogInfo } from "../lib/messages";
-import DielCompiler from "./DielCompiler";
-
-export function getDielIr(code: string, config?: DielConfig) {
-  LogInfo("Starting compilation");
-  const inputStream = new ANTLRInputStream(code);
-  const l = new lexer.DIELLexer(inputStream);
-  const tokenStream = new CommonTokenStream(l);
-  const p = new parser.DIELParser(tokenStream);
-  const tree = p.queries();
-  let visitor = new Visitor();
-  let ast = visitor.visitQueries(tree);
-  // apply the templates
-  return new DielCompiler(ast, config);
-}
 
 export function getSelectionUnitAst(code: string) {
   const inputStream = new ANTLRInputStream(code);

@@ -7,7 +7,7 @@ import * as fs from "fs";
 
 import { resolve } from "path";
 import { LogWarning, LogInfo, ReportDielUserError } from "./messages";
-import { getDielIr } from "../compiler/compiler";
+import { getDielIr } from "../lib/cli-compiler";
 import { genFiles } from "../compiler/codegen/fileGen";
 
 // read file dielconfig.json's src for files to read from

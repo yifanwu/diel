@@ -1,4 +1,4 @@
-import { getDielIr } from "../../compiler/compiler";
+import { getDielIr } from "../../lib/cli-compiler";
 import { LogStandout } from "../../lib/messages";
 
 const primaryKey = `CREATE TABLE t1 (

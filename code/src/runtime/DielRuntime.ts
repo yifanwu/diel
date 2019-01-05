@@ -1,18 +1,14 @@
 import { DielIr } from "../compiler/DielIr";
+
+// this is really weird, somehow passing it in causes asynchrony issues... #HACK, #FIXME
+import { loadPage } from "../notebook/index";
 import { Database } from "sql.js";
 import { SelectionUnit, SetOperator, AstType } from "../parser/sqlAstTypes";
-import { QueryId, RuntimeCell, CellType, ChartData, AnnotatedRows, DbRow,  } from "./runtimeTypes";
+import { QueryId, RuntimeCell, CellType, DbRow, AnnotedSelectionUnit,  } from "./runtimeTypes";
 import { getSelectionUnitAst } from "../compiler/compiler";
 import { getSelectionUnitAnnotation } from "./annotations";
 import { DerivedRelationType, DerivedRelation } from "../parser/dielAstTypes";
 import { generateSelectionUnit } from "../compiler/codegen/codeGenSql";
-// /**
-//  * run time cache for performance
-//  */
-// interface RuntimeQueryCache {
-//   query: string;
-//   result: OneDimData[] | TwoDimData[];
-// }
 
 /**
  * DielIr would now take an empty ast
@@ -24,13 +20,14 @@ export default class DielRuntime extends DielIr {
   cells: RuntimeCell[];
   db: Database;
 
-  constructor(loadPage: () => void, dbPath?: string) {
+  constructor(dbPath?: string) {
     super();
+    console.log(`Setting up DielRuntime with path to db ${dbPath}.`);
     this.cells = [];
-    this.setup(loadPage, dbPath);
+    this.setup(dbPath);
   }
 
-  async setup(loadPage: () => void, dbPath?: string) {
+  async setup(dbPath?: string) {
     if (!dbPath) {
       this.db = new Database();
     } else {
@@ -61,7 +58,7 @@ export default class DielRuntime extends DielIr {
   // ChangeQueryVersion(qId: QueryId, ) {
   // }
 
-  AddQuery(query: string) {
+  AddQuery(query: string): AnnotedSelectionUnit {
     const viewAst = getSelectionUnitAst(query);
     const cId = this.generateQId();
     const name = this.createCellName(cId);
@@ -85,6 +82,7 @@ export default class DielRuntime extends DielIr {
       currentAnnotions
     };
     this.cells.push(newQuery);
+    return currentAnnotions;
   }
 
   ChangeQuery(qId: QueryId, query: string) {

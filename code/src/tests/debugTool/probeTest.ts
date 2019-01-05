@@ -1,4 +1,4 @@
-import { getDielIr } from "../../compiler/compiler";
+import { getDielIr } from "../../lib/cli-compiler";
 
 // this is a helper for looking at the IR.
 

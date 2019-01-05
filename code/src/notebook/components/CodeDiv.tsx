@@ -1,6 +1,6 @@
 import * as React from "react";
-import { AnnotedSelectionUnit, AnnotationSpec } from "../../../code/src/runtime/runtimeTypes";
-import { generateSelectionUnitBody } from "../../../code/src/compiler/codegen/codeGenSql";
+import { AnnotedSelectionUnit, AnnotationSpec } from "../../runtime/runtimeTypes";
+import { generateSelectionUnitBody } from "../../compiler/codegen/codeGenSql";
 
 interface CodeDivProps {
   annotation: AnnotedSelectionUnit;

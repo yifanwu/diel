@@ -3,6 +3,8 @@ import * as ReactDOM from "react-dom";
 
 import { PageContainer } from "./components/PageContainer";
 
+console.log("setting up load page");
+
 // this is the place where DIEL should be loaded with the
 // generated .db file
 export function loadPage() {
