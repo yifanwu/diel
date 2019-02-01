@@ -3,7 +3,7 @@ import { SelectionUnit, CompositeSelection, Column, ColumnSelection, RelationRef
 import { DependencyInfo } from "./passes/passesHelper";
 import { LogInternalError, ReportDielUserError } from "../lib/messages";
 import { ExprType, ExprFunAst, ExprColumnAst, ExprAst } from "../parser/exprAstTypes";
-import { copyColumnSelection } from "./passes/helper";
+import { copyColumnSelection, createColumnSectionFromRelationReference } from "./passes/helper";
 
 type SelectionUnitFunction<T> = (s: SelectionUnit, relationName?: string) => T;
 type CompositeSelectionFunction<T> = (s: CompositeSelection, relationName?: string) => T;
@@ -113,7 +113,7 @@ export class DielIr {
             return populatedColumns;
           } else {
             // case 2: find all the relations
-            let populatedColumns: ColumnSelection[] = this.getSimpleColumnsFromRelationReference(s.baseRelation)
+            const populatedColumnsFromBase: ColumnSelection[] = this.getSimpleColumnsFromRelationReference(s.baseRelation)
               .map(newColumn => ({
                 expr: {
                   exprType: ExprType.Column,
@@ -125,6 +125,7 @@ export class DielIr {
                 // cannot alias stars
                 alias: null
               }));
+            let populatedColumnsFromJoins: ColumnSelection[] = [];
             s.joinClauses.map(j => {
               const relationName = getRelationReferenceName(j.relation);
               const newColumns: ColumnSelection[] = this.getSimpleColumnsFromRelationReference(j.relation).map(c => ({
@@ -137,13 +138,25 @@ export class DielIr {
                 },
                 alias: null
               }));
-              populatedColumns = newColumns.concat(newColumns);
+              populatedColumnsFromJoins.push(...newColumns);
             });
-            return populatedColumns;
+            return populatedColumnsFromBase.concat(populatedColumnsFromJoins);
           }
-        } else if (!currentColumnExpr.relationName) {
+        } else if (currentColumnExpr.relationName) {
           // not need to change; copy the column
           return [copyColumnSelection(c)];
+        } else {
+          // TODO: the relation needs to be found and copied in!
+          // FIND the relation!
+          // NOTE: not going to handle unnamed temporary relation for now, e.g.
+          // `select a from (select a from t1);`
+          // case 1: relation is in baserelation
+          const columnsFrombaseSelection = this.getSimpleColumnsFromRelationReference(s.baseRelation);
+          const foundFrombase = columnsFrombaseSelection.filter(cBase => cBase.columnName === currentColumnExpr.columnName);
+          if (foundFrombase.length > 0) {
+            // FIXME: this assumption will break when the relation is temporarily defined
+            return [createColumnSectionFromRelationReference(c, foundFrombase[0], s.baseRelation.relationName)];
+          }
         }
       } else {
         // this as to be a function
@@ -191,11 +204,21 @@ export class DielIr {
       if (special) {
         return special.type;
       }
+      // map columnName to simple alias
+      // first check base
+      let deAliasedRelationname = columnExpr.relationName;
+      if (r.baseRelation.alias && r.baseRelation.relationName && (columnExpr.relationName === r.baseRelation.alias)) {
+        deAliasedRelationname = r.baseRelation.relationName;
+      }
+      // TODO: check for joins as well
       // directly see if it's found
-      const existingType = this.GetRelationColumnType(columnExpr.relationName, cn);
+      const existingType = this.GetRelationColumnType(deAliasedRelationname, cn);
+      // checking for subqueries
       if (!existingType) {
         // case 3: must be a temp table defined in a join or aliased
         // we need to access the scope of the current selection
+        // TODO/FIXME: check base!
+        // check joins
         r.joinClauses.map(j => {
           // temp table can only be defined as alias...
           if (j.relation.alias === columnExpr.relationName) {
@@ -206,6 +229,7 @@ export class DielIr {
             return this.GetTypeFromDerivedRelationColumn(tempRelation, cn);
           }
         });
+        throw new Error("Should have found a type by now!");
       } else {
         return existingType;
       }

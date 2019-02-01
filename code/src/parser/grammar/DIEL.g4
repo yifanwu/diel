@@ -238,7 +238,7 @@ compareOp
   | '!='    
   | '>='    
   | '>'     
-  | '<='    
+  | '<='
   | '<'     
   ;
 
@@ -304,6 +304,7 @@ LIMIT: 'LIMIT' | 'limit';
 EXIST: 'EXIST' | 'exist';
 GROUP: 'GROUP' | 'group';
 BY: 'BY' | 'by';
+HAVING: 'HAVING' | 'having';
 AND: 'AND' | 'and';
 OR: 'OR' | 'or';
 MINUS: '-';

@@ -16,3 +16,34 @@ export function assertMultiplyType() {
   LogInfo(`assertMultiplyType passed`);
   return true;
 }
+
+export function assertSimpleType() {
+
+  let q = `
+  create input Attendance (
+      arrival int,
+      departure int,
+      aid int
+  );
+
+  create input Attendee (
+      aid int primary key,
+      area text
+  );
+  create view v1Prime as select a.arrival from Attendance a;
+  create view v1 as select arrival from Attendance;
+  `;
+  const logger = GenerateUnitTestErrorLogger("assertSimpleType", q);
+  let ir = getDielIr(q);
+  function arrivalAssert(viewName: string) {
+    const arrivalType = ir.GetRelationColumnType(viewName, "arrival");
+    if (arrivalType !== DataType.Number) {
+      logger(`Column "arrival" of ${viewName} is not correctly typed, got ${arrivalType} instead`);
+    }
+  }
+  arrivalAssert("v1Prime");
+  arrivalAssert("v1");
+  LogInfo(`assertSimpleType passed`);
+  return true;
+}
+

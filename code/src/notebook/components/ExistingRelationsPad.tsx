@@ -9,9 +9,9 @@ export default class ExistingRelationsPad extends React.Component<{}, ExistingRe
   render() {
     return <div className="">
     {runtime.ast.dynamicTables.map(d => {
-      return <div className="table-sum">
+      return <div className="table-summary">
         {d.columns.map(c => {
-          return <p>{c.name}</p>;
+        return <p className={`column-summary data-type-${c.type}`}>{c.name}</p>;
         })}
       </div>;
     })}

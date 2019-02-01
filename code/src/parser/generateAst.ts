@@ -462,6 +462,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
       relationNotNull: false,
       relationHasOneRow: false,
       primaryKeys,
+      notNull,
       uniques,
       exprChecks,
     };
