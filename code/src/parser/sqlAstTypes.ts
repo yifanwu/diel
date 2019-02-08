@@ -78,7 +78,7 @@ export interface SelectionUnit {
   baseRelation: RelationReference;
   joinClauses?: JoinAst[];
   whereClause?: ExprAst;
-  groupByClause?: ColumnSelection[];
+  groupByClause?: ExprAst[];
   orderByClause?: OrderByAst[];
   limitClause?: ExprAst;
 }
@@ -123,13 +123,13 @@ export interface InsertionClause extends AstBase {
 }
 
 export enum Order {
-  ASC,
-  DESC
+  ASC = "ASC",
+  DESC = "DESC"
 }
 
 export interface OrderByAst {
   order: Order;
-  selection: ColumnSelection;
+  selection: ExprAst;
 }
 
 export interface Drop {

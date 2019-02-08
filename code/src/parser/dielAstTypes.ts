@@ -201,6 +201,7 @@ export type ExpressionValue = DielAst
   | ColumnSelection[]
   | Column
   | Column[]
+  | OrderByAst
   | OrderByAst[]
   | CompositeSelectionUnit
   | RelationSelection
@@ -215,6 +216,7 @@ export type ExpressionValue = DielAst
   | JoinAst
   | ExprValAst
   | ExprAst
+  | ExprAst[]
   | RelationReference
   | SelectionUnit
   | InsertionClause

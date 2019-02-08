@@ -165,7 +165,11 @@ groupByClause
   ;
 
 orderByClause
-  : ORDER BY expr (',' expr)* (ASC|DESC)
+  : ORDER BY orderSpec (',' orderSpec)*
+  ;
+
+orderSpec
+  : expr (ASC|DESC)?
   ;
 
 insertQuery

@@ -1,5 +1,5 @@
 import { DielAst, DynamicRelation, ProgramsIr, DataType } from "../../parser/dielAstTypes";
-import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType } from "../../parser/sqlAstTypes";
+import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order } from "../../parser/sqlAstTypes";
 import { RelationSpec, RelationQuery, SqlIr } from "./createSqlIr";
 import { LogInternalError, ReportDielUserError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
@@ -137,12 +137,19 @@ function generateExpr(e: ExprAst): string {
   }
 }
 
-function generateGroupBy(s: ColumnSelection[]): string {
-  return `GROUP BY ${generateColumnSelection(s)}`;
+function generateGroupBy(s: ExprAst[]): string {
+  return `GROUP BY ${s.map(sI => generateExpr(sI)).join(", ")}`;
 }
 
 function generateOrderBy(o: OrderByAst[]): string {
-  return `ORDER BY ${o.map(i => i.selection)}`;
+  const orders = o.map(i => `${generateExpr(i.selection)} ${generateOrder(i.order)}`);
+  return `ORDER BY ${orders.join(", ")}`;
+}
+
+function generateOrder(order: Order): string {
+  return order === Order.ASC
+    ? "ASC"
+    : "DESC";
 }
 
 function generateLimit(e: ExprAst): string {
