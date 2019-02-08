@@ -2,7 +2,9 @@ import { assertMultiplyType, assertSimpleType } from "./compilerTests/assertType
 // import { testTopologicalSort } from "./unitTest";
 import { assertAllStar } from "./compilerTests/testStarExpantion";
 import { assertGroupBy } from "./parserTests/expressionsTest";
-assertGroupBy();
+import { assertBasicNormalizationOfRelation } from "./compilerTests/assertNormalization";
+assertBasicNormalizationOfRelation();
+// assertGroupBy();
 assertSimpleType();
 // testTopologicalSort();
 // assertAllStar();

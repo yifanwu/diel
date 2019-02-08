@@ -83,7 +83,7 @@ function tryToApplyATemplate(ast: RelationSelection | JoinAst): void {
   }
 
   function _visitOrderByAst(c: OrderByAst) {
-    _visitColumnSelection(c.selection);
+    _visitExprAst(c.selection);
   }
 
   function _visitExprAst(e: ExprAst) {
@@ -121,7 +121,7 @@ function tryToApplyATemplate(ast: RelationSelection | JoinAst): void {
     _visitRelationReference(ast.relation.baseRelation);
     ast.relation.joinClauses.map(j => _visitJoinAst(j));
     _visitExprAst(ast.relation.whereClause);
-    ast.relation.groupByClause.map(c => _visitColumnSelection(c));
+    ast.relation.groupByClause.map(c => _visitExprAst(c));
     ast.relation.orderByClause.map(c => _visitOrderByAst(c));
     _visitExprAst(ast.relation.limitClause);
   }
