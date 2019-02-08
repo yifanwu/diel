@@ -1,8 +1,9 @@
-import { assertMultiplyType, assertSimpleType } from "./compilerTests/assertTypes";
+import { assertSimpleType } from "./compilerTests/assertTypes";
 // import { testTopologicalSort } from "./unitTest";
-import { assertAllStar } from "./compilerTests/testStarExpantion";
-import { assertGroupBy } from "./parserTests/expressionsTest";
 import { assertBasicNormalizationOfRelation } from "./compilerTests/assertNormalization";
+import { assertBasicOperators } from "./parserTests/basicOperatorsTest";
+
+assertBasicOperators();
 assertBasicNormalizationOfRelation();
 // assertGroupBy();
 assertSimpleType();

@@ -14,6 +14,7 @@ export function assertBasicNormalizationOfRelation() {
     b int
   );
 
+  create view v1 as select a from t1 join t2 on t1.b = t2.b where c = 'cat';
   `;
   const logger = GenerateUnitTestErrorLogger("assertBasicNormalizationOfRelation", q);
   let ir = getDielIr(q);

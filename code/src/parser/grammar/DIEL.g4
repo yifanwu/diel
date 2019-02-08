@@ -161,7 +161,11 @@ whereClause
   ;
 
 groupByClause
-  : GROUP BY expr (',' expr)*
+  : GROUP BY expr (',' expr)* havingClause?
+  ;
+
+havingClause
+  : HAVING expr
   ;
 
 orderByClause

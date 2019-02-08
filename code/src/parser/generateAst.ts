@@ -5,7 +5,7 @@ import * as visitor from "./grammar/DIELVisitor";
 import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, ExistingRelation, DynamicRelation, StaticRelationType, RelationConstraints, DerivedRelationType, DynamicRelationType, DielTemplate, TemplateVariableAssignmentUnit } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError } from "../lib/messages";
-import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order } from "./sqlAstTypes";
+import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst } from "./sqlAstTypes";
 import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst } from "./exprAstTypes";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
@@ -148,9 +148,9 @@ implements visitor.DIELVisitor<ExpressionValue> {
       const baseRelation = this.visit(ctx.relationReference()) as RelationReference;
       const joinClauses = ctx.joinClause().map(e => this.visit(e) as JoinAst);
       const whereClause = ctx.whereClause() ? this.visit(ctx.whereClause()) as ExprAst : null;
-      const groupByClause = ctx.groupByClause() ? this.visit(ctx.groupByClause()) as ExprAst[] : null;
-      const orderByClause = ctx.orderByClause() ? this.visit(ctx.orderByClause()) as OrderByAst[] : null;
-      const limitClause = ctx.limitClause() ? this.visit(ctx.limitClause()) as ExprAst : null;
+      const groupByClause = ctx.groupByClause() ? this.visitGroupByClause(ctx.groupByClause()) : null;
+      const orderByClause = ctx.orderByClause() ? this.visitOrderByClause(ctx.orderByClause()) : null;
+      const limitClause = ctx.limitClause() ? this.visitLimitClause(ctx.limitClause()) : null;
       body = {
         baseRelation,
         joinClauses,
@@ -334,8 +334,17 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitGroupByClause(ctx: parser.GroupByClauseContext): ExprAst[] {
-    return ctx.expr().map(e => this.visit(e) as ExprAst);
+  visitGroupByClause(ctx: parser.GroupByClauseContext): GroupByAst {
+    const selections = ctx.expr().map(e => this.visit(e) as ExprAst);
+    const predicate = this.visitHavingClause(ctx.havingClause());
+    return {
+      selections,
+      predicate
+    };
+  }
+
+  visitHavingClause(ctx: parser.HavingClauseContext): ExprAst {
+    return this.visit(ctx.expr()) as ExprAst;
   }
 
   visitLimitClause(ctx: parser.LimitClauseContext): ExprAst {

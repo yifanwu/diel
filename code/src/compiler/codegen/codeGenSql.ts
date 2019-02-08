@@ -1,5 +1,5 @@
 import { DielAst, DynamicRelation, ProgramsIr, DataType } from "../../parser/dielAstTypes";
-import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order } from "../../parser/sqlAstTypes";
+import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst } from "../../parser/sqlAstTypes";
 import { RelationSpec, RelationQuery, SqlIr } from "./createSqlIr";
 import { LogInternalError, ReportDielUserError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
@@ -137,8 +137,17 @@ function generateExpr(e: ExprAst): string {
   }
 }
 
-function generateGroupBy(s: ExprAst[]): string {
-  return `GROUP BY ${s.map(sI => generateExpr(sI)).join(", ")}`;
+function generateGroupBy(g: GroupByAst): string {
+  if (!g) {
+    return "";
+  } else {
+    const groups = g.selections.map(sI => generateExpr(sI)).join(", ");
+    if (g.predicate) {
+      return `GROUP BY ${groups} HAVING ${generateExpr(g.predicate)}`;
+    } else {
+      return `GROUP BY ${groups}`;
+    }
+  }
 }
 
 function generateOrderBy(o: OrderByAst[]): string {

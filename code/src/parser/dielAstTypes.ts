@@ -1,4 +1,4 @@
-import { Column, JoinAst, RelationReference, ColumnSelection, InsertionClause, Drop, RelationSelection, CompositeSelectionUnit, OrderByAst, SelectionUnit, RawValues } from "./sqlAstTypes";
+import { Column, JoinAst, RelationReference, ColumnSelection, InsertionClause, Drop, RelationSelection, CompositeSelectionUnit, OrderByAst, SelectionUnit, RawValues, GroupByAst } from "./sqlAstTypes";
 import { ExprAst, ExprValAst } from "./exprAstTypes";
 
 export interface DielTemplate {
@@ -214,6 +214,7 @@ export type ExpressionValue = DielAst
   | CrossFilterIr
   | CrossFilterChartIr
   | JoinAst
+  | GroupByAst
   | ExprValAst
   | ExprAst
   | ExprAst[]

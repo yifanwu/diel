@@ -121,7 +121,10 @@ function tryToApplyATemplate(ast: RelationSelection | JoinAst): void {
     _visitRelationReference(ast.relation.baseRelation);
     ast.relation.joinClauses.map(j => _visitJoinAst(j));
     _visitExprAst(ast.relation.whereClause);
-    ast.relation.groupByClause.map(c => _visitExprAst(c));
+    ast.relation.groupByClause.selections.map(c => _visitExprAst(c));
+    if (ast.relation.groupByClause.predicate) {
+      _visitExprAst(ast.relation.groupByClause.predicate);
+    }
     ast.relation.orderByClause.map(c => _visitOrderByAst(c));
     _visitExprAst(ast.relation.limitClause);
   }
