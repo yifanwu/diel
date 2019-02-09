@@ -1,7 +1,7 @@
 import { JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType } from "../../parser/sqlAstTypes";
 import { LogInternalError, ReportDielUserError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprRelationAst } from "../../parser/exprAstTypes";
-import { DielAst, DynamicRelation } from "../../parser/dielAstTypes";
+import { DielAst, OriginalRelation } from "../../parser/dielAstTypes";
 
 /**
  * Find all the top level selections for:
@@ -27,14 +27,14 @@ export function applyTemplates(ast: DielAst) {
   });
 
   // defined here since it needs to access the global definition
-  function copyRelationSpec(r: DynamicRelation): void {
+  function copyRelationSpec(r: OriginalRelation): void {
     if (r.copyFrom) {
       // make sure it's not copying from itself
       if (r.copyFrom === r.name) {
         ReportDielUserError(`You cannot copy ${r.name} from itself!`);
       }
       // find the relation
-      const sourceRelation = ast.inputs.concat(ast.dynamicTables).filter(r => r.name === r.copyFrom);
+      const sourceRelation = ast.inputs.concat(ast.originalRelations).filter(r => r.name === r.copyFrom);
       if (sourceRelation.length === 0) {
         ReportDielUserError(`The relation definition you are trying to copy from, ${r.copyFrom}, does not exist`);
       } else {
@@ -43,7 +43,7 @@ export function applyTemplates(ast: DielAst) {
     }
   }
   // and the copy pass
-  ast.inputs.concat(ast.dynamicTables).map(r => copyRelationSpec(r));
+  ast.inputs.concat(ast.originalRelations).map(r => copyRelationSpec(r));
 }
 
 /**

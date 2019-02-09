@@ -1,4 +1,4 @@
-import { DielAst, DerivedRelation, DataType, BuiltInColumns, DielConfig } from "../parser/dielAstTypes";
+import { DielAst, DerivedRelation, DataType, BuiltInColumns, DielConfig, OriginalRelation } from "../parser/dielAstTypes";
 import { SelectionUnit, CompositeSelection, Column, ColumnSelection, RelationReference, getRelationReferenceName } from "../parser/sqlAstTypes";
 import { DependencyInfo } from "./passes/passesHelper";
 import { LogInternalError, ReportDielUserError } from "../lib/messages";
@@ -7,7 +7,7 @@ import { copyColumnSelection, createColumnSectionFromRelationReference } from ".
 
 type SelectionUnitFunction<T> = (s: SelectionUnit, relationName?: string) => T;
 type CompositeSelectionFunction<T> = (s: CompositeSelection, relationName?: string) => T;
-type ExistingRelationFunction<T> = (s: Column[], relationName?: string) => T;
+type ExistingRelationFunction<T> = (s: OriginalRelation, relationName?: string) => T;
 export type SimpleColumn = {columnName: string, type: DataType};
 
 // helpers
@@ -28,8 +28,9 @@ export class DielIr {
   config: DielConfig;
   dependencies: DependencyInfo;
   // we want to access the derived relations by name and be iterables
+  // FIXME: a bit weird that we are accessing the selection directly for derived but not for the dynamic one...
   allDerivedRelations: Map<string, CompositeSelection>;
-  allOriginalRelations: Map<string, Column[]>;
+  allOriginalRelations: Map<string, OriginalRelation>;
   // viewTypes: Map<string, Map<string, DataType>>;
 
 
@@ -43,7 +44,7 @@ export class DielIr {
     if (derived) {
       return this.GetTypeFromDerivedRelationColumn(derived[0].relation, columnName);
     } else {
-      const original = this.allOriginalRelations.get(relationName);
+      const original = this.allOriginalRelations.get(relationName).columns;
       if (!original) {
         return null;
       } else {
@@ -278,7 +279,7 @@ export class DielIr {
     if (derived) {
       return this.GetSimpleColumnsFromSelectionUnit(derived[0].relation);
     }
-    const original = this.allOriginalRelations.get(relationName);
+    const original = this.allOriginalRelations.get(relationName).columns;
     if (original) {
       return original.map(c => ({columnName: c.name, type: c.type}));
     }
@@ -324,8 +325,7 @@ export class DielIr {
 
   applyToAllExistingRelation<T>(fun: ExistingRelationFunction<T>): T[] {
     // so there are the inputs, the static tables
-    return this.ast.inputs.map(r => fun(r.columns, r.name))
-      .concat(this.ast.dynamicTables.map(r => fun(r.columns, r.name)))
-      .concat(this.ast.staticTables.map(r =>  fun(r.columns, r.name)));
+    return this.ast.inputs.map(r => fun(r, r.name))
+      .concat(this.ast.originalRelations.map(r => fun(r, r.name)));
   }
 }

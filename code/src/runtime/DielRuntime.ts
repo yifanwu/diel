@@ -30,8 +30,7 @@ export default class DielRuntime extends DielIr {
     this.ast = {
       udfTypes: [],
       inputs: [],
-      dynamicTables: [],
-      staticTables: [],
+      originalRelations: [],
       outputs: [],
       views: [],
       inserts: [],
@@ -133,7 +132,7 @@ export default class DielRuntime extends DielIr {
     const q = `SELECT name, sql FROM sqlite_master WHERE type='table'`;
     this.db.each(q, (o) => {
       const dynamicRelation = this.parseTableDefinition(o.sql as string);
-      this.ast.dynamicTables.push(dynamicRelation);
+      this.ast.originalRelations.push(dynamicRelation);
     }, null);
   }
 

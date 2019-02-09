@@ -2,7 +2,7 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, ExistingRelation, DynamicRelation, StaticRelationType, RelationConstraints, DerivedRelationType, DynamicRelationType, DielTemplate, TemplateVariableAssignmentUnit } from "./dielAstTypes";
+import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, StaticRelationType, RelationConstraints, DerivedRelationType, OriginalRelationType, DielTemplate, TemplateVariableAssignmentUnit, ForeignKey } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError } from "../lib/messages";
 import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst } from "./sqlAstTypes";
@@ -28,8 +28,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     this.ir = {
       udfTypes: [],
       inputs: [],
-      dynamicTables: [],
-      staticTables: [],
+      originalRelations: [],
       outputs: [],
       views: [],
       inserts: [],
@@ -41,16 +40,8 @@ implements visitor.DIELVisitor<ExpressionValue> {
       this.visit(e) as UdfType
     )).concat(BuiltInUdfTypes);
     // two kinds of specifications
-    this.ir.staticTables = ctx.registerTypeTable().map(e => (
-      this.visit(e) as ExistingRelation
-    )).concat(ctx.registerTypeTable().map(e => (
-      this.visit(e) as ExistingRelation
-    )));
     this.ir.inputs = ctx.inputStmt().map(e => (
       this.visitInputStmt(e)
-    ));
-    this.ir.dynamicTables = ctx.dynamicTableStmt().map(e => (
-      this.visit(e) as DynamicRelation
     ));
     this.ir.outputs = ctx.outputStmt().map(e => (
       this.visit(e) as DerivedRelation
@@ -79,17 +70,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return {
       udf,
       type
-    };
-  }
-
-  visitRegisterTypeTable(ctx: parser.RegisterTypeTableContext): ExistingRelation {
-    const name = ctx._tableName.text;
-    const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
-    const relationType = ctx.WEBWORKER() ? StaticRelationType.WebWorker : StaticRelationType.Server;
-    return {
-      name,
-      columns,
-      relationType,
     };
   }
 
@@ -178,6 +158,17 @@ implements visitor.DIELVisitor<ExpressionValue> {
   // begin level exprSimple
   visitExprSimple(ctx: parser.ExprSimpleContext): ExprAst {
     return this.visit(ctx.unitExpr()) as ExprAst;
+  }
+
+  // going to limit negation to boolean expressions for now
+  visitExprNegate(ctx: parser.ExprNegateContext): ExprFunAst {
+    return {
+      exprType: ExprType.Func,
+      dataType: DataType.Boolean,
+      functionType: FunctionType.Logic,
+      functionReference: "NOT",
+      args: [this.visit(ctx.expr()) as ExprAst]
+    };
   }
 
   visitUnitExprColumn(ctx: parser.UnitExprColumnContext): ExprColumnAst {
@@ -457,16 +448,8 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitInputStmt(ctx: parser.InputStmtContext): DynamicRelation {
-    const relationType = DynamicRelationType.Input;
-    return {
-      relationType,
-      ...this._helperDynamicRelation(ctx)
-    };
-  }
-
-  visitDynamicTableStmt (ctx: parser.DynamicTableStmtContext): DynamicRelation {
-    const relationType = DynamicRelationType.DynamicTable;
+  visitInputStmt(ctx: parser.InputStmtContext): OriginalRelation {
+    const relationType = ctx.INPUT ? OriginalRelationType.Input : OriginalRelationType.Table;
     return {
       relationType,
       ...this._helperDynamicRelation(ctx)
@@ -487,16 +470,9 @@ implements visitor.DIELVisitor<ExpressionValue> {
     let uniques: string[][] = [];
     let exprChecks: ExprAst[] = [];
     let notNull: string[] = [];
-    let constraints = {
-      relationNotNull: false,
-      relationHasOneRow: false,
-      primaryKeys,
-      notNull,
-      uniques,
-      exprChecks,
-    };
+    let foreignKeys: ForeignKey[] = [];
     ctx.constraintDefinition().map(e => {
-      if (e.KEY()) {
+      if (e.PRIMARY()) {
         primaryKeys = e.IDENTIFIER().map(i => i.text);
       } else if (e.UNIQUE()) {
         const aUnique = e.IDENTIFIER().map(i => i.text);
@@ -505,9 +481,23 @@ implements visitor.DIELVisitor<ExpressionValue> {
         notNull.push(e.IDENTIFIER()[0].text);
       } else if (e.CHECK()) {
         exprChecks.push(this.visit(e.expr()) as ExprAst);
+      } else if (e.FOREIGN()) {
+        foreignKeys.push({
+          sourceColumn: e._column.text,
+          targetRelation: e._table.text,
+          targetColumn: e._otherColumn.text,
+        });
       }
     });
-    return constraints;
+    return {
+      relationNotNull: false,
+      relationHasOneRow: false,
+      primaryKeys,
+      notNull,
+      uniques,
+      exprChecks,
+      foreignKeys
+    };
   }
 
   visitColumnDefinition(ctx: parser.ColumnDefinitionContext): Column {

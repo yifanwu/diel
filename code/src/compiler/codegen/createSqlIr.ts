@@ -1,4 +1,4 @@
-import { DielAst, DynamicRelation, ProgramsIr, DataType } from "../../parser/dielAstTypes";
+import { DielAst, OriginalRelation, ProgramsIr, DataType } from "../../parser/dielAstTypes";
 import { Column, CompositeSelectionUnit, InsertionClause } from "../../parser/sqlAstTypes";
 
 // in this pass, we will create the Ir needed to create the SQL we need
@@ -57,7 +57,7 @@ export function createSqlIr(ast: DielAst): SqlIr {
       name: i.name,
       columns: i.columns.concat(inputColumns)
     }))
-    .concat(ast.dynamicTables)
+    .concat(ast.originalRelations)
     .map(i => ({
       name: i.name,
       columns: i.columns

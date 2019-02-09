@@ -29,9 +29,9 @@ export enum DerivedRelationType {
   Output = "Output",
 }
 
-export enum DynamicRelationType {
+export enum OriginalRelationType {
   Input = "Input",
-  DynamicTable = "DynamicTable",
+  Table = "Table",
 }
 
 export enum StaticRelationType {
@@ -110,15 +110,15 @@ export interface DerivedRelation extends RelationBase {
   selection: RelationSelection;
 }
 
-export interface ExistingRelation extends RelationBase {
-  relationType: StaticRelationType;
-  columns: Column[];
-  serverInfo?: ServerConnection;
-}
+// export interface ExistingRelation extends RelationBase {
+//   relationType: StaticRelationType;
+//   columns: Column[];
+//   serverInfo?: ServerConnection;
+// }
 
 // used for inputs and tables that are accessed by programs
-export interface DynamicRelation extends RelationBase {
-  relationType: DynamicRelationType;
+export interface OriginalRelation extends RelationBase {
+  relationType: OriginalRelationType;
   columns: Column[];
   copyFrom?: string; // this is used by templates
 }
@@ -127,6 +127,10 @@ export interface DynamicRelation extends RelationBase {
 export interface ServerConnection {
   serverName: string;
 }
+
+export type ForeignKey = {
+  sourceColumn: string, targetRelation: string, targetColumn: string
+};
 
 // wow constraints are complicated
 // they are not recursive though
@@ -140,6 +144,7 @@ export interface RelationConstraints {
   notNull?: string[];
   uniques?: string[][]; // there could be multiple unique claueses
   exprChecks?: ExprAst[]; // these are actually on colunmn level, a bit weird here
+  foreignKeys?: ForeignKey[];
   // the other parts are in columns.. ugh
 }
 
@@ -169,9 +174,8 @@ export interface DielContext {
 }
 
 export interface DielAst {
-  inputs: DynamicRelation[];
-  dynamicTables: DynamicRelation[];
-  staticTables: ExistingRelation[];
+  inputs: OriginalRelation[];
+  originalRelations: OriginalRelation[];
   outputs: DerivedRelation[];
   views: DerivedRelation[];
   programs: ProgramsIr[];
@@ -194,9 +198,8 @@ export interface CrossFilterIr {
 }
 
 export type ExpressionValue = DielAst
-  | DynamicRelation
+  | OriginalRelation
   | DerivedRelation
-  | ExistingRelation
   | ColumnSelection
   | ColumnSelection[]
   | Column

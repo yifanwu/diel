@@ -9,10 +9,8 @@ queries : (
            | templateStmt
            | insertQuery
            //  the rest does not require templating
-           | dynamicTableStmt
            | inputStmt
            | registerTypeUdf
-           | registerTypeTable
            | dropQuery
           )+;
 
@@ -22,10 +20,6 @@ staticTableStmt
 
 registerTypeUdf
   : REGISTER UDF IDENTIFIER TYPE dataType DELIM
-  ;
-
-registerTypeTable
-  : REGISTER WEBWORKER? TABLE tableName=IDENTIFIER '(' columnDefinition (',' columnDefinition)* ')' DELIM
   ;
 
 templateStmt
@@ -60,16 +54,13 @@ constraintDefinition
   : PRIMARY KEY '(' IDENTIFIER (',' IDENTIFIER)* ')'
   | UNIQUE '(' IDENTIFIER (',' IDENTIFIER)*  ')'
   | IDENTIFIER NOT NULL
+  | FOREIGN KEY '(' column=IDENTIFIER ')' REFERENCES table=IDENTIFIER'(' otherColumn=IDENTIFIER ')'
   | SINGLE LINE
   | CHECK (expr)
   ;
 
 inputStmt
-  : CREATE INPUT IDENTIFIER relationDefintion DELIM
-  ;
-
-dynamicTableStmt
-  : CREATE TABLE IDENTIFIER relationDefintion DELIM
+  : CREATE (INPUT|TABLE) IDENTIFIER relationDefintion DELIM
   ;
 
 relationDefintion
@@ -204,6 +195,7 @@ relationReference
 
 expr
   : unitExpr                                 # exprSimple
+  | NOT expr                                 # exprNegate
   | expr (PIPE expr)+                        # exprConcat
   | '(' expr ')'                             # exprParenthesis
   | function=IDENTIFIER '(' (expr (COMMA expr)*)? ')' # exprFunction
@@ -264,7 +256,6 @@ TEMPLATE: 'TEMPLATE' | 'template';
 USE: 'USE' | 'use';
 XCHART: 'XCHART' | 'xchart';
 NAME: 'NAME' | 'name';
-STATIC: 'STATIC' | 'static';
 PUBLIC: 'PUBLIC' | 'public';
 SINGLE: 'SINGLE' | 'single';
 LINE: 'LINE' | 'line';
