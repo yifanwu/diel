@@ -4,7 +4,9 @@ import { assertBasicNormalizationOfRelation } from "./compilerTests/assertNormal
 import { assertBasicOperators } from "./parserTests/basicOperatorsTest";
 import { codeGenBasicSQLTest } from "./codeGenTests/sqlTest";
 import { assertAllStar } from "./compilerTests/testStarExpantion";
+import { assertBasicConstraints } from "./parserTests/constraintsTest";
 
+assertBasicConstraints();
 codeGenBasicSQLTest();
 assertBasicOperators();
 assertBasicNormalizationOfRelation();

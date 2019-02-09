@@ -43,7 +43,7 @@ export function createSqlIr(ast: DielAst): SqlIr {
       name: "timestep",
       type: DataType.Number,
       constraints: {
-        key: true
+        primaryKey: true
       }
     },
     {

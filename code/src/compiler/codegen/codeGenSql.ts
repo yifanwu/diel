@@ -223,6 +223,6 @@ function generateColumnDefinition(c: Column): string {
   }
   const notNull = c.constraints.notNull ? "NOT NULL" : "";
   const unique = c.constraints.unique ? "UNIQUE" : "";
-  const primary = c.constraints.key ? "PRIMARY KEY" : "";
+  const primary = c.constraints.primaryKey ? "PRIMARY KEY" : "";
   return `${c.name} ${TypeConversionLookUp.get(c.type)} ${notNull} ${unique} ${primary}`;
 }

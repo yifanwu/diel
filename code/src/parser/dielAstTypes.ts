@@ -140,7 +140,7 @@ export type ForeignKey = {
 export interface RelationConstraints {
   relationNotNull: boolean;
   relationHasOneRow: boolean;
-  primaryKeys?: string[];
+  primaryKey?: string[];
   notNull?: string[];
   uniques?: string[][]; // there could be multiple unique claueses
   exprChecks?: ExprAst[]; // these are actually on colunmn level, a bit weird here

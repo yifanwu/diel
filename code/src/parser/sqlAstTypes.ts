@@ -16,7 +16,7 @@ export interface Column {
 export interface ColumnConstraints {
   notNull?: boolean;
   unique?: boolean;
-  key?: boolean;
+  primaryKey?: boolean;
 }
 
 export enum JoinType {

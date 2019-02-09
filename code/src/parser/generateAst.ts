@@ -7,6 +7,7 @@ import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError } from "../lib/messages";
 import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst } from "./sqlAstTypes";
 import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst } from "./exprAstTypes";
+import { Parser } from "antlr4ts";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
@@ -430,50 +431,59 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  _helperDynamicRelation(ctx: any) {
+  /**
+   * FIXME: might want to normalize the constraints on columns and on the relations...
+   * @param ctx contex
+   */
+  visitInputStmt(ctx: parser.InputStmtContext): OriginalRelation {
+    const relationType = ctx.INPUT ? OriginalRelationType.Input : OriginalRelationType.Table;
     const name = ctx.IDENTIFIER().text;
     let columns: Column[] = [];
+    let constraints: RelationConstraints = null;
+
     let copyFrom = undefined;
     const v = this.visit(ctx.relationDefintion());
     if (typeof v === "string") {
       copyFrom = v as string;
     } else {
-      columns = v as Column[];
+      columns = (v as OriginalRelation).columns;
+      constraints = (v as OriginalRelation).constraints;
     }
 
     return {
+      relationType,
       name,
       columns,
+      constraints,
       copyFrom
     };
   }
 
-  visitInputStmt(ctx: parser.InputStmtContext): OriginalRelation {
-    const relationType = ctx.INPUT ? OriginalRelationType.Input : OriginalRelationType.Table;
-    return {
-      relationType,
-      ...this._helperDynamicRelation(ctx)
-    };
-  }
-
-  visitRelationDefintionDirect(ctx: parser.RelationDefintionDirectContext): Column[] {
+  visitRelationDefintionDirect(ctx: parser.RelationDefintionDirectContext): OriginalRelation {
     const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
-    return columns;
+    const constraints = this._processConstraintDefinitionHelper(ctx.constraintDefinition());
+    // name and relationType are dummy to avoid having to add more to the union type...
+    return {
+      name: "",
+      relationType: null,
+      columns,
+      constraints
+    };
   }
 
   visitRelationDefintionCopy(ctx: parser.RelationDefintionCopyContext): string {
     return ctx.IDENTIFIER().text;
   }
 
-  visitConstraintClause(ctx: parser.ConstraintClauseContext): RelationConstraints {
-    let primaryKeys: string[] = [];
+  _processConstraintDefinitionHelper(ctxs: parser.ConstraintDefinitionContext[]): RelationConstraints {
+    let primaryKey: string[] = [];
     let uniques: string[][] = [];
     let exprChecks: ExprAst[] = [];
     let notNull: string[] = [];
     let foreignKeys: ForeignKey[] = [];
-    ctx.constraintDefinition().map(e => {
+    ctxs.map(e => {
       if (e.PRIMARY()) {
-        primaryKeys = e.IDENTIFIER().map(i => i.text);
+        primaryKey = e.IDENTIFIER().map(i => i.text);
       } else if (e.UNIQUE()) {
         const aUnique = e.IDENTIFIER().map(i => i.text);
         uniques.push(aUnique);
@@ -492,12 +502,17 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return {
       relationNotNull: false,
       relationHasOneRow: false,
-      primaryKeys,
+      primaryKey,
       notNull,
       uniques,
       exprChecks,
       foreignKeys
     };
+
+  }
+
+  visitConstraintClause(ctx: parser.ConstraintClauseContext): RelationConstraints {
+    return this._processConstraintDefinitionHelper(ctx.constraintDefinition());
   }
 
   visitColumnDefinition(ctx: parser.ColumnDefinitionContext): Column {
