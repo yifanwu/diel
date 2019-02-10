@@ -2,12 +2,11 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, StaticRelationType, RelationConstraints, DerivedRelationType, OriginalRelationType, DielTemplate, TemplateVariableAssignmentUnit, ForeignKey } from "./dielAstTypes";
+import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, DerivedRelationType, OriginalRelationType, DielTemplate, ForeignKey } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError } from "../lib/messages";
 import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst } from "./sqlAstTypes";
 import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst } from "./exprAstTypes";
-import { Parser } from "antlr4ts";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {

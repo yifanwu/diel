@@ -9,7 +9,6 @@ import { getSelectionUnitDep, getTopologicalOrder } from "./passes/passesHelper"
 import { dielIrComplain } from "./errorChecking/errorInfos";
 
 export default class DielCompiler extends DielIr {
-
   constructor(ast: DielAst, config: DielConfig) {
     super();
     this.ast = ast;
@@ -72,6 +71,46 @@ export default class DielCompiler extends DielIr {
       depTree,
       topologicalOrder
     };
+  }
+
+  // helper
+  // recursively checks for dependencies
+  oneStep(rName: string, affectedRelations: Set<string>) {
+    // search through dependency
+    let oldSet = new Set(affectedRelations);
+    for (let [key, value] of this.dependencies.depTree) {
+      if (value.dependsOn.filter(d => d === rName)) {
+        // check if there is anything that depends on this...
+        affectedRelations.add(key);
+      }
+    }
+    // set difference
+    const diff = new Set([...affectedRelations].filter(x => !oldSet.has(x)));
+    if (diff.size > 0) {
+      // need to run this on more dependencies
+      diff.forEach((v) => {
+        this.oneStep(v, affectedRelations);
+      });
+    }
+    return affectedRelations;
+  }
+
+  // this is sort of a transitive closure step
+  public GenerateDependenciesByInput() {
+    const inputDependency = new Map<string, string[]>();
+    this.ast.inputs.map(i => {
+      const allDependencies = new Set<string>();
+      this.oneStep(i.name, allDependencies);
+      // filter out the outputs
+      const inputDependencyValues: string[] = [];
+      allDependencies.forEach(d => {
+        if (this.ast.outputs.filter(o => o.name === d)) {
+          inputDependencyValues.push(d);
+        }
+      });
+      inputDependency.set(i.name, inputDependencyValues);
+    });
+    return inputDependency;
   }
 
   /**

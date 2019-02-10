@@ -185,6 +185,22 @@ export interface DielAst {
   udfTypes: UdfType[];
 }
 
+/**
+ * currently include
+ * - views for local/workers/remotes
+ * - programs for shipping data
+ *
+ * future:
+ * - indices
+ * - caching
+ */
+export interface DielPhysicalExecution {
+  main: DerivedRelation[];
+  workers: Map<string, DerivedRelation[]>;
+  remotes: Map<string, DerivedRelation[]>;
+  programs: Map<string, ProgramSpec[]>;
+}
+
 export interface CrossFilterChartIr {
   chartName: string;
   predicate: JoinAst;
