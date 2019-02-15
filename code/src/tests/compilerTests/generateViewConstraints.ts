@@ -1,5 +1,3 @@
-// import { getDielIr } from "../../lib/cli-compiler";
-import { GenerateUnitTestErrorLogger, LogInfo } from "../../lib/messages";
 import { DataType } from "../../parser/dielAstTypes";
 
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
@@ -13,47 +11,13 @@ import Visitor from "../../parser/generateAst";
 import {ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprBase, ExprFunAst} from "../../parser/exprAstTypes";
 import {GroupByAst, SelectionUnit, SetOperator, RelationReference, RelationSelection, ColumnSelection, CompositeSelection} from "../../parser/sqlAstTypes";
 
-import {not_null1, not_null2} from "./null_constraint_input";
-import {check1, check2, check3} from "./check_constraint_input";
-import {unique1} from "./unique_constraint_input";
-
-const groupby = `
-create view t as
-select day, count(*)
-from flights
-group by day
-having count(*) > 1;`;
-
-const mult_table = `create view v2 as select t2.* from t join t2 on t.a = t2.a
-constrain a1 NOT NULL, a2 NOT NULL;`;
-
-const no_view_q = `CREATE TABLE t1 (
-  a1 INTEGER PRIMARY KEY,
-  a2 INTEGER NOT NULL);
-  insert into t1 (a1, a2) values (100, 120);`;
-const no_constraint_q = `CREATE TABLE t1 (
-    a1 INTEGER PRIMARY KEY,
-    a2 INTEGER NOT NULL);
-    insert into t1 (a1, a2) values (100, 120);
-    create view filtered_view as select a1 from t1 where a > 10;`;
-
-const nested_select_q = `create view filtered_vew as
-select * from
-(select a1 from t1);`;
-
-
-export function assertExampleTest() {
-
-  const logger = GenerateUnitTestErrorLogger("assertExampleTest", unique1);
-  let ast = checkValidView(unique1);
-  // console.log(JSON.stringify(ast.views[0], null, 2));
-  // return;
+export function generateViewConstraintCheckQuery(query: string): string[][] {
+  let ast = checkValidView(query);
   if ( ast != null) {
     // valid view
-    checkViewConstraint(ast);
-  } else {
-    console.log("no view statement");
+    return checkViewConstraint(ast);
   }
+  return null;
 }
 
 /** Check if this is a valid view query. Return ast if it is, or null. */
@@ -65,7 +29,6 @@ function checkValidView(query: string): DielAst {
   const tree = p.queries();
   let visitor = new Visitor();
   let ast = visitor.visitQueries(tree);
-  // console.log(JSON.stringify(ast.views[0].selection, null, 2));
   if (ast.views.length > 0) {
     return ast;
   }
@@ -74,13 +37,14 @@ function checkValidView(query: string): DielAst {
 
 // Precondition: query is a valid view statement
 // supports only a single relation in view
-function checkViewConstraint(ast: DielAst) {
+function checkViewConstraint(ast: DielAst): string[][] {
   var i, j;
+  var ret = [] as string[][];
   // Handling multiple view statements
   for ( i = 0; i < ast.views.length; i++) {
     let view = ast.views[i];
     let view_constraint = view.constraints;
-    var ret = [] as string[];
+    var queries = [] as string[];
     var selClause;
     // Only when there is a constraint on view
     if (view_constraint != null) {
@@ -89,23 +53,26 @@ function checkViewConstraint(ast: DielAst) {
       // 1. handle null constraint
       selClause = getSelectClauseAST(composite_selections);
       var nullQueries = getNullQuery(view_constraint, selClause);
-      ret = ret.concat(nullQueries);
+      queries = queries.concat(nullQueries);
 
       // 2. handle unique constraint
       selClause = getSelectClauseAST(composite_selections);
       var uniqueQueries = getUniqueQuery(view_constraint, selClause);
-      ret = ret.concat(uniqueQueries);
+      queries = queries.concat(uniqueQueries);
 
       // 3. handle check constraint
       selClause = getSelectClauseAST(composite_selections);
       var checkQueries = getCheckQuery(view_constraint, selClause);
-      ret = ret.concat(checkQueries);
+      queries = queries.concat(checkQueries);
     }
 
-    ret.map(function(query) {
-      console.log("\nQUERY:\n", query);
-    });
+    // queries.map(function(query) {
+    //   console.log(`====================================\n`, query
+    //   , `\n====================================\n`);
+    // });
+    ret.push(queries);
   }
+  return ret;
 }
 
 function getSelectClauseAST(fromSel: CompositeSelection): SelectionUnit {
@@ -294,8 +261,6 @@ function getUniqueQuery (view_constraints: RelationConstraints, selUnit: Selecti
       }
     }
   }
-
-
   return ret;
 }
 
