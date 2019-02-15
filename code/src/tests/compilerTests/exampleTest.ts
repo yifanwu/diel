@@ -7,11 +7,13 @@ import * as lexer from "../../parser/grammar/DIELLexer";
 import * as parser from "../../parser/grammar/DIELParser";
 
 import DielCompiler from "../../compiler/DielCompiler";
-import {generateCompositeSelectionUnit, generateSelectionUnit, generateViewConstraintSelection} from "../../compiler/codegen/codeGenSql";
+import {generateCompositeSelectionUnit, generateSelect, generateSelectionUnit, generateViewConstraintSelection} from "../../compiler/codegen/codeGenSql";
 import { DielConfig, DielAst, RelationConstraints, DerivedRelation } from "../../parser/dielAstTypes";
 import Visitor from "../../parser/generateAst";
-import {ExprAst, ExprParen, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprBase, ExprFunAst} from "../../parser/exprAstTypes";
-import {SelectionUnit, SetOperator, RelationReference, RelationSelection, ColumnSelection, CompositeSelectionUnit} from "../../parser/sqlAstTypes";
+import {ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprBase, ExprFunAst} from "../../parser/exprAstTypes";
+import {SelectionUnit, SetOperator, RelationReference, RelationSelection, ColumnSelection, CompositeSelection} from "../../parser/sqlAstTypes";
+
+import {not_null1, not_null2} from "./null_constraint_input";
 
 const groupby = `
 create view t as select day as x, count(day) as y
@@ -37,15 +39,11 @@ select * from
 
 
 export function assertExampleTest() {
-  const q = `
-  create view filtered_view as select a1, a2 from t1 where not a1 < 10;`;
-  // constrain UNIQUE (a1, a2), a1 NOT NULL, UNIQUE(a3), a2 NOT NULL, CHECK (a1 < 10), CHECK (a2 > 100);
-  // `;
 
-  const logger = GenerateUnitTestErrorLogger("assertExampleTest", q);
-  let ast = checkValidView(q);
-  console.log(ast);
-  return;
+  const logger = GenerateUnitTestErrorLogger("assertExampleTest", not_null1);
+  let ast = checkValidView(not_null2);
+  // console.log(JSON.stringify(ast.views[0].selection, null, 2));
+  // return;
   if ( ast != null) {
     // valid view
     checkViewConstraint(ast);
@@ -54,6 +52,7 @@ export function assertExampleTest() {
   }
 }
 
+/** Check if this is a valid view query. Return ast if it is, or null. */
 function checkValidView(query: string): DielAst {
   const inputStream = new ANTLRInputStream(query);
   const l = new lexer.DIELLexer(inputStream);
@@ -72,9 +71,8 @@ function checkValidView(query: string): DielAst {
 // Precondition: query is a valid view statement
 // supports only a single relation in view
 function checkViewConstraint(ast: DielAst) {
-  // Modify later: should iterate this when have multiple views.
-  // Also should match their table name when multiple relations in a view.
   var i, j;
+  // Handling multiple view statements
   for ( i = 0; i < ast.views.length; i++) {
     let view = ast.views[i];
     let view_constraint = view.constraints;
@@ -83,32 +81,22 @@ function checkViewConstraint(ast: DielAst) {
     // Only when there is a constraint on view
     if (view_constraint != null) {
       var composite_selections = view.selection.compositeSelections;
-      for (j = 0; j < composite_selections.length; j ++) {
-        var selectionUnit = composite_selections[i].relation;
-        var baseRelation = {
-          subquery: {
-            compositeSelections: [{
-              op: SetOperator.NA,
-              relation: selectionUnit
-            }] as CompositeSelectionUnit[]
-          } as RelationSelection
-        } as RelationReference;
-        // console.log(JSON.stringify(selectionUnit.whereClause, null, 2));
+      console.log(generateSelect(composite_selections));
+      // console.log(JSON.stringify(baseRelation, null, 2));
+
+      /* Handle multiple table relations later*/
+      // 1. handle null constraint
+      var nullQueries = getNullQuery(view_constraint, composite_selections);
+      ret = ret.concat(nullQueries);
+
+        // // 2. handle unique constraint
+        // var uniqueQueries = getUniqueQuery(view_constraint, baseRelation);
+        // ret = ret.concat(uniqueQueries);
+        // // 3. handle check constraint
+        // var checkQueries = getCheckQuery(view_constraint, baseRelation);
+        // ret = ret.concat(checkQueries);
 
 
-        /* Handle multiple table relations later*/
-        // 1. handle null constraint
-        var nullQueries = getNullQuery(view_constraint, baseRelation);
-        ret = ret.concat(nullQueries);
-
-        // 2. handle unique constraint
-        var uniqueQueries = getUniqueQuery(view_constraint, baseRelation);
-        ret = ret.concat(uniqueQueries);
-        // 3. handle check constraint
-        var checkQueries = getCheckQuery(view_constraint, baseRelation);
-        ret = ret.concat(checkQueries);
-
-      }
     }
 
     ret.map(function(query) {
@@ -164,55 +152,81 @@ function getCheckQuery(view_constraint: RelationConstraints, fromSel: RelationRe
   return ret;
 }
 
-function getNullQuery(view_constraint: RelationConstraints, fromSel: RelationReference): string[] {
-  // console.log(view_constraints);
+/**     The Select Clause AST for null is as follows:
+        {
+          exprType: 'Func',
+          dataType: 'Boolean',
+          functionType: 'BuiltIn',
+          functionReference: 'ValueIsNotNull',
+          args: [
+            {
+              "exprType": "Column",
+              "dataType": "TBD",
+              "hasStar": false,
+              "columnName": "a1"
+            }]
+        }
+*/
+function getNullQuery(view_constraint: RelationConstraints, fromSel: CompositeSelection): string[] {
+  // console.log(JSON.stringify(view_constraint, null, 2));
   var ret = [] as string[];
-      // { exprType: 'Func',
-      //   dataType: 'Boolean',
-      //   functionType: 'BuiltIn',
-      //   functionReference: 'ValueIsNotNull',
-      //   args: [Array] }
   if (view_constraint.notNull != null) {
-    var whereClauses = [] as ExprFunAst[];
+    var notNullColumns = view_constraint.notNull;
 
-    // formating the ast for where null clause
-    view_constraint.notNull.map(function(name) {
-      var whereClause = {} as ExprFunAst;
-      whereClause.exprType = ExprType.Func;
-      whereClause.dataType = DataType.Boolean;
-      whereClause.functionType = FunctionType.BuiltIn;
-      whereClause.functionReference = BuiltInFunc.ValueIsNotNull;
-      whereClause.args = [{
-        value: name,
-        exprType: ExprType.Val
-      } as ExprValAst] as ExprValAst[];
+    // formating the AST for whereclause
+      var whereClause = {
+        exprType : ExprType.Func,
+        dataType : DataType.Boolean,
+        functionType : FunctionType.BuiltIn,
+        functionReference : BuiltInFunc.ValueIsNull,
+        args : [] as ExprValAst[]
+      } as ExprFunAst;
 
-      whereClauses.push(whereClause);
-    });
-    // formatting the rest of the selection unit for Not NULl
-    var columnSel = {} as ColumnSelection;
-    columnSel.expr = {
-      exprType: ExprType.Column,
-      dataType: DataType.TBD,
-      hasStar: true
-    } as ExprAst;
+    // Handle multiple null constraints
+    // format argument AST
+      var whereClauseArg;
+      notNullColumns.map(function(cname) {
+        whereClauseArg = {
+          exprType: ExprType.Column,
+          dataType: DataType.TBD,
+          hasStar: false,
+          columnName: cname
+        } as ExprColumnAst;
+        whereClause.args.push(whereClauseArg);
+      });
+      // console.log(whereClause);
 
-    var selUnit;
-    whereClauses.map(function(where_ast) {
+      // formatting the rest of the selection unit for Not NULl
+      var columnSel = {} as ColumnSelection;
+      columnSel.expr = {
+        exprType: ExprType.Column,
+        dataType: DataType.TBD,
+        hasStar: true
+      } as ExprAst;
 
+      var baseRelation = {
+        subquery: {
+          compositeSelections: fromSel
+        } as RelationSelection
+      } as RelationReference;
+
+      var selUnit;
       selUnit = {
         columnSelections: [columnSel],
-        whereClause: where_ast,
-        baseRelation: fromSel,
+        whereClause: whereClause,
+        baseRelation: baseRelation,
         derivedColumnSelections: [],
         joinClauses: [],
         groupByClause: null,
         orderByClause: null,
         limitClause: null
       } as SelectionUnit;
+
+
+
+      // Generate proper query from AST
       var str = generateViewConstraintSelection(selUnit);
       ret.push(str);
-    });
   }
   return ret;
 }

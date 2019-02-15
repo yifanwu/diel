@@ -17,7 +17,7 @@
     "testCliOnline": "node --inspect-brk -r ts-node/register src/lib/compile.ts",
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
     "test": "ts-node --no-cache src/tests/test.ts",
-    "mytest": "ts-node --no-cache src/tests/test.ts",
+    "mytest": "ts-node --no-cache src/tests/mytest.ts",
     "probe": "ts-node --no-cache src/tests/debugTool/probeTest.ts",
     "debug": "node --inspect-brk -r ts-node/register src/tests/test.ts",
     "token": "cp src/parser/grammar/DIEL.g4 src/debug/ && cd src/debug && echo ./antlr4-tester.sh DIEL.g4 \"<your query>\" queries"

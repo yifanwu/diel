@@ -24,7 +24,7 @@ export function generateSqlViews(v: RelationQuery): string {
   `;
 }
 
-function generateSelect(v: CompositeSelectionUnit[]): string {
+export function generateSelect(v: CompositeSelectionUnit[]): string {
   return v.map(c => generateCompositeSelectionUnit(c)).join("\n");
 }
 
@@ -98,6 +98,10 @@ function generateRelationReference(r: RelationReference): string {
  * @param s
  */
 function generateColumnSelection(s: ColumnSelection[]): string {
+
+  if (s === null || s === undefined || s.length === 0) {
+    return ``;
+  }
   return `${s.map(c => {
     const alias = c.alias ? ` as ${c.alias}` : "";
     return generateExpr(c.expr) + alias;
@@ -161,6 +165,14 @@ function generateExpr(e: ExprAst): string {
         const thenExpr = generateExpr(f.args[1]);
         const elseExpr = generateExpr(f.args[2]);
         return `CASE WHEN ${whenCond} THEN ${thenExpr} ELSE ${elseExpr}`;
+      } else if (f.functionReference === BuiltInFunc.ValueIsNull) {
+        return f.args.map(function(arg) {
+          return `${generateExpr(arg)} IS NULL`;
+        }).join(" || ");
+      } else if (f.functionReference === BuiltInFunc.ValueIsNotNull) {
+        return f.args.map(function(arg) {
+          return `${generateExpr(arg)} IS NOT NULL`;
+        }).join(" || ");
       }
       // the rest should work with their references
       return `${f.functionReference} (${f.args.map(a => generateExpr(a)).join(", ")})`;
