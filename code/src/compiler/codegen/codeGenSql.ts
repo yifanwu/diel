@@ -43,7 +43,8 @@ export function generateCompositeSelectionUnit(c: CompositeSelectionUnit): strin
 }
 
 export function generateSelectionUnit(v: SelectionUnit, original = false): string {
-  const selection = original
+  // console.log(v);
+  const selection = !original
     ? generateColumnSelection(v.columnSelections)
     : generateColumnSelection(v.derivedColumnSelections)
     ;

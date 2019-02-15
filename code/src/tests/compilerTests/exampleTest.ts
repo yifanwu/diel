@@ -40,7 +40,7 @@ select * from
 
 export function assertExampleTest() {
 
-  const logger = GenerateUnitTestErrorLogger("assertExampleTest", not_null1);
+  const logger = GenerateUnitTestErrorLogger("assertExampleTest", not_null2);
   let ast = checkValidView(not_null2);
   // console.log(JSON.stringify(ast.views[0].selection, null, 2));
   // return;
