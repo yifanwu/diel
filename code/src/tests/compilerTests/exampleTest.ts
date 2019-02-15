@@ -14,6 +14,7 @@ import {ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, B
 import {SelectionUnit, SetOperator, RelationReference, RelationSelection, ColumnSelection, CompositeSelection} from "../../parser/sqlAstTypes";
 
 import {not_null1, not_null2} from "./null_constraint_input";
+import {check1, check2, check3} from "./check_constraint_input";
 
 const groupby = `
 create view t as select day as x, count(day) as y
@@ -40,9 +41,9 @@ select * from
 
 export function assertExampleTest() {
 
-  const logger = GenerateUnitTestErrorLogger("assertExampleTest", not_null2);
-  let ast = checkValidView(not_null2);
-  // console.log(JSON.stringify(ast.views[0].selection, null, 2));
+  const logger = GenerateUnitTestErrorLogger("assertExampleTest", check3);
+  let ast = checkValidView(check3);
+  // console.log(JSON.stringify(ast.views[0], null, 2));
   // return;
   if ( ast != null) {
     // valid view
@@ -81,20 +82,23 @@ function checkViewConstraint(ast: DielAst) {
     // Only when there is a constraint on view
     if (view_constraint != null) {
       var composite_selections = view.selection.compositeSelections;
-      console.log(generateSelect(composite_selections));
+      // console.log(generateSelect(composite_selections));
       // console.log(JSON.stringify(baseRelation, null, 2));
 
       /* Handle multiple table relations later*/
       // 1. handle null constraint
-      var nullQueries = getNullQuery(view_constraint, composite_selections);
+      var selClause = getSelectClauseAST(composite_selections);
+      var nullQueries = getNullQuery(view_constraint, selClause);
       ret = ret.concat(nullQueries);
 
         // // 2. handle unique constraint
         // var uniqueQueries = getUniqueQuery(view_constraint, baseRelation);
         // ret = ret.concat(uniqueQueries);
-        // // 3. handle check constraint
-        // var checkQueries = getCheckQuery(view_constraint, baseRelation);
-        // ret = ret.concat(checkQueries);
+
+      // 3. handle check constraint
+      selClause = getSelectClauseAST(composite_selections);
+      var checkQueries = getCheckQuery(view_constraint, selClause);
+      ret = ret.concat(checkQueries);
 
 
     }
@@ -105,45 +109,53 @@ function checkViewConstraint(ast: DielAst) {
   }
 }
 
+function getSelectClauseAST(fromSel: CompositeSelection): SelectionUnit {
+    var columnSel = {} as ColumnSelection;
+    columnSel.expr = {
+      exprType: ExprType.Column,
+      dataType: DataType.TBD,
+      hasStar: true
+    } as ExprAst;
 
-function getCheckQuery(view_constraint: RelationConstraints, fromSel: RelationReference): string[] {
+    var baseRelation = {
+      subquery: {
+        compositeSelections: fromSel
+      } as RelationSelection
+    } as RelationReference;
+
+    var selUnit;
+    selUnit = {
+      columnSelections: [columnSel],
+      baseRelation: baseRelation,
+      derivedColumnSelections: [],
+      joinClauses: [],
+      groupByClause: null,
+      orderByClause: null,
+      limitClause: null
+    } as SelectionUnit;
+    return selUnit;
+}
+
+function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionUnit): string[] {
   var exprAsts = view_constraint.exprChecks;
   var ret = [] as string[];
   if (exprAsts != null && exprAsts.length > 0) {
-    var i, negatedAst;
-    var exprAst;
+    var i, exprAst, whereClause;
     // iterate over check constraints
     for (i = 0; i < exprAsts.length; i++) {
       // ast for where clause
       exprAst = exprAsts[i] as ExprParen;
-      negatedAst = {
+
+      whereClause = {
         exprType: ExprType.Func,
         dataType: DataType.Boolean,
-        functionType: FunctionType.BuiltIn,
-        functionReference: BuiltInFunc.SetNotEmpty,
-        args: [exprAst.content] as ExprAst[]
-      } as ExprAst;
-
-      // ast for select clause
-      var columnSel = {} as ColumnSelection;
-      columnSel.expr = {
-        exprType: ExprType.Column,
-        dataType: DataType.TBD,
-        hasStar: true
-      } as ExprAst;
+        functionType: FunctionType.Custom,
+        functionReference: "NOT",
+        args: [exprAst.content] // strip out parenthesis
+      } as ExprFunAst;
 
       // ast for the whole clause
-      var selUnit;
-      selUnit = {
-        columnSelections: [columnSel],
-        whereClause: negatedAst,
-        baseRelation: fromSel,
-        derivedColumnSelections: [],
-        joinClauses: [],
-        groupByClause: null,
-        orderByClause: null,
-        limitClause: null
-      } as SelectionUnit;
+      selUnit.whereClause = whereClause;
 
       var str = generateViewConstraintSelection(selUnit);
       ret.push(str);
@@ -152,25 +164,11 @@ function getCheckQuery(view_constraint: RelationConstraints, fromSel: RelationRe
   return ret;
 }
 
-/**     The Select Clause AST for null is as follows:
-        {
-          exprType: 'Func',
-          dataType: 'Boolean',
-          functionType: 'BuiltIn',
-          functionReference: 'ValueIsNotNull',
-          args: [
-            {
-              "exprType": "Column",
-              "dataType": "TBD",
-              "hasStar": false,
-              "columnName": "a1"
-            }]
-        }
-*/
-function getNullQuery(view_constraint: RelationConstraints, fromSel: CompositeSelection): string[] {
+
+function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUnit): string[] {
   // console.log(JSON.stringify(view_constraint, null, 2));
   var ret = [] as string[];
-  if (view_constraint.notNull != null) {
+  if (view_constraint.notNull != null && view_constraint.notNull.length > 0) {
     var notNullColumns = view_constraint.notNull;
 
     // formating the AST for whereclause
@@ -197,32 +195,7 @@ function getNullQuery(view_constraint: RelationConstraints, fromSel: CompositeSe
       // console.log(whereClause);
 
       // formatting the rest of the selection unit for Not NULl
-      var columnSel = {} as ColumnSelection;
-      columnSel.expr = {
-        exprType: ExprType.Column,
-        dataType: DataType.TBD,
-        hasStar: true
-      } as ExprAst;
-
-      var baseRelation = {
-        subquery: {
-          compositeSelections: fromSel
-        } as RelationSelection
-      } as RelationReference;
-
-      var selUnit;
-      selUnit = {
-        columnSelections: [columnSel],
-        whereClause: whereClause,
-        baseRelation: baseRelation,
-        derivedColumnSelections: [],
-        joinClauses: [],
-        groupByClause: null,
-        orderByClause: null,
-        limitClause: null
-      } as SelectionUnit;
-
-
+      selUnit.whereClause = whereClause;
 
       // Generate proper query from AST
       var str = generateViewConstraintSelection(selUnit);
