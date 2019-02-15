@@ -11,15 +11,18 @@ import {generateCompositeSelectionUnit, generateSelect, generateSelectionUnit, g
 import { DielConfig, DielAst, RelationConstraints, DerivedRelation } from "../../parser/dielAstTypes";
 import Visitor from "../../parser/generateAst";
 import {ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprBase, ExprFunAst} from "../../parser/exprAstTypes";
-import {SelectionUnit, SetOperator, RelationReference, RelationSelection, ColumnSelection, CompositeSelection} from "../../parser/sqlAstTypes";
+import {GroupByAst, SelectionUnit, SetOperator, RelationReference, RelationSelection, ColumnSelection, CompositeSelection} from "../../parser/sqlAstTypes";
 
 import {not_null1, not_null2} from "./null_constraint_input";
 import {check1, check2, check3} from "./check_constraint_input";
+import {unique1} from "./unique_constraint_input";
 
 const groupby = `
-create view t as select day as x, count(day) as y
+create view t as
+select day, count(*)
 from flights
-group by day;`;
+group by day
+having count(*) > 1;`;
 
 const mult_table = `create view v2 as select t2.* from t join t2 on t.a = t2.a
 constrain a1 NOT NULL, a2 NOT NULL;`;
@@ -41,8 +44,8 @@ select * from
 
 export function assertExampleTest() {
 
-  const logger = GenerateUnitTestErrorLogger("assertExampleTest", check3);
-  let ast = checkValidView(check3);
+  const logger = GenerateUnitTestErrorLogger("assertExampleTest", unique1);
+  let ast = checkValidView(unique1);
   // console.log(JSON.stringify(ast.views[0], null, 2));
   // return;
   if ( ast != null) {
@@ -78,29 +81,25 @@ function checkViewConstraint(ast: DielAst) {
     let view = ast.views[i];
     let view_constraint = view.constraints;
     var ret = [] as string[];
-
+    var selClause;
     // Only when there is a constraint on view
     if (view_constraint != null) {
       var composite_selections = view.selection.compositeSelections;
-      // console.log(generateSelect(composite_selections));
-      // console.log(JSON.stringify(baseRelation, null, 2));
 
-      /* Handle multiple table relations later*/
       // 1. handle null constraint
-      var selClause = getSelectClauseAST(composite_selections);
+      selClause = getSelectClauseAST(composite_selections);
       var nullQueries = getNullQuery(view_constraint, selClause);
       ret = ret.concat(nullQueries);
 
-        // // 2. handle unique constraint
-        // var uniqueQueries = getUniqueQuery(view_constraint, baseRelation);
-        // ret = ret.concat(uniqueQueries);
+      // 2. handle unique constraint
+      selClause = getSelectClauseAST(composite_selections);
+      var uniqueQueries = getUniqueQuery(view_constraint, selClause);
+      ret = ret.concat(uniqueQueries);
 
       // 3. handle check constraint
       selClause = getSelectClauseAST(composite_selections);
       var checkQueries = getCheckQuery(view_constraint, selClause);
       ret = ret.concat(checkQueries);
-
-
     }
 
     ret.map(function(query) {
@@ -204,23 +203,97 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
   return ret;
 }
 
-function getUniqueQuery (view_constraints: RelationConstraints, fromSel: RelationReference): string[] {
-  // console.log(view_constraints);
+function getUniqueQuery (view_constraints: RelationConstraints, selUnit: SelectionUnit): string[] {
   var ret = [] as string[];
-  // console.log(view_constraints);
-  // let uniques = view_constraints.uniques;
+  // console.log(view_constraints.uniques);
+  let uniques = view_constraints.uniques;
 
-  // if (uniques.length > 0) {
-  //   // unique constraint exists
-  //   var i, arg, str;
-  //   for (i = 0; i < uniques[0].length; i++) {
-  //     arg = uniques[0][i];
-  //     // use selectionunit instead of String!
-  //     // generateSelectionUnitBody
-  //     // str = ``.concat(`SELECT `, arg, `, COUNT(*) FROM `, tableNames[0], ` GROUP BY `, arg, ` HAVING COUNT(*) > 1;`);
-  //     // query.push(str);
-  //   }
-  // }
+  // check if unique constraint exists
+  if (uniques !== null && uniques.length > 0) {
+    var str, i, j, groupbyArgs, groupbyColName, groupByClause, groupbySel, predicateSel;
+    for (i = 0; i < uniques.length; i++) {
+      groupbyArgs = uniques[i];
+      for (j = 0; j < groupbyArgs.length; j++) {
+        groupbyColName = groupbyArgs[j];
+
+        // format groupby AST
+        // which coloum to group by
+        groupbySel = {
+            exprType: ExprType.Column,
+            dataType: DataType.TBD,
+            hasStar: false,
+            columnName: groupbyColName
+          } as ExprColumnAst;
+
+        // format having clause AST
+        predicateSel = {
+          exprType: ExprType.Func,
+          functionType: FunctionType.Logic,
+          functionReference: ">",
+          dataType: DataType.Boolean,
+          args : [
+            {
+              exprType: ExprType.Func,
+              dataType: DataType.TBD,
+              functionType: FunctionType.Custom,
+              functionReference: "COUNT",
+              args: [
+                {
+                  exprType: ExprType.Column,
+                  dataType: DataType.TBD,
+                  hasStar: true,
+                  columnName: groupbyColName
+                }]
+            },
+            {
+              exprType: ExprType.Val,
+              dataType: DataType.Number,
+              value: 1
+            } as ExprValAst
+          ] as ExprAst[]
+        } as ExprFunAst;
+
+        // format the whole groupby clause AST
+        groupByClause = {
+          selections: [groupbySel] as ExprAst[],
+          predicate: predicateSel
+        } as GroupByAst;
+
+
+        selUnit.groupByClause = groupByClause;
+        // change selUnit select clause
+        selUnit.columnSelections = [
+          {
+              expr: {
+                exprType: ExprType.Column,
+                dataType: DataType.TBD,
+                hasStar: false,
+                columnName: groupbyColName
+              }
+          },
+          {
+              expr: {
+                exprType: ExprType.Func,
+                dataType: DataType.TBD,
+                functionType: FunctionType.Custom,
+                functionReference: "COUNT",
+                args: [
+                  {
+                    exprType: ExprType.Column,
+                    dataType: DataType.TBD,
+                    hasStar: true
+                  }
+                ]
+              }
+          }
+        ] as ColumnSelection[];
+
+        // Generate proper query from AST
+        str = generateViewConstraintSelection(selUnit);
+        ret.push(str);
+      }
+    }
+  }
 
 
   return ret;
