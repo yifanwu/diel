@@ -1,5 +1,5 @@
-import { DielAst, DynamicRelation, ProgramsIr, DataType } from "../../parser/dielAstTypes";
-import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType } from "../../parser/sqlAstTypes";
+import { ProgramsIr, DataType } from "../../parser/dielAstTypes";
+import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst } from "../../parser/sqlAstTypes";
 import { RelationSpec, RelationQuery, SqlIr } from "./createSqlIr";
 import { LogInternalError, ReportDielUserError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
@@ -42,8 +42,12 @@ export function generateCompositeSelectionUnit(c: CompositeSelectionUnit): strin
   return `${op} ${query}`;
 }
 
-export function generateSelectionUnit(v: SelectionUnit): string {
-  return `SELECT ${generateColumnSelection(v.columnSelections)}
+export function generateSelectionUnit(v: SelectionUnit, original = false): string {
+  const selection = original
+    ? generateColumnSelection(v.columnSelections)
+    : generateColumnSelection(v.derivedColumnSelections)
+    ;
+  return `SELECT ${selection}
     ${generateSelectionUnitBody(v)}
   `;
 }
@@ -66,14 +70,13 @@ export function generateViewConstraintSelection(v: SelectionUnit): string {
  * @param v
  */
 export function generateSelectionUnitBody(v: SelectionUnit) {
-  // console.log("SELECTIONUNITBODY");
-  // console.log(v);
-  return `FROM ${v.baseRelation.relationName}` +
-  `${v.joinClauses.length > 0 ? `\n` : ``}` + `${ v.joinClauses.map(j => generateJoin(j)) }` +
-  `${v.whereClause ? `\n` : ``}` + `${generateWhere(v.whereClause)}` +
-  `${v.groupByClause ? `\n` : ``}` + `${generateGroupBy(v.groupByClause)}` +
-  `${v.orderByClause ? `\n` : ``}` + `${generateOrderBy(v.orderByClause)}` +
-  `${v.limitClause ? `\n` : ``}` + `${generateLimit(v.limitClause)}`;
+  return `FROM
+  ${generateRelationReference(v.baseRelation)}
+  ${v.joinClauses ? v.joinClauses.map(j => generateJoin(j)) : ""}
+  ${generateWhere(v.whereClause)}
+  ${generateGroupBy(v.groupByClause)}
+  ${generateOrderBy(v.orderByClause)}
+  ${generateLimit(v.limitClause)}`;
 }
 
 function generateRelationReference(r: RelationReference): string {
@@ -95,10 +98,10 @@ function generateRelationReference(r: RelationReference): string {
  * @param s
  */
 function generateColumnSelection(s: ColumnSelection[]): string {
-  if (s == null) {
-    return ``;
-  }
-  return `${s.map(c => generateExpr(c.expr))}`;
+  return `${s.map(c => {
+    const alias = c.alias ? ` as ${c.alias}` : "";
+    return generateExpr(c.expr) + alias;
+  }).join(", ")}`;
 }
 
 const joinOpToString = new Map([
@@ -118,7 +121,7 @@ function generateJoin(j: JoinAst): string {
 }
 
 function generateWhere(e: ExprAst): string {
-  if (e == null) return ``;
+  if (!e) return "";
   return `WHERE ${generateExpr(e)}`;
 }
 
@@ -130,11 +133,11 @@ function generateExpr(e: ExprAst): string {
     return v.value.toString();
   } else if (e.exprType === ExprType.Column) {
     const c = e as ExprColumnAst;
-    // again the columns should have no stars anymore!
+    const prefix = c.relationName ? `${c.relationName}.` : "";
     if (c.hasStar) {
-      return `*`;
+      return `${prefix}*`;
     }
-    return `${c.relationName ? `${c.relationName}.` : ""}${c.columnName}`;
+    return `${prefix}${c.columnName}`;
   } else if (e.exprType === ExprType.Relation) {
     const r = e as ExprRelationAst;
     return generateSelect(r.selection.compositeSelections);
@@ -150,8 +153,17 @@ function generateExpr(e: ExprAst): string {
         ReportDielUserError(`Function ${f.functionReference} should have 2 arguemnts`);
       }
       return `${generateExpr(f.args[0])} ${f.functionReference} ${generateExpr(f.args[1])}`;
-    } else if ((f.functionType === FunctionType.BuiltIn) && (f.functionReference === BuiltInFunc.ConcatStrings)) {
-      return f.args.map(a => generateExpr(a)).join(" || ");
+    } else if (f.functionType === FunctionType.BuiltIn) {
+      if (f.functionReference === BuiltInFunc.ConcatStrings) {
+        return f.args.map(a => generateExpr(a)).join(" || ");
+      } else if (f.functionReference === BuiltInFunc.IfThisThen) {
+        const whenCond = generateExpr(f.args[0]);
+        const thenExpr = generateExpr(f.args[1]);
+        const elseExpr = generateExpr(f.args[2]);
+        return `CASE WHEN ${whenCond} THEN ${thenExpr} ELSE ${elseExpr}`;
+      }
+      // the rest should work with their references
+      return `${f.functionReference} (${f.args.map(a => generateExpr(a)).join(", ")})`;
     } else {
       // custom
       return `${f.functionReference} (${f.args.map(a => generateExpr(a)).join(", ")})`;
@@ -161,18 +173,31 @@ function generateExpr(e: ExprAst): string {
   }
 }
 
-function generateGroupBy(s: ColumnSelection[]): string {
-  if (s == null) return ``;
-  return `GROUP BY ${generateColumnSelection(s)}`;
+function generateGroupBy(g: GroupByAst): string {
+  if (!g) return "";
+  const groups = g.selections.map(sI => generateExpr(sI)).join(", ");
+  if (g.predicate) {
+    return `GROUP BY ${groups} HAVING ${generateExpr(g.predicate)}`;
+  } else {
+    return `GROUP BY ${groups}`;
+  }
 }
 
 function generateOrderBy(o: OrderByAst[]): string {
-  if (o == null) return ``;
-  return `ORDER BY ${o.map(i => i.selection)}`;
+  if (!o) return "";
+  const orders = o.map(i => `${generateExpr(i.selection)} ${generateOrder(i.order)}`);
+  return `ORDER BY ${orders.join(", ")}`;
+}
+
+function generateOrder(order: Order): string {
+  if (!order) return "";
+  return order === Order.ASC
+    ? "ASC"
+    : "DESC";
 }
 
 function generateLimit(e: ExprAst): string {
-  if (e == null) return ``;
+  if (!e) return "";
   return `LIMIT ${generateExpr(e)}`;
 }
 
@@ -196,6 +221,7 @@ function generateTrigger(t: ProgramsIr): string {
 }
 
 function generateInserts(i: InsertionClause): string {
+  if (!i) return "";
   const values = i.values
     ? i.values.map(v => v.toString()).join(", ")
     : generateSelect(i.selection.compositeSelections);
@@ -212,6 +238,6 @@ function generateColumnDefinition(c: Column): string {
   }
   const notNull = c.constraints.notNull ? "NOT NULL" : "";
   const unique = c.constraints.unique ? "UNIQUE" : "";
-  const primary = c.constraints.key ? "PRIMARY KEY" : "";
+  const primary = c.constraints.primaryKey ? "PRIMARY KEY" : "";
   return `${c.name} ${TypeConversionLookUp.get(c.type)} ${notNull} ${unique} ${primary}`;
 }

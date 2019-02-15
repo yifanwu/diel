@@ -11,7 +11,7 @@ export function checkIsInput(name: string, ir: DielAst) {
 
 export function checkIsRelation(name: string, ir: DielAst) {
   // FIXME: think about making this more performant later
-  const relations = [ir.inputs, ir.outputs, ir.staticTables, ir.dynamicTables, ir.views].map((e: any) => e.name as string);
+  const relations = [ir.inputs, ir.outputs, ir.originalRelations, ir.views].map((e: any) => e.name as string);
   const allTables = relations.reduce((acc: string[], r) => acc.concat(r), []);
   const r = allTables.filter(i => i === name)[0];
   // we want to mark it and then maybe evaluate it later?

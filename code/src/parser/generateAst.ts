@@ -2,10 +2,10 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, ExistingRelation, DynamicRelation, StaticRelationType, RelationConstraints, DerivedRelationType, DynamicRelationType, DielTemplate, TemplateVariableAssignmentUnit } from "./dielAstTypes";
+import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, DerivedRelationType, OriginalRelationType, DielTemplate, ForeignKey } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError } from "../lib/messages";
-import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType } from "./sqlAstTypes";
+import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst } from "./sqlAstTypes";
 import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst } from "./exprAstTypes";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
@@ -28,8 +28,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     this.ir = {
       udfTypes: [],
       inputs: [],
-      dynamicTables: [],
-      staticTables: [],
+      originalRelations: [],
       outputs: [],
       views: [],
       inserts: [],
@@ -41,16 +40,8 @@ implements visitor.DIELVisitor<ExpressionValue> {
       this.visit(e) as UdfType
     )).concat(BuiltInUdfTypes);
     // two kinds of specifications
-    this.ir.staticTables = ctx.registerTypeTable().map(e => (
-      this.visit(e) as ExistingRelation
-    )).concat(ctx.registerTypeTable().map(e => (
-      this.visit(e) as ExistingRelation
-    )));
     this.ir.inputs = ctx.inputStmt().map(e => (
       this.visitInputStmt(e)
-    ));
-    this.ir.dynamicTables = ctx.dynamicTableStmt().map(e => (
-      this.visit(e) as DynamicRelation
     ));
     this.ir.outputs = ctx.outputStmt().map(e => (
       this.visit(e) as DerivedRelation
@@ -79,17 +70,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return {
       udf,
       type
-    };
-  }
-
-  visitRegisterTypeTable(ctx: parser.RegisterTypeTableContext): ExistingRelation {
-    const name = ctx._tableName.text;
-    const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
-    const relationType = ctx.WEBWORKER() ? StaticRelationType.WebWorker : StaticRelationType.Server;
-    return {
-      name,
-      columns,
-      relationType,
     };
   }
 
@@ -148,9 +128,9 @@ implements visitor.DIELVisitor<ExpressionValue> {
       const baseRelation = this.visit(ctx.relationReference()) as RelationReference;
       const joinClauses = ctx.joinClause().map(e => this.visit(e) as JoinAst);
       const whereClause = ctx.whereClause() ? this.visit(ctx.whereClause()) as ExprAst : null;
-      const groupByClause = ctx.groupByClause() ? this.visit(ctx.groupByClause()) as ColumnSelection[] : null;
-      const orderByClause = ctx.orderByClause() ? this.visit(ctx.orderByClause()) as OrderByAst[] : null;
-      const limitClause = ctx.limitClause() ? this.visit(ctx.limitClause()) as ExprAst : null;
+      const groupByClause = ctx.groupByClause() ? this.visitGroupByClause(ctx.groupByClause()) : null;
+      const orderByClause = ctx.orderByClause() ? this.visitOrderByClause(ctx.orderByClause()) : null;
+      const limitClause = ctx.limitClause() ? this.visitLimitClause(ctx.limitClause()) : null;
       body = {
         baseRelation,
         joinClauses,
@@ -178,6 +158,17 @@ implements visitor.DIELVisitor<ExpressionValue> {
   // begin level exprSimple
   visitExprSimple(ctx: parser.ExprSimpleContext): ExprAst {
     return this.visit(ctx.unitExpr()) as ExprAst;
+  }
+
+  // going to limit negation to boolean expressions for now
+  visitExprNegate(ctx: parser.ExprNegateContext): ExprFunAst {
+    return {
+      exprType: ExprType.Func,
+      dataType: DataType.Boolean,
+      functionType: FunctionType.Logic,
+      functionReference: "NOT",
+      args: [this.visit(ctx.expr()) as ExprAst]
+    };
   }
 
   visitUnitExprColumn(ctx: parser.UnitExprColumnContext): ExprColumnAst {
@@ -334,6 +325,35 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
+  visitGroupByClause(ctx: parser.GroupByClauseContext): GroupByAst {
+    const selections = ctx.expr().map(e => this.visit(e) as ExprAst);
+    const predicate = this.visitHavingClause(ctx.havingClause());
+    return {
+      selections,
+      predicate
+    };
+  }
+
+  visitHavingClause(ctx: parser.HavingClauseContext): ExprAst {
+    return this.visit(ctx.expr()) as ExprAst;
+  }
+
+  visitLimitClause(ctx: parser.LimitClauseContext): ExprAst {
+    return this.visit(ctx.expr()) as ExprAst;
+  }
+
+  visitOrderByClause(ctx: parser.OrderByClauseContext): OrderByAst[] {
+    return ctx.orderSpec().map(s => this.visitOrderSpec(s));
+  }
+
+  visitOrderSpec(ctx: parser.OrderSpecContext): OrderByAst {
+    const order = ctx.DESC ? Order.DESC : Order.ASC;
+    return {
+      selection: this.visit(ctx.expr()) as ExprAst,
+      order
+    };
+  }
+
   visitWhereClause(ctx: parser.WhereClauseContext): ExprAst {
     return this.visit(ctx.expr()) as ExprAst;
   }
@@ -410,65 +430,59 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  _helperDynamicRelation(ctx: any) {
+  /**
+   * FIXME: might want to normalize the constraints on columns and on the relations...
+   * @param ctx contex
+   */
+  visitInputStmt(ctx: parser.InputStmtContext): OriginalRelation {
+    const relationType = ctx.INPUT ? OriginalRelationType.Input : OriginalRelationType.Table;
     const name = ctx.IDENTIFIER().text;
     let columns: Column[] = [];
+    let constraints: RelationConstraints = null;
+
     let copyFrom = undefined;
     const v = this.visit(ctx.relationDefintion());
     if (typeof v === "string") {
       copyFrom = v as string;
     } else {
-      columns = v as Column[];
+      columns = (v as OriginalRelation).columns;
+      constraints = (v as OriginalRelation).constraints;
     }
 
     return {
+      relationType,
       name,
       columns,
+      constraints,
       copyFrom
     };
   }
 
-  visitInputStmt(ctx: parser.InputStmtContext): DynamicRelation {
-    const relationType = DynamicRelationType.Input;
-    return {
-      relationType,
-      ...this._helperDynamicRelation(ctx)
-    };
-  }
-
-  visitDynamicTableStmt (ctx: parser.DynamicTableStmtContext): DynamicRelation {
-    const relationType = DynamicRelationType.DynamicTable;
-    return {
-      relationType,
-      ...this._helperDynamicRelation(ctx)
-    };
-  }
-
-  visitRelationDefintionDirect(ctx: parser.RelationDefintionDirectContext): Column[] {
+  visitRelationDefintionDirect(ctx: parser.RelationDefintionDirectContext): OriginalRelation {
     const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
-    return columns;
+    const constraints = this._processConstraintDefinitionHelper(ctx.constraintDefinition());
+    // name and relationType are dummy to avoid having to add more to the union type...
+    return {
+      name: "",
+      relationType: null,
+      columns,
+      constraints
+    };
   }
 
   visitRelationDefintionCopy(ctx: parser.RelationDefintionCopyContext): string {
     return ctx.IDENTIFIER().text;
   }
 
-  visitConstraintClause(ctx: parser.ConstraintClauseContext): RelationConstraints {
-    let primaryKeys: string[] = [];
+  _processConstraintDefinitionHelper(ctxs: parser.ConstraintDefinitionContext[]): RelationConstraints {
+    let primaryKey: string[] = [];
     let uniques: string[][] = [];
     let exprChecks: ExprAst[] = [];
     let notNull: string[] = [];
-    let constraints = {
-      relationNotNull: false,
-      relationHasOneRow: false,
-      primaryKeys,
-      notNull,
-      uniques,
-      exprChecks,
-    };
-    ctx.constraintDefinition().map(e => {
-      if (e.KEY()) {
-        primaryKeys = e.IDENTIFIER().map(i => i.text);
+    let foreignKeys: ForeignKey[] = [];
+    ctxs.map(e => {
+      if (e.PRIMARY()) {
+        primaryKey = e.IDENTIFIER().map(i => i.text);
       } else if (e.UNIQUE()) {
         const aUnique = e.IDENTIFIER().map(i => i.text);
         uniques.push(aUnique);
@@ -476,9 +490,28 @@ implements visitor.DIELVisitor<ExpressionValue> {
         notNull.push(e.IDENTIFIER()[0].text);
       } else if (e.CHECK()) {
         exprChecks.push(this.visit(e.expr()) as ExprAst);
+      } else if (e.FOREIGN()) {
+        foreignKeys.push({
+          sourceColumn: e._column.text,
+          targetRelation: e._table.text,
+          targetColumn: e._otherColumn.text,
+        });
       }
     });
-    return constraints;
+    return {
+      relationNotNull: false,
+      relationHasOneRow: false,
+      primaryKey,
+      notNull,
+      uniques,
+      exprChecks,
+      foreignKeys
+    };
+
+  }
+
+  visitConstraintClause(ctx: parser.ConstraintClauseContext): RelationConstraints {
+    return this._processConstraintDefinitionHelper(ctx.constraintDefinition());
   }
 
   visitColumnDefinition(ctx: parser.ColumnDefinitionContext): Column {

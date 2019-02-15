@@ -3,6 +3,33 @@ import { SimpleColumn } from "../compiler/DielIr";
 
 export type QueryId = number;
 
+export interface DielRuntimeConfig {
+  dielFiles: string[];
+  mainDbPath: string;
+  workerDbPaths: string[];
+}
+
+/**
+ * stores information about what relations live in what sources
+ * as well as how large a table is
+ * should be table oriented...
+ *
+ */
+
+export enum TableLocation {
+  Local,
+  Worker,
+  Remote
+}
+
+// assume that all the access are via some index in array for now
+// a bit brittle...
+export interface TableMetaData {
+  location: TableLocation;
+  accessInfo: number;
+  rowNumber?: number;
+}
+
 export enum ChartType {
   Bar = "Bar",
   Scatter = "Scatter"

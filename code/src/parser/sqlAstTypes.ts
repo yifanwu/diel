@@ -16,7 +16,7 @@ export interface Column {
 export interface ColumnConstraints {
   notNull?: boolean;
   unique?: boolean;
-  key?: boolean;
+  primaryKey?: boolean;
 }
 
 export enum JoinType {
@@ -78,7 +78,7 @@ export interface SelectionUnit {
   baseRelation: RelationReference;
   joinClauses?: JoinAst[];
   whereClause?: ExprAst;
-  groupByClause?: ColumnSelection[];
+  groupByClause?: GroupByAst;
   orderByClause?: OrderByAst[];
   limitClause?: ExprAst;
 }
@@ -123,13 +123,18 @@ export interface InsertionClause extends AstBase {
 }
 
 export enum Order {
-  ASC,
-  DESC
+  ASC = "ASC",
+  DESC = "DESC"
+}
+
+export interface GroupByAst {
+  selections: ExprAst[];
+  predicate?: ExprAst;
 }
 
 export interface OrderByAst {
   order: Order;
-  selection: ColumnSelection;
+  selection: ExprAst;
 }
 
 export interface Drop {

@@ -1,7 +1,7 @@
 import { JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType } from "../../parser/sqlAstTypes";
 import { LogInternalError, ReportDielUserError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprRelationAst } from "../../parser/exprAstTypes";
-import { DielAst, DynamicRelation } from "../../parser/dielAstTypes";
+import { DielAst, OriginalRelation } from "../../parser/dielAstTypes";
 
 /**
  * Find all the top level selections for:
@@ -27,14 +27,14 @@ export function applyTemplates(ast: DielAst) {
   });
 
   // defined here since it needs to access the global definition
-  function copyRelationSpec(r: DynamicRelation): void {
+  function copyRelationSpec(r: OriginalRelation): void {
     if (r.copyFrom) {
       // make sure it's not copying from itself
       if (r.copyFrom === r.name) {
         ReportDielUserError(`You cannot copy ${r.name} from itself!`);
       }
       // find the relation
-      const sourceRelation = ast.inputs.concat(ast.dynamicTables).filter(r => r.name === r.copyFrom);
+      const sourceRelation = ast.inputs.concat(ast.originalRelations).filter(r => r.name === r.copyFrom);
       if (sourceRelation.length === 0) {
         ReportDielUserError(`The relation definition you are trying to copy from, ${r.copyFrom}, does not exist`);
       } else {
@@ -43,7 +43,7 @@ export function applyTemplates(ast: DielAst) {
     }
   }
   // and the copy pass
-  ast.inputs.concat(ast.dynamicTables).map(r => copyRelationSpec(r));
+  ast.inputs.concat(ast.originalRelations).map(r => copyRelationSpec(r));
 }
 
 /**
@@ -83,7 +83,7 @@ function tryToApplyATemplate(ast: RelationSelection | JoinAst): void {
   }
 
   function _visitOrderByAst(c: OrderByAst) {
-    _visitColumnSelection(c.selection);
+    _visitExprAst(c.selection);
   }
 
   function _visitExprAst(e: ExprAst) {
@@ -121,7 +121,10 @@ function tryToApplyATemplate(ast: RelationSelection | JoinAst): void {
     _visitRelationReference(ast.relation.baseRelation);
     ast.relation.joinClauses.map(j => _visitJoinAst(j));
     _visitExprAst(ast.relation.whereClause);
-    ast.relation.groupByClause.map(c => _visitColumnSelection(c));
+    ast.relation.groupByClause.selections.map(c => _visitExprAst(c));
+    if (ast.relation.groupByClause.predicate) {
+      _visitExprAst(ast.relation.groupByClause.predicate);
+    }
     ast.relation.orderByClause.map(c => _visitOrderByAst(c));
     _visitExprAst(ast.relation.limitClause);
   }

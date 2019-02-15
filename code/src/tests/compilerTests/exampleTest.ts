@@ -8,7 +8,7 @@ import * as parser from "../../parser/grammar/DIELParser";
 
 import DielCompiler from "../../compiler/DielCompiler";
 import {generateCompositeSelectionUnit, generateSelectionUnit, generateViewConstraintSelection} from "../../compiler/codegen/codeGenSql";
-import { DielConfig, DielAst, RelationConstraints, DynamicRelation, DerivedRelation } from "../../parser/dielAstTypes";
+import { DielConfig, DielAst, RelationConstraints, DerivedRelation } from "../../parser/dielAstTypes";
 import Visitor from "../../parser/generateAst";
 import {ExprAst, ExprParen, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprBase, ExprFunAst} from "../../parser/exprAstTypes";
 import {SelectionUnit, SetOperator, RelationReference, RelationSelection, ColumnSelection, CompositeSelectionUnit} from "../../parser/sqlAstTypes";
