@@ -17,6 +17,7 @@
     "testCliOnline": "node --inspect-brk -r ts-node/register src/lib/compile.ts",
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
     "test": "ts-node --no-cache src/tests/test.ts",
+    "mytest": "ts-node --no-cache src/tests/test.ts",
     "probe": "ts-node --no-cache src/tests/debugTool/probeTest.ts",
     "debug": "node --inspect-brk -r ts-node/register src/tests/test.ts",
     "token": "cp src/parser/grammar/DIEL.g4 src/debug/ && cd src/debug && echo ./antlr4-tester.sh DIEL.g4 \"<your query>\" queries"
@@ -38,15 +39,15 @@
   "homepage": "https://github.com/yifanwu/diel#readme",
   "devDependencies": {
     "antlr4ts-cli": "^0.4.0-alpha.4",
-    "ts-node": "^7.0.1",
-    "typescript": "^3.0.3",
-    "tslint": "^5.11.0",
-    "webpack": "^3.10.0",
-    "webpack-dev-server": "^2.9.7",
-    "source-map-loader": "^0.2.3",
-    "tslint-loader": "^3.5.3",
     "awesome-typescript-loader": "^3.4.1",
-    "typescript-formatter": "^7.2.2"
+    "source-map-loader": "^0.2.3",
+    "ts-node": "^7.0.1",
+    "tslint": "^5.11.0",
+    "tslint-loader": "^3.5.3",
+    "typescript": "^3.0.3",
+    "typescript-formatter": "^7.2.2",
+    "webpack": "^3.10.0",
+    "webpack-dev-server": "^3.1.14"
   },
   "dependencies": {
     "@types/d3": "^4.12.0",

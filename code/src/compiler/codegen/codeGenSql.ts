@@ -3,6 +3,7 @@ import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, Joi
 import { RelationSpec, RelationQuery, SqlIr } from "./createSqlIr";
 import { LogInternalError, ReportDielUserError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
+import { Nullable } from "antlr4ts/Decorators";
 
 export function generateSqlFromIr(ir: SqlIr) {
   const tables = ir.tables.map(t => generateTableSpec(t));
@@ -35,7 +36,7 @@ const setOperatorToString = new Map([
   [SetOperator.INTERSECT, "INTERSECT"],
 ]);
 
-function generateCompositeSelectionUnit(c: CompositeSelectionUnit): string {
+export function generateCompositeSelectionUnit(c: CompositeSelectionUnit): string {
   const op = setOperatorToString.get(c.op);
   const query = generateSelectionUnit(c.relation);
   return `${op} ${query}`;
@@ -47,18 +48,32 @@ export function generateSelectionUnit(v: SelectionUnit): string {
   `;
 }
 
+/** For view constraint composite selection */
+export function generateViewConstraintSelection(v: SelectionUnit): string {
+  var ret = `SELECT ${generateColumnSelection(v.columnSelections)}
+  FROM
+  (
+    ${generateSelectionUnit(v.baseRelation.subquery.compositeSelections[0].relation)}
+  )
+  ${generateWhere(v.whereClause)}`;
+  return ret;
+}
+
+
 /**
  * this is exported so that the codeDiv can use it
  * need to be cleaner for the future
  * @param v
  */
 export function generateSelectionUnitBody(v: SelectionUnit) {
-  return `FROM ${v.baseRelation}
-  ${v.joinClauses.map(j => generateJoin(j))}
-  ${generateWhere(v.whereClause)}
-  ${generateGroupBy(v.groupByClause)}
-  ${generateOrderBy(v.orderByClause)}
-  ${generateLimit(v.limitClause)}`;
+  // console.log("SELECTIONUNITBODY");
+  // console.log(v);
+  return `FROM ${v.baseRelation.relationName}` +
+  `${v.joinClauses.length > 0 ? `\n` : ``}` + `${ v.joinClauses.map(j => generateJoin(j)) }` +
+  `${v.whereClause ? `\n` : ``}` + `${generateWhere(v.whereClause)}` +
+  `${v.groupByClause ? `\n` : ``}` + `${generateGroupBy(v.groupByClause)}` +
+  `${v.orderByClause ? `\n` : ``}` + `${generateOrderBy(v.orderByClause)}` +
+  `${v.limitClause ? `\n` : ``}` + `${generateLimit(v.limitClause)}`;
 }
 
 function generateRelationReference(r: RelationReference): string {
@@ -80,6 +95,9 @@ function generateRelationReference(r: RelationReference): string {
  * @param s
  */
 function generateColumnSelection(s: ColumnSelection[]): string {
+  if (s == null) {
+    return ``;
+  }
   return `${s.map(c => generateExpr(c.expr))}`;
 }
 
@@ -90,6 +108,7 @@ const joinOpToString = new Map([
 ]);
 
 function generateJoin(j: JoinAst): string {
+  if (j == null) return ``;
   const op = joinOpToString.get(j.joinType);
   const pred = j.predicate
     ? `ON ${generateExpr(j.predicate)}`
@@ -99,17 +118,22 @@ function generateJoin(j: JoinAst): string {
 }
 
 function generateWhere(e: ExprAst): string {
+  if (e == null) return ``;
   return `WHERE ${generateExpr(e)}`;
 }
 
 // recursive fun...
 function generateExpr(e: ExprAst): string {
+  if (e == null) return ``;
   if (e.exprType === ExprType.Val) {
     const v = e as ExprValAst;
     return v.value.toString();
   } else if (e.exprType === ExprType.Column) {
     const c = e as ExprColumnAst;
     // again the columns should have no stars anymore!
+    if (c.hasStar) {
+      return `*`;
+    }
     return `${c.relationName ? `${c.relationName}.` : ""}${c.columnName}`;
   } else if (e.exprType === ExprType.Relation) {
     const r = e as ExprRelationAst;
@@ -138,14 +162,17 @@ function generateExpr(e: ExprAst): string {
 }
 
 function generateGroupBy(s: ColumnSelection[]): string {
+  if (s == null) return ``;
   return `GROUP BY ${generateColumnSelection(s)}`;
 }
 
 function generateOrderBy(o: OrderByAst[]): string {
+  if (o == null) return ``;
   return `ORDER BY ${o.map(i => i.selection)}`;
 }
 
 function generateLimit(e: ExprAst): string {
+  if (e == null) return ``;
   return `LIMIT ${generateExpr(e)}`;
 }
 
