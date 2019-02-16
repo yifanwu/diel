@@ -2,17 +2,15 @@ import { DielIr } from "./DielIr";
 import { DielAst, DielConfig } from "../parser/dielAstTypes";
 import { applyTemplates } from "./passes/applyTemplate";
 import { applyCrossfilter } from "./passes/applyCrossfilter";
-import { genTs } from "./codegen/codeGenTs";
 import { createSqlIr } from "./codegen/createSqlIr";
 import { generateSqlFromIr } from "./codegen/codeGenSql";
 import { getSelectionUnitDep, getTopologicalOrder } from "./passes/passesHelper";
 import { dielIrComplain } from "./errorChecking/errorInfos";
 
 export default class DielCompiler extends DielIr {
-  constructor(ast: DielAst, config: DielConfig) {
+  constructor(ast: DielAst) {
     super();
     this.ast = ast;
-    this.config = config;
     this.buildIndicesToIr();
     // build the tree
     // the follow mismash of this vs passing variable around should be fixed.
@@ -22,13 +20,6 @@ export default class DielCompiler extends DielIr {
     this.normalizeConstraints();
     this.normalizeColumnSelection();
     this.inferType();
-  }
-
-  /**
-   * passing this around, since it's getting rather large...
-   */
-  async GenerateTs() {
-    return genTs(this, this.dependencies.depTree);
   }
 
   /**

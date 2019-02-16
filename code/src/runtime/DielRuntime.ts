@@ -3,14 +3,16 @@
 import { loadPage } from "../notebook/index";
 import { Database, Statement } from "sql.js";
 import { SelectionUnit } from "../parser/sqlAstTypes";
-import { QueryId, RuntimeCell, DbRow, DielRuntimeConfig, TableMetaData, } from "./runtimeTypes";
-import { OriginalRelation, DerivedRelation, DielPhysicalExecution, ProgramSpec } from "../parser/dielAstTypes";
-import { generateSelectionUnit } from "../compiler/codegen/codeGenSql";
+import { RuntimeCell, DbRow, DielRuntimeConfig, TableMetaData, } from "./runtimeTypes";
+import { OriginalRelation, DerivedRelation, DielPhysicalExecution, } from "../parser/dielAstTypes";
+import { generateSelectionUnit, generateSqlFromIr } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
 import { getDielIr } from "../lib/cli-compiler";
 import DielCompiler from "../compiler/DielCompiler";
 import { timeNow } from "../lib/dielUdfs";
 import { downloadHelper } from "../lib/dielUtils";
+import { SqlIr, createSqlIr } from "../compiler/codegen/createSqlIr";
+import { LogInternalError } from "../lib/messages";
 
 // hm watch out for import path
 //  also sort of like an odd location...
@@ -50,7 +52,7 @@ export default class DielRuntime {
   protected output: Map<string, Statement>;
   protected input: Map<string, Statement>;
 
-  constructor(runtimeConfig?: DielRuntimeConfig) {
+  constructor(runtimeConfig: DielRuntimeConfig) {
     this.runtimeConfig = runtimeConfig;
     this.cells = [];
     this.visitor = new Visitor();
@@ -146,6 +148,8 @@ export default class DielRuntime {
     this.materializeQueries();
     // then caching
     this.cacheQueries();
+    // now execute the physical views and programs
+    this.executeToDBs();
     this.setupAllInputOutputs();
     loadPage();
   }
@@ -283,21 +287,33 @@ export default class DielRuntime {
 
   /**
    * assume that this will be the first one executed!
+   * FIXME:
+   * - deal with remotes
+   * - create async events
+   * this already lowers the IR to the SQLIr
    */
   basicDistributedQueries() {
     // first walk through the outputs that make use of worker based tables
     // then add to the input program to ship the relevant inputs over to the worker tables
     // then query in worker tables
     // then send the results back into main
-    const mainViews: DerivedRelation[] = [];
-    const workerViews = new Map<string, DerivedRelation[]>();
-    const remotesViews = new Map<string, DerivedRelation[]>();
-    const programs = new Map<string, ProgramSpec[]>();
+    // function newSqlIr(): SqlIr {
+    //   return {
+    //     views: [],
+    //     programs: [],
+    //   };
+    // }
+    const workers = new Map<string, SqlIr>();
+    const remotes = new Map<string, SqlIr>();
+    // for now just stick them all in there...
+    // FIXME: not working!
+    const main = createSqlIr(this.compiler.ast);
+    // now put all the views that contain worker tables out into the respective workers
+    // just walk through the depTree and look up their names in the metaData part
     this.physicalExecution = {
-      mainViews,
-      workerViews,
-      remotesViews,
-      programs
+      main,
+      workers,
+      remotes,
     };
   }
 
@@ -311,5 +327,17 @@ export default class DielRuntime {
     return;
   }
 
-
+  // takes in teh SqlIrs in different environments and sticks them into the databases
+  // FIXME: better async handling
+  // also should fix the async logic
+  executeToDBs() {
+    const mainSqlQUeries = generateSqlFromIr(this.physicalExecution.main);
+    for (let s of mainSqlQUeries) {
+      try {
+        this.db.run(s);
+      } catch (error) {
+        LogInternalError(`Error while running\n${s}\n${error}`);
+      }
+    }
+  }
 }

@@ -5,8 +5,8 @@ export type QueryId = number;
 
 export interface DielRuntimeConfig {
   dielFiles: string[];
-  mainDbPath: string;
-  workerDbPaths: string[];
+  mainDbPath?: string;
+  workerDbPaths?: string[];
 }
 
 /**

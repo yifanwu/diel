@@ -1,4 +1,4 @@
-import { DielAst, DerivedRelation, DataType, BuiltInColumns, DielConfig, OriginalRelation } from "../parser/dielAstTypes";
+import { DielAst, DerivedRelation, DataType, BuiltInColumns, OriginalRelation } from "../parser/dielAstTypes";
 import { SelectionUnit, CompositeSelection, Column, ColumnSelection, RelationReference, getRelationReferenceName } from "../parser/sqlAstTypes";
 import { DependencyInfo } from "./passes/passesHelper";
 import { LogInternalError, ReportDielUserError } from "../lib/messages";
@@ -25,7 +25,6 @@ export class DielIr {
     throw new Error("Method not implemented.");
   }
   ast: DielAst;
-  config: DielConfig;
   dependencies: DependencyInfo;
   // we want to access the derived relations by name and be iterables
   // FIXME: a bit weird that we are accessing the selection directly for derived but not for the dynamic one...

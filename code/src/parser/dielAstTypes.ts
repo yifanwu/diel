@@ -1,5 +1,6 @@
 import { Column, JoinAst, RelationReference, ColumnSelection, InsertionClause, Drop, RelationSelection, CompositeSelectionUnit, OrderByAst, SelectionUnit, RawValues, GroupByAst } from "./sqlAstTypes";
 import { ExprAst, ExprValAst } from "./exprAstTypes";
+import { SqlIr } from "../compiler/codegen/createSqlIr";
 
 export interface DielTemplate {
   variables: string[];
@@ -194,11 +195,11 @@ export interface DielAst {
  * - indices
  * - caching
  */
+
 export interface DielPhysicalExecution {
-  main: DerivedRelation[];
-  workers: Map<string, DerivedRelation[]>;
-  remotes: Map<string, DerivedRelation[]>;
-  programs: Map<string, ProgramSpec[]>;
+  main: SqlIr;
+  workers: Map<string, SqlIr>;
+  remotes: Map<string, SqlIr>;
 }
 
 export interface CrossFilterChartIr {
