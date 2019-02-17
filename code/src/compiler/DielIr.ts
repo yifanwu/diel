@@ -51,11 +51,11 @@ export class DielIr {
     if (derived) {
       return this.GetTypeFromDerivedRelationColumn(derived[0].relation, columnName);
     } else {
-      const original = this.allOriginalRelations.get(relationName).columns;
+      const original = this.allOriginalRelations.get(relationName);
       if (!original) {
         return null;
       } else {
-        const column = original.filter(r => r.name === columnName);
+        const column = original.columns.filter(r => r.name === columnName);
         if (column.length > 0) {
           return column[0].type;
         } else {

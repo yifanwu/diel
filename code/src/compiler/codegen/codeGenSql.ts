@@ -44,10 +44,11 @@ function generateCompositeSelectionUnit(c: CompositeSelectionUnit): string {
 }
 
 export function generateSelectionUnit(v: SelectionUnit, original = false): string {
-  const selection = original
-    ? generateColumnSelection(v.columnSelections)
-    : generateColumnSelection(v.derivedColumnSelections)
-    ;
+  const selection = generateColumnSelection(v.columnSelections);
+  // const selection = original
+  //   ? generateColumnSelection(v.columnSelections)
+    // : generateColumnSelection(v.derivedColumnSelections)
+    // ;
   return `SELECT ${selection}
     ${generateSelectionUnitBody(v)}
   `;
@@ -74,7 +75,7 @@ function generateRelationReference(r: RelationReference): string {
   if (r.relationName) {
     query += r.relationName;
   } else {
-    query += generateSelect(r.subquery.compositeSelections);
+    query += `(${generateSelect(r.subquery.compositeSelections)})`;
   }
   if (r.alias) {
     query += `AS ${r.alias}`;
@@ -127,7 +128,7 @@ function generateExpr(e: ExprAst): string {
     return `${prefix}${c.columnName}`;
   } else if (e.exprType === ExprType.Relation) {
     const r = e as ExprRelationAst;
-    return generateSelect(r.selection.compositeSelections);
+    return `(${generateSelect(r.selection.compositeSelections)})`;
   } else if (e.exprType === ExprType.Parenthesis) {
     const p = e as ExprParen;
     return `(${generateExpr(p.content)})`;
@@ -197,12 +198,12 @@ function generateTrigger(t: ProgramsIr): string {
   program += t.queries.map(p => {
     if (p.astType === AstType.RelationSelection) {
       const r = p as RelationSelection;
-      return generateSelect(r.compositeSelections);
+      return generateSelect(r.compositeSelections) + ";";
     } else {
       const i = p as InsertionClause;
-      return generateInserts(i);
+      return generateInserts(i) + ";";
     }
-  }).join(";\n");
+  }).join("\n");
   program += "\nEND;";
   return program;
 }

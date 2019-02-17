@@ -16,22 +16,22 @@ export function NormalizeColumnSelection(ir: DielIr) {
 }
 
 function columnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[] {
-    return su.derivedColumnSelections.map(cs => {
-      if (cs.expr.exprType === ExprType.Column) {
-        const columnExpr = cs.expr as ExprColumnAst;
-        return {
-          columnName: cs.alias ? cs.alias : columnExpr.columnName,
-          type: columnExpr.dataType
-        };
-      } else {
-        const functionExpr = cs.expr as ExprFunAst;
-        return {
-          columnName: cs.alias,
-          type: functionExpr.dataType
-        };
-      }
-    });
-  }
+  return su.derivedColumnSelections.map(cs => {
+    if (cs.expr.exprType === ExprType.Column) {
+      const columnExpr = cs.expr as ExprColumnAst;
+      return {
+        columnName: cs.alias ? cs.alias : columnExpr.columnName,
+        type: columnExpr.dataType
+      };
+    } else {
+      const functionExpr = cs.expr as ExprFunAst;
+      return {
+        columnName: cs.alias,
+        type: functionExpr.dataType
+      };
+    }
+  });
+}
 
 function columnsFromRelationName(ir: DielIr, relationName: string): SimpleColumn[] {
   const derived = ir.allDerivedRelations.get(relationName);

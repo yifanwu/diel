@@ -57,7 +57,8 @@ function getTypeForColumnSelection(ir: DielIr, expr: ExprAst, r: SelectionUnit):
       // we need to access the scope of the current selection
       // TODO/FIXME: check base!
       // check joins
-      r.joinClauses.map(j => {
+      for (let idx = 0; idx < r.joinClauses.length; idx ++) {
+        const j = r.joinClauses[idx];
         // temp table can only be defined as alias...
         if (j.relation.alias === columnExpr.relationName) {
           // found it
@@ -66,7 +67,7 @@ function getTypeForColumnSelection(ir: DielIr, expr: ExprAst, r: SelectionUnit):
           // now access it, should be fine...
           return ir.GetTypeFromDerivedRelationColumn(tempRelation, cn);
         }
-      });
+      }
       throw new Error("Should have found a type by now!");
     } else {
       return existingType;

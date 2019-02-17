@@ -411,7 +411,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const subquery = this.visit(ctx.selectQuery()) as RelationSelection;
     const alias = ctx._alias ? ctx._alias.text : null;
     const q = getCtxSourceCode(ctx);
-    console.log(q);
+    // console.log(q);
     return {
       alias,
       subquery
@@ -568,13 +568,14 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const identifiers = ctx.IDENTIFIER().map(e => e.text);
     const relation = identifiers[0];
     const columns = identifiers.slice(1);
-    const v = this.visit(ctx.insertBody()) as any[];
+    // just look ahead now
+    const v = this.visit(ctx.insertBody()) as RawValues | RelationSelection;
     let selection;
     let values;
-    if ("selections" in v) {
-      selection = v as RelationSelection;
-    } else {
+    if (Array.isArray(v)) {
       values = v as RawValues;
+    } else {
+      selection = v as RelationSelection;
     }
     return {
       astType: AstType.Insert,
