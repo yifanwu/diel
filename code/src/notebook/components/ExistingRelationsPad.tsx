@@ -14,21 +14,14 @@ function getColumnsDiv(columns: Column[]) {
 // the logic here needs rethinking
 export default class ExistingRelationsPad extends React.Component<{}, ExistingRelationsPadState> {
   render() {
-    const staticRelations = runtime.compiler.ast.originalRelations.map(d => {
+    const original = runtime.IterateOverOriginalRelations(d => {
       return <div className="table-summary">
         {getColumnsDiv(d.columns)}
       </div>;
     });
-    const inputRelations = runtime.compiler.ast.inputs.map(i => {
-      return <div className="table-summary">
-        {getColumnsDiv(i.columns)}
-      </div>;
-    });
     return <div className="diel-summary">
-      <h2>Static Relations</h2>
-      {staticRelations}
-      <h2>Input Relations</h2>
-      {inputRelations}
+      <h2>Original Relations</h2>
+      {original}
     </div>;
   }
 }

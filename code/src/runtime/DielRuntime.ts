@@ -87,6 +87,12 @@ export default class DielRuntime {
     this.input.get(i).run(tsI);
   }
 
+  // this should be read only
+  // FIXME: not sure how to enforce..
+  public IterateOverOriginalRelations(f: (r: OriginalRelation) => any) {
+    return this.ir.ast.originalRelations.map(f);
+  }
+
   /**
    * this is the execution logic
    *   where we do distributed query execution
