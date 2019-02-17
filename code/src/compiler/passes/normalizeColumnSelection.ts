@@ -131,7 +131,7 @@ function normalizeColumnForSelectionUnit(s: SelectionUnit, optional: SelectionUn
       if (c.expr.exprType === ExprType.Column) {
         const currentColumnExpr = c.expr as ExprColumnAst;
         if (currentColumnExpr.hasStar) {
-          starCase(optional.ir, s, currentColumnExpr);
+          return starCase(optional.ir, s, currentColumnExpr);
         } else if (currentColumnExpr.relationName) {
           // not need to change; copy the column
           return [copyColumnSelection(c)];

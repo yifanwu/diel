@@ -6,11 +6,11 @@ import { codeGenBasicSQLTest } from "./codeGenTests/sqlTest";
 import { assertAllStar } from "./compilerTests/testStarExpantion";
 import { assertBasicConstraints } from "./parserTests/constraintsTest";
 
-// assertBasicConstraints();
-// codeGenBasicSQLTest();
-// assertBasicOperators();
-// assertBasicNormalizationOfRelation();
-// assertSimpleType();
+assertBasicConstraints();
+codeGenBasicSQLTest();
+assertBasicOperators();
+assertBasicNormalizationOfRelation();
+assertSimpleType();
 // testTopologicalSort();
 assertAllStar();
 assertMultiplyType();
