@@ -11,7 +11,7 @@
   "main": "lang-dist/lib/index.js",
   "types": "lang-dist/lib/index.d.ts",
   "scripts": {
-    "start": "./node_modules/.bin/webpack-dev-server --port 8080 --output-public-path=/dist/",
+    "start": "./node_modules/.bin/webpack-dev-server --port 8080 --output-public-path=/UI-dist/",
     "build": "tsc && cp src/compiler/static.sql dist/compiler",
     "testCli": "ts-node --no-cache src/lib/compile.ts",
     "testCliOnline": "node --inspect-brk -r ts-node/register src/lib/compile.ts",

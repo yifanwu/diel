@@ -1,0 +1,18 @@
+CREATE INPUT click (a number);
+CREATE INPUT participantSelection (sId number);
+
+CREATE OUTPUT totalClicks AS select sum(a) from click;
+create output seletedScore as
+  select *
+  from scores
+    join (
+      select * from participantSelection where timestep = (select max(timestep) from participantSelection)
+      ) s on s.sId = score.sId;
+
+CREATE TABLE clickSp (aPrime number);
+
+
+CREATE PROGRAM AFTER click
+  BEGIN
+    INSERT INTO clickSp (aPrime) select a * 2 as derivedA from click;
+  END;

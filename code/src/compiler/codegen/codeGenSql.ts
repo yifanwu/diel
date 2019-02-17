@@ -11,8 +11,10 @@ export function generateSqlFromIr(ir: SqlIr) {
   return tables.concat(views).concat(triggers);
 }
 
+// FIXME note that we should probably not use the if not exist as a crutch
+// to fix later
 function generateTableSpec(t: RelationSpec): string {
-  return `create table ${t.name} (
+  return `create table IF NOT EXISTS ${t.name} (
     ${t.columns.map(c => generateColumnDefinition(c)).join(",\n")}
   )`;
 }
@@ -218,11 +220,13 @@ const TypeConversionLookUp = new Map<DataType, string>([
 ]);
 
 function generateColumnDefinition(c: Column): string {
+  const plainQuery = `${c.name} ${TypeConversionLookUp.get(c.type)}`;
   if (!c.constraints) {
-    LogInternalError(`Constraints for column ${c.name} is not defined`);
+    // LogInternalError(`Constraints for column ${c.name} is not defined`);
+    return plainQuery;
   }
   const notNull = c.constraints.notNull ? "NOT NULL" : "";
   const unique = c.constraints.unique ? "UNIQUE" : "";
   const primary = c.constraints.primaryKey ? "PRIMARY KEY" : "";
-  return `${c.name} ${TypeConversionLookUp.get(c.type)} ${notNull} ${unique} ${primary}`;
+  return `${plainQuery} ${notNull} ${unique} ${primary}`;
 }

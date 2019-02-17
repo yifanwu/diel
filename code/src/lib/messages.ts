@@ -41,6 +41,12 @@ export function ReportDielUserError(m: string, q?: string) {
   if (STRICT) throw new Error();
 }
 
+export function ReportDielUserWarning(m: string, q?: string) {
+  console.log(`Program Warning: ${BgGreen}%s${Reset}`, m);
+  if (q) console.log(`\nQuery: ${FgBlue}%s${Reset}\n`, q);
+}
+
+
 export function GenerateUnitTestErrorLogger(testName: string, q: string) {
   console.log(`${BgYellow}Starting Test: %s${Reset}\nWith query:\n%s`, testName, q);
   return (m: string) => {

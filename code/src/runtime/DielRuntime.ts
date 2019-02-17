@@ -1,3 +1,6 @@
+import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
+import { DIELLexer } from "../parser/grammar/DIELLexer";
+import { DIELParser } from "../parser/grammar/DIELParser";
 
 // this is really weird, somehow passing it in causes asynchrony issues... #HACK, #FIXME
 import { loadPage } from "../notebook/index";
@@ -7,16 +10,17 @@ import { RuntimeCell, DbRow, DielRuntimeConfig, TableMetaData, } from "./runtime
 import { OriginalRelation, DerivedRelation, DielPhysicalExecution, } from "../parser/dielAstTypes";
 import { generateSelectionUnit, generateSqlFromIr } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
-import { getDielIr } from "../lib/cli-compiler";
-import DielCompiler from "../compiler/DielCompiler";
+// import { getDielIr } from "../lib/cli-compiler";
+import { CompileDiel } from "../compiler/DielCompiler";
 import { timeNow } from "../lib/dielUdfs";
 import { downloadHelper } from "../lib/dielUtils";
 import { SqlIr, createSqlIr } from "../compiler/codegen/createSqlIr";
-import { LogInternalError } from "../lib/messages";
+import { LogInternalError, ReportDielUserError, ReportDielUserWarning, LogTmp } from "../lib/messages";
+import { DielIr } from "../compiler/DielIr";
 
 // hm watch out for import path
 //  also sort of like an odd location...
-const StaticSqlFile = "./compiler/codegen/static.sql";
+const StaticSqlFile = "./src/compiler/codegen/static.sql";
 
 type ReactFunc = (v: any) => void;
 type OutputConfig = {
@@ -40,7 +44,7 @@ type TickBind = {
  * FIXME: fix the DIEL congfig logic
  */
 export default class DielRuntime {
-  compiler: DielCompiler;
+  ir: DielIr;
   physicalExecution: DielPhysicalExecution;
   metaData: Map<string, TableMetaData>;
   runtimeConfig: DielRuntimeConfig;
@@ -53,6 +57,8 @@ export default class DielRuntime {
   protected input: Map<string, Statement>;
 
   constructor(runtimeConfig: DielRuntimeConfig) {
+    // temp, fixme
+    (<any>window).diel = this;
     this.runtimeConfig = runtimeConfig;
     this.cells = [];
     this.visitor = new Visitor();
@@ -98,7 +104,7 @@ export default class DielRuntime {
   tick() {
     const boundFns = this.boundFns;
     const runOutput = this.runOutput;
-    const dependencies = this.compiler.GenerateDependenciesByInput();
+    const dependencies = this.ir.dependencies.inputDependencies;
     return (input: string) => {
       const inputDep = dependencies.get(input);
       boundFns.map(b => {
@@ -141,6 +147,8 @@ export default class DielRuntime {
     console.log(`Setting up DielRuntime with ${JSON.stringify(this.runtimeConfig)}`);
     await this.setupMainDb();
     await this.setupWorkerPool();
+    await this.initialCompile();
+    // now parse DIEL
     // below are logic for the physical execution of the programs
     // we first do the distribution
     this.basicDistributedQueries();
@@ -154,7 +162,32 @@ export default class DielRuntime {
     loadPage();
   }
 
+  async initialCompile() {
+    this.visitor = new Visitor();
+    let code = "";
+    const r = this.db.exec(`SELECT sql FROM sqlite_master WHERE type='table' and sql not null`);
+    if (r.length > 0) {
+      code = r[0].values.map(row => `${row[0]};\n`).join("");
+    }
+    // TODO: for workers as well
+    for (let i = 0; i < this.runtimeConfig.dielFiles.length; i ++) {
+      const f = this.runtimeConfig.dielFiles[i];
+      code += await (await fetch(f)).text();
+    }
+    LogTmp(`Generated code looks like this: ${code}`);
+    // read the files in now
+    const inputStream = new ANTLRInputStream(code);
+    const p = new DIELParser(new CommonTokenStream(new DIELLexer(inputStream)));
+    const tree = p.queries();
+    let ast = this.visitor.visitQueries(tree);
+    this.ir = CompileDiel(new DielIr(ast));
+  }
+
+  /**
+   * returns the DIEL code that will be ran to register the tables
+   */
   private async setupMainDb() {
+    // let dielCode = "";
     if (!this.runtimeConfig.mainDbPath) {
       this.db = new Database();
     } else {
@@ -162,9 +195,9 @@ export default class DielRuntime {
       const bufferRaw = await response.arrayBuffer();
       const buffer = new Uint8Array(bufferRaw);
       this.db = new Database(buffer);
-      // TODO we need to integrate the dbs in the existing db
-      // SELECT name,sql FROM sqlite_master WHERE type='table';
-      // then parse the definitions into the existing ast...
+      // debug
+      (<any>window).mainDb = this.db;
+      // FIXME: might have some weird issues with types of DIEL tables?
     }
     // and run the static file that we need
     const staticQuery = await (await fetch(StaticSqlFile)).text();
@@ -198,8 +231,8 @@ export default class DielRuntime {
   }
 
   setupAllInputOutputs() {
-    this.compiler.ast.inputs.map(i => this.setupNewInput(i));
-    this.compiler.ast.outputs.map(o => this.setupNewOutput(o));
+    this.ir.ast.inputs.map(i => this.setupNewInput(i));
+    this.ir.ast.outputs.map(o => this.setupNewOutput(o));
   }
 
   /**
@@ -236,25 +269,11 @@ export default class DielRuntime {
 
   }
 
-  async setupDielCode() {
-    // this means that things will be set later...
-    if (!this.runtimeConfig.dielFiles) return;
-    let dielCode = "";
-    for (let i = 0; i < this.runtimeConfig.dielFiles.length; i++) {
-      const file = this.runtimeConfig.workerDbPaths[i];
-      const response = await fetch(file);
-      const textRaw = await response.text();
-      dielCode += textRaw;
-    }
-    // FIXME: some config logic here...
-    getDielIr(dielCode);
-  }
 
   /**
    * returns the results as an array of objects (sql.js)
    */
   ExecuteAstQuery(ast: SelectionUnit): DbRow[] {
-    // const columnTypes = DielIr.GetSimpleColumnsFromSelectionUnit(ast);
     const queryString = generateSelectionUnit(ast);
     return this.ExecuteStringQuery(queryString);
   }
@@ -269,7 +288,7 @@ export default class DielRuntime {
   // ChangeQueryVersion(qId: QueryId, ) {
   // }
 
-  AddQuery() {
+  AddQuery(query: string) {
     throw new Error(`not implemnted`);
     // const cId = this.generateQId();
     // const name = this.createCellName(cId);
@@ -307,7 +326,7 @@ export default class DielRuntime {
     const remotes = new Map<string, SqlIr>();
     // for now just stick them all in there...
     // FIXME: not working!
-    const main = createSqlIr(this.compiler.ast);
+    const main = createSqlIr(this.ir.ast);
     // now put all the views that contain worker tables out into the respective workers
     // just walk through the depTree and look up their names in the metaData part
     this.physicalExecution = {

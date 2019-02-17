@@ -58,11 +58,11 @@ export default class CodeCell extends React.Component<{}, CodeCardState> {
   }
 
   addQuery() {
-    const annotation = runtime.AddQuery(this.state.query);
-    this.setState({
-      annotation,
-      cellStatus: CellStatus.Committed
-    });
+    // const annotation = runtime.AddQuery(this.state.query);
+    // this.setState({
+    //   annotation,
+    //   cellStatus: CellStatus.Committed
+    // });
   }
 
   render() {

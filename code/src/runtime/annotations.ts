@@ -35,9 +35,9 @@ export function getSelectionUnitAnnotation(ast: SelectionUnit): AnnotedSelection
       baseRelation: {
         relationName
       },
-      groupByClause: [{
-        expr: Object.assign({}, s.expr),
-      }]
+      groupByClause: {
+        selections: [Object.assign({}, s.expr)],
+      }
     };
     const semanticId = `column-tool-tip-${columnName}-${relationName}`;
     return {

@@ -14,6 +14,12 @@ There is also the develoepr facing aspects, as well as the internal layer with S
 
 `diel` will be exposed as a class.
 
+Ways that the IR is different from the AST:
+- the selection will only have Expressions, and all Column Expressions
+   must have a source table, as well as functions that take in only one column
+- there will be no templates
+- all the types will be cast
+
 ## parsing
 
 Reference grammars:
