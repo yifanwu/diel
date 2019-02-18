@@ -12,10 +12,10 @@ import { generateSelectionUnit, generateSqlFromIr } from "../compiler/codegen/co
 import Visitor from "../parser/generateAst";
 // import { getDielIr } from "../lib/cli-compiler";
 import { CompileDiel } from "../compiler/DielCompiler";
-import { timeNow } from "../lib/dielUdfs";
+import { log } from "../lib/dielUdfs";
 import { downloadHelper } from "../lib/dielUtils";
 import { SqlIr, createSqlIr } from "../compiler/codegen/createSqlIr";
-import { LogInternalError, ReportDielUserWarning, LogTmp } from "../lib/messages";
+import { LogInternalError, LogTmp } from "../lib/messages";
 import { DielIr } from "../compiler/DielIr";
 
 // hm watch out for import path
@@ -83,8 +83,8 @@ export default class DielRuntime {
 
   // FIXME: gotta do some run time type checking here!
   public NewInput(i: string, o: any) {
-    let tsI = Object.assign({$ts: timeNow()}, o);
-    this.input.get(i).run(tsI);
+    // let tsI = Object.assign({$ts: timeNow()}, o);
+    this.input.get(i).run(o);
   }
 
   // this should be read only
@@ -154,6 +154,7 @@ export default class DielRuntime {
     await this.setupMainDb();
     await this.setupWorkerPool();
     await this.initialCompile();
+    this.setupUDFs();
     // now parse DIEL
     // below are logic for the physical execution of the programs
     // we first do the distribution
@@ -192,6 +193,11 @@ export default class DielRuntime {
     const tree = p.queries();
     let ast = this.visitor.visitQueries(tree);
     this.ir = CompileDiel(new DielIr(ast));
+  }
+
+  setupUDFs() {
+    this.db.create_function("log", log);
+    this.db.create_function("tick", this.tick());
   }
 
   /**
@@ -251,26 +257,33 @@ export default class DielRuntime {
    *   it would be handled via some trigger programs
    */
   private setupNewOutput(r: DerivedRelation) {
-    const insertQuery = `select * from ${r.name}`;
+    const q = `select * from ${r.name}`;
     this.output.set(
       r.name,
-      this.db.prepare(insertQuery)
+      this.dbPrepare(q)
     );
+  }
+
+  private dbPrepare(q: string) {
+    try {
+      return this.db.prepare(q);
+    } catch (e) {
+      console.log(`%c Had error ${e} while running query ${q}`, "color: red");
+    }
   }
 
   // FIXME: in the future we should create ASTs and generate it, as opposed to raw strings
   //   raw strings are faster, hack for now...
   private setupNewInput(r: OriginalRelation) {
     const insertQuery = `
-      insert into ${r.name} (timestep, timestamp, ${r.columns.map(c => c.name).join(", ")})
+      insert into ${r.name} (timestep, ${r.columns.map(c => c.name).join(", ")})
       select
         max(timestep),
-        timeNow(),
         ${r.columns.map(c => c.name).map(v => `$${v}`).join(", ")}
       from allInputs;`;
     this.input.set(
       r.name,
-      this.db.prepare(insertQuery)
+      this.dbPrepare(insertQuery)
     );
   }
 
@@ -298,7 +311,7 @@ export default class DielRuntime {
   // ChangeQueryVersion(qId: QueryId, ) {
   // }
 
-  AddQuery(query: string) {
+  AddQuery() {
     throw new Error(`not implemnted`);
     // const cId = this.generateQId();
     // const name = this.createCellName(cId);

@@ -37,9 +37,9 @@ function columnsFromRelationName(ir: DielIr, relationName: string): SimpleColumn
   if (derived) {
     return columnsFromSelectionUnit(derived[0].relation);
   }
-  const original = ir.allOriginalRelations.get(relationName).columns;
+  const original = ir.allOriginalRelations.get(relationName);
   if (original) {
-    return original.map(c => ({columnName: c.name, type: c.type}));
+    return original.columns.map(c => ({columnName: c.name, type: c.type}));
   }
   LogInternalError(`Cannot find relation ${relationName}`);
 }

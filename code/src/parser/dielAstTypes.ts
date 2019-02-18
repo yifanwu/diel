@@ -17,6 +17,7 @@ export interface TemplateVariableAssignmentUnit {
 export enum DataType {
   String = "String",
   Number = "Number",
+  TimeStamp = "TimeStamp",
   Boolean = "Boolean",
   Relation = "Relation",
   // this needs to be inferred in the next stage

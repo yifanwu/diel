@@ -13,10 +13,18 @@ export interface Column {
   constraints?: ColumnConstraints;
 }
 
+
+// note that the string would need to contain quotes itself...
+// export interface DefaultValue {
+//   dataType: DataType;
+//   value: ;
+// }
+
 export interface ColumnConstraints {
   notNull?: boolean;
   unique?: boolean;
   primaryKey?: boolean;
+  default?: string;
 }
 
 export enum JoinType {

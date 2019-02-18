@@ -83,6 +83,10 @@ export class DielIr {
       .filter(r => r.relationType === OriginalRelationType.Input);
   }
 
+  public GetOriginalRelations() {
+    return this.ast.originalRelations;
+  }
+
   public GetDielDefinedOriginalRelation() {
     return this.ast.originalRelations
       .filter(r => r.relationType !== OriginalRelationType.ExistingAndImmutable);
@@ -162,7 +166,7 @@ export class DielIr {
     });
     this.allDerivedRelations = allDerivedRelations;
     const allOriginalRelations = new Map();
-    this.GetDielDefinedOriginalRelation().map((r) => {
+    this.GetOriginalRelations().map((r) => {
       allOriginalRelations.set(r.name, r);
     });
     this.allOriginalRelations = allOriginalRelations;

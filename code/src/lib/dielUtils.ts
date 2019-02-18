@@ -19,7 +19,7 @@ export async function loadDbHelper(db: Database, file: string, tick: () => () =>
   const bufferRaw = await response.arrayBuffer();
   buffer = new Uint8Array(bufferRaw);
   db = new Database(buffer);
-  db.create_function("timeNow", timeNow);
+  // db.create_function("timeNow", timeNow);
   db.create_function("log", log);
   db.create_function("tick", tick());
   LogInfo(`DIEL Loaded DB Successfully`);

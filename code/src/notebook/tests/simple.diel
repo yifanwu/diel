@@ -7,7 +7,7 @@ create view seletedScore as
   from scores
     join (
       select * from participantSelection where timestep = (select max(timestep) from participantSelection)
-      ) s on s.sId = score.sId;
+      ) s on s.sId = scores.sId;
 
 CREATE TABLE clickSp (aPrime number);
 

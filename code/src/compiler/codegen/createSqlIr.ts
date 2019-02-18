@@ -48,10 +48,14 @@ export function createSqlIr(ast: DielAst): SqlIr {
     },
     {
       name: "timestamp",
-      type: DataType.Number,
+      type: DataType.TimeStamp,
+      constraints: {
+        default: "CURRENT_TIMESTAMP"
+      }
     }
   ];
   const tables = ast.originalRelations
+    .filter(i => i.relationType !== OriginalRelationType.ExistingAndImmutable)
     .map(i => {
       if (i.relationType === OriginalRelationType.Input) {
         return {
@@ -64,6 +68,7 @@ export function createSqlIr(ast: DielAst): SqlIr {
           columns: i.columns
         };
       }
+      throw new Error(`SQL IR creation error`);
     });
 
     const views = ast.views
