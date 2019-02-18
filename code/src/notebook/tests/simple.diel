@@ -1,8 +1,8 @@
 CREATE INPUT click (a number);
 CREATE INPUT participantSelection (sId number);
 
-CREATE OUTPUT totalClicks AS select sum(a) from click;
-create output seletedScore as
+CREATE view totalClicks AS select sum(a) from click;
+create view seletedScore as
   select *
   from scores
     join (
@@ -10,7 +10,6 @@ create output seletedScore as
       ) s on s.sId = score.sId;
 
 CREATE TABLE clickSp (aPrime number);
-
 
 CREATE PROGRAM AFTER click
   BEGIN

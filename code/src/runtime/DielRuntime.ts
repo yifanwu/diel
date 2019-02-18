@@ -173,7 +173,12 @@ export default class DielRuntime {
     let code = "";
     const r = this.db.exec(`SELECT sql FROM sqlite_master WHERE type='table' and sql not null`);
     if (r.length > 0) {
-      code = r[0].values.map(row => `${row[0]};\n`).join("");
+      code = r[0].values.map(row => {
+        const queryWithReigster = (row[0] as string).replace(/create table/ig, "register table");
+        // THIS IS HACKY AF
+        // basically going to regex the create table to register table
+        return `${queryWithReigster};\n`;
+      }).join("");
     }
     // TODO: for workers as well
     for (let i = 0; i < this.runtimeConfig.dielFiles.length; i ++) {
@@ -237,10 +242,9 @@ export default class DielRuntime {
   }
 
   setupAllInputOutputs() {
-    this.ir.IterateOverInputs<void>(i => this.setupNewInput(i));
-    this.ir.IterateOverOutputs<void>(o => this.setupNewOutput(o));
+    this.ir.GetInputs().map(i => this.setupNewInput(i));
+    this.ir.GetOutputs().map(o => this.setupNewOutput(o));
   }
-
   /**
    * output tables HAVE to be local tables
    *   since they are synchronous --- if they are over other tables

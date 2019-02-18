@@ -449,9 +449,9 @@ implements visitor.DIELVisitor<ExpressionValue> {
     if (ctx.INPUT() && ctx.REGISTER()) {
       ReportDielUserError(`You cannot register an input relation`);
     }
-    const relationType = ctx.INPUT
+    const relationType = ctx.INPUT()
       ? OriginalRelationType.Input
-      : ctx.CREATE
+      : ctx.CREATE()
         ? OriginalRelationType.Table
         : OriginalRelationType.ExistingAndImmutable;
     const name = ctx.IDENTIFIER().text;
