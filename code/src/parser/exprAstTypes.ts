@@ -27,6 +27,7 @@ export interface ExprBase {
  *   so change the names carefully..
  */
 export enum BuiltInFunc {
+  In = "IN",
   ValueIsNull = "IS NULL",
   ValueIsNotNull = "NOT NULL",
   SetEmpty = "NOT EXIST",

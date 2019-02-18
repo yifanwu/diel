@@ -17,7 +17,7 @@ import { dielIrComplain } from "../errorChecking/errorInfos";
  * we have augmented it so that it could work with views as well
  */
 export function NormalizeConstraints(ir: DielIr) {
-  ir.applyToAllExistingRelation((r) => {
+  ir.GetDielDefinedOriginalRelation().map((r) => {
     r.columns.map(c => {
       if (c.constraints) {
         if (c.constraints.notNull) {

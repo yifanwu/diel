@@ -1,10 +1,9 @@
-import { DielIr, SimpleColumn } from "../DielIr";
+import { DielIr, SimpleColumn, SelectionUnitVisitorFunctionOptions } from "../DielIr";
 import { SelectionUnit, ColumnSelection, getRelationReferenceName, RelationReference } from "../../parser/sqlAstTypes";
 import { ReportDielUserError, LogInternalError } from "../../lib/messages";
-import { ExprType, ExprColumnAst, ExprAst, ExprFunAst } from "../../parser/exprAstTypes";
+import { ExprType, ExprColumnAst, ExprFunAst } from "../../parser/exprAstTypes";
 import { DataType } from "../../parser/dielAstTypes";
 import { copyColumnSelection, createColumnSectionFromRelationReference } from "./helper";
-import { ApplyToAllSelectionUnits, SelectionUnitVisitorFunctionOptions } from "../dielVisitors";
 
 /**
  * the pass removes the .* as well as filling in where the columns comes from if it's not specified
@@ -12,7 +11,7 @@ import { ApplyToAllSelectionUnits, SelectionUnitVisitorFunctionOptions } from ".
  * - supports subqueries, e.g., select k.* from (select * from t1) k;
  */
 export function NormalizeColumnSelection(ir: DielIr) {
-  ApplyToAllSelectionUnits(ir, normalizeColumnForSelectionUnit, true);
+  ir.ApplyToAllSelectionUnits(normalizeColumnForSelectionUnit, true);
 }
 
 function columnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[] {
@@ -158,5 +157,7 @@ function normalizeColumnForSelectionUnit(s: SelectionUnit, optional: SelectionUn
       }
     });
     s.derivedColumnSelections = [].concat(...derivedColumnSelections);
+    // TODO: in addition to just expanding this query we might be interested in systematically expanding all other subqueries in the future...
+    return;
   }
 

@@ -21,6 +21,9 @@ export function assertBasicConstraints() {
   let ir = getDielIr(q);
   const logger = GenerateUnitTestErrorLogger("assertBasicConstraints", q);
   const ordersTable = ir.allOriginalRelations.get("Orders");
+  if (!ordersTable) {
+    logger(`Did not even parse Orders table`);
+  }
   console.log(JSON.stringify(ordersTable));
 
   // foreign key

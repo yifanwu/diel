@@ -4,7 +4,7 @@ import * as visitor from "./grammar/DIELVisitor";
 
 import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, DerivedRelationType, OriginalRelationType, DielTemplate, ForeignKey } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
-import { LogInfo, LogInternalError } from "../lib/messages";
+import { LogInfo, LogInternalError, ReportDielUserError } from "../lib/messages";
 import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst } from "./sqlAstTypes";
 import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst } from "./exprAstTypes";
 
@@ -27,9 +27,9 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitQueries = (ctx: parser.QueriesContext): DielAst => {
     this.ir = {
       udfTypes: [],
-      inputs: [],
+      // inputs: [],
       originalRelations: [],
-      outputs: [],
+      // outputs: [],
       views: [],
       inserts: [],
       drops: [],
@@ -40,12 +40,12 @@ implements visitor.DIELVisitor<ExpressionValue> {
       this.visit(e) as UdfType
     )).concat(BuiltInUdfTypes);
     // two kinds of specifications
-    this.ir.inputs = ctx.inputStmt().map(e => (
-      this.visitInputStmt(e)
+    this.ir.originalRelations = ctx.originalTableStmt().map(e => (
+      this.visitOriginalTableStmt(e)
     ));
-    this.ir.outputs = ctx.outputStmt().map(e => (
-      this.visit(e) as DerivedRelation
-    ));
+    // this.ir.outputs = ctx.outputStmt().map(e => (
+    //   this.visit(e) as DerivedRelation
+    // ));
     this.ir.views = ctx.viewStmt().map(e => (
       this.visit(e) as DerivedRelation
     ));
@@ -74,17 +74,17 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   // outputs
-  visitOutputStmt(ctx: parser.OutputStmtContext): DerivedRelation {
-    const name = ctx.IDENTIFIER().text;
-    const selection = this.visit(ctx.selectQuery()) as RelationSelection;
-    const constraints = ctx.constraintClause() ? this.visit(ctx.constraintClause()) as RelationConstraints : null;
-    return {
-      name,
-      relationType: DerivedRelationType.Output,
-      constraints,
-      selection
-    };
-  }
+  // visitOutputStmt(ctx: parser.OutputStmtContext): DerivedRelation {
+  //   const name = ctx.IDENTIFIER().text;
+  //   const selection = this.visit(ctx.selectQuery()) as RelationSelection;
+  //   const constraints = ctx.constraintClause() ? this.visit(ctx.constraintClause()) as RelationConstraints : null;
+  //   return {
+  //     name,
+  //     relationType: DerivedRelationType.Output,
+  //     constraints,
+  //     selection
+  //   };
+  // }
 
   visitSelectQueryDirect(ctx: parser.SelectQueryDirectContext): RelationSelection {
     // this is lazy, assume union or intersection to a hve the same columns
@@ -105,7 +105,8 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitViewStmt(ctx: parser.ViewStmtContext): DerivedRelation {
     const name = ctx.IDENTIFIER().text;
-    const relationType = ctx.PUBLIC() ? DerivedRelationType.PublicView : DerivedRelationType.PrivateView;
+    const relationType = DerivedRelationType.View;
+    //  : DerivedRelationType.PrivateView;
     const constraints = ctx.constraintClause() ? this.visit(ctx.constraintClause()) as RelationConstraints : null;
     const selection = this.visit(ctx.selectQuery()) as RelationSelection;
     return {
@@ -297,6 +298,20 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
+  visitExprIn(ctx: parser.ExprInContext): ExprFunAst {
+    const functionReference = BuiltInFunc.In;
+    const args = ctx.expr();
+    const arg1 = this.visit(args[0]) as ExprAst;
+    const arg2 = this.visit(args[1]) as ExprAst;
+    return {
+      exprType: ExprType.Func,
+      dataType: DataType.Boolean,
+      functionType: FunctionType.BuiltIn,
+      functionReference,
+      args: [arg1, arg2]
+    };
+  }
+
   visitExprWhen(ctx: parser.ExprWhenContext): ExprFunAst {
     const func = BuiltInFunc.IfThisThen;
     const args = ctx.expr().map(e => this.visit(e) as ExprAst);
@@ -430,12 +445,15 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  /**
-   * FIXME: might want to normalize the constraints on columns and on the relations...
-   * @param ctx contex
-   */
-  visitInputStmt(ctx: parser.InputStmtContext): OriginalRelation {
-    const relationType = ctx.INPUT ? OriginalRelationType.Input : OriginalRelationType.Table;
+  visitOriginalTableStmt(ctx: parser.OriginalTableStmtContext): OriginalRelation {
+    if (ctx.INPUT() && ctx.REGISTER()) {
+      ReportDielUserError(`You cannot register an input relation`);
+    }
+    const relationType = ctx.INPUT
+      ? OriginalRelationType.Input
+      : ctx.CREATE
+        ? OriginalRelationType.Table
+        : OriginalRelationType.ExistingAndImmutable;
     const name = ctx.IDENTIFIER().text;
     let columns: Column[] = [];
     let constraints: RelationConstraints = null;

@@ -1,4 +1,4 @@
-import { DielAst, OriginalRelation, ProgramsIr, DataType } from "../../parser/dielAstTypes";
+import { DielAst, OriginalRelation, ProgramsIr, DataType, OriginalRelationType, DerivedRelationType } from "../../parser/dielAstTypes";
 import { Column, CompositeSelectionUnit, InsertionClause } from "../../parser/sqlAstTypes";
 
 // in this pass, we will create the Ir needed to create the SQL we need
@@ -51,23 +51,25 @@ export function createSqlIr(ast: DielAst): SqlIr {
       type: DataType.Number,
     }
   ];
-  const tables = ast
-    .inputs
-    .map(i => ({
-      name: i.name,
-      columns: i.columns.concat(inputColumns)
-    }))
-    .concat(ast.originalRelations)
-    .map(i => ({
-      name: i.name,
-      columns: i.columns
-    }));
-  const views = ast
-    .views
-    .concat(ast.outputs)
+  const tables = ast.originalRelations
+    .map(i => {
+      if (i.relationType === OriginalRelationType.Input) {
+        return {
+          name: i.name,
+          columns: i.columns.concat(inputColumns)
+        };
+      } else if (i.relationType === OriginalRelationType.Table) {
+        return {
+          name: i.name,
+          columns: i.columns
+        };
+      }
+    });
+
+    const views = ast.views
     .map(v => ({
       name: v.name,
-      sqlRelationType: SqlRelationType.View,
+      sqlRelationType: v.relationType === DerivedRelationType.View ? SqlRelationType.View : SqlRelationType.Table,
       query: v.selection.compositeSelections
     }));
 

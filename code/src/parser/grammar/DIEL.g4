@@ -1,15 +1,14 @@
 grammar DIEL;
 
 queries : (
-          outputStmt
-           | viewStmt
+           viewStmt
            | programStmt
            | staticTableStmt
            | crossfilterStmt
            | templateStmt
            | insertQuery
            //  the rest does not require templating
-           | inputStmt
+           | originalTableStmt
            | registerTypeUdf
            | dropQuery
           )+;
@@ -59,8 +58,8 @@ constraintDefinition
   | CHECK (expr)
   ;
 
-inputStmt
-  : CREATE (INPUT|TABLE) IDENTIFIER relationDefintion DELIM
+originalTableStmt
+  : (REGISTER|CREATE) (INPUT|TABLE) IDENTIFIER relationDefintion DELIM
   ;
 
 relationDefintion
@@ -68,11 +67,11 @@ relationDefintion
   | AS IDENTIFIER # relationDefintionCopy
   ;
 
-outputStmt
-  : CREATE OUTPUT IDENTIFIER AS selectQuery
-    (constraintClause)?
-    DELIM
-  ;
+// outputStmt
+//   : CREATE OUTPUT IDENTIFIER AS selectQuery
+//     (constraintClause)?
+//     DELIM
+//   ;
 
 constraintClause
   :  CONSTRAIN  constraintDefinition (',' constraintDefinition)*
@@ -85,7 +84,7 @@ columnConstraints
   ;
 
 viewStmt
-  : CREATE PUBLIC? VIEW IDENTIFIER AS selectQuery
+  : CREATE VIEW IDENTIFIER AS selectQuery
     (constraintClause)?
     DELIM
   ;
@@ -203,6 +202,7 @@ expr
   | expr IS (NOT)? NULL                      # exprNull
   | (NOT)? EXIST '(' expr ')'                # exprExist
   | CASE WHEN cond=expr THEN thenValue=expr ELSE elseValue=expr END   # exprWhen
+  | expr IN expr   # exprIn
   ;
 
 // note that for the column one we should not recuycle th earlier selectColumnClause because
@@ -306,6 +306,7 @@ BY: 'BY' | 'by';
 HAVING: 'HAVING' | 'having';
 AND: 'AND' | 'and';
 OR: 'OR' | 'or';
+IN: 'IN' | 'in';
 MINUS: '-';
 DELIM: ';';
 INTERSECT : 'INTERSECT' | 'intersect';

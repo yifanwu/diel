@@ -23,16 +23,22 @@ export enum DataType {
   TBD = "TBD"
 }
 
+// made the design decision where the view is based on use
+// not at specification time
+// but keeping it just in case we need to differentiate in the future
 export enum DerivedRelationType {
+  View = "View",
   StaticTable = "StaticTable",
-  PublicView = "PublicView",
-  PrivateView = "PrivateView",
-  Output = "Output",
+  // PublicView = "PublicView",
+  // PrivateView = "PrivateView",
+  // Output = "Output",
 }
 
+// FIXME: decide on the name
 export enum OriginalRelationType {
   Input = "Input",
   Table = "Table",
+  ExistingAndImmutable = "ExistingAndImmutable",
 }
 
 export enum StaticRelationType {
@@ -175,9 +181,9 @@ export interface DielContext {
 }
 
 export interface DielAst {
-  inputs: OriginalRelation[];
+  // inputs: OriginalRelation[];
   originalRelations: OriginalRelation[];
-  outputs: DerivedRelation[];
+  // outputs: DerivedRelation[];
   views: DerivedRelation[];
   programs: ProgramsIr[];
   inserts: InsertionClause[];

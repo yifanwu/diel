@@ -1,12 +1,11 @@
 import { DielIr } from "../../lib";
 import { getSelectionUnitDep, getTopologicalOrder, DependencyTree } from "./passesHelper";
-import { ApplyToAllSelectionUnits } from "../dielVisitors";
 import { DielAst } from "../../parser/dielAstTypes";
 
 export function ApplyDependencies(ir: DielIr) {
   // first build the tree
   let depTree: DependencyTree = new Map<string, {dependsOn: string[], isDependentOn: string[]}>();
-  ApplyToAllSelectionUnits<void>(ir, (s, optional) => {
+  ir.ApplyToAllSelectionUnits<void>((s, optional) => {
     const rName = optional.relationName;
     if (!rName) {
       throw new Error(`relation name must be defined`);
@@ -26,7 +25,7 @@ export function ApplyDependencies(ir: DielIr) {
   });
   // TODO need to do another pass to set the isDependentOn
   const topologicalOrder = getTopologicalOrder(depTree);
-  const inputDependencies = generateDependenciesByInput(depTree, ir.ast);
+  const inputDependencies = generateDependenciesByInput(depTree, ir);
   ir.dependencies = {
     depTree,
     topologicalOrder,
@@ -35,7 +34,7 @@ export function ApplyDependencies(ir: DielIr) {
 }
 
 // this is sort of a transitive closure step
-function generateDependenciesByInput(depTree: DependencyTree, ast: DielAst) {
+function generateDependenciesByInput(depTree: DependencyTree, ir: DielIr) {
   // recursively checks for dependencies
   function oneStep(rName: string, affectedRelations: Set<string>) {
     // search through dependency
@@ -57,13 +56,13 @@ function generateDependenciesByInput(depTree: DependencyTree, ast: DielAst) {
   }
 
   const inputDependency = new Map<string, string[]>();
-  ast.inputs.map(i => {
+  ir.GetInputs().map(i => {
     const allDependencies = new Set<string>();
     oneStep(i.name, allDependencies);
     // filter out the outputs
     const inputDependencyValues: string[] = [];
     allDependencies.forEach(d => {
-      if (ast.outputs.filter(o => o.name === d)) {
+      if (ir.GetOutputs().map(o => o.name === d)) {
         inputDependencyValues.push(d);
       }
     });

@@ -1,7 +1,8 @@
 import { JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType } from "../../parser/sqlAstTypes";
-import { LogInternalError, ReportDielUserError } from "../../lib/messages";
+import { ReportDielUserError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprRelationAst } from "../../parser/exprAstTypes";
-import { DielAst, OriginalRelation } from "../../parser/dielAstTypes";
+import { OriginalRelation } from "../../parser/dielAstTypes";
+import { DielIr } from "../DielIr";
 
 /**
  * Find all the top level selections for:
@@ -16,10 +17,10 @@ import { DielAst, OriginalRelation } from "../../parser/dielAstTypes";
  * - dynamicTables
  * @param ast diel ast
  */
-export function applyTemplates(ast: DielAst) {
+export function applyTemplates(ir: DielIr) {
   // note: i think the concat should be fine with modifying in place?
-  ast.views.concat(ast.outputs).map(r => tryToApplyATemplate(r.selection));
-  ast.crossfilters.map(x => {
+  ir.GetViews().map(r => tryToApplyATemplate(r.selection));
+  ir.ast.crossfilters.map(x => {
     x.charts.map(c => {
       tryToApplyATemplate(c.predicate);
       tryToApplyATemplate(c.selection);
@@ -34,7 +35,7 @@ export function applyTemplates(ast: DielAst) {
         ReportDielUserError(`You cannot copy ${r.name} from itself!`);
       }
       // find the relation
-      const sourceRelation = ast.inputs.concat(ast.originalRelations).filter(r => r.name === r.copyFrom);
+      const sourceRelation = ir.GetDielDefinedOriginalRelation().filter(r => r.name === r.copyFrom);
       if (sourceRelation.length === 0) {
         ReportDielUserError(`The relation definition you are trying to copy from, ${r.copyFrom}, does not exist`);
       } else {
@@ -43,7 +44,7 @@ export function applyTemplates(ast: DielAst) {
     }
   }
   // and the copy pass
-  ast.inputs.concat(ast.originalRelations).map(r => copyRelationSpec(r));
+  ir.GetDielDefinedOriginalRelation().map(r => copyRelationSpec(r));
 }
 
 /**

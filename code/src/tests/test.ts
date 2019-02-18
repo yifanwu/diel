@@ -25,14 +25,16 @@ create view v2 as select a from t1 join (select max(b) as b from t2) m on m.b = 
 create view v3 as select a from t1 where b in (select b from t2 where c = 'hello');
 `;
 
-const ir = getDielIr(q);
 
 assertBasicConstraints();
 codeGenBasicSQLTest();
 assertBasicOperators();
-assertBasicNormalizationOfRelation(ir, q);
-assertFunctionParsing(ir, q);
 assertSimpleType();
-// testTopologicalSort();
 assertAllStar();
 assertMultiplyType();
+
+const ir = getDielIr(q);
+assertBasicNormalizationOfRelation(ir, q);
+assertFunctionParsing(ir, q);
+
+// testTopologicalSort();

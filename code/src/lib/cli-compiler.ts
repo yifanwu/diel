@@ -9,7 +9,7 @@ import { DielIr } from "../compiler/DielIr";
 
 
 export function getDielIr(code: string) {
-  LogInfo("Starting compilation");
+  LogInfo(`Starting compilation of ${code}`);
   const inputStream = new ANTLRInputStream(code);
   const l = new lexer.DIELLexer(inputStream);
   const tokenStream = new CommonTokenStream(l);

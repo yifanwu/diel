@@ -15,7 +15,7 @@ import { CompileDiel } from "../compiler/DielCompiler";
 import { timeNow } from "../lib/dielUdfs";
 import { downloadHelper } from "../lib/dielUtils";
 import { SqlIr, createSqlIr } from "../compiler/codegen/createSqlIr";
-import { LogInternalError, ReportDielUserError, ReportDielUserWarning, LogTmp } from "../lib/messages";
+import { LogInternalError, ReportDielUserWarning, LogTmp } from "../lib/messages";
 import { DielIr } from "../compiler/DielIr";
 
 // hm watch out for import path
@@ -237,8 +237,8 @@ export default class DielRuntime {
   }
 
   setupAllInputOutputs() {
-    this.ir.ast.inputs.map(i => this.setupNewInput(i));
-    this.ir.ast.outputs.map(o => this.setupNewOutput(o));
+    this.ir.IterateOverInputs<void>(i => this.setupNewInput(i));
+    this.ir.IterateOverOutputs<void>(o => this.setupNewOutput(o));
   }
 
   /**
@@ -356,9 +356,11 @@ export default class DielRuntime {
   // FIXME: better async handling
   // also should fix the async logic
   executeToDBs() {
+    LogTmp(`Executing queries to db`);
     const mainSqlQUeries = generateSqlFromIr(this.physicalExecution.main);
     for (let s of mainSqlQUeries) {
       try {
+        LogTmp(s);
         this.db.run(s);
       } catch (error) {
         LogInternalError(`Error while running\n${s}\n${error}`);

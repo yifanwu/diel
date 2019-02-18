@@ -1,12 +1,11 @@
-import { DielIr } from "../DielIr";
-import { ApplyToAllSelectionUnits, SelectionUnitVisitorFunctionOptions } from "../dielVisitors";
+import { DielIr, SelectionUnitVisitorFunctionOptions } from "../DielIr";
 import { LogInternalError } from "../../lib/messages";
 import { DataType, BuiltInColumns } from "../../parser/dielAstTypes";
 import { ExprType, ExprFunAst, ExprColumnAst, ExprAst } from "../../parser/exprAstTypes";
 import { SelectionUnit } from "../../parser/sqlAstTypes";
 
 export function InferType(ir: DielIr) {
-  ApplyToAllSelectionUnits(ir, inferTypeForSelection, true);
+  ir.ApplyToAllSelectionUnits(inferTypeForSelection, true);
 }
 
 function inferTypeForSelection(r: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions) {
@@ -29,7 +28,7 @@ function getTypeForColumnSelection(ir: DielIr, expr: ExprAst, r: SelectionUnit):
     // actually pretty hard to implement that reflection?
     // if selection, check what it's selected from
     const funExpr = expr as ExprFunAst;
-    return ir.getUdfType(funExpr.functionReference);
+    return ir.GetUdfType(funExpr.functionReference);
   } else if (expr.exprType === ExprType.Column) {
     const columnExpr = expr as ExprColumnAst;
     // make sure that the source is specified

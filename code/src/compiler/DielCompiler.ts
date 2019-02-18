@@ -8,7 +8,7 @@ import { InferType } from "./passes/inferType";
 
 export function CompileDiel(ir: DielIr) {
   ApplyDependencies(ir);
-  applyTemplates(ir.ast);
+  applyTemplates(ir);
   applyCrossfilter(ir.ast);
   // modifies in place...
   NormalizeConstraints(ir);

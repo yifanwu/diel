@@ -14,7 +14,7 @@ export function generateSqlFromIr(ir: SqlIr) {
 // FIXME note that we should probably not use the if not exist as a crutch
 // to fix later
 function generateTableSpec(t: RelationSpec): string {
-  return `create table IF NOT EXISTS ${t.name} (
+  return `create table ${t.name} (
     ${t.columns.map(c => generateColumnDefinition(c)).join(",\n")}
   )`;
 }
@@ -40,7 +40,8 @@ const setOperatorToString = new Map([
 function generateCompositeSelectionUnit(c: CompositeSelectionUnit): string {
   const op = setOperatorToString.get(c.op);
   const query = generateSelectionUnit(c.relation);
-  return `${op} ${query}`;
+  // the replace is a temporay patch to make the results look better
+  return `${op} ${query}`.replace(/  \n[  \n]+/g, " ");
 }
 
 export function generateSelectionUnit(v: SelectionUnit, original = false): string {
