@@ -20,6 +20,7 @@ export interface Column {
 //   value: ;
 // }
 
+// currently a bit lazy about the default representation...
 export interface ColumnConstraints {
   notNull?: boolean;
   unique?: boolean;

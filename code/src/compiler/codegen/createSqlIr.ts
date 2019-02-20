@@ -1,5 +1,5 @@
 import { DielAst, OriginalRelation, ProgramsIr, DataType, OriginalRelationType, DerivedRelationType } from "../../parser/dielAstTypes";
-import { Column, CompositeSelectionUnit, InsertionClause } from "../../parser/sqlAstTypes";
+import { Column, CompositeSelectionUnit, InsertionClause, AstType } from "../../parser/sqlAstTypes";
 
 // in this pass, we will create the Ir needed to create the SQL we need
 
@@ -50,7 +50,7 @@ export function createSqlIr(ast: DielAst): SqlIr {
       name: "timestamp",
       type: DataType.TimeStamp,
       constraints: {
-        default: "CURRENT_TIMESTAMP"
+        default: "(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))"
       }
     }
   ];
@@ -78,16 +78,22 @@ export function createSqlIr(ast: DielAst): SqlIr {
       query: v.selection.compositeSelections
     }));
 
-  const programsAll = ast.programs.filter(p => (p.input));
-  const programsToAdd = programsAll.length > 0
-    ? programsAll[0].queries
-    : [];
+    const programsAll = ast.programs.filter(p => (p.input));
+    const programsToAdd = programsAll.length > 0
+      ? programsAll[0].queries
+      : [];
 
-  const triggers = ast.programs.map(p => {
-    return {
-      input: p.input,
-      queries: programsToAdd.concat(p.queries)
-    };
+    const triggers = ast.programs.map(p => {
+      const sharedProgram: InsertionClause = {
+        astType: AstType.Insert,
+        relation: "allInputs",
+        columns: ["inputRelation"],
+        values: [`'${p.input}'`]
+      };
+      return {
+        input: p.input,
+        queries: [sharedProgram, ...programsToAdd, ...p.queries ]
+      };
   });
 
   const inserts = ast.inserts;

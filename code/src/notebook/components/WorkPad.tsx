@@ -30,9 +30,9 @@ export default class WorkPad extends React.Component<{}, WorkPadState> {
   }
 
   render() {
-    return <>
+    return <div id="work-pad">
       {this.state.cells.map(c => <Cell key={c.key}/>)}
       <button className="new-cell-btn" onClick={this.addCell}>new cell</button>
-    </>;
+    </div>;
   }
 }

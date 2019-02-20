@@ -21,7 +21,7 @@ export function LogInfo(m: string) {
 }
 
 export function LogTmp(m: string) {
-  console.log(m);
+  console.log(`%c ${m}`, "color: gray");
 }
 
 export function LogStandout(m: string) {
@@ -31,6 +31,11 @@ export function LogStandout(m: string) {
 export function ReportDielBasicParsingError(m: string) {
   console.log(`${FgRed}Parsing Error:\n%s${Reset}`, m);
   if (STRICT) throw new Error();
+}
+
+// note that this is in browser
+export function ReportUserRuntimeError(m: string) {
+  console.log(`%c Parsing Error: ${m}`, "color: red");
 }
 
 // TODO: this should also report the line of the code

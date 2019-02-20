@@ -15,7 +15,7 @@ import { CompileDiel } from "../compiler/DielCompiler";
 import { log } from "../lib/dielUdfs";
 import { downloadHelper } from "../lib/dielUtils";
 import { SqlIr, createSqlIr } from "../compiler/codegen/createSqlIr";
-import { LogInternalError, LogTmp } from "../lib/messages";
+import { LogInternalError, LogTmp, ReportDielUserError, ReportUserRuntimeError } from "../lib/messages";
 import { DielIr } from "../compiler/DielIr";
 
 // hm watch out for import path
@@ -66,6 +66,7 @@ export default class DielRuntime {
     // the following are run time bindings for the reactive layer
     this.input = new Map();
     this.output = new Map();
+    this.boundFns = [];
     this.runOutput = this.runOutput.bind(this);
     this.tick = this.tick.bind(this);
     this.BindOutput = this.BindOutput.bind(this);
@@ -84,13 +85,18 @@ export default class DielRuntime {
   // FIXME: gotta do some run time type checking here!
   public NewInput(i: string, o: any) {
     // let tsI = Object.assign({$ts: timeNow()}, o);
-    this.input.get(i).run(o);
-  }
+    // TODO: check if the objects match
+    // then add the dollar signs
+    const inStmt = this.input.get(i);
 
-  // this should be read only
-  // FIXME: not sure how to enforce..
-  public IterateOverOriginalRelations(f: (r: OriginalRelation) => any) {
-    return this.ir.ast.originalRelations.map(f);
+    if (!inStmt) {
+      ReportUserRuntimeError(`Input ${i} not found`);
+      return;
+    }
+    const keys = Object.keys(o);
+    let newO: any = {};
+    keys.map(k => newO[`$${k}`] = o[k]);
+    inStmt.run(newO);
   }
 
   /**
@@ -112,6 +118,7 @@ export default class DielRuntime {
     const runOutput = this.runOutput;
     const dependencies = this.ir.dependencies.inputDependencies;
     return (input: string) => {
+      console.log(`%c tick ${input}`, "color: blue");
       const inputDep = dependencies.get(input);
       boundFns.map(b => {
         if (inputDep.findIndex(iD => iD === b.outputName) > -1) {
@@ -281,6 +288,7 @@ export default class DielRuntime {
         max(timestep),
         ${r.columns.map(c => c.name).map(v => `$${v}`).join(", ")}
       from allInputs;`;
+    console.log(`%c Input query: ${insertQuery}`, "color: gray");
     this.input.set(
       r.name,
       this.dbPrepare(insertQuery)
@@ -382,6 +390,16 @@ export default class DielRuntime {
       } catch (error) {
         LogInternalError(`Error while running\n${s}\n${error}`);
       }
+    }
+  }
+  // used for debugging
+  inspectQueryResult(query: string) {
+    let r = this.db.exec(query)[0];
+    if (r) {
+      console.log(r.columns.join("\t"));
+      console.log(JSON.stringify(r.values).replace(/\],\[/g, "\n").replace("[[", "").replace("]]", "").replace(/,/g, "\t"));
+    } else {
+      console.log("No results");
     }
   }
 }

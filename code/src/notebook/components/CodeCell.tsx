@@ -1,6 +1,6 @@
 import * as React from "react";
 import { ToolTip, ToolTipProps } from "./ToolTip";
-import { runtime } from "../setup";
+import { diel } from "../setup";
 // FIXME: this import is really sketch, we should break the two files apart
 import { AnnotedSelectionUnit, ChartData, AnnotationSpec, CellStatus } from "../../runtime/runtimeTypes";
 import { CodeDiv } from "./CodeDiv";
@@ -13,7 +13,6 @@ interface CodeCardState {
 }
 
 export default class CodeCell extends React.Component<{}, CodeCardState> {
-
   constructor(props: {}) {
     super(props);
     this.onChange = this.onChange.bind(this);
@@ -33,7 +32,7 @@ export default class CodeCell extends React.Component<{}, CodeCardState> {
   setPopup(spec: AnnotationSpec, xPos: number, yPos: number) {
     // todo
     const chartData = {
-      data: runtime.ExecuteAstQuery(spec.ast),
+      data: diel.ExecuteAstQuery(spec.ast),
       dimension: spec.dimension,
       chartType: spec.chartType
     };
@@ -77,6 +76,7 @@ export default class CodeCell extends React.Component<{}, CodeCardState> {
         // onKeyUp = { this.handleKeyPress }
         >
       </textarea>
+      <br></br>
       <button className="submit-query" onClick={this.addQuery}>run query</button>
       { this.state.annotation
         ? <CodeDiv

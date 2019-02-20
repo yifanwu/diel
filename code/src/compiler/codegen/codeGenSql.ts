@@ -211,10 +211,11 @@ function generateTrigger(t: ProgramsIr): string {
 
 function generateInserts(i: InsertionClause): string {
   if (!i) return "";
+  const columns = `(${i.columns.map(c => c).join(", ")})`;
   const values = i.values
-    ? i.values.map(v => v.toString()).join(", ")
+    ? `VALUES (${i.values.map(v => v.toString()).join(", ")})`
     : generateSelect(i.selection.compositeSelections);
-  return `INSERT INTO ${i.relation} ${values}`;
+  return `INSERT INTO ${i.relation} ${columns} ${values}`;
 }
 
 const TypeConversionLookUp = new Map<DataType, string>([

@@ -1,7 +1,9 @@
 CREATE INPUT click (a number);
 CREATE INPUT participantSelection (sId number);
 
-CREATE view totalClicks AS select sum(a) from click;
+CREATE view totalClicks AS
+  select sum(a) as count
+  from click;
 create view seletedScore as
   select *
   from scores
