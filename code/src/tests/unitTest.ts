@@ -25,3 +25,8 @@ export function testTopologicalSort() {
     throw new Error(`testTopologicalSort failed`);
   }
 }
+
+export function testDependencyGraph() {
+  // TODO
+  // maybe sahana?
+}

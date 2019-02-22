@@ -61,8 +61,7 @@ export function generateSelectionUnit(v: SelectionUnit, original = false): strin
  * @param v
  */
 export function generateSelectionUnitBody(v: SelectionUnit) {
-  return `FROM
-  ${generateRelationReference(v.baseRelation)}
+  return `${v.baseRelation ? `FROM ${generateRelationReference(v.baseRelation)}` : ""}
   ${v.joinClauses ? v.joinClauses.map(j => generateJoin(j)) : ""}
   ${generateWhere(v.whereClause)}
   ${generateGroupBy(v.groupByClause)}
@@ -119,7 +118,11 @@ function generateWhere(e: ExprAst): string {
 function generateExpr(e: ExprAst): string {
   if (e.exprType === ExprType.Val) {
     const v = e as ExprValAst;
-    return v.value.toString();
+    const str = v.value.toString();
+    if (e.dataType === DataType.String || DataType.TimeStamp) {
+      return `'${str}'`;
+    }
+    return str;
   } else if (e.exprType === ExprType.Column) {
     const c = e as ExprColumnAst;
     const prefix = c.relationName ? `${c.relationName}.` : "";

@@ -15,6 +15,7 @@ export interface TemplateVariableAssignmentUnit {
 }
 
 export enum DataType {
+  Void = "Void",
   String = "String",
   Number = "Number",
   TimeStamp = "TimeStamp",
@@ -204,6 +205,7 @@ export interface DielAst {
  */
 
 export interface DielPhysicalExecution {
+  workerShippingInfo: Map<string, Set<number>>;
   main: SqlIr;
   workers: Map<string, SqlIr>;
   remotes: Map<string, SqlIr>;

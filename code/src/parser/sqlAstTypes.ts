@@ -84,7 +84,7 @@ export interface SelectionUnit {
   derivedColumnSelections?: ColumnSelection[];
   // these are filled in the parsing step
   columnSelections: ColumnSelection[];
-  baseRelation: RelationReference;
+  baseRelation?: RelationReference;
   joinClauses?: JoinAst[];
   whereClause?: ExprAst;
   groupByClause?: GroupByAst;

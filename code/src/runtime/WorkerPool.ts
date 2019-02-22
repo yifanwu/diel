@@ -16,6 +16,13 @@ export default class WorkerPool {
     this.globalMsgId = 0;
   }
 
+  public SendWorkerQuery(sql: string, workerLoc: number) {
+    return this.SendMsg({
+      action: "exec",
+      sql
+    }, this.pool[workerLoc]);
+  }
+
   // FIXME: types are missing
   public SendMsg(payload: any, worker: Worker) {
     console.log("sending message", payload);

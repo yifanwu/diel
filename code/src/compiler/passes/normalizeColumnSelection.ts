@@ -11,7 +11,7 @@ import { copyColumnSelection, createColumnSectionFromRelationReference } from ".
  * - supports subqueries, e.g., select k.* from (select * from t1) k;
  */
 export function NormalizeColumnSelection(ir: DielIr) {
-  ir.ApplyToAllSelectionUnits(normalizeColumnForSelectionUnit, true);
+  ir.ApplyToImmediateSelectionUnits(normalizeColumnForSelectionUnit, true);
 }
 
 function columnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[] {

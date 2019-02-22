@@ -10,11 +10,11 @@ import { RuntimeCell, DbRow, DielRuntimeConfig, TableMetaData, TableLocation, } 
 import { OriginalRelation, DerivedRelation, DielPhysicalExecution, } from "../parser/dielAstTypes";
 import { generateSelectionUnit, generateSqlFromIr } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
-import { CompileDiel } from "../compiler/DielCompiler";
+import { CompileDiel, CompilePhysicalExecution } from "../compiler/DielCompiler";
 import { log } from "../lib/dielUdfs";
 import { downloadHelper } from "../lib/dielUtils";
-import { SqlIr, createSqlIr } from "../compiler/codegen/createSqlIr";
-import { LogInternalError, LogTmp, ReportDielUserError, ReportUserRuntimeError } from "../lib/messages";
+import {  } from "../compiler/passes/distributeQueries";
+import { LogInternalError, LogTmp, ReportUserRuntimeError, LogWarning } from "../lib/messages";
 import { DielIr } from "../compiler/DielIr";
 import { processSqliteMasterMetaData } from "./runtimeHelper";
 import WorkerPool from "./WorkerPool";
@@ -36,7 +36,10 @@ const defaultOuptConfig = {
 type TickBind = {
   outputName: string,
   uiUpdateFunc: ReactFunc,
-  outputConfig: OutputConfig};
+  outputConfig: OutputConfig
+};
+
+export type MetaDataPhysical = Map<string, TableMetaData>;
 
 /**
  * DielIr would now take an empty ast
@@ -50,7 +53,7 @@ export default class DielRuntime {
   ir: DielIr;
   physicalExecution: DielPhysicalExecution;
   workerPool: WorkerPool;
-  metaData: Map<string, TableMetaData>;
+  metaData: MetaDataPhysical;
   runtimeConfig: DielRuntimeConfig;
   cells: RuntimeCell[];
   db: Database;
@@ -127,7 +130,7 @@ export default class DielRuntime {
       console.log(`%c tick ${input}`, "color: blue");
       const inputDep = dependencies.get(input);
       boundFns.map(b => {
-        if (inputDep.findIndex(iD => iD === b.outputName) > -1) {
+        if (inputDep.has(b.outputName)) {
           runOutput(b);
         }
       });
@@ -171,11 +174,7 @@ export default class DielRuntime {
     // now parse DIEL
     // below are logic for the physical execution of the programs
     // we first do the distribution
-    this.basicDistributedQueries();
-    // then materialization
-    this.materializeQueries();
-    // then caching
-    this.cacheQueries();
+    this.physicalExecution = CompilePhysicalExecution(this.ir, this.metaData);
     // now execute the physical views and programs
     this.executeToDBs();
     this.setupAllInputOutputs();
@@ -218,8 +217,28 @@ export default class DielRuntime {
   setupUDFs() {
     this.db.create_function("log", log);
     this.db.create_function("tick", this.tick());
+    this.db.create_function("shipWorkerInput", this.shipWorkerInput.bind(this));
   }
 
+  // we will look up what to ship to!
+  shipWorkerInput(inputName: string) {
+    const shipDestination = this.physicalExecution.workerShippingInfo.get(inputName);
+    const shareQuery = `select * from ${inputName}`;
+    let tableRes = this.db.exec(shareQuery)[0];
+    if ((!tableRes) || (!tableRes.values)) {
+      LogWarning(`Query ${shareQuery} has NO result`);
+    }
+    // FIXME: have more robust typing here...
+    // need to make null explicit here...
+    // selection needs to have a quote around it...
+    const values = tableRes.values.map((d: any[]) => `(${d.map((v: any) => (v === null) ? "null" : `'${v}'`).join(", ")})`);
+    let sql = `
+    DELETE from ${inputName};
+    INSERT INTO ${inputName} VALUES ${values};`;
+    shipDestination.forEach((v => {
+      this.workerPool.SendWorkerQuery(sql, v);
+    }));
+  }
   /**
    * returns the DIEL code that will be ran to register the tables
    */
@@ -323,39 +342,7 @@ export default class DielRuntime {
   }
 
 
-  /**
-   * assume that this will be the first one executed!
-   * - goal: get one worker working
-   * - setup: there is a table in one of the workers, and we need to evaluate the query
-   * FIXME:
-   * - deal with remotes
-   * - create async events
-   * this already lowers the IR to the SQLIr
-   */
-  basicDistributedQueries() {
-    // first walk through the outputs that make use of worker based tables
-    // then add to the input program to ship the relevant inputs over to the worker tables
-    // then query in worker tables
-    // then send the results back into main
-    // function newSqlIr(): SqlIr {
-    //   return {
-    //     views: [],
-    //     programs: [],
-    //   };
-    // }
-    const workers = new Map<string, SqlIr>();
-    const remotes = new Map<string, SqlIr>();
-    // for now just stick them all in there...
-    // FIXME: not working!
-    const main = createSqlIr(this.ir.ast);
-    // now put all the views that contain worker tables out into the respective workers
-    // just walk through the depTree and look up their names in the metaData part
-    this.physicalExecution = {
-      main,
-      workers,
-      remotes,
-    };
-  }
+
 
   materializeQueries() {
     // TODO

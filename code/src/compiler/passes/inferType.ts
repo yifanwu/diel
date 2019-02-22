@@ -5,7 +5,7 @@ import { ExprType, ExprFunAst, ExprColumnAst, ExprAst } from "../../parser/exprA
 import { SelectionUnit } from "../../parser/sqlAstTypes";
 
 export function InferType(ir: DielIr) {
-  ir.ApplyToAllSelectionUnits(inferTypeForSelection, true);
+  ir.ApplyToImmediateSelectionUnits(inferTypeForSelection, true);
 }
 
 function inferTypeForSelection(r: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions) {

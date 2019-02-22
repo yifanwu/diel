@@ -13,7 +13,11 @@ export function LogInternalError(m: string) {
 }
 
 export function LogWarning(m: string) {
-  console.log(`${FgRed}%s${Reset}`, m);
+  if (typeof window === "undefined") {
+    console.log(`${FgRed}%s${Reset}`, m);
+  } else {
+    console.log(`%c${m}`, "color: red");
+  }
 }
 
 export function LogInfo(m: string) {

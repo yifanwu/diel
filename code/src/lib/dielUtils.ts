@@ -10,6 +10,17 @@ export interface RelationTs {
   query: string;
 }
 
+
+export function SetIntersection<T>(setA: Set<T>, setB: Set<T>): Set<T> {
+  let _intersection = new Set();
+  for (let elem of setB) {
+      if (setA.has(elem)) {
+          _intersection.add(elem);
+      }
+  }
+  return _intersection;
+}
+
 export async function loadDbHelper(db: Database, file: string, tick: () => () => void) {
   if (db) {
     db.close();

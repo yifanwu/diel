@@ -114,7 +114,14 @@ export class DielIr {
   //     .map(r => fun(r, r.name));
   // }
 
-  public ApplyToAllSelectionUnits<T>(fun: SelectionUnitFunction<T>, byDependency = false): T[] {
+  /**
+   * Warning: this method does not actually visit all the selection units
+   *   e.g., if it's a where predicate with a subquery, it's not going to visit the unit
+   *         selection from that subquery.
+   * @param fun
+   * @param byDependency
+   */
+  public ApplyToImmediateSelectionUnits<T>(fun: SelectionUnitFunction<T>, byDependency = false): T[] {
     const ir = this;
     function applyToDerivedRelation<T>(r: DerivedRelation, fun: SelectionUnitFunction<T>): T[] {
       return r.selection.compositeSelections.map(c => fun(c.relation, {ir, relationName: r.name}));
