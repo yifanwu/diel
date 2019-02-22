@@ -24,7 +24,7 @@ export default class ExistingRelationsPad extends React.Component<{}, ExistingRe
         </thead>
       </table>;
     });
-    return <div className="relation-summary">
+    return <div id="relation-summary">
       <h3>Original Relations</h3>
       {original}
     </div>;

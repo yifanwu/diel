@@ -6,21 +6,24 @@ import { DIELParser } from "../parser/grammar/DIELParser";
 import { loadPage } from "../notebook/index";
 import { Database, Statement } from "sql.js";
 import { SelectionUnit } from "../parser/sqlAstTypes";
-import { RuntimeCell, DbRow, DielRuntimeConfig, TableMetaData, } from "./runtimeTypes";
+import { RuntimeCell, DbRow, DielRuntimeConfig, TableMetaData, TableLocation, } from "./runtimeTypes";
 import { OriginalRelation, DerivedRelation, DielPhysicalExecution, } from "../parser/dielAstTypes";
 import { generateSelectionUnit, generateSqlFromIr } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
-// import { getDielIr } from "../lib/cli-compiler";
 import { CompileDiel } from "../compiler/DielCompiler";
 import { log } from "../lib/dielUdfs";
 import { downloadHelper } from "../lib/dielUtils";
 import { SqlIr, createSqlIr } from "../compiler/codegen/createSqlIr";
 import { LogInternalError, LogTmp, ReportDielUserError, ReportUserRuntimeError } from "../lib/messages";
 import { DielIr } from "../compiler/DielIr";
+import { processSqliteMasterMetaData } from "./runtimeHelper";
+import WorkerPool from "./WorkerPool";
 
 // hm watch out for import path
 //  also sort of like an odd location...
 const StaticSqlFile = "./src/compiler/codegen/static.sql";
+
+export const SqliteMasterQuery = `SELECT sql, name table_name FROM sqlite_master WHERE type='table' and sql not null`;
 
 type ReactFunc = (v: any) => void;
 type OutputConfig = {
@@ -46,15 +49,16 @@ type TickBind = {
 export default class DielRuntime {
   ir: DielIr;
   physicalExecution: DielPhysicalExecution;
+  workerPool: WorkerPool;
   metaData: Map<string, TableMetaData>;
   runtimeConfig: DielRuntimeConfig;
   cells: RuntimeCell[];
   db: Database;
-  workerDbPool: Worker[];
   visitor: Visitor;
   protected boundFns: TickBind[];
   protected output: Map<string, Statement>;
   protected input: Map<string, Statement>;
+
 
   constructor(runtimeConfig: DielRuntimeConfig) {
     // temp, fixme
@@ -66,6 +70,7 @@ export default class DielRuntime {
     // the following are run time bindings for the reactive layer
     this.input = new Map();
     this.output = new Map();
+    this.metaData = new Map();
     this.boundFns = [];
     this.runOutput = this.runOutput.bind(this);
     this.tick = this.tick.bind(this);
@@ -118,6 +123,7 @@ export default class DielRuntime {
     const runOutput = this.runOutput;
     const dependencies = this.ir.dependencies.inputDependencies;
     return (input: string) => {
+      // note for Lucie: add constraint checking
       console.log(`%c tick ${input}`, "color: blue");
       const inputDep = dependencies.get(input);
       boundFns.map(b => {
@@ -178,16 +184,17 @@ export default class DielRuntime {
 
   async initialCompile() {
     this.visitor = new Visitor();
-    let code = "";
-    const r = this.db.exec(`SELECT sql FROM sqlite_master WHERE type='table' and sql not null`);
-    if (r.length > 0) {
-      code = r[0].values.map(row => {
-        const queryWithReigster = (row[0] as string).replace(/create table/ig, "register table");
-        // THIS IS HACKY AF
-        // basically going to regex the create table to register table
-        return `${queryWithReigster};\n`;
-      }).join("");
-    }
+    const r = this.db.exec(SqliteMasterQuery);
+    let code = processSqliteMasterMetaData(r).queries;
+    let workerInfo = await this.workerPool.getMetaData();
+    workerInfo.forEach((e, i) => {
+      code += e.queries;
+      e.names.forEach((n) => this.metaData.set(n, {
+        location: TableLocation.Worker,
+        accessInfo: i
+      }));
+    });
+    console.log("got workerInfo", workerInfo);
     // TODO: for workers as well
     for (let i = 0; i < this.runtimeConfig.dielFiles.length; i ++) {
       const f = this.runtimeConfig.dielFiles[i];
@@ -200,6 +207,12 @@ export default class DielRuntime {
     const tree = p.queries();
     let ast = this.visitor.visitQueries(tree);
     this.ir = CompileDiel(new DielIr(ast));
+  }
+
+  async setupWorkerPool() {
+    this.workerPool = new WorkerPool(this.runtimeConfig.workerDbPaths);
+    await this.workerPool.setup();
+    return;
   }
 
   setupUDFs() {
@@ -226,31 +239,6 @@ export default class DielRuntime {
     // and run the static file that we need
     const staticQuery = await (await fetch(StaticSqlFile)).text();
     this.db.run(staticQuery);
-    return;
-  }
-
-  async setupWorkerPool() {
-    this.workerDbPool = [];
-    if (!this.runtimeConfig.workerDbPaths) {
-      this.workerDbPool.push(new Worker("./UI-dist/worker.sql.js"));
-    } else {
-      for (let i = 0; i < this.runtimeConfig.workerDbPaths.length; i++) {
-        const file = this.runtimeConfig.workerDbPaths[i];
-        const newWorker = new Worker("./UI-dist/worker.sql.js");
-        // also load the data in
-        const response = await fetch(file);
-        const bufferRaw = await response.arrayBuffer();
-        const buffer = new Uint8Array(bufferRaw);
-        newWorker.postMessage({
-          id: "opened",
-          action: "open",
-          buffer,
-        });
-        // TODO:
-        // find out what the relations are and put in metaData
-        this.workerDbPool.push(newWorker);
-      }
-    }
     return;
   }
 
@@ -337,6 +325,8 @@ export default class DielRuntime {
 
   /**
    * assume that this will be the first one executed!
+   * - goal: get one worker working
+   * - setup: there is a table in one of the workers, and we need to evaluate the query
    * FIXME:
    * - deal with remotes
    * - create async events
@@ -398,6 +388,8 @@ export default class DielRuntime {
     if (r) {
       console.log(r.columns.join("\t"));
       console.log(JSON.stringify(r.values).replace(/\],\[/g, "\n").replace("[[", "").replace("]]", "").replace(/,/g, "\t"));
+      // console.table(r.columns);
+      // console.table(r.values);
     } else {
       console.log("No results");
     }

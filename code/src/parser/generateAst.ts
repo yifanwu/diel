@@ -326,7 +326,9 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitJoinClauseBasic(ctx: parser.JoinClauseBasicContext): JoinAst {
     const relation = this.visit(ctx.relationReference()) as RelationReference;
-    const predicate = this.visit(ctx.expr()) as ExprAst;
+    const predicate = ctx.expr()
+      ? this.visit(ctx.expr()) as ExprAst
+      : null;
     const joinType = ctx.LEFT()
       ? JoinType.LeftOuter
       : ctx.JOIN()

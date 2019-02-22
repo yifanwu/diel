@@ -7,6 +7,7 @@ import { NormalizeColumnSelection } from "./passes/normalizeColumnSelection";
 import { InferType } from "./passes/inferType";
 
 export function CompileDiel(ir: DielIr) {
+  // check names
   ApplyDependencies(ir);
   applyTemplates(ir);
   applyCrossfilter(ir.ast);

@@ -2,6 +2,7 @@
 
 ## Setting up
 
+`cd code`
 `npm install`
 `npm run lang`
 
