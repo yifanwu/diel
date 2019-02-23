@@ -1,22 +1,47 @@
 import { QueryResults, Database, Statement } from "sql.js";
-import { log, timeNow } from "./dielUdfs";
+import { log } from "./dielUdfs";
 import { LogInfo } from "./messages";
 
 export type OutputBoundFunc = (v: any) => any;
 
-export interface RelationTs {
-  // relationType: RelationType;
-  name: string;
-  query: string;
+export function DeepCopy<T>(o: T): T {
+  return JSON.parse(JSON.stringify(o));
 }
 
+export function SetSymmetricDifference<T>(setA: Set<T>, setB: Set<T>): Set<T> {
+  let _difference = new Set(setA);
+  for (let elem of setB) {
+    if (_difference.has(elem)) {
+        _difference.delete(elem);
+    } else {
+        _difference.add(elem);
+    }
+  }
+  return _difference;
+}
+
+export function SetDifference<T>(setA: Set<T>, setB: Set<T>): Set<T> {
+  let _difference = new Set(setA);
+  for (let elem of setB) {
+    _difference.delete(elem);
+  }
+  return _difference;
+}
+
+export function SetUnion<T>(setA: Set<T>, setB: Set<T>): Set<T> {
+  let _union = new Set(setA);
+  for (let elem of setB) {
+    _union.add(elem);
+  }
+  return _union;
+}
 
 export function SetIntersection<T>(setA: Set<T>, setB: Set<T>): Set<T> {
   let _intersection = new Set();
   for (let elem of setB) {
-      if (setA.has(elem)) {
-          _intersection.add(elem);
-      }
+    if (setA.has(elem)) {
+        _intersection.add(elem);
+    }
   }
   return _intersection;
 }

@@ -1,6 +1,5 @@
 import { Column, JoinAst, RelationReference, ColumnSelection, InsertionClause, Drop, RelationSelection, CompositeSelectionUnit, OrderByAst, SelectionUnit, RawValues, GroupByAst } from "./sqlAstTypes";
 import { ExprAst, ExprValAst } from "./exprAstTypes";
-import { SqlIr } from "../compiler/codegen/createSqlIr";
 
 export interface DielTemplate {
   variables: string[];
@@ -33,7 +32,7 @@ export enum DerivedRelationType {
   StaticTable = "StaticTable",
   // PublicView = "PublicView",
   // PrivateView = "PrivateView",
-  // Output = "Output",
+  Output = "Output",
 }
 
 // FIXME: decide on the name
@@ -162,10 +161,7 @@ export type ProgramSpec = RelationSelection | InsertionClause;
 /**
  * If input is not specified, it's over all inputs.
  */
-export interface ProgramsIr {
-  input?: string;
-  queries: ProgramSpec[];
-}
+export type ProgramsIr = Map<string, ProgramSpec[]>;
 
 export interface DielConfig {
   name?: string;
@@ -187,11 +183,24 @@ export interface DielAst {
   originalRelations: OriginalRelation[];
   // outputs: DerivedRelation[];
   views: DerivedRelation[];
-  programs: ProgramsIr[];
+  programs: ProgramsIr;
   inserts: InsertionClause[];
   drops: Drop[];
   crossfilters: CrossFilterIr[];
   udfTypes: UdfType[];
+}
+
+export function createEmptyDieAst() {
+  const newAst: DielAst = {
+    originalRelations: [],
+    views: [],
+    programs: new Map(),
+    inserts: [],
+    drops: [],
+    crossfilters: [],
+    udfTypes: [],
+  };
+  return newAst;
 }
 
 /**
@@ -205,10 +214,11 @@ export interface DielAst {
  */
 
 export interface DielPhysicalExecution {
-  workerShippingInfo: Map<string, Set<number>>;
-  main: SqlIr;
-  workers: Map<string, SqlIr>;
-  remotes: Map<string, SqlIr>;
+  workerToMain: Map<number, Set<string>>;
+  mainToWorker: Map<string, Set<number>>;
+  main: DielAst;
+  workers: Map<number, DielAst>;
+  remotes: Map<string, DielAst>;
 }
 
 export interface CrossFilterChartIr {
@@ -222,6 +232,9 @@ export interface CrossFilterIr {
   relation: string;
   charts: CrossFilterChartIr[];
 }
+
+
+export type ProgramsParserIr = {input: string, queries: ProgramSpec[]};
 
 export type ExpressionValue = DielAst
   | OriginalRelation
@@ -239,7 +252,7 @@ export type ExpressionValue = DielAst
   | string
   | string[]
   | RawValues
-  | ProgramsIr
+  | ProgramsParserIr
   | CrossFilterIr
   | CrossFilterChartIr
   | JoinAst

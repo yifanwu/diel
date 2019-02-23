@@ -8,12 +8,11 @@ import { Database, Statement } from "sql.js";
 import { SelectionUnit } from "../parser/sqlAstTypes";
 import { RuntimeCell, DbRow, DielRuntimeConfig, TableMetaData, TableLocation, } from "./runtimeTypes";
 import { OriginalRelation, DerivedRelation, DielPhysicalExecution, } from "../parser/dielAstTypes";
-import { generateSelectionUnit, generateSqlFromIr } from "../compiler/codegen/codeGenSql";
+import { generateSelectionUnit, generateStringFromSqlIr, generateSqlFromDielAst } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
 import { CompileDiel, CompilePhysicalExecution } from "../compiler/DielCompiler";
 import { log } from "../lib/dielUdfs";
 import { downloadHelper } from "../lib/dielUtils";
-import {  } from "../compiler/passes/distributeQueries";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogWarning } from "../lib/messages";
 import { DielIr } from "../compiler/DielIr";
 import { processSqliteMasterMetaData } from "./runtimeHelper";
@@ -22,6 +21,12 @@ import WorkerPool from "./WorkerPool";
 // hm watch out for import path
 //  also sort of like an odd location...
 const StaticSqlFile = "./src/compiler/codegen/static.sql";
+
+export enum WorkerCmd {
+  InitialSetUp = "InitialSetUp",
+  ShareInputAfterTick = "ShareInputAfterTick",
+  ShareViewsAfterTick = "ShareViewsAfterTick",
+}
 
 export const SqliteMasterQuery = `SELECT sql, name table_name FROM sqlite_master WHERE type='table' and sql not null`;
 
@@ -83,7 +88,7 @@ export default class DielRuntime {
 
   public BindOutput(view: string, reactFn: ReactFunc, cIn = {} as OutputConfig) {
     if (!this.output.has(view)) {
-      throw new Error(`output not defined ${view} ${Array.from(this.output.keys()).join(", ")}`);
+      ReportUserRuntimeError(`output not defined ${view}, from current outputs of: [${Array.from(this.output.keys()).join(", ")}]`);
     }
     // immtable
     const outputConfig = Object.assign({}, defaultOuptConfig, cIn);
@@ -199,8 +204,9 @@ export default class DielRuntime {
       const f = this.runtimeConfig.dielFiles[i];
       code += await (await fetch(f)).text();
     }
-    LogTmp(`Generated code looks like this: ${code}`);
     // read the files in now
+    const codeWithLine = code.split("\n");
+    console.log(`%c DIEL Code Generated:\n${codeWithLine.map((c, i) => `${i}\t${c}`).join("\n")}`, "color: green");
     const inputStream = new ANTLRInputStream(code);
     const p = new DIELParser(new CommonTokenStream(new DIELLexer(inputStream)));
     const tree = p.queries();
@@ -209,7 +215,7 @@ export default class DielRuntime {
   }
 
   async setupWorkerPool() {
-    this.workerPool = new WorkerPool(this.runtimeConfig.workerDbPaths);
+    this.workerPool = new WorkerPool(this.runtimeConfig.workerDbPaths, this);
     await this.workerPool.setup();
     return;
   }
@@ -220,9 +226,9 @@ export default class DielRuntime {
     this.db.create_function("shipWorkerInput", this.shipWorkerInput.bind(this));
   }
 
-  // we will look up what to ship to!
+  // maybe change this to generating ASTs as opppsoed to strings?
   shipWorkerInput(inputName: string) {
-    const shipDestination = this.physicalExecution.workerShippingInfo.get(inputName);
+    const shipDestination = this.physicalExecution.mainToWorker.get(inputName);
     const shareQuery = `select * from ${inputName}`;
     let tableRes = this.db.exec(shareQuery)[0];
     if ((!tableRes) || (!tableRes.values)) {
@@ -233,10 +239,11 @@ export default class DielRuntime {
     // selection needs to have a quote around it...
     const values = tableRes.values.map((d: any[]) => `(${d.map((v: any) => (v === null) ? "null" : `'${v}'`).join(", ")})`);
     let sql = `
-    DELETE from ${inputName};
-    INSERT INTO ${inputName} VALUES ${values};`;
+      DELETE from ${inputName};
+      INSERT INTO ${inputName} VALUES ${values};
+    `;
     shipDestination.forEach((v => {
-      this.workerPool.SendWorkerQuery(sql, v);
+      this.workerPool.SendWorkerQuery(sql, WorkerCmd.ShareInputAfterTick, v);
     }));
   }
   /**
@@ -263,7 +270,7 @@ export default class DielRuntime {
 
   setupAllInputOutputs() {
     this.ir.GetInputs().map(i => this.setupNewInput(i));
-    this.ir.GetOutputs().map(o => this.setupNewOutput(o));
+    this.ir.GetAllViews().map(o => this.setupNewOutput(o));
   }
   /**
    * output tables HAVE to be local tables
@@ -359,15 +366,21 @@ export default class DielRuntime {
   // also should fix the async logic
   executeToDBs() {
     LogTmp(`Executing queries to db`);
-    const mainSqlQUeries = generateSqlFromIr(this.physicalExecution.main);
+    const mainSqlQUeries = generateSqlFromDielAst(this.physicalExecution.main);
     for (let s of mainSqlQUeries) {
       try {
-        LogTmp(s);
+        console.log(`%c Running Query in Main:\n${s}`, "color: purple");
         this.db.run(s);
       } catch (error) {
         LogInternalError(`Error while running\n${s}\n${error}`);
       }
     }
+    // now execute to worker!
+    this.physicalExecution.workers.forEach((v, k) => {
+      const sql = generateSqlFromDielAst(v).join(";\n");
+      console.log(`%c Running Query in Worker[${k}]:\n${sql}`, "color: pink");
+      this.workerPool.SendWorkerQuery(sql, WorkerCmd.InitialSetUp, k, false);
+    });
   }
   // used for debugging
   inspectQueryResult(query: string) {

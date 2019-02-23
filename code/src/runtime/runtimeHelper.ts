@@ -28,7 +28,7 @@ export type WorkerMetaData = {
 export function processSqliteMasterMetaData(r: QueryResults[]): WorkerMetaData {
   let queries = "";
   let names: string[] = [];
-  if (r.length > 0) {
+  if (r && r.length > 0) {
     names = r[0].values.map(row => row[1] as string);
     queries = r[0].values.map(row => {
       const queryWithReigster = (row[0] as string).replace(/create table/ig, "register table");

@@ -33,7 +33,7 @@ function columnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[] {
 }
 
 function columnsFromRelationName(ir: DielIr, relationName: string): SimpleColumn[] {
-  const derived = ir.allDerivedRelations.get(relationName);
+  const derived = ir.allCompositeSelections.get(relationName);
   if (derived) {
     return columnsFromSelectionUnit(derived[0].relation);
   }

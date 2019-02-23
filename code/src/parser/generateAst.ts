@@ -2,7 +2,7 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, DerivedRelationType, OriginalRelationType, DielTemplate, ForeignKey } from "./dielAstTypes";
+import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, DerivedRelationType, OriginalRelationType, DielTemplate, ForeignKey, ProgramsParserIr } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError, ReportDielUserError } from "../lib/messages";
 import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst } from "./sqlAstTypes";
@@ -27,13 +27,11 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitQueries = (ctx: parser.QueriesContext): DielAst => {
     this.ir = {
       udfTypes: [],
-      // inputs: [],
       originalRelations: [],
-      // outputs: [],
       views: [],
       inserts: [],
       drops: [],
-      programs: [],
+      programs: new Map(),
       crossfilters: [],
     };
     this.ir.udfTypes = ctx.registerTypeUdf().map(e => (
@@ -55,9 +53,10 @@ implements visitor.DIELVisitor<ExpressionValue> {
     this.ir.drops = ctx.dropQuery().map(e => (
       this.visit(e) as Drop
     ));
-    this.ir.programs = ctx.programStmt().map(e => (
-      this.visit(e) as ProgramsIr
+    const programs = ctx.programStmt().map(e => (
+      this.visit(e) as ProgramsParserIr
     ));
+    programs.map(p => this.ir.programs.set(p.input, p.queries));
     this.ir.crossfilters = ctx.crossfilterStmt().map(e => (
       this.visit(e) as CrossFilterIr
     ));
@@ -105,8 +104,9 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitViewStmt(ctx: parser.ViewStmtContext): DerivedRelation {
     const name = ctx.IDENTIFIER().text;
-    const relationType = DerivedRelationType.View;
-    //  : DerivedRelationType.PrivateView;
+    const relationType = ctx.VIEW()
+      ? DerivedRelationType.View
+      : DerivedRelationType.Output;
     const constraints = ctx.constraintClause() ? this.visit(ctx.constraintClause()) as RelationConstraints : null;
     const selection = this.visit(ctx.selectQuery()) as RelationSelection;
     return {
@@ -557,14 +557,15 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   // programs
-  visitProgramStmtGeneral(ctx: parser.ProgramStmtGeneralContext): ProgramsIr {
+  visitProgramStmtGeneral(ctx: parser.ProgramStmtGeneralContext): ProgramsParserIr {
     const queries = this.visit(ctx.programBody()) as ProgramSpec[];
     return {
+      input: null,
       queries
     };
   }
 
-  visitProgramStmtSpecific(ctx: parser.ProgramStmtSpecificContext): ProgramsIr {
+  visitProgramStmtSpecific(ctx: parser.ProgramStmtSpecificContext): ProgramsParserIr {
     const input = ctx.IDENTIFIER().text;
     const queries = this.visit(ctx.programBody()) as ProgramSpec[];
     return {

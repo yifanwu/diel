@@ -17,7 +17,7 @@ export default class DielCounter extends React.Component<CounterProp, CounterSta
     this.state = {
       count: 0
     };
-    diel.BindOutput("totalClicks", this.setCountState.bind(this));
+    diel.BindOutput("currentClick", this.setCountState.bind(this));
   }
   setCountState(r: {count: number}[]) {
     this.setState({count: r[0].count});

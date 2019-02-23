@@ -43,7 +43,7 @@ function generateDependenciesByInput(depTree: DependencyTree, ir: DielIr) {
     // filter out the outputs
     // const inputDependencyValues: string[] = [];
     const allDependencies = generateDependenciesByName(depTree, i.name);
-    const outputSet = new Set(ir.GetOutputs().map(o => o.name));
+    const outputSet = new Set(ir.GetAllViews().map(o => o.name));
     const inputDependencyValues = SetIntersection<string>(allDependencies, outputSet);
     inputDependency.set(i.name, inputDependencyValues);
   });

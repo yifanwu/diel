@@ -68,7 +68,7 @@ relationDefintion
   ;
 
 // outputStmt
-//   : CREATE OUTPUT IDENTIFIER AS selectQuery
+//   : CREATE  IDENTIFIER AS selectQuery
 //     (constraintClause)?
 //     DELIM
 //   ;
@@ -84,7 +84,7 @@ columnConstraints
   ;
 
 viewStmt
-  : CREATE VIEW IDENTIFIER AS selectQuery
+  : CREATE (VIEW | OUTPUT) IDENTIFIER AS selectQuery
     (constraintClause)?
     DELIM
   ;

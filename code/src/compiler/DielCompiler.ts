@@ -26,10 +26,18 @@ export function CompileDiel(ir: DielIr) {
   return ir;
 }
 
+/**
+ * At this level, we'd still be reasoning with DielAst's.
+ *   E.g., we still need to be manipulating inputs
+ *    However, we do not want to be thinking about outputs vs views, but then that just means
+ *    we should not generate these view like things.
+ * @param ir
+ * @param metaData
+ */
 export function CompilePhysicalExecution(ir: DielIr, metaData: MetaDataPhysical): DielPhysicalExecution {
   return DistributeQueries(ir, metaData);
   // TODO// then materialization
-  // this.materializeQueries();
+  // MaterializeQueries();
   // // then caching
   // this.cacheQueries();
 }

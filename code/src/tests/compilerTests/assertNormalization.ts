@@ -4,7 +4,7 @@ import { DielIr } from "../../lib";
 
 export function assertBasicNormalizationOfRelation(ir: DielIr, q: string) {
   const logger = GenerateUnitTestErrorLogger("assertBasicNormalizationOfRelation", q);
-  const v1Relation = ir.allDerivedRelations.get("v1");
+  const v1Relation = ir.allCompositeSelections.get("v1");
   const aSelection = v1Relation[0].relation.derivedColumnSelections[0].expr as ExprColumnAst;
   if (aSelection.relationName !== "t1") {
     logger(`Normalization pass failed, I had expected a to be matched with relation t1. Got: ${JSON.stringify(aSelection, null, 2)}`);

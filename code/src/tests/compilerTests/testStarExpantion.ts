@@ -5,7 +5,7 @@ import { DataType } from "../../parser/dielAstTypes";
 
 export function assertAllStar() {
   function assertColumns(viewName: string, selections: {columnName: string, relationName: string, dataType: DataType}[]) {
-    const view = ir.allDerivedRelations.get(viewName);
+    const view = ir.allCompositeSelections.get(viewName);
     const columns = view[0].relation.derivedColumnSelections;
     if (!columns) {
       logger(`${viewName} is not expanded`);

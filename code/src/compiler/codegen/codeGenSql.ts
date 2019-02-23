@@ -1,13 +1,19 @@
-import { ProgramsIr, DataType } from "../../parser/dielAstTypes";
+import { ProgramsIr, DataType, DielAst, ProgramSpec } from "../../parser/dielAstTypes";
 import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst } from "../../parser/sqlAstTypes";
-import { RelationSpec, RelationQuery, SqlIr } from "./createSqlIr";
+import { RelationSpec, RelationQuery, SqlIr, createSqlAstFromDielAst } from "./createSqlIr";
 import { LogInternalError, ReportDielUserError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
 
-export function generateSqlFromIr(ir: SqlIr) {
+export function generateSqlFromDielAst(ast: DielAst) {
+  const sqlAst = createSqlAstFromDielAst(ast);
+  return generateStringFromSqlIr(sqlAst);
+}
+
+export function generateStringFromSqlIr(ir: SqlIr) {
   const tables = ir.tables.map(t => generateTableSpec(t));
   const views = ir.views.map(v => generateSqlViews(v));
-  const triggers = ir.triggers.map(t => generateTrigger(t));
+  const triggers: string[] = [];
+  ir.triggers.forEach((v, k) => triggers.concat(generateTrigger(v, k)));
   return tables.concat(views).concat(triggers);
 }
 
@@ -193,13 +199,13 @@ function generateLimit(e: ExprAst): string {
   return `LIMIT ${generateExpr(e)}`;
 }
 
-function generateTrigger(t: ProgramsIr): string {
-  if (!t.input) {
+function generateTrigger(queries: ProgramSpec[], input: string): string {
+  if (!input) {
     // this is the general one
     return "";
   }
-  let program = `CREATE TRIGGER ${t.input}DielProgram AFTER INSERT ON ${t.input}\nBEGIN\n`;
-  program += t.queries.map(p => {
+  let program = `CREATE TRIGGER ${input}DielProgram AFTER INSERT ON ${input}\nBEGIN\n`;
+  program += queries.map(p => {
     if (p.astType === AstType.RelationSelection) {
       const r = p as RelationSelection;
       return generateSelect(r.compositeSelections) + ";";
