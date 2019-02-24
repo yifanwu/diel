@@ -14,7 +14,7 @@ export function assertBasicOperators() {
   `;
   const logger = GenerateUnitTestErrorLogger("assertBasicOperators", q);
   let ir = getDielIr(q);
-  const v1Relation = ir.allDerivedRelations.get("v1")[0].relation;
+  const v1Relation = ir.allCompositeSelections.get("v1")[0].relation;
   // test group by
   const groupByClauses = v1Relation.groupByClause;
   if (groupByClauses.selections.length !== 1) {

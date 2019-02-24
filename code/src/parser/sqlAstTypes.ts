@@ -13,10 +13,19 @@ export interface Column {
   constraints?: ColumnConstraints;
 }
 
+
+// note that the string would need to contain quotes itself...
+// export interface DefaultValue {
+//   dataType: DataType;
+//   value: ;
+// }
+
+// currently a bit lazy about the default representation...
 export interface ColumnConstraints {
   notNull?: boolean;
   unique?: boolean;
   primaryKey?: boolean;
+  default?: string;
 }
 
 export enum JoinType {
@@ -75,7 +84,7 @@ export interface SelectionUnit {
   derivedColumnSelections?: ColumnSelection[];
   // these are filled in the parsing step
   columnSelections: ColumnSelection[];
-  baseRelation: RelationReference;
+  baseRelation?: RelationReference;
   joinClauses?: JoinAst[];
   whereClause?: ExprAst;
   groupByClause?: GroupByAst;

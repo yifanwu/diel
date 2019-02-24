@@ -4,12 +4,11 @@
 
 Had originally tried not to have the full AST, but it's becoming increasingly handicapping, referencing [code school](https://github.com/codeschool/sqlite-parser)'s implementation to created the IR.
 
-## Template and Code Gen
+## Passes
 
-[ ] might need to do a 2 stage one to unpack the templates!
+Each pass would take the IR, transform it, and pass it to the next. The IR is a class as opposed to an object just so that the IR could have a few handy functions to it?
 
-
-## Error checking
+## Error Checking
 
 The tradeoff is that there might be contextual information we could throw away and not use.
 
@@ -20,7 +19,6 @@ Doing it all together after basic parsing; this way it might be able to infer so
 
 One common issue is the extra "," the error message currently is very opaque and does not point at the ",".
 
-Use [fuzzy search](http://fusejs.io/) to suggest to developers what they might mean instead --- basically insert the table names into fusejs list and search against that --- it's pretty fast!
 
 The relation reference should check against IR, and the column reference should check against the select body.
 

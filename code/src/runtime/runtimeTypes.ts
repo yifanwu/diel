@@ -5,8 +5,8 @@ export type QueryId = number;
 
 export interface DielRuntimeConfig {
   dielFiles: string[];
-  mainDbPath: string;
-  workerDbPaths: string[];
+  mainDbPath?: string;
+  workerDbPaths?: string[];
 }
 
 /**
@@ -17,9 +17,9 @@ export interface DielRuntimeConfig {
  */
 
 export enum TableLocation {
-  Local,
-  Worker,
-  Remote
+  Local = "Local",
+  Worker = "Worker",
+  Remote = "Remote"
 }
 
 // assume that all the access are via some index in array for now

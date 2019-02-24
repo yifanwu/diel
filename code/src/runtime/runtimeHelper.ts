@@ -1,4 +1,4 @@
-import { Database } from "sql.js";
+import { Database, QueryResults } from "sql.js";
 import { DielAst } from "../parser/dielAstTypes";
 import { DependencyTree } from "../compiler/passes/passesHelper";
 
@@ -20,6 +20,27 @@ export function getExistingTableDefinitions(isWorker: boolean, db?: Database, wo
   return queries;
 }
 
+export type WorkerMetaData = {
+  queries: string,
+  names: string[]
+};
+
+export function processSqliteMasterMetaData(r: QueryResults[]): WorkerMetaData {
+  let queries = "";
+  let names: string[] = [];
+  if (r && r.length > 0) {
+    names = r[0].values.map(row => row[1] as string);
+    queries = r[0].values.map(row => {
+      const queryWithReigster = (row[0] as string).replace(/create table/ig, "register table");
+      // basically going to regex the create table to register table
+      return `${queryWithReigster};\n`;
+    }).join("");
+  }
+  return {
+    queries,
+    names
+  };
+}
 
 // /**
 //  * run time type checker

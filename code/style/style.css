@@ -2,12 +2,33 @@ body {
   font-family: Avenir;
 }
 
-.wrapper {
+#wrapper {
+  display: grid;
+  grid-auto-rows: minmax(100px, auto);
+  grid-gap: 10px;
   padding: 10px;
   width: 1080px;
   margin-left: auto;
   margin-right: auto;
 }
+
+#relation-summary {
+  grid-column: 1;
+  grid-row: 1/10;
+}
+
+#work-pad {
+  grid-column: 2/5;
+  grid-row: 1/10;
+}
+
+.data-type-Number {
+  color: green;
+}
+.data-type-String {
+  color: orange;
+}
+
 
 btn {
   border: 0;
@@ -29,8 +50,24 @@ btn:disabled {
   cursor: default;
 }
 
+.new-cell-btn {
+  background: powderblue !important;
+  font-weight: bold;
+}
+
 /* button for submitting query */
 /* .submit-query */
 
 /* code cell formatting */
 /* .code-cell */
+
+table {
+  border-collapse: collapse;
+}
+
+td, th {
+  font-weight: normal;
+  border: 1px solid #999;
+  padding: 0.5rem;
+  text-align: left;
+}

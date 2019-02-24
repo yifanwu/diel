@@ -13,7 +13,11 @@ export function LogInternalError(m: string) {
 }
 
 export function LogWarning(m: string) {
-  console.log(`${FgRed}%s${Reset}`, m);
+  if (typeof window === "undefined") {
+    console.log(`${FgRed}%s${Reset}`, m);
+  } else {
+    console.log(`%c${m}`, "color: red");
+  }
 }
 
 export function LogInfo(m: string) {
@@ -21,7 +25,7 @@ export function LogInfo(m: string) {
 }
 
 export function LogTmp(m: string) {
-  console.log(m);
+  console.log(`%c ${m}`, "color: gray");
 }
 
 export function LogStandout(m: string) {
@@ -33,6 +37,11 @@ export function ReportDielBasicParsingError(m: string) {
   if (STRICT) throw new Error();
 }
 
+// note that this is in browser
+export function ReportUserRuntimeError(m: string) {
+  console.log(`%c Parsing Error: ${m}`, "color: red");
+}
+
 // TODO: this should also report the line of the code
 // the input should be more structured
 export function ReportDielUserError(m: string, q?: string) {
@@ -40,6 +49,12 @@ export function ReportDielUserError(m: string, q?: string) {
   if (q) console.log(`\nQuery: ${FgBlue}%s${Reset}\n`, q);
   if (STRICT) throw new Error();
 }
+
+export function ReportDielUserWarning(m: string, q?: string) {
+  console.log(`Program Warning: ${BgGreen}%s${Reset}`, m);
+  if (q) console.log(`\nQuery: ${FgBlue}%s${Reset}\n`, q);
+}
+
 
 export function GenerateUnitTestErrorLogger(testName: string, q: string) {
   console.log(`${BgYellow}Starting Test: %s${Reset}\nWith query:\n%s`, testName, q);

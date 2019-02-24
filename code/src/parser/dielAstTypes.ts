@@ -14,24 +14,32 @@ export interface TemplateVariableAssignmentUnit {
 }
 
 export enum DataType {
+  Void = "Void",
   String = "String",
   Number = "Number",
+  TimeStamp = "TimeStamp",
   Boolean = "Boolean",
   Relation = "Relation",
   // this needs to be inferred in the next stage
   TBD = "TBD"
 }
 
+// made the design decision where the view is based on use
+// not at specification time
+// but keeping it just in case we need to differentiate in the future
 export enum DerivedRelationType {
+  View = "View",
   StaticTable = "StaticTable",
-  PublicView = "PublicView",
-  PrivateView = "PrivateView",
+  // PublicView = "PublicView",
+  // PrivateView = "PrivateView",
   Output = "Output",
 }
 
+// FIXME: decide on the name
 export enum OriginalRelationType {
   Input = "Input",
   Table = "Table",
+  ExistingAndImmutable = "ExistingAndImmutable",
 }
 
 export enum StaticRelationType {
@@ -153,10 +161,7 @@ export type ProgramSpec = RelationSelection | InsertionClause;
 /**
  * If input is not specified, it's over all inputs.
  */
-export interface ProgramsIr {
-  input?: string;
-  queries: ProgramSpec[];
-}
+export type ProgramsIr = Map<string, ProgramSpec[]>;
 
 export interface DielConfig {
   name?: string;
@@ -174,15 +179,28 @@ export interface DielContext {
 }
 
 export interface DielAst {
-  inputs: OriginalRelation[];
+  // inputs: OriginalRelation[];
   originalRelations: OriginalRelation[];
-  outputs: DerivedRelation[];
+  // outputs: DerivedRelation[];
   views: DerivedRelation[];
-  programs: ProgramsIr[];
+  programs: ProgramsIr;
   inserts: InsertionClause[];
   drops: Drop[];
   crossfilters: CrossFilterIr[];
   udfTypes: UdfType[];
+}
+
+export function createEmptyDieAst() {
+  const newAst: DielAst = {
+    originalRelations: [],
+    views: [],
+    programs: new Map(),
+    inserts: [],
+    drops: [],
+    crossfilters: [],
+    udfTypes: [],
+  };
+  return newAst;
 }
 
 /**
@@ -194,11 +212,13 @@ export interface DielAst {
  * - indices
  * - caching
  */
+
 export interface DielPhysicalExecution {
-  main: DerivedRelation[];
-  workers: Map<string, DerivedRelation[]>;
-  remotes: Map<string, DerivedRelation[]>;
-  programs: Map<string, ProgramSpec[]>;
+  workerToMain: Map<number, Set<string>>;
+  mainToWorker: Map<string, Set<number>>;
+  main: DielAst;
+  workers: Map<number, DielAst>;
+  remotes: Map<string, DielAst>;
 }
 
 export interface CrossFilterChartIr {
@@ -212,6 +232,9 @@ export interface CrossFilterIr {
   relation: string;
   charts: CrossFilterChartIr[];
 }
+
+
+export type ProgramsParserIr = {input: string, queries: ProgramSpec[]};
 
 export type ExpressionValue = DielAst
   | OriginalRelation
@@ -229,7 +252,7 @@ export type ExpressionValue = DielAst
   | string
   | string[]
   | RawValues
-  | ProgramsIr
+  | ProgramsParserIr
   | CrossFilterIr
   | CrossFilterChartIr
   | JoinAst

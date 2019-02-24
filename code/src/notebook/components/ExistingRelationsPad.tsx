@@ -1,20 +1,32 @@
 import * as React from "react";
-import { runtime } from "../setup";
+import { diel } from "../setup";
+import { Column } from "../../parser/sqlAstTypes";
 
 interface ExistingRelationsPadState {
+}
+
+function getColumnsDiv(columns: Column[]) {
+  return columns.map(c => {
+    return <th className={`data-type-${c.type}`}>{c.name}</th>;
+    });
 }
 
 // the logic here needs rethinking
 export default class ExistingRelationsPad extends React.Component<{}, ExistingRelationsPadState> {
   render() {
-    return <div className="">
-    {runtime.ast.originalRelations.map(d => {
-      return <div className="table-summary">
-        {d.columns.map(c => {
-        return <p className={`column-summary data-type-${c.type}`}>{c.name}</p>;
-        })}
-      </div>;
-    })}
+    const original = diel.ir.GetOriginalRelations().map(d => {
+      return <table className={`table-summary table-type-${d.relationType}`}>
+      <caption>{d.name}</caption>
+        <thead>
+          <tr>
+            {getColumnsDiv(d.columns)}
+          </tr>
+        </thead>
+      </table>;
+    });
+    return <div id="relation-summary">
+      <h3>Original Relations</h3>
+      {original}
     </div>;
   }
 }

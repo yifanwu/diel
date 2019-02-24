@@ -4,7 +4,7 @@ import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as lexer from "../../parser/grammar/DIELLexer";
 import * as parser from "../../parser/grammar/DIELParser";
 
-import DielCompiler from "../../compiler/DielCompiler";
+// import DielCompiler from "../../compiler/DielCompiler";
 import {generateCompositeSelectionUnit, generateSelect, generateSelectionUnit, generateViewConstraintSelection} from "../../compiler/codegen/codeGenSql";
 import { DielConfig, DielAst, RelationConstraints, DerivedRelation } from "../../parser/dielAstTypes";
 import Visitor from "../../parser/generateAst";

@@ -2,9 +2,9 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, DerivedRelationType, OriginalRelationType, DielTemplate, ForeignKey } from "./dielAstTypes";
+import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, DerivedRelationType, OriginalRelationType, DielTemplate, ForeignKey, ProgramsParserIr } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
-import { LogInfo, LogInternalError } from "../lib/messages";
+import { LogInfo, LogInternalError, ReportDielUserError } from "../lib/messages";
 import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst } from "./sqlAstTypes";
 import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst } from "./exprAstTypes";
 
@@ -27,25 +27,23 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitQueries = (ctx: parser.QueriesContext): DielAst => {
     this.ir = {
       udfTypes: [],
-      inputs: [],
       originalRelations: [],
-      outputs: [],
       views: [],
       inserts: [],
       drops: [],
-      programs: [],
+      programs: new Map(),
       crossfilters: [],
     };
     this.ir.udfTypes = ctx.registerTypeUdf().map(e => (
       this.visit(e) as UdfType
     )).concat(BuiltInUdfTypes);
     // two kinds of specifications
-    this.ir.inputs = ctx.inputStmt().map(e => (
-      this.visitInputStmt(e)
+    this.ir.originalRelations = ctx.originalTableStmt().map(e => (
+      this.visitOriginalTableStmt(e)
     ));
-    this.ir.outputs = ctx.outputStmt().map(e => (
-      this.visit(e) as DerivedRelation
-    ));
+    // this.ir.outputs = ctx.outputStmt().map(e => (
+    //   this.visit(e) as DerivedRelation
+    // ));
     this.ir.views = ctx.viewStmt().map(e => (
       this.visit(e) as DerivedRelation
     ));
@@ -55,9 +53,10 @@ implements visitor.DIELVisitor<ExpressionValue> {
     this.ir.drops = ctx.dropQuery().map(e => (
       this.visit(e) as Drop
     ));
-    this.ir.programs = ctx.programStmt().map(e => (
-      this.visit(e) as ProgramsIr
+    const programs = ctx.programStmt().map(e => (
+      this.visit(e) as ProgramsParserIr
     ));
+    programs.map(p => this.ir.programs.set(p.input, p.queries));
     this.ir.crossfilters = ctx.crossfilterStmt().map(e => (
       this.visit(e) as CrossFilterIr
     ));
@@ -74,17 +73,17 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   // outputs
-  visitOutputStmt(ctx: parser.OutputStmtContext): DerivedRelation {
-    const name = ctx.IDENTIFIER().text;
-    const selection = this.visit(ctx.selectQuery()) as RelationSelection;
-    const constraints = ctx.constraintClause() ? this.visit(ctx.constraintClause()) as RelationConstraints : null;
-    return {
-      name,
-      relationType: DerivedRelationType.Output,
-      constraints,
-      selection
-    };
-  }
+  // visitOutputStmt(ctx: parser.OutputStmtContext): DerivedRelation {
+  //   const name = ctx.IDENTIFIER().text;
+  //   const selection = this.visit(ctx.selectQuery()) as RelationSelection;
+  //   const constraints = ctx.constraintClause() ? this.visit(ctx.constraintClause()) as RelationConstraints : null;
+  //   return {
+  //     name,
+  //     relationType: DerivedRelationType.Output,
+  //     constraints,
+  //     selection
+  //   };
+  // }
 
   visitSelectQueryDirect(ctx: parser.SelectQueryDirectContext): RelationSelection {
     // this is lazy, assume union or intersection to a hve the same columns
@@ -105,7 +104,9 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitViewStmt(ctx: parser.ViewStmtContext): DerivedRelation {
     const name = ctx.IDENTIFIER().text;
-    const relationType = ctx.PUBLIC() ? DerivedRelationType.PublicView : DerivedRelationType.PrivateView;
+    const relationType = ctx.VIEW()
+      ? DerivedRelationType.View
+      : DerivedRelationType.Output;
     const constraints = ctx.constraintClause() ? this.visit(ctx.constraintClause()) as RelationConstraints : null;
     const selection = this.visit(ctx.selectQuery()) as RelationSelection;
     return {
@@ -297,6 +298,20 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
+  visitExprIn(ctx: parser.ExprInContext): ExprFunAst {
+    const functionReference = BuiltInFunc.In;
+    const args = ctx.expr();
+    const arg1 = this.visit(args[0]) as ExprAst;
+    const arg2 = this.visit(args[1]) as ExprAst;
+    return {
+      exprType: ExprType.Func,
+      dataType: DataType.Boolean,
+      functionType: FunctionType.BuiltIn,
+      functionReference,
+      args: [arg1, arg2]
+    };
+  }
+
   visitExprWhen(ctx: parser.ExprWhenContext): ExprFunAst {
     const func = BuiltInFunc.IfThisThen;
     const args = ctx.expr().map(e => this.visit(e) as ExprAst);
@@ -311,7 +326,9 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitJoinClauseBasic(ctx: parser.JoinClauseBasicContext): JoinAst {
     const relation = this.visit(ctx.relationReference()) as RelationReference;
-    const predicate = this.visit(ctx.expr()) as ExprAst;
+    const predicate = ctx.expr()
+      ? this.visit(ctx.expr()) as ExprAst
+      : null;
     const joinType = ctx.LEFT()
       ? JoinType.LeftOuter
       : ctx.JOIN()
@@ -411,7 +428,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const subquery = this.visit(ctx.selectQuery()) as RelationSelection;
     const alias = ctx._alias ? ctx._alias.text : null;
     const q = getCtxSourceCode(ctx);
-    console.log(q);
+    // console.log(q);
     return {
       alias,
       subquery
@@ -430,12 +447,15 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  /**
-   * FIXME: might want to normalize the constraints on columns and on the relations...
-   * @param ctx contex
-   */
-  visitInputStmt(ctx: parser.InputStmtContext): OriginalRelation {
-    const relationType = ctx.INPUT ? OriginalRelationType.Input : OriginalRelationType.Table;
+  visitOriginalTableStmt(ctx: parser.OriginalTableStmtContext): OriginalRelation {
+    if (ctx.INPUT() && ctx.REGISTER()) {
+      ReportDielUserError(`You cannot register an input relation`);
+    }
+    const relationType = ctx.INPUT()
+      ? OriginalRelationType.Input
+      : ctx.CREATE()
+        ? OriginalRelationType.Table
+        : OriginalRelationType.ExistingAndImmutable;
     const name = ctx.IDENTIFIER().text;
     let columns: Column[] = [];
     let constraints: RelationConstraints = null;
@@ -537,14 +557,15 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   // programs
-  visitProgramStmtGeneral(ctx: parser.ProgramStmtGeneralContext): ProgramsIr {
+  visitProgramStmtGeneral(ctx: parser.ProgramStmtGeneralContext): ProgramsParserIr {
     const queries = this.visit(ctx.programBody()) as ProgramSpec[];
     return {
+      input: null,
       queries
     };
   }
 
-  visitProgramStmtSpecific(ctx: parser.ProgramStmtSpecificContext): ProgramsIr {
+  visitProgramStmtSpecific(ctx: parser.ProgramStmtSpecificContext): ProgramsParserIr {
     const input = ctx.IDENTIFIER().text;
     const queries = this.visit(ctx.programBody()) as ProgramSpec[];
     return {
@@ -568,13 +589,14 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const identifiers = ctx.IDENTIFIER().map(e => e.text);
     const relation = identifiers[0];
     const columns = identifiers.slice(1);
-    const v = this.visit(ctx.insertBody()) as any[];
+    // just look ahead now
+    const v = this.visit(ctx.insertBody()) as RawValues | RelationSelection;
     let selection;
     let values;
-    if ("selections" in v) {
-      selection = v as RelationSelection;
-    } else {
+    if (Array.isArray(v)) {
       values = v as RawValues;
+    } else {
+      selection = v as RelationSelection;
     }
     return {
       astType: AstType.Insert,

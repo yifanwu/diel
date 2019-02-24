@@ -8,7 +8,7 @@ import { SetOperator, SelectionUnit, RelationSelection, AstType } from "../../pa
  */
 export function applyCrossfilter(ast: DielAst): void {
   const newSetsOfViews = ast.crossfilters.map(c => _getViews(c));
-  ast.outputs = ast.outputs.concat(...newSetsOfViews);
+  ast.views = ast.views.concat(...newSetsOfViews);
 }
 
 function _getViews(xIr: CrossFilterIr): DerivedRelation[] {
@@ -16,7 +16,7 @@ function _getViews(xIr: CrossFilterIr): DerivedRelation[] {
   // first the static ones
   const unfilteredViews: DerivedRelation[] = xIr.charts.map(c => {
     return {
-      relationType: DerivedRelationType.PublicView,
+      relationType: DerivedRelationType.View,
       name: `${c.chartName}Unfiltered`,
       selection: c.selection
     };
@@ -36,7 +36,7 @@ function _getViews(xIr: CrossFilterIr): DerivedRelation[] {
     };
     return {
       name: `${c.chartName}Filtered`,
-      relationType: DerivedRelationType.Output,
+      relationType: DerivedRelationType.View,
       selection
     };
   });
