@@ -65,7 +65,7 @@ export default class DielRuntime {
   visitor: Visitor;
   protected boundFns: TickBind[];
   protected output: Map<string, Statement>;
-  protected input: Map<string, Statement>;
+  // protected input: Map<string, Statement>;
 
 
   constructor(runtimeConfig: DielRuntimeConfig) {
@@ -76,7 +76,7 @@ export default class DielRuntime {
     this.visitor = new Visitor();
 
     // the following are run time bindings for the reactive layer
-    this.input = new Map();
+    // this.input = new Map();
     this.output = new Map();
     this.metaData = new Map();
     this.boundFns = [];
@@ -95,21 +95,52 @@ export default class DielRuntime {
     this.boundFns.push({outputName: view, uiUpdateFunc: reactFn, outputConfig });
   }
 
+  public NewInputMany(i: string, o: any[]) {
+    this.newInputHelper(i, o);
+  }
+
   // FIXME: gotta do some run time type checking here!
+  // also fixme should use codegen and not string manipulation?
+  // very inefficient, fixme
   public NewInput(i: string, o: any) {
+    this.newInputHelper(i, [o]);
     // let tsI = Object.assign({$ts: timeNow()}, o);
     // TODO: check if the objects match
     // then add the dollar signs
-    const inStmt = this.input.get(i);
+    // const inStmt = this.input.get(i);
 
-    if (!inStmt) {
-      ReportUserRuntimeError(`Input ${i} not found`);
-      return;
-    }
-    const keys = Object.keys(o);
-    let newO: any = {};
-    keys.map(k => newO[`$${k}`] = o[k]);
-    inStmt.run(newO);
+    // if (!inStmt) {
+    //   ReportUserRuntimeError(`Input ${i} not found`);
+    //   return;
+    // }
+    // const keys = Object.keys(o);
+    // let newO: any = {};
+    // keys.map(k => newO[`$${k}`] = o[k]);
+    // inStmt.run(newO);
+  }
+
+  private newInputHelper(i: string, objs: any[]) {
+    const r = this.ir.allOriginalRelations.get(i);
+    // ${r.columns.map(c => c.name).map(v => `$${v}`).join(", ")}
+    const rowQuerys = objs.map(o => {
+      let values = ["max(timestep)"];
+      r.columns.map(c => {
+        const raw = o[c.name];
+        if (typeof raw === "string") {
+          values.push(`'${raw}'`);
+        } else {
+          values.push(raw);
+        }
+      });
+      return `select ${values.join(",")} from allInputs`;
+    });
+    const insertQuery = `
+      insert into ${r.name} (timestep, ${r.columns.map(c => c.name).join(", ")})
+      ${rowQuerys.join("\nUNION\n")};
+      insert into allInputs (inputRelation) values ('${r.name}');
+      `;
+    this.db.exec(insertQuery);
+
   }
 
   /**
@@ -269,7 +300,7 @@ export default class DielRuntime {
   }
 
   setupAllInputOutputs() {
-    this.ir.GetInputs().map(i => this.setupNewInput(i));
+    // this.ir.GetInputs().map(i => this.setupNewInput(i));
     this.ir.GetAllViews().map(o => this.setupNewOutput(o));
   }
   /**
@@ -295,19 +326,14 @@ export default class DielRuntime {
 
   // FIXME: in the future we should create ASTs and generate it, as opposed to raw strings
   //   raw strings are faster, hack for now...
-  private setupNewInput(r: OriginalRelation) {
-    const insertQuery = `
-      insert into ${r.name} (timestep, ${r.columns.map(c => c.name).join(", ")})
-      select
-        max(timestep),
-        ${r.columns.map(c => c.name).map(v => `$${v}`).join(", ")}
-      from allInputs;`;
-    console.log(`%c Input query: ${insertQuery}`, "color: gray");
-    this.input.set(
-      r.name,
-      this.dbPrepare(insertQuery)
-    );
-  }
+  // private setupNewInput(r: OriginalRelation) {
+    
+  //   console.log(`%c Input query: ${insertQuery}`, "color: gray");
+  //   // this.input.set(
+  //   //   r.name,
+  //   //   this.dbPrepare(insertQuery)
+  //   // );
+  // }
 
   // TODO!
   async setupRemotes() {

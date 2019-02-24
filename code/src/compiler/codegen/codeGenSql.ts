@@ -1,7 +1,7 @@
-import { ProgramsIr, DataType, DielAst, ProgramSpec } from "../../parser/dielAstTypes";
+import { DataType, DielAst, ProgramSpec } from "../../parser/dielAstTypes";
 import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst } from "../../parser/sqlAstTypes";
 import { RelationSpec, RelationQuery, SqlIr, createSqlAstFromDielAst } from "./createSqlIr";
-import { LogInternalError, ReportDielUserError } from "../../lib/messages";
+import { ReportDielUserError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
 
 export function generateSqlFromDielAst(ast: DielAst) {
@@ -12,8 +12,10 @@ export function generateSqlFromDielAst(ast: DielAst) {
 export function generateStringFromSqlIr(ir: SqlIr) {
   const tables = ir.tables.map(t => generateTableSpec(t));
   const views = ir.views.map(v => generateSqlViews(v));
-  const triggers: string[] = [];
-  ir.triggers.forEach((v, k) => triggers.concat(generateTrigger(v, k)));
+  let triggers: string[] = [];
+  ir.triggers.forEach((v, k) => {
+    triggers = triggers.concat(generateTrigger(v, k));
+  });
   return tables.concat(views).concat(triggers);
 }
 
@@ -50,7 +52,7 @@ function generateCompositeSelectionUnit(c: CompositeSelectionUnit): string {
   return `${op} ${query}`.replace(/  \n[  \n]+/g, " ");
 }
 
-export function generateSelectionUnit(v: SelectionUnit, original = false): string {
+export function generateSelectionUnit(v: SelectionUnit): string {
   const selection = generateColumnSelection(v.columnSelections);
   // const selection = original
   //   ? generateColumnSelection(v.columnSelections)

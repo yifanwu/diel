@@ -1,6 +1,7 @@
 import { processSqliteMasterMetaData, WorkerMetaData } from "./runtimeHelper";
 import DielRuntime, { SqliteMasterQuery, WorkerCmd } from "./DielRuntime";
 import { ReportDielUserError, LogInternalError } from "../lib/messages";
+import { QueryResults } from "sql.js";
 
 enum WorkerMessageType {
   Promise = "Promise",
@@ -13,17 +14,22 @@ function parseWorkerId(id: string) {
   let isPromise = false;
   let promiseId = -1;
   let customId: string;
+  let infoObj: any;
   if (messageType === WorkerMessageType.Promise) {
     isPromise = true;
     promiseId = parseInt(tokens[1]);
     customId = tokens[2];
   } else {
     customId = tokens[1];
+    if (tokens.length > 2) {
+      infoObj = JSON.parse(tokens[2]);
+    }
   }
   return {
     isPromise,
     promiseId,
-    customId
+    customId,
+    infoObj
   };
 }
 
@@ -58,9 +64,9 @@ export default class WorkerPool {
   // FIXME: types are missing
   public SendMsg(payload: any, customId: string, worker: Worker, isPromise = false) {
     console.log("sending message", payload);
-    if (customId.indexOf("-") > -1) {
-      LogInternalError(`ID cannot contain protected character "-", but you used ${customId}`);
-    }
+    // if (customId.indexOf("-") > -1) {
+    //   LogInternalError(`ID cannot contain protected character "-", but you used ${customId}`);
+    // }
     if (isPromise) {
       const msgId = this.globalMsgId++;
       const msg = {
@@ -133,7 +139,8 @@ export default class WorkerPool {
     // FIXME: look into how to get real errors
     const handleMsg = (msg: MessageEvent) => {
       console.log("handling message", msg.data);
-      const {id, err, results} = msg.data;
+      const {id, err} = msg.data;
+      const results = msg.data.results as QueryResults[];
       const args = parseWorkerId(id);
       if (args.isPromise) {
         const promiseId = args.promiseId;
@@ -168,9 +175,29 @@ export default class WorkerPool {
           const viewsToShare = this.rt.physicalExecution.workerToMain.get(wLoc);
           for (let item of viewsToShare) {
             const sql = `select * from ${item}`;
-            const customId = WorkerCmd.ShareViewsAfterTick;
+            const customId = `${WorkerCmd.ShareViewsAfterTick}-${JSON.stringify({view: item})}`;
             self.SendWorkerQuery(sql, customId, wLoc);
           }
+        } else if (customId === WorkerCmd.ShareViewsAfterTick) {
+          const view = args.infoObj.view;
+          if (!view) {
+            LogInternalError(`View should be defined for sharing views!`);
+          }
+          if (results[0] && results[0].values.length > 0) {
+            const columns = results[0].columns.join(", ");
+            const valueStr = results[0].values.map((v: any) => `(${v.map((vi: any) => {
+              if (typeof vi === "string") {
+                return `'${vi}'`;
+              }
+              return vi;
+            }).join(",")})`);
+            // FIXME maybe sahana? add look up to existing IR to figure out what is a string
+            // and add quotes.
+            const sql = `INSERT INTO ${view} (${columns}) VALUES ${valueStr};`;
+            this.rt.db.exec(sql);
+          }
+        } else {
+          console.log(`%c Got ${args.customId} and not handled`, "color: gray");
         }
       }
     };

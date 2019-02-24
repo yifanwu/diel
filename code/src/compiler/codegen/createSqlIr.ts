@@ -22,7 +22,7 @@ export interface RelationQuery {
 
 /**
  * Note
- * - Recycling the programsIr from previous AST
+ * - Recycling the programsIr from DIEL AST
  */
 export interface SqlIr {
   // tablespec
@@ -83,17 +83,18 @@ export function createSqlAstFromDielAst(ast: DielAst, isMain = true): SqlIr {
 
     const triggers: ProgramsIr = new Map();
     ast.programs.forEach((v, input) => {
-      if (isMain) {
-        const sharedProgram: InsertionClause = {
-          astType: AstType.Insert,
-          relation: "allInputs",
-          columns: ["inputRelation"],
-          values: [`'${input}'`]
-        };
-        triggers.set(input, [sharedProgram, ...programsToAdd, ...v ]);
-      } else {
-        triggers.set(input, [...programsToAdd, ...v ]);
-      }
+      // clean up: not going to have this logic here anymore because we need atomic stuff
+      // if (isMain) {
+      //   const sharedProgram: InsertionClause = {
+      //     astType: AstType.Insert,
+      //     relation: "allInputs",
+      //     columns: ["inputRelation"],
+      //     values: [`'${input}'`]
+      //   };
+      //   triggers.set(input, [sharedProgram, ...programsToAdd, ...v ]);
+      // } else {
+      triggers.set(input, [...programsToAdd, ...v ]);
+      // }
   });
 
   const inserts = ast.inserts;
