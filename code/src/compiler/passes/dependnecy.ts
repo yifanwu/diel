@@ -64,7 +64,8 @@ export function generateDependenciesByName(depTree: DependencyTree, rName: strin
     // search through dependency
     let oldSet = new Set(affectedRelations);
     for (let [key, value] of depTree) {
-      if (value.dependsOn.filter(d => d === rName)) {
+      const found = value.dependsOn.filter(d => d === rName);
+      if (found.length > 0) {
         affectedRelations.add(key);
       }
     }

@@ -327,7 +327,6 @@ export default class DielRuntime {
   // FIXME: in the future we should create ASTs and generate it, as opposed to raw strings
   //   raw strings are faster, hack for now...
   // private setupNewInput(r: OriginalRelation) {
-    
   //   console.log(`%c Input query: ${insertQuery}`, "color: gray");
   //   // this.input.set(
   //   //   r.name,

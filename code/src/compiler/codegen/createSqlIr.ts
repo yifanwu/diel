@@ -92,9 +92,8 @@ export function createSqlAstFromDielAst(ast: DielAst, isMain = true): SqlIr {
       //     values: [`'${input}'`]
       //   };
       //   triggers.set(input, [sharedProgram, ...programsToAdd, ...v ]);
-      // } else {
-      triggers.set(input, [...programsToAdd, ...v ]);
       // }
+      triggers.set(input, [...programsToAdd, ...v ]);
   });
 
   const inserts = ast.inserts;
