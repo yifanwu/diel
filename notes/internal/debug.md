@@ -1,5 +1,15 @@
 # Debug
 
+## Using the Chrome Debugger
+
+Chrome debugger is one of the best!
+
+You can set break points in the TypeScript code, as well as use Cmd-P to navigate to the files you need (the same way as VS Code)
+![file selection](./img/fileNav.png)
+
+Also, since DIEL has a global object that contains most of the information you might be interested in inpecting, the `diel.ir`, you can "watch" in Chrome debugger like so:
+![watch](./img/watch.png)
+
 ## Common compiler errors
 
 If you see anything associated with the parser that are missing methods, this might be because the language was updated, in which case you can fix by running `npm run lang`.
