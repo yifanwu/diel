@@ -26,10 +26,10 @@ export default class DielCounter extends React.Component<CounterProp, CounterSta
     return <>
       <p style={{color: this.props.color}}>{this.state.count}</p>
       <button onClick={() => {
-        diel.NewInput("click", {a: 1});
+        diel.NewInput("click", {delta: 1});
       }}>add</button>
       <button onClick={() => {
-        diel.NewInput("click", {a: -1});
+        diel.NewInput("click", {delta: -1});
       }}>sub</button>
 
     </>;

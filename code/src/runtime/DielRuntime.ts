@@ -7,16 +7,17 @@ import { loadPage } from "../notebook/index";
 import { Database, Statement } from "sql.js";
 import { SelectionUnit } from "../parser/sqlAstTypes";
 import { RuntimeCell, DbRow, DielRuntimeConfig, TableMetaData, TableLocation, } from "./runtimeTypes";
-import { OriginalRelation, DerivedRelation, DielPhysicalExecution, } from "../parser/dielAstTypes";
+import { OriginalRelation, DerivedRelation, DielPhysicalExecution, RelationType, } from "../parser/dielAstTypes";
 import { generateSelectionUnit, generateStringFromSqlIr, generateSqlFromDielAst } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
 import { CompileDiel, CompilePhysicalExecution } from "../compiler/DielCompiler";
 import { log } from "../lib/dielUdfs";
 import { downloadHelper } from "../lib/dielUtils";
-import { LogInternalError, LogTmp, ReportUserRuntimeError, LogWarning } from "../lib/messages";
+import { LogInternalError, LogTmp, ReportUserRuntimeError, LogWarning, QueryConsoleColorSpec } from "../lib/messages";
 import { DielIr } from "../compiler/DielIr";
 import { processSqliteMasterMetaData } from "./runtimeHelper";
 import WorkerPool from "./WorkerPool";
+import { generateVisualizationSpecForSingleQuery } from "../notebook/visualizationSpec/generateVisualizationSpec";
 
 // hm watch out for import path
 //  also sort of like an odd location...
@@ -57,6 +58,7 @@ export type MetaDataPhysical = Map<string, TableMetaData>;
 export default class DielRuntime {
   ir: DielIr;
   physicalExecution: DielPhysicalExecution;
+  // constraintsQueries: string[];
   workerPool: WorkerPool;
   metaData: MetaDataPhysical;
   runtimeConfig: DielRuntimeConfig;
@@ -65,8 +67,6 @@ export default class DielRuntime {
   visitor: Visitor;
   protected boundFns: TickBind[];
   protected output: Map<string, Statement>;
-  // protected input: Map<string, Statement>;
-
 
   constructor(runtimeConfig: DielRuntimeConfig) {
     // temp, fixme
@@ -99,6 +99,10 @@ export default class DielRuntime {
     this.newInputHelper(i, o);
   }
 
+  public TempTest() {
+    generateVisualizationSpecForSingleQuery(this, null);
+  }
+
   // FIXME: gotta do some run time type checking here!
   // also fixme should use codegen and not string manipulation?
   // very inefficient, fixme
@@ -120,12 +124,23 @@ export default class DielRuntime {
   }
 
   private newInputHelper(i: string, objs: any[]) {
-    const r = this.ir.allOriginalRelations.get(i);
+    const r = this.ir.GetEventByName(i);
+    let columnNames: string[] = [];
+    if (r.relationType === RelationType.EventTable) {
+      columnNames = (r as OriginalRelation).columns.map(c => c.name);
+    } else {
+      columnNames = (r as DerivedRelation)
+        .selection.compositeSelections[0]
+        .relation.derivedColumnSelections.map(c => c.alias);
+    }
     // ${r.columns.map(c => c.name).map(v => `$${v}`).join(", ")}
     const rowQuerys = objs.map(o => {
       let values = ["max(timestep)"];
-      r.columns.map(c => {
-        const raw = o[c.name];
+      columnNames.map(cName => {
+        const raw = o[cName];
+        if (!raw) {
+          ReportUserRuntimeError(`We expected the input ${cName}, but it was not defined in the object.`);
+        }
         if (typeof raw === "string") {
           values.push(`'${raw}'`);
         } else {
@@ -135,10 +150,11 @@ export default class DielRuntime {
       return `select ${values.join(",")} from allInputs`;
     });
     const insertQuery = `
-      insert into ${r.name} (timestep, ${r.columns.map(c => c.name).join(", ")})
+      insert into ${r.name} (timestep, ${columnNames.join(", ")})
       ${rowQuerys.join("\nUNION\n")};
       insert into allInputs (inputRelation) values ('${r.name}');
       `;
+    console.log(`%c ${insertQuery}`, QueryConsoleColorSpec);
     this.db.exec(insertQuery);
 
   }
@@ -160,7 +176,7 @@ export default class DielRuntime {
   tick() {
     const boundFns = this.boundFns;
     const runOutput = this.runOutput;
-    const dependencies = this.ir.dependencies.inputDependencies;
+    const dependencies = this.ir.dependencies.inputDependenciesOutput;
     return (input: string) => {
       // note for Lucie: add constraint checking
       console.log(`%c tick ${input}`, "color: blue");
@@ -210,7 +226,7 @@ export default class DielRuntime {
     // now parse DIEL
     // below are logic for the physical execution of the programs
     // we first do the distribution
-    this.physicalExecution = CompilePhysicalExecution(this.ir, this.metaData);
+    this.physicalExecution = CompilePhysicalExecution(this);
     // now execute the physical views and programs
     this.executeToDBs();
     this.setupAllInputOutputs();
@@ -244,6 +260,7 @@ export default class DielRuntime {
     let ast = this.visitor.visitQueries(tree);
     this.ir = CompileDiel(new DielIr(ast));
   }
+
 
   async setupWorkerPool() {
     this.workerPool = new WorkerPool(this.runtimeConfig.workerDbPaths, this);
@@ -324,22 +341,6 @@ export default class DielRuntime {
     }
   }
 
-  // FIXME: in the future we should create ASTs and generate it, as opposed to raw strings
-  //   raw strings are faster, hack for now...
-  // private setupNewInput(r: OriginalRelation) {
-  //   console.log(`%c Input query: ${insertQuery}`, "color: gray");
-  //   // this.input.set(
-  //   //   r.name,
-  //   //   this.dbPrepare(insertQuery)
-  //   // );
-  // }
-
-  // TODO!
-  async setupRemotes() {
-
-  }
-
-
   /**
    * returns the results as an array of objects (sql.js)
    */
@@ -373,19 +374,6 @@ export default class DielRuntime {
     // refresh the annotation
   }
 
-
-
-
-  materializeQueries() {
-    // TODO
-    return;
-  }
-
-  cacheQueries() {
-    // TODO
-    return;
-  }
-
   // takes in teh SqlIrs in different environments and sticks them into the databases
   // FIXME: better async handling
   // also should fix the async logic
@@ -402,9 +390,12 @@ export default class DielRuntime {
     }
     // now execute to worker!
     this.physicalExecution.workers.forEach((v, k) => {
-      const sql = generateSqlFromDielAst(v).join(";\n");
-      console.log(`%c Running Query in Worker[${k}]:\n${sql}`, "color: pink");
-      this.workerPool.SendWorkerQuery(sql, WorkerCmd.InitialSetUp, k, false);
+      const queries = generateSqlFromDielAst(v);
+      if (queries && queries.length > 0) {
+        const sql = queries.join(";\n");
+        console.log(`%c Running Query in Worker[${k}]:\n${sql}`, "color: pink");
+        this.workerPool.SendWorkerQuery(sql, WorkerCmd.InitialSetUp, k, false);
+      }
     });
   }
   // used for debugging

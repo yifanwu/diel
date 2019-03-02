@@ -1,4 +1,4 @@
-import { DielAst, ProgramsIr, DataType, OriginalRelationType, DerivedRelationType } from "../../parser/dielAstTypes";
+import { DielAst, ProgramsIr, DataType, RelationType } from "../../parser/dielAstTypes";
 import { Column, CompositeSelectionUnit, InsertionClause, AstType } from "../../parser/sqlAstTypes";
 
 // in this pass, we will create the Ir needed to create the SQL we need
@@ -46,23 +46,23 @@ export function createSqlAstFromDielAst(ast: DielAst, isMain = true): SqlIr {
         primaryKey: true
       }
     },
-    {
-      name: "timestamp",
-      type: DataType.TimeStamp,
-      constraints: {
-        default: "(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))"
-      }
-    }
+    // {
+    //   name: "timestamp",
+    //   type: DataType.TimeStamp,
+    //   constraints: {
+    //     default: "(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))"
+    //   }
+    // }
   ];
   const tables = ast.originalRelations
-    .filter(i => i.relationType !== OriginalRelationType.ExistingAndImmutable)
+    .filter(i => i.relationType !== RelationType.ExistingAndImmutable)
     .map(i => {
-      if (i.relationType === OriginalRelationType.Input) {
+      if (i.relationType === RelationType.EventTable) {
         return {
           name: i.name,
           columns: i.columns.concat(inputColumns)
         };
-      } else if (i.relationType === OriginalRelationType.Table) {
+      } else if (i.relationType === RelationType.Table) {
         return {
           name: i.name,
           columns: i.columns
@@ -74,7 +74,7 @@ export function createSqlAstFromDielAst(ast: DielAst, isMain = true): SqlIr {
     const views = ast.views
     .map(v => ({
       name: v.name,
-      sqlRelationType: v.relationType === DerivedRelationType.View ? SqlRelationType.View : SqlRelationType.Table,
+      sqlRelationType: v.relationType === RelationType.View ? SqlRelationType.View : SqlRelationType.Table,
       query: v.selection.compositeSelections
     }));
 

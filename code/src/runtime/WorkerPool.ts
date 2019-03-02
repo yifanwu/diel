@@ -184,17 +184,24 @@ export default class WorkerPool {
             LogInternalError(`View should be defined for sharing views!`);
           }
           if (results[0] && results[0].values.length > 0) {
-            const columns = results[0].columns.join(", ");
-            const valueStr = results[0].values.map((v: any) => `(${v.map((vi: any) => {
-              if (typeof vi === "string") {
-                return `'${vi}'`;
-              }
-              return vi;
-            }).join(",")})`);
-            // FIXME maybe sahana? add look up to existing IR to figure out what is a string
-            // and add quotes.
-            const sql = `INSERT INTO ${view} (${columns}) VALUES ${valueStr};`;
-            this.rt.db.exec(sql);
+            // we want to use the newInput interface to leverage the tick logic.
+            const o: any[] = results[0].values.map((v: any[]) => {
+              let oi: any = {};
+              v.map((vi, i) => {
+                oi[results[0].columns[i]] = vi;
+              });
+              return oi;
+            });
+            this.rt.NewInputMany(view, o);
+            // const columns = results[0].columns.join(", ");
+            // const valueStr = results[0].values.map((v: any) => `(${v.map((vi: any) => {
+            //   if (typeof vi === "string") {
+            //     return `'${vi}'`;
+            //   }
+            //   return vi;
+            // }).join(",")})`);
+            // const sql = `INSERT INTO ${view} (${columns}) VALUES ${valueStr};`;
+            // this.rt.db.exec(sql);
           }
         } else {
           console.log(`%c Got ${args.customId} and not handled`, "color: gray");

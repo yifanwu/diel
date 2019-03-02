@@ -7,6 +7,8 @@ export const BgRed = "\x1b[41m";
 export const BgGreen = "\x1b[42m";
 export const BgYellow = "\x1b[43m";
 
+export const QueryConsoleColorSpec = "color: green";
+
 export function LogInternalError(m: string) {
   console.log(`${FgRed}%s${Reset}`, m);
   if (STRICT) throw new Error();

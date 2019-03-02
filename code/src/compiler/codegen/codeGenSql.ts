@@ -1,7 +1,7 @@
 import { DataType, DielAst, ProgramSpec } from "../../parser/dielAstTypes";
 import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst } from "../../parser/sqlAstTypes";
 import { RelationSpec, RelationQuery, SqlIr, createSqlAstFromDielAst } from "./createSqlIr";
-import { ReportDielUserError } from "../../lib/messages";
+import { ReportDielUserError, LogInternalError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
 
 export function generateSqlFromDielAst(ast: DielAst) {
@@ -230,11 +230,18 @@ function generateInserts(i: InsertionClause): string {
 }
 
 const TypeConversionLookUp = new Map<DataType, string>([
-  [DataType.String, "TEXT"], [DataType.Number, "REAL"], [DataType.Boolean, "INTEGER"]
+  [DataType.String, "TEXT"],
+  [DataType.Number, "REAL"],
+  [DataType.Boolean, "INTEGER"],
+  [DataType.TimeStamp, "DATETIME"]
 ]);
 
 function generateColumnDefinition(c: Column): string {
-  const plainQuery = `${c.name} ${TypeConversionLookUp.get(c.type)}`;
+  const typeStr = TypeConversionLookUp.get(c.type);
+  if (!typeStr) {
+    LogInternalError(`data type ${c.type} is not mapped tos tring`);
+  }
+  const plainQuery = `${c.name} ${typeStr}`;
   if (!c.constraints) {
     // LogInternalError(`Constraints for column ${c.name} is not defined`);
     return plainQuery;

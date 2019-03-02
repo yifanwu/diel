@@ -12,6 +12,8 @@ export function parseColumnType(str: string) {
       return DataType.String;
     case "boolean":
       return DataType.Boolean;
+    case "datetime":
+      return DataType.TimeStamp;
     default:
       throw new Error(`parseColumnType error, got ${str}`);
   }
