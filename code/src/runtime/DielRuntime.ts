@@ -2,13 +2,12 @@ import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import { DIELLexer } from "../parser/grammar/DIELLexer";
 import { DIELParser } from "../parser/grammar/DIELParser";
 
-// this is really weird, somehow passing it in causes asynchrony issues... #HACK, #FIXME
 import { loadPage } from "../notebook/index";
 import { Database, Statement } from "sql.js";
 import { SelectionUnit } from "../parser/sqlAstTypes";
 import { RuntimeCell, DbRow, DielRuntimeConfig, TableMetaData, TableLocation, } from "./runtimeTypes";
 import { OriginalRelation, DerivedRelation, DielPhysicalExecution, RelationType, } from "../parser/dielAstTypes";
-import { generateSelectionUnit, generateStringFromSqlIr, generateSqlFromDielAst } from "../compiler/codegen/codeGenSql";
+import { generateSelectionUnit, generateSqlFromDielAst } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
 import { CompileDiel, CompilePhysicalExecution } from "../compiler/DielCompiler";
 import { log } from "../lib/dielUdfs";
@@ -17,7 +16,7 @@ import { LogInternalError, LogTmp, ReportUserRuntimeError, LogWarning, QueryCons
 import { DielIr } from "../compiler/DielIr";
 import { processSqliteMasterMetaData } from "./runtimeHelper";
 import WorkerPool from "./WorkerPool";
-import { generateVisualizationSpecForSingleQuery } from "../notebook/visualizationSpec/generateVisualizationSpec";
+// import { generateVizSpecForSingleQuery } from "../notebook/vizSpec/generateVizSpec";
 
 // hm watch out for import path
 //  also sort of like an odd location...
@@ -95,12 +94,8 @@ export default class DielRuntime {
     this.boundFns.push({outputName: view, uiUpdateFunc: reactFn, outputConfig });
   }
 
-  public NewInputMany(i: string, o: any[]) {
-    this.newInputHelper(i, o);
-  }
-
-  public TempTest() {
-    generateVisualizationSpecForSingleQuery(this, null);
+  public NewInputMany(i: string, o: any[], lineage?: number) {
+    this.newInputHelper(i, o, lineage);
   }
 
   // FIXME: gotta do some run time type checking here!
@@ -123,7 +118,8 @@ export default class DielRuntime {
     // inStmt.run(newO);
   }
 
-  private newInputHelper(i: string, objs: any[]) {
+  // FIXME: use AST instead of string manipulation...
+  private newInputHelper(i: string, objs: any[], lineage?: number) {
     const r = this.ir.GetEventByName(i);
     let columnNames: string[] = [];
     if (r.relationType === RelationType.EventTable) {
@@ -147,15 +143,26 @@ export default class DielRuntime {
           values.push(raw);
         }
       });
-      return `select ${values.join(",")} from allInputs`;
+      if (lineage) {
+        return `select ${values.join(",")}, ${lineage} from allInputs`;
+      } else {
+        return `select ${values.join(",")} from allInputs`;
+      }
     });
-    const insertQuery = `
-      insert into ${r.name} (timestep, ${columnNames.join(", ")})
-      ${rowQuerys.join("\nUNION\n")};
-      insert into allInputs (inputRelation) values ('${r.name}');
-      `;
-    console.log(`%c ${insertQuery}`, QueryConsoleColorSpec);
-    this.db.exec(insertQuery);
+    // lazy
+    let insertQuery;
+    if (lineage) {
+      insertQuery = `insert into ${r.name} (timestep, ${columnNames.join(", ")}, lineage)
+      ${rowQuerys.join("\nUNION\n")};`;
+
+    } else {
+      insertQuery = `insert into ${r.name} (timestep, ${columnNames.join(", ")})
+      ${rowQuerys.join("\nUNION\n")};`;
+    }
+    const finalQuery = `${insertQuery}
+    insert into allInputs (inputRelation) values ('${r.name}');`;
+    console.log(`%c ${finalQuery}`, QueryConsoleColorSpec);
+    this.db.exec(finalQuery);
 
   }
 
@@ -275,7 +282,7 @@ export default class DielRuntime {
   }
 
   // maybe change this to generating ASTs as opppsoed to strings?
-  shipWorkerInput(inputName: string) {
+  shipWorkerInput(inputName: string, timestep: number) {
     const shipDestination = this.physicalExecution.mainToWorker.get(inputName);
     const shareQuery = `select * from ${inputName}`;
     let tableRes = this.db.exec(shareQuery)[0];
@@ -290,8 +297,9 @@ export default class DielRuntime {
       DELETE from ${inputName};
       INSERT INTO ${inputName} VALUES ${values};
     `;
+    const params = {lineage: timestep};
     shipDestination.forEach((v => {
-      this.workerPool.SendWorkerQuery(sql, WorkerCmd.ShareInputAfterTick, v);
+      this.workerPool.SendWorkerQuery(sql, WorkerCmd.ShareInputAfterTick, v, false, params);
     }));
   }
   /**

@@ -1,4 +1,4 @@
-import { DielAst, ProgramsIr, DataType, RelationType } from "../../parser/dielAstTypes";
+import { DielAst, ProgramsIr, DataType, RelationType, ForeignKey } from "../../parser/dielAstTypes";
 import { Column, CompositeSelectionUnit, InsertionClause, AstType } from "../../parser/sqlAstTypes";
 
 // in this pass, we will create the Ir needed to create the SQL we need
@@ -46,14 +46,13 @@ export function createSqlAstFromDielAst(ast: DielAst, isMain = true): SqlIr {
         primaryKey: true
       }
     },
-    // {
-    //   name: "timestamp",
-    //   type: DataType.TimeStamp,
-    //   constraints: {
-    //     default: "(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))"
-    //   }
-    // }
+    {
+      name: "lineage",
+      type: DataType.Number,
+    }
   ];
+  // TODO
+  // const lineageFk: ForeignKey
   const tables = ast.originalRelations
     .filter(i => i.relationType !== RelationType.ExistingAndImmutable)
     .map(i => {

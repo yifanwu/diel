@@ -54,11 +54,12 @@ export default class WorkerPool {
     this.globalMsgId = 0;
   }
 
-  public SendWorkerQuery(sql: string, customId: string, workerLoc: number, isPromise = false) {
+  public SendWorkerQuery(sql: string, customId: string, workerLoc: number, isPromise = false, params= {}) {
+    const id = `${customId}-${JSON.stringify(params)}`;
     return this.SendMsg({
       action: "exec",
       sql
-    }, customId, this.pool[workerLoc], isPromise);
+    }, id, this.pool[workerLoc], isPromise);
   }
 
   // FIXME: types are missing
@@ -175,8 +176,9 @@ export default class WorkerPool {
           const viewsToShare = this.rt.physicalExecution.workerToMain.get(wLoc);
           for (let item of viewsToShare) {
             const sql = `select * from ${item}`;
-            const customId = `${WorkerCmd.ShareViewsAfterTick}-${JSON.stringify({view: item})}`;
-            self.SendWorkerQuery(sql, customId, wLoc);
+            const customId = `${WorkerCmd.ShareViewsAfterTick}`;
+            // need to pass the lineage information on
+            self.SendWorkerQuery(sql, customId, wLoc, false, {view: item, ...args.infoObj});
           }
         } else if (customId === WorkerCmd.ShareViewsAfterTick) {
           const view = args.infoObj.view;
@@ -192,7 +194,7 @@ export default class WorkerPool {
               });
               return oi;
             });
-            this.rt.NewInputMany(view, o);
+            this.rt.NewInputMany(view, o, args.infoObj.lineage);
             // const columns = results[0].columns.join(", ");
             // const valueStr = results[0].values.map((v: any) => `(${v.map((vi: any) => {
             //   if (typeof vi === "string") {

@@ -5,7 +5,7 @@ import DielRuntime, { MetaDataPhysical } from "../../runtime/DielRuntime";
 import { generateDependenciesByName } from "./dependnecy";
 import { SetIntersection, SetUnion, DeepCopy } from "../../lib/dielUtils";
 import { RelationSelection, SetOperator, AstType, CompositeSelectionUnit } from "../../parser/sqlAstTypes";
-import { ExprType, ExprFunAst, FunctionType, ExprValAst } from "../../parser/exprAstTypes";
+import { ExprType, ExprFunAst, FunctionType, ExprValAst, ExprColumnAst } from "../../parser/exprAstTypes";
 import { ReportDielUserError, LogInternalError } from "../../lib/messages";
 
 /**
@@ -164,13 +164,20 @@ function generateShipWorkerInputClause(inputName: string): RelationSelection {
       dataType: DataType.String,
       value: inputName
     };
+    const argLineage: ExprColumnAst = {
+      columnName: "timestep",
+      exprType: ExprType.Column,
+      dataType: DataType.String,
+      relationName: "new",
+      hasStar: false
+    };
     // FIXME: this function reference is a bit brittle
     const expr: ExprFunAst = {
       exprType: ExprType.Func,
       dataType: DataType.Void,
       functionType: FunctionType.Custom,
       functionReference: "shipWorkerInput",
-      args: [argInputName]
+      args: [argInputName, argLineage]
     };
     const newQuery: RelationSelection = {
       astType: AstType.RelationSelection,

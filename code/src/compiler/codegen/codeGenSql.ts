@@ -249,6 +249,6 @@ function generateColumnDefinition(c: Column): string {
   const notNull = c.constraints.notNull ? "NOT NULL" : "";
   const unique = c.constraints.unique ? "UNIQUE" : "";
   const primary = c.constraints.primaryKey ? "PRIMARY KEY" : "";
-  const defaultVal = c.constraints.default ? `DEFAULT ${c.constraints.default}` : "";
+  const defaultVal = c.defaultValue ? `DEFAULT ${generateExpr(c.defaultValue)}` : "";
   return `${plainQuery} ${notNull} ${unique} ${primary} ${defaultVal}`;
 }
