@@ -330,7 +330,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitGroupByClause(ctx: parser.GroupByClauseContext): GroupByAst {
     const selections = ctx.expr().map(e => this.visit(e) as ExprAst);
-    const predicate = this.visitHavingClause(ctx.havingClause());
+    const predicate = ctx.havingClause() ? this.visitHavingClause(ctx.havingClause()) : null;
     return {
       selections,
       predicate

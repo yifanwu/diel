@@ -1,0 +1,27 @@
+-- implementing zoom for bar chart means switching the level of granularity
+-- this is more than just selecting the where, hm
+-- currently, we can have the interface bind to different views based on the granularity
+-- the only thing wrong with this is that the views might be computed unecessarily
+
+create event table panZoomEvent (
+  minScore number,
+  maxScore number
+);
+
+create view currentPanZoom as 
+  select *
+  from panZoomEvent
+  where timestep = (
+      select max(timestep) from panZoomEvent
+    );
+
+create output scoreDistribution AS
+  select
+    case when (z.maxScore - z.minScore) > 50
+        then round(score / 10) * 10
+        else round(score / 5) * 5
+      end as scoreBin,
+    count(*) as count
+  from scores
+  join currentPanZoom z
+  group by scoreBin;

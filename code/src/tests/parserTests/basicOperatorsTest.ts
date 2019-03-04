@@ -5,7 +5,7 @@ import { assertExprAsFunctionWithName, assertExprAsColumnWithname, assertValue }
 
 export function assertBasicOperators() {
   let q = `
-  create input Attendance (
+  create event table Attendance (
       arrival int,
       departure int,
       aid int

@@ -4,9 +4,9 @@ import { ExprFunAst, ExprType, ExprParen } from "../../parser/exprAstTypes";
 
 export function assertBasicConstraints() {
   const q = `
-  CREATE TABLE Persons (
-    PersonID int NOT NULL,
+  CREATE EVENT TABLE Persons (
     Name text,
+    PersonID int NOT NULL,
     Age int,
     CHECK (Age>=18)
   );

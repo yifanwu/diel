@@ -2,7 +2,7 @@ import * as React from "react";
 import { ToolTip, ToolTipProps } from "./ToolTip";
 import { diel } from "../setup";
 // FIXME: this import is really sketch, we should break the two files apart
-import { AnnotedSelectionUnit, ChartData, AnnotationSpec, CellStatus } from "../../runtime/runtimeTypes";
+import { AnnotedSelectionUnit, AnnotationSpec, CellStatus } from "../../runtime/runtimeTypes";
 import { CodeDiv } from "./CodeDiv";
 
 interface CodeCardState {
@@ -29,20 +29,20 @@ export default class CodeCell extends React.Component<{}, CodeCardState> {
   /**
    * this function should take the query, execute it, and show the visualization
    */
-  setPopup(spec: AnnotationSpec, xPos: number, yPos: number) {
-    // todo
-    const chartData = {
-      data: diel.ExecuteAstQuery(spec.ast),
-      dimension: spec.dimension,
-      chartType: spec.chartType
-    };
-    const popup: ToolTipProps = {
-      chartData,
-      xPos,
-      yPos
-    };
-    this.setState({toolTipProps: popup});
-  }
+  // setPopup(spec: AnnotationSpec, xPos: number, yPos: number) {
+  //   // todo
+  //   const spec = {
+  //     data: diel.ExecuteAstQuery(spec.ast),
+  //     // dimension: spec.dimension,
+  //     chartType: spec.chartType
+  //   };
+  //   const popup: ToolTipProps = {
+  //     spec,
+  //     xPos,
+  //     yPos
+  //   };
+  //   this.setState({toolTipProps: popup});
+  // }
 
   // handleKeyPress(e: any) {
   //   if (e.nativeEvent.keyCode === 13) {
@@ -81,7 +81,7 @@ export default class CodeCell extends React.Component<{}, CodeCardState> {
       { this.state.annotation
         ? <CodeDiv
           annotation={this.state.annotation}
-          setPopup={this.setPopup}
+          // setPopup={this.setPopup}
         />
         : null
       }

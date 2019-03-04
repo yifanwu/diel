@@ -1,8 +1,12 @@
 import DielRuntime from "../runtime/DielRuntime";
 
 const workerDbPaths = ["./UI-dist/test-worker.db"];
-// const dielFiles = ["./src/notebook/tests/simple.diel"];
-const dielFiles = ["./src/notebook/tests/counter-worker.diel"];
+const dielPrefix = "./src/notebook/tests/";
+const dielFiles = [
+  `${dielPrefix}simple.diel`,
+  // `${dielPrefix}counter-worker.diel`,
+  `${dielPrefix}single-bar-chart-zoom.diel`
+];
 const mainDbPath = "./UI-dist/test.db";
 
 export const diel = new DielRuntime({

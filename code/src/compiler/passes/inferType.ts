@@ -1,13 +1,15 @@
 import { DielIr, SelectionUnitVisitorFunctionOptions } from "../DielIr";
 import { LogInternalError } from "../../lib/messages";
 import { DataType, BuiltInColumns } from "../../parser/dielAstTypes";
-import { ExprType, ExprFunAst, ExprColumnAst, ExprAst } from "../../parser/exprAstTypes";
+import { ExprType, ExprFunAst, ExprColumnAst, ExprAst, BuiltInFunc } from "../../parser/exprAstTypes";
 import { SelectionUnit } from "../../parser/sqlAstTypes";
 
 export function InferType(ir: DielIr) {
   ir.ApplyToImmediateSelectionUnits(inferTypeForSelection, true);
 }
 
+// recurively invoked
+// FIXME: the optional is kinda weird
 function inferTypeForSelection(r: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions) {
   r.derivedColumnSelections.map(cs => {
     if (!cs.expr) {
@@ -17,18 +19,35 @@ function inferTypeForSelection(r: SelectionUnit, optional: SelectionUnitVisitorF
       LogInternalError(`derivedColumnSelections should be defined`);
     }
     if (cs.expr.dataType === DataType.TBD) {
-      cs.expr.dataType = getTypeForColumnSelection(optional.ir, cs.expr, r);
+      cs.expr.dataType = getTypeForExpr(optional.ir, cs.expr, r);
     }
   });
 }
 
-function getTypeForColumnSelection(ir: DielIr, expr: ExprAst, r: SelectionUnit): DataType {
+
+function getUdfType(ir: DielIr, sUnit: SelectionUnit, funName: string, expr: ExprFunAst) {
+  if (funName === BuiltInFunc.IfThisThen) {
+    // in this case we need to look at the cases of expressions
+    // join the recursion
+    // the args are when then else... kinda brittle
+    const ifBranchExpr = expr.args[1];
+    if (!ifBranchExpr) {
+      LogInternalError(`If else then should contain the if clause, but is missing: ${JSON.stringify(expr, null, 2)}`);
+    }
+    return getTypeForExpr(ir, ifBranchExpr, sUnit);
+  } else {
+    const r = ir.ast.udfTypes.filter(u => u.udf === funName);
+    if (r.length !== 1) {
+      LogInternalError(`Type of ${funName} not defined. Original query is ${JSON.stringify(sUnit, null, 2)}.`);
+    }
+    return r[0].type;
+  }
+}
+
+function getTypeForExpr(ir: DielIr, expr: ExprAst, sUnit: SelectionUnit): DataType {
   if (expr.exprType === ExprType.Func) {
-    // the functions should either be loaded into the compiler, or have their types specified via DIEL inputs
-    // actually pretty hard to implement that reflection?
-    // if selection, check what it's selected from
     const funExpr = expr as ExprFunAst;
-    return ir.GetUdfType(funExpr.functionReference);
+    return getUdfType(ir, sUnit, funExpr.functionReference, funExpr);
   } else if (expr.exprType === ExprType.Column) {
     const columnExpr = expr as ExprColumnAst;
     // make sure that the source is specified
@@ -44,8 +63,8 @@ function getTypeForColumnSelection(ir: DielIr, expr: ExprAst, r: SelectionUnit):
     // map columnName to simple alias
     // first check base
     let deAliasedRelationname = columnExpr.relationName;
-    if (r.baseRelation.alias && r.baseRelation.relationName && (columnExpr.relationName === r.baseRelation.alias)) {
-      deAliasedRelationname = r.baseRelation.relationName;
+    if (sUnit.baseRelation.alias && sUnit.baseRelation.relationName && (columnExpr.relationName === sUnit.baseRelation.alias)) {
+      deAliasedRelationname = sUnit.baseRelation.relationName;
     }
     // TODO: check for joins as well
     // directly see if it's found
@@ -56,8 +75,8 @@ function getTypeForColumnSelection(ir: DielIr, expr: ExprAst, r: SelectionUnit):
       // we need to access the scope of the current selection
       // TODO/FIXME: check base!
       // check joins
-      for (let idx = 0; idx < r.joinClauses.length; idx ++) {
-        const j = r.joinClauses[idx];
+      for (let idx = 0; idx < sUnit.joinClauses.length; idx ++) {
+        const j = sUnit.joinClauses[idx];
         // temp table can only be defined as alias...
         if (j.relation.alias === columnExpr.relationName) {
           // found it

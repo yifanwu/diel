@@ -1,7 +1,7 @@
 import { DielAst, DerivedRelation, DataType, OriginalRelation, RelationType } from "../parser/dielAstTypes";
 import { SelectionUnit, CompositeSelection } from "../parser/sqlAstTypes";
 import { DependencyInfo } from "./passes/passesHelper";
-import { LogInternalError, LogWarning } from "../lib/messages";
+import { LogWarning } from "../lib/messages";
 import { ExprType, ExprColumnAst } from "../parser/exprAstTypes";
 
 type CompositeSelectionFunction<T> = (s: CompositeSelection, relationName?: string) => T;
@@ -181,13 +181,6 @@ export class DielIr {
   //   });
   // }
 
-  public GetUdfType(funName: string) {
-    const r = this.ast.udfTypes.filter(u => u.udf === funName);
-    if (r.length !== 1) {
-      LogInternalError(`Type of ${funName} not defined.`);
-    }
-    return r[0].type;
-  }
 
   buildIndicesToIr() {
     const allCompositeSelections = new Map();

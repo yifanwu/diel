@@ -4,7 +4,7 @@ import { generateSelectionUnitBody } from "../../compiler/codegen/codeGenSql";
 
 interface CodeDivProps {
   annotation: AnnotedSelectionUnit;
-  setPopup: (ast: AnnotationSpec, xPos: number, yPos: number) => void;
+  // setPopup: (ast: AnnotationSpec, xPos: number, yPos: number) => void;
 }
 
 /**
@@ -19,7 +19,7 @@ export const CodeDiv: React.StatelessComponent<CodeDivProps> = (p) => {
       // need to find the xPos and yPos
       const elem = document.getElementById(spec.semanticId);
       const pos = elem.getBoundingClientRect();
-      p.setPopup(spec, pos.left, pos.top);
+      // p.setPopup(spec, pos.left, pos.top);
     };
   }
   const selections = ast.derivedColumnSelections.map((_, i) => {

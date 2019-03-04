@@ -86,7 +86,7 @@ function generateRelationReference(r: RelationReference): string {
     query += `(${generateSelect(r.subquery.compositeSelections)})`;
   }
   if (r.alias) {
-    query += `AS ${r.alias}`;
+    query += ` AS ${r.alias}`;
   }
   return query;
 }
@@ -97,7 +97,7 @@ function generateRelationReference(r: RelationReference): string {
  */
 function generateColumnSelection(s: ColumnSelection[]): string {
   return `${s.map(c => {
-    const alias = c.alias ? ` as ${c.alias}` : "";
+    const alias = c.alias ? ` AS ${c.alias}` : "";
     return generateExpr(c.expr) + alias;
   }).join(", ")}`;
 }
@@ -127,7 +127,7 @@ function generateExpr(e: ExprAst): string {
   if (e.exprType === ExprType.Val) {
     const v = e as ExprValAst;
     const str = v.value.toString();
-    if (e.dataType === DataType.String || DataType.TimeStamp) {
+    if ((e.dataType === DataType.String) || (e.dataType === DataType.TimeStamp)) {
       return `'${str}'`;
     }
     return str;
@@ -160,7 +160,7 @@ function generateExpr(e: ExprAst): string {
         const whenCond = generateExpr(f.args[0]);
         const thenExpr = generateExpr(f.args[1]);
         const elseExpr = generateExpr(f.args[2]);
-        return `CASE WHEN ${whenCond} THEN ${thenExpr} ELSE ${elseExpr}`;
+        return `CASE WHEN ${whenCond} THEN ${thenExpr} ELSE ${elseExpr} END`;
       }
       // the rest should work with their references
       return `${f.functionReference} (${f.args.map(a => generateExpr(a)).join(", ")})`;

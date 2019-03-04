@@ -5,7 +5,7 @@ import { DIELParser } from "../parser/grammar/DIELParser";
 import { loadPage } from "../notebook/index";
 import { Database, Statement } from "sql.js";
 import { SelectionUnit } from "../parser/sqlAstTypes";
-import { RuntimeCell, DbRow, DielRuntimeConfig, TableMetaData, TableLocation, } from "./runtimeTypes";
+import { RuntimeCell, SimpleObject, DielRuntimeConfig, TableMetaData, TableLocation, } from "./runtimeTypes";
 import { OriginalRelation, DerivedRelation, DielPhysicalExecution, RelationType, } from "../parser/dielAstTypes";
 import { generateSelectionUnit, generateSqlFromDielAst } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
@@ -134,7 +134,7 @@ export default class DielRuntime {
       let values = ["max(timestep)"];
       columnNames.map(cName => {
         const raw = o[cName];
-        if (!raw) {
+        if ((raw === null) || (raw === undefined)) {
           ReportUserRuntimeError(`We expected the input ${cName}, but it was not defined in the object.`);
         }
         if (typeof raw === "string") {
@@ -352,14 +352,14 @@ export default class DielRuntime {
   /**
    * returns the results as an array of objects (sql.js)
    */
-  ExecuteAstQuery(ast: SelectionUnit): DbRow[] {
+  ExecuteAstQuery(ast: SelectionUnit): SimpleObject[] {
     const queryString = generateSelectionUnit(ast);
     return this.ExecuteStringQuery(queryString);
   }
 
-  ExecuteStringQuery(q: string): DbRow[] {
-    let r: DbRow[] = [];
-    this.db.each(q, (row) => { r.push(row as DbRow); }, () => {});
+  ExecuteStringQuery(q: string): SimpleObject[] {
+    let r: SimpleObject[] = [];
+    this.db.each(q, (row) => { r.push(row as SimpleObject); }, () => {});
     return r;
   }
 

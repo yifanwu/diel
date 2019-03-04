@@ -98,6 +98,26 @@ export const BuiltInUdfTypes: UdfType[] = [
     type: DataType.Number
   },
   {
+    udf: "/",
+    type: DataType.Number
+  },
+  {
+    udf: "*",
+    type: DataType.Number
+  },
+  {
+    udf: "+",
+    type: DataType.Number
+  },
+  {
+    udf: "-",
+    type: DataType.Number
+  },
+  {
+    udf: "round",
+    type: DataType.Number
+  },
+  {
     udf: "avg",
     type: DataType.Number
   },

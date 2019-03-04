@@ -1,11 +1,6 @@
 import { DerivedRelation } from "../../parser/dielAstTypes";
 import DielRuntime from "../../runtime/DielRuntime";
-
-export enum ChartType {
-  BarChart,
-  ScatterPlot,
-  LineChart
-}
+import { ChartType } from "../../runtime/runtimeTypes";
 
 export interface VizSpec {
   chartType: ChartType;

@@ -11,11 +11,11 @@ import { assertFunctionParsing } from "./parserTests/functionTest";
 // TODO: refactor tests to share more compiling and save some time...
 
 const q = `
-create input t1 (
+create event table t1 (
   a int,
   b int
 );
-create input t2 (
+create event table t2 (
   c text,
   b int
 );
