@@ -46,6 +46,11 @@ type TickBind = {
   outputConfig: OutputConfig
 };
 
+class ViewConstraintQuery {
+  viewName: string;
+  queries: string[];
+}
+
 export type MetaDataPhysical = Map<string, TableMetaData>;
 
 /**
@@ -66,7 +71,7 @@ export default class DielRuntime {
   cells: RuntimeCell[];
   db: Database;
   visitor: Visitor;
-  constraintQueries: Map<string, string[]>;
+  constraintQueries: Map<string, ViewConstraintQuery>;
   checkConstraints: boolean;
   protected boundFns: TickBind[];
   protected output: Map<string, Statement>;
@@ -196,18 +201,18 @@ export default class DielRuntime {
       const inputDep = dependencies.get(input);
       boundFns.map(b => {
         if (inputDep.has(b.outputName)) {
-          var name = b.outputName;
-          if (this.constraintQueries.has(name)) {
-            var queries = this.constraintQueries.get(name);
-            if (queries) {
-                queries.map(q => {
-                const constraintResult = this.db.exec(q);
-                if (constraintResult && constraintResult[0] && constraintResult[0].values.length > 0) {
-                  console.log(`%c Broke the constraint for view ${name}`, "background:red; color: white");
-                }
-              });
-            }
-          }
+          // var name = b.outputName;
+          // if (this.constraintQueries.has(name)) {
+          //   var queries = this.constraintQueries.get(name);
+          //   if (queries) {
+          //       queries.map(q => {
+          //       const constraintResult = this.db.exec(q);
+          //       if (constraintResult && constraintResult[0] && constraintResult[0].values.length > 0) {
+          //         console.log(`%c Broke the constraint for view ${name}`, "background:red; color: white");
+          //       }
+          //     });
+          //   }
+          // }
           // console.log(b.outputName);
           runOutput(b);
         }
@@ -215,9 +220,12 @@ export default class DielRuntime {
     };
   }
 
-  constraintChecking() {
+  constraintChecking(viewName: string) {
     if (!this.checkConstraints) {
-
+      if (this.constraintQueries.has(viewName)) {
+        var queryObject = this.constraintQueries.get(name);
+        console.log(queryObject.queries);
+      }
     }
     // report which view, and which constraint was broken
     // to get which constraint is broken
@@ -298,11 +306,18 @@ export default class DielRuntime {
     let ast = this.visitor.visitQueries(tree);
     this.ir = CompileDiel(new DielIr(ast));
 
-    // got sql for views
-    var tname;
+    // get sql for views constraints
+    var tname: string;
+    var viewConstraint: ViewConstraintQuery;
     viewConstraintCheck(ast).map(q => {
-      tname = q.pop();
-      this.constraintQueries.set(tname, q);
+      if (q.length > 1) {
+        tname = q.pop();
+        viewConstraint = new ViewConstraintQuery();
+        viewConstraint.viewName = tname;
+        viewConstraint.queries = q;
+        this.constraintQueries.set(tname, viewConstraint);
+      }
+
     });
     console.log(this.constraintQueries);
   }

@@ -13,17 +13,26 @@ function assertCheckViewConstraintTest() {
         const logger = GenerateUnitTestErrorLogger("assertCheckViewConstraintTest", element);
         var viewqueries = generateViewConstraintCheckQuery(element);
         var i, j, q;
-        for (i = 0; i < viewqueries.length; i++) {
-            console.log(`View: ${viewqueries[i][viewqueries[i].length - 1] }`);
-            for (j = 0; j < viewqueries[i].length - 1; j++) {
+        viewqueries.forEach(function(values, key) {
+            console.log("View: " + key);
+            values.forEach(function(ls) {
+                console.log("constraint: " + ls[1]);
+                console.log(`=============== Query =================`);
+                console.log(ls[0]);
+                console.log("=======================================");
+            });
+        });
+        // for (i = 0; i < viewqueries.size; i++) {
+        //     console.log(`View: ${viewqueries.forEach }`);
+        //     for (j = 0; j < viewqueries[i].length - 1; j++) {
 
-                q = viewqueries[i][j];
-                console.log(`============= Query ${j} =================`);
-                console.log(q);
-            }
+        //         q = viewqueries[i][j];
+        //         console.log(`============= Query ${j} =================`);
+        //         console.log(q);
+        //     }
 
-            console.log("=======================================");
-        }
+        //     console.log("=======================================");
+        // }
     });
 }
 

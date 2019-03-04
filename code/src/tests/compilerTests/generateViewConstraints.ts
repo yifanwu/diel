@@ -11,7 +11,7 @@ import Visitor from "../../parser/generateAst";
 import {ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst} from "../../parser/exprAstTypes";
 import {GroupByAst, SelectionUnit, RelationReference, RelationSelection, ColumnSelection, CompositeSelection} from "../../parser/sqlAstTypes";
 
-export function generateViewConstraintCheckQuery(query: string): string[][] {
+export function generateViewConstraintCheckQuery(query: string): Map<string, string[][]> {
   let ast = checkValidView(query);
   if ( ast != null) {
     // valid view
@@ -20,7 +20,7 @@ export function generateViewConstraintCheckQuery(query: string): string[][] {
   return null;
 }
 
-export function viewConstraintCheck(ast: DielAst): string[][] {
+export function viewConstraintCheck(ast: DielAst): Map<string, string[][]> {
   return checkViewConstraint(ast);
 }
 
@@ -41,15 +41,15 @@ function checkValidView(query: string): DielAst {
 
 // Precondition: query is a valid view statement
 // supports only a single relation in view
-function checkViewConstraint(ast: DielAst): string[][] {
+function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
   var i, j;
-  var ret = [] as string[][];
+  var ret = new Map<string, string[][]>();
 
   // Handling multiple view statements
   for ( i = 0; i < ast.views.length; i++) {
     let view = ast.views[i];
     let view_constraint = view.constraints;
-    var queries = [] as string[];
+    var queries = [] as string[][];
 
     var selClause;
 
@@ -72,9 +72,9 @@ function checkViewConstraint(ast: DielAst): string[][] {
       var checkQueries = getCheckQuery(view_constraint, selClause);
       queries = queries.concat(checkQueries);
     }
-
-    queries.push(view.name);
-    ret.push(queries);
+    ret.set(view.name, queries);
+    // queries.push(view.name);
+    // ret.push(queries);
   }
   return ret;
 }
@@ -106,9 +106,10 @@ function getSelectClauseAST(fromSel: CompositeSelection): SelectionUnit {
     return selUnit;
 }
 
-function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionUnit): string[] {
+function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionUnit): string[][] {
   var exprAsts = view_constraint.exprChecks;
-  var ret = [] as string[];
+  var ret = [] as string[][];
+  var whichConstraint: string;
   if (exprAsts != null && exprAsts.length > 0) {
     var i, exprAst, whereClause;
     // iterate over check constraints
@@ -117,7 +118,7 @@ function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionU
       exprAst = exprAsts[i] as ExprParen;
 
       // where in the query it was broken
-      console.log("CHECK " + generateExpr(exprAst));
+      whichConstraint = "CHECK " + generateExpr(exprAst);
 
       whereClause = {
         exprType: ExprType.Func,
@@ -131,16 +132,16 @@ function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionU
       selUnit.whereClause = whereClause;
 
       var str = generateViewConstraintSelection(selUnit);
-      ret.push(str);
+      ret.push([str, whichConstraint]);
     }
   }
   return ret;
 }
 
 
-function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUnit): string[] {
+function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUnit): string[][] {
   // console.log(JSON.stringify(view_constraint, null, 2));
-  var ret = [] as string[];
+  var ret = [] as string[][];
   if (view_constraint.notNull != null && view_constraint.notNull.length > 0) {
 
     var notNullColumns = view_constraint.notNull;
@@ -172,7 +173,7 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
       } as ExprAst;
 
       // console.log(generateExpr(originalAST));
-      console.log(cname + " NOT NULL");
+      var whichConstraint = cname + " NOT NULL";
 
 
 
@@ -190,14 +191,14 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
 
       // Generate proper query from AST
       var str = generateViewConstraintSelection(selUnit);
-      ret.push(str);
+      ret.push([str, whichConstraint]);
     }
   }
   return ret;
 }
 
-function getUniqueQuery (view_constraints: RelationConstraints, selUnit: SelectionUnit): string[] {
-  var ret = [] as string[];
+function getUniqueQuery (view_constraints: RelationConstraints, selUnit: SelectionUnit): string[][] {
+  var ret = [] as string[][];
   // console.log(view_constraints.uniques);
   let uniques = view_constraints.uniques;
 
@@ -210,7 +211,7 @@ function getUniqueQuery (view_constraints: RelationConstraints, selUnit: Selecti
         groupbyColName = groupbyArgs[j];
 
         // which constraint it was broken
-        console.log(`UNIQUE (${groupbyColName})`);
+        var whichConstraint = `UNIQUE (${groupbyColName})`;
 
         // format groupby AST
         // which coloum to group by
@@ -286,7 +287,7 @@ function getUniqueQuery (view_constraints: RelationConstraints, selUnit: Selecti
 
         // Generate proper query from AST
         str = generateViewConstraintSelection(selUnit);
-        ret.push(str);
+        ret.push([str, whichConstraint]);
       }
     }
   }
