@@ -67,6 +67,7 @@ export default class DielRuntime {
   db: Database;
   visitor: Visitor;
   constraintQueries: Map<string, string[]>;
+  checkConstraints: boolean;
   protected boundFns: TickBind[];
   protected output: Map<string, Statement>;
 
@@ -77,7 +78,7 @@ export default class DielRuntime {
     this.cells = [];
     this.visitor = new Visitor();
     this.constraintQueries = new Map();
-
+    this.checkConstraints = true;
     // the following are run time bindings for the reactive layer
     // this.input = new Map();
     this.output = new Map();
@@ -177,8 +178,6 @@ export default class DielRuntime {
    */
   runOutput(b: TickBind) {
     const r = this.simpleGetLocal(b.outputName, b.outputConfig);
-    console.log("RUNOUTPUT");
-    console.log(r);
     if (r) {
       b.uiUpdateFunc(r);
     }
@@ -214,6 +213,18 @@ export default class DielRuntime {
         }
       });
     };
+  }
+
+  constraintChecking() {
+    if (!this.checkConstraints) {
+
+    }
+    // report which view, and which constraint was broken
+    // to get which constraint is broken
+    // modify so that each constraint checking query is mapped to original constrain query
+
+
+    // get back original query string
   }
 
   downloadDB() {
@@ -288,15 +299,9 @@ export default class DielRuntime {
     this.ir = CompileDiel(new DielIr(ast));
 
     // got sql for views
-    // 1. store this view query somewhere and call it everytime there is a click
-    // maybe store a mapping. {name: sql query}
-    // 2. how do you run queries on db..?
-
-    // console.log(ast);
     var tname;
     viewConstraintCheck(ast).map(q => {
       tname = q.pop();
-      // console.log(this.constraintQueries);
       this.constraintQueries.set(tname, q);
     });
     console.log(this.constraintQueries);

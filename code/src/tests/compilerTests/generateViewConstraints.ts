@@ -5,11 +5,11 @@ import * as lexer from "../../parser/grammar/DIELLexer";
 import * as parser from "../../parser/grammar/DIELParser";
 
 // import DielCompiler from "../../compiler/DielCompiler";
-import {generateCompositeSelectionUnit, generateSelect, generateSelectionUnit, generateViewConstraintSelection} from "../../compiler/codegen/codeGenSql";
-import { DielConfig, DielAst, RelationConstraints, DerivedRelation } from "../../parser/dielAstTypes";
+import {generateViewConstraintSelection, generateExpr} from "../../compiler/codegen/codeGenSql";
+import { DielAst, RelationConstraints } from "../../parser/dielAstTypes";
 import Visitor from "../../parser/generateAst";
-import {ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprBase, ExprFunAst} from "../../parser/exprAstTypes";
-import {GroupByAst, SelectionUnit, SetOperator, RelationReference, RelationSelection, ColumnSelection, CompositeSelection} from "../../parser/sqlAstTypes";
+import {ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst} from "../../parser/exprAstTypes";
+import {GroupByAst, SelectionUnit, RelationReference, RelationSelection, ColumnSelection, CompositeSelection} from "../../parser/sqlAstTypes";
 
 export function generateViewConstraintCheckQuery(query: string): string[][] {
   let ast = checkValidView(query);
@@ -52,7 +52,7 @@ function checkViewConstraint(ast: DielAst): string[][] {
     var queries = [] as string[];
 
     var selClause;
-    // console.log(view.name + "!!!");
+
     // Only when there is a constraint on view
     if (view_constraint != null) {
       var composite_selections = view.selection.compositeSelections;
@@ -73,10 +73,6 @@ function checkViewConstraint(ast: DielAst): string[][] {
       queries = queries.concat(checkQueries);
     }
 
-    // queries.map(function(query) {
-    //   console.log(`====================================\n`, query
-    //   , `\n====================================\n`);
-    // });
     queries.push(view.name);
     ret.push(queries);
   }
@@ -120,6 +116,9 @@ function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionU
       // ast for where clause
       exprAst = exprAsts[i] as ExprParen;
 
+      // where in the query it was broken
+      console.log("CHECK " + generateExpr(exprAst));
+
       whereClause = {
         exprType: ExprType.Func,
         dataType: DataType.Boolean,
@@ -143,9 +142,11 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
   // console.log(JSON.stringify(view_constraint, null, 2));
   var ret = [] as string[];
   if (view_constraint.notNull != null && view_constraint.notNull.length > 0) {
-    var notNullColumns = view_constraint.notNull;
 
-    // formating the AST for whereclause
+    var notNullColumns = view_constraint.notNull;
+    var i;
+    for (i = 0; i < notNullColumns.length; i++) {
+      // formating the AST for whereclause
       var whereClause = {
         exprType : ExprType.Func,
         dataType : DataType.Boolean,
@@ -154,19 +155,35 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
         args : [] as ExprValAst[]
       } as ExprFunAst;
 
-    // Handle multiple null constraints
-    // format argument AST
+      // format argument AST
       var whereClauseArg;
-      notNullColumns.map(function(cname) {
-        whereClauseArg = {
+      var cname = notNullColumns[i];
+
+      // generate original query
+      var originalAST = {
+        exprType: ExprType.Func,
+        functionType: FunctionType.BuiltIn,
+        functionReference: BuiltInFunc.ValueIsNotNull,
+        args: [{
           exprType: ExprType.Column,
-          dataType: DataType.TBD,
-          hasStar: false,
-          columnName: cname
-        } as ExprColumnAst;
-        whereClause.args.push(whereClauseArg);
-      });
-      // console.log(whereClause);
+          columnName: cname,
+          hasStar: false
+        } as ExprAst]
+      } as ExprAst;
+
+      // console.log(generateExpr(originalAST));
+      console.log(cname + " NOT NULL");
+
+
+
+      whereClauseArg = {
+        exprType: ExprType.Column,
+        dataType: DataType.TBD,
+        hasStar: false,
+        columnName: cname
+      } as ExprColumnAst;
+
+      whereClause.args.push(whereClauseArg);
 
       // formatting the rest of the selection unit for Not NULl
       selUnit.whereClause = whereClause;
@@ -174,6 +191,7 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
       // Generate proper query from AST
       var str = generateViewConstraintSelection(selUnit);
       ret.push(str);
+    }
   }
   return ret;
 }
@@ -190,6 +208,9 @@ function getUniqueQuery (view_constraints: RelationConstraints, selUnit: Selecti
       groupbyArgs = uniques[i];
       for (j = 0; j < groupbyArgs.length; j++) {
         groupbyColName = groupbyArgs[j];
+
+        // which constraint it was broken
+        console.log(`UNIQUE (${groupbyColName})`);
 
         // format groupby AST
         // which coloum to group by

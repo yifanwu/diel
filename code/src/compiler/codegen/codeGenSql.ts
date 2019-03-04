@@ -142,7 +142,7 @@ function generateWhere(e: ExprAst): string {
 }
 
 // recursive fun...
-function generateExpr(e: ExprAst): string {
+export function generateExpr(e: ExprAst): string {
   if (e == null) return ``;
   if (e.exprType === ExprType.Val) {
     const v = e as ExprValAst;

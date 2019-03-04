@@ -14,12 +14,14 @@ function assertCheckViewConstraintTest() {
         var viewqueries = generateViewConstraintCheckQuery(element);
         var i, j, q;
         for (i = 0; i < viewqueries.length; i++) {
-            for (j = 0; j < viewqueries[i].length; j++) {
+            console.log(`View: ${viewqueries[i][viewqueries[i].length - 1] }`);
+            for (j = 0; j < viewqueries[i].length - 1; j++) {
 
                 q = viewqueries[i][j];
                 console.log(`============= Query ${j} =================`);
                 console.log(q);
             }
+
             console.log("=======================================");
         }
     });
