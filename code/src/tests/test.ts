@@ -34,12 +34,9 @@ assertBasicOperators();
 assertSimpleType();
 assertAllStar();
 assertMultiplyType();
-<<<<<<< HEAD
-=======
 
 const ir = getDielIr(q);
 assertBasicNormalizationOfRelation(ir, q);
 assertFunctionParsing(ir, q);
 
 // testTopologicalSort();
->>>>>>> b08d0ae6df3afc95c4b88a6a061d82db4cbb9711

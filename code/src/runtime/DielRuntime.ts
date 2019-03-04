@@ -18,6 +18,8 @@ import { DielIr } from "../compiler/DielIr";
 import { processSqliteMasterMetaData } from "./runtimeHelper";
 import WorkerPool from "./WorkerPool";
 
+import {viewConstraintCheck} from "../tests/compilerTests/generateViewConstraints";
+
 // hm watch out for import path
 //  also sort of like an odd location...
 const StaticSqlFile = "./src/compiler/codegen/static.sql";
@@ -63,6 +65,7 @@ export default class DielRuntime {
   cells: RuntimeCell[];
   db: Database;
   visitor: Visitor;
+  constraintQueries: Map<string, string[]>;
   protected boundFns: TickBind[];
   protected output: Map<string, Statement>;
   // protected input: Map<string, Statement>;
@@ -74,6 +77,7 @@ export default class DielRuntime {
     this.runtimeConfig = runtimeConfig;
     this.cells = [];
     this.visitor = new Visitor();
+    this.constraintQueries = new Map();
 
     // the following are run time bindings for the reactive layer
     // this.input = new Map();
@@ -150,6 +154,8 @@ export default class DielRuntime {
    */
   runOutput(b: TickBind) {
     const r = this.simpleGetLocal(b.outputName, b.outputConfig);
+    console.log("RUNOUTPUT");
+    console.log(r);
     if (r) {
       b.uiUpdateFunc(r);
     }
@@ -163,10 +169,24 @@ export default class DielRuntime {
     const dependencies = this.ir.dependencies.inputDependencies;
     return (input: string) => {
       // note for Lucie: add constraint checking
+
       console.log(`%c tick ${input}`, "color: blue");
       const inputDep = dependencies.get(input);
       boundFns.map(b => {
         if (inputDep.has(b.outputName)) {
+          var name = b.outputName;
+          if (this.constraintQueries.has(name)) {
+            var queries = this.constraintQueries.get(name);
+            if (queries) {
+                queries.map(q => {
+                const constraintResult = this.db.exec(q);
+                if (constraintResult && constraintResult[0] && constraintResult[0].values.length > 0) {
+                  console.log(`%c Broke the constraint for view ${name}`, "background:red; color: white");
+                }
+              });
+            }
+          }
+          // console.log(b.outputName);
           runOutput(b);
         }
       });
@@ -243,6 +263,20 @@ export default class DielRuntime {
     const tree = p.queries();
     let ast = this.visitor.visitQueries(tree);
     this.ir = CompileDiel(new DielIr(ast));
+
+    // got sql for views
+    // 1. store this view query somewhere and call it everytime there is a click
+    // maybe store a mapping. {name: sql query}
+    // 2. how do you run queries on db..?
+
+    // console.log(ast);
+    var tname;
+    viewConstraintCheck(ast).map(q => {
+      tname = q.pop();
+      // console.log(this.constraintQueries);
+      this.constraintQueries.set(tname, q);
+    });
+    console.log(this.constraintQueries);
   }
 
   async setupWorkerPool() {

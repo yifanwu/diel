@@ -20,6 +20,10 @@ export function generateViewConstraintCheckQuery(query: string): string[][] {
   return null;
 }
 
+export function viewConstraintCheck(ast: DielAst): string[][] {
+  return checkViewConstraint(ast);
+}
+
 /** Check if this is a valid view query. Return ast if it is, or null. */
 function checkValidView(query: string): DielAst {
   const inputStream = new ANTLRInputStream(query);
@@ -40,12 +44,15 @@ function checkValidView(query: string): DielAst {
 function checkViewConstraint(ast: DielAst): string[][] {
   var i, j;
   var ret = [] as string[][];
+
   // Handling multiple view statements
   for ( i = 0; i < ast.views.length; i++) {
     let view = ast.views[i];
     let view_constraint = view.constraints;
     var queries = [] as string[];
+
     var selClause;
+    // console.log(view.name + "!!!");
     // Only when there is a constraint on view
     if (view_constraint != null) {
       var composite_selections = view.selection.compositeSelections;
@@ -70,6 +77,7 @@ function checkViewConstraint(ast: DielAst): string[][] {
     //   console.log(`====================================\n`, query
     //   , `\n====================================\n`);
     // });
+    queries.push(view.name);
     ret.push(queries);
   }
   return ret;
