@@ -29,7 +29,7 @@ export const PageContainer = () => (<Router>
       <Switch>
         <Route exact path="/counter" component={Counter}/>
         <Route path="/notebook" component={Notebook}/>
-        <Route path="/scoreZoom" component={ScoreZoomBarChart}/>
+        <Route path="/" component={ScoreZoomBarChart}/>
       </Switch>
     </div>
   </div>

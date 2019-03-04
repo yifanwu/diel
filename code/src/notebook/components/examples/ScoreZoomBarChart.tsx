@@ -3,6 +3,7 @@ import * as React from "react";
 import { diel } from "../../setup";
 import { SimpleObject, ChartType } from "../../../runtime/runtimeTypes";
 import { BarChart } from "../charts/BarChart";
+import { BrushBoxOneDim } from "../../vizSpec/vizSpec";
 
 interface ScoreZoomBarChartState {
   data: SimpleObject[];
@@ -14,11 +15,13 @@ export default class ScoreZoomBarChart extends React.Component<{}, ScoreZoomBarC
     this.state = {
       data: []
     };
-    diel.NewInput("panZoomEvent", {minScore: 0, maxScore: 100});
     diel.BindOutput("scoreDistribution", this.setCountState.bind(this));
   }
   setCountState(r: {scoreBin: number, count: number}[]) {
     this.setState({data: r});
+  }
+  componentDidMount() {
+    diel.NewInput("panZoomEvent", {minScore: 0, maxScore: 100});
   }
   render() {
     const spec = {
@@ -28,10 +31,14 @@ export default class ScoreZoomBarChart extends React.Component<{}, ScoreZoomBarC
       yAttribute: "count"
     };
     return <>
-    <p>A barchart of student score distribution</p>
-    <BarChart
-      spec={spec}
-    />
+      <p>A barchart of student score distribution</p>
+      <BarChart
+        spec={spec}
+        brushHandler={(box: BrushBoxOneDim) => {
+          diel.NewInput("panZoomEvent", {minScore: box.min, maxScore: box.max});
+        }}
+        svgClickHandler={() => diel.NewInput("panZoomEvent", {minScore: 0, maxScore: 100})}
+      />
     </>;
   }
 }
