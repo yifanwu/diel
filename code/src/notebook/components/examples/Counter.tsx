@@ -2,17 +2,12 @@ import * as React from "react";
 
 import { diel } from "../../setup";
 
-interface CounterProp {
-  color: string;
-}
 interface CounterState {
   count: number;
 }
 
-
-export default class DielCounter extends React.Component<CounterProp, CounterState> {
-  constructor(props: CounterProp) {
-    // console.log(diel);
+export default class DielCounter extends React.Component<{}, CounterState> {
+  constructor(props: {}) {
     super(props);
     this.state = {
       count: 0
@@ -24,14 +19,13 @@ export default class DielCounter extends React.Component<CounterProp, CounterSta
   }
   render() {
     return <>
-      <p style={{color: this.props.color}}>{this.state.count}</p>
+      <p style={{color: "green"}}>{this.state.count}</p>
       <button onClick={() => {
-        diel.NewInput("click", {a: 1});
+        diel.NewInput("click", {delta: 1});
       }}>add</button>
       <button onClick={() => {
-        diel.NewInput("click", {a: -1});
+        diel.NewInput("click", {delta: -1});
       }}>sub</button>
-
     </>;
   }
 }

@@ -1,7 +1,7 @@
 import { DataType, DielAst, ProgramSpec } from "../../parser/dielAstTypes";
 import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst } from "../../parser/sqlAstTypes";
 import { RelationSpec, RelationQuery, SqlIr, createSqlAstFromDielAst } from "./createSqlIr";
-import { ReportDielUserError } from "../../lib/messages";
+import { ReportDielUserError, LogInternalError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
 import { Nullable } from "antlr4ts/Decorators";
 
@@ -100,7 +100,7 @@ function generateRelationReference(r: RelationReference): string {
     query += `(${generateSelect(r.subquery.compositeSelections)})`;
   }
   if (r.alias) {
-    query += `AS ${r.alias}`;
+    query += ` AS ${r.alias}`;
   }
   return query;
 }
@@ -115,7 +115,7 @@ function generateColumnSelection(s: ColumnSelection[]): string {
     return ``;
   }
   return `${s.map(c => {
-    const alias = c.alias ? ` as ${c.alias}` : "";
+    const alias = c.alias ? ` AS ${c.alias}` : "";
     return generateExpr(c.expr) + alias;
   }).join(", ")}`;
 }
@@ -147,7 +147,7 @@ function generateExpr(e: ExprAst): string {
   if (e.exprType === ExprType.Val) {
     const v = e as ExprValAst;
     const str = v.value.toString();
-    if (e.dataType === DataType.String || DataType.TimeStamp) {
+    if ((e.dataType === DataType.String) || (e.dataType === DataType.TimeStamp)) {
       return `'${str}'`;
     }
     return str;
@@ -180,15 +180,7 @@ function generateExpr(e: ExprAst): string {
         const whenCond = generateExpr(f.args[0]);
         const thenExpr = generateExpr(f.args[1]);
         const elseExpr = generateExpr(f.args[2]);
-        return `CASE WHEN ${whenCond} THEN ${thenExpr} ELSE ${elseExpr}`;
-      } else if (f.functionReference === BuiltInFunc.ValueIsNull) {
-        return f.args.map(function(arg) {
-          return `${generateExpr(arg)} IS NULL`;
-        }).join(" || ");
-      } else if (f.functionReference === BuiltInFunc.ValueIsNotNull) {
-        return f.args.map(function(arg) {
-          return `${generateExpr(arg)} IS NOT NULL`;
-        }).join(" || ");
+        return `CASE WHEN ${whenCond} THEN ${thenExpr} ELSE ${elseExpr} END`;
       }
       // the rest should work with their references
       return `${f.functionReference} (${f.args.map(a => generateExpr(a)).join(", ")})`;
@@ -258,11 +250,18 @@ function generateInserts(i: InsertionClause): string {
 }
 
 const TypeConversionLookUp = new Map<DataType, string>([
-  [DataType.String, "TEXT"], [DataType.Number, "REAL"], [DataType.Boolean, "INTEGER"]
+  [DataType.String, "TEXT"],
+  [DataType.Number, "REAL"],
+  [DataType.Boolean, "INTEGER"],
+  [DataType.TimeStamp, "DATETIME"]
 ]);
 
 function generateColumnDefinition(c: Column): string {
-  const plainQuery = `${c.name} ${TypeConversionLookUp.get(c.type)}`;
+  const typeStr = TypeConversionLookUp.get(c.type);
+  if (!typeStr) {
+    LogInternalError(`data type ${c.type} is not mapped tos tring`);
+  }
+  const plainQuery = `${c.name} ${typeStr}`;
   if (!c.constraints) {
     // LogInternalError(`Constraints for column ${c.name} is not defined`);
     return plainQuery;
@@ -270,6 +269,6 @@ function generateColumnDefinition(c: Column): string {
   const notNull = c.constraints.notNull ? "NOT NULL" : "";
   const unique = c.constraints.unique ? "UNIQUE" : "";
   const primary = c.constraints.primaryKey ? "PRIMARY KEY" : "";
-  const defaultVal = c.constraints.default ? `DEFAULT ${c.constraints.default}` : "";
+  const defaultVal = c.defaultValue ? `DEFAULT ${generateExpr(c.defaultValue)}` : "";
   return `${plainQuery} ${notNull} ${unique} ${primary} ${defaultVal}`;
 }

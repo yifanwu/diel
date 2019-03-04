@@ -1,4 +1,4 @@
-import { DielAst, ProgramsIr, DataType, OriginalRelationType, DerivedRelationType } from "../../parser/dielAstTypes";
+import { DielAst, ProgramsIr, DataType, RelationType, ForeignKey } from "../../parser/dielAstTypes";
 import { Column, CompositeSelectionUnit, InsertionClause, AstType } from "../../parser/sqlAstTypes";
 
 // in this pass, we will create the Ir needed to create the SQL we need
@@ -47,22 +47,21 @@ export function createSqlAstFromDielAst(ast: DielAst, isMain = true): SqlIr {
       }
     },
     {
-      name: "timestamp",
-      type: DataType.TimeStamp,
-      constraints: {
-        default: "(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))"
-      }
+      name: "lineage",
+      type: DataType.Number,
     }
   ];
+  // TODO
+  // const lineageFk: ForeignKey
   const tables = ast.originalRelations
-    .filter(i => i.relationType !== OriginalRelationType.ExistingAndImmutable)
+    .filter(i => i.relationType !== RelationType.ExistingAndImmutable)
     .map(i => {
-      if (i.relationType === OriginalRelationType.Input) {
+      if (i.relationType === RelationType.EventTable) {
         return {
           name: i.name,
           columns: i.columns.concat(inputColumns)
         };
-      } else if (i.relationType === OriginalRelationType.Table) {
+      } else if (i.relationType === RelationType.Table) {
         return {
           name: i.name,
           columns: i.columns
@@ -74,7 +73,7 @@ export function createSqlAstFromDielAst(ast: DielAst, isMain = true): SqlIr {
     const views = ast.views
     .map(v => ({
       name: v.name,
-      sqlRelationType: v.relationType === DerivedRelationType.View ? SqlRelationType.View : SqlRelationType.Table,
+      sqlRelationType: v.relationType === RelationType.View ? SqlRelationType.View : SqlRelationType.Table,
       query: v.selection.compositeSelections
     }));
 
@@ -92,9 +91,8 @@ export function createSqlAstFromDielAst(ast: DielAst, isMain = true): SqlIr {
       //     values: [`'${input}'`]
       //   };
       //   triggers.set(input, [sharedProgram, ...programsToAdd, ...v ]);
-      // } else {
-      triggers.set(input, [...programsToAdd, ...v ]);
       // }
+      triggers.set(input, [...programsToAdd, ...v ]);
   });
 
   const inserts = ast.inserts;

@@ -6,7 +6,7 @@ import { NormalizeConstraints } from "./passes/normalizeConstraints";
 import { NormalizeColumnSelection } from "./passes/normalizeColumnSelection";
 import { InferType } from "./passes/inferType";
 import { DielPhysicalExecution } from "../parser/dielAstTypes";
-import { MetaDataPhysical } from "../runtime/DielRuntime";
+import DielRuntime from "../runtime/DielRuntime";
 import { DistributeQueries } from "./passes/distributeQueries";
 
 /**
@@ -34,8 +34,8 @@ export function CompileDiel(ir: DielIr) {
  * @param ir
  * @param metaData
  */
-export function CompilePhysicalExecution(ir: DielIr, metaData: MetaDataPhysical): DielPhysicalExecution {
-  return DistributeQueries(ir, metaData);
+export function CompilePhysicalExecution(rt: DielRuntime): DielPhysicalExecution {
+  return DistributeQueries(rt);
   // TODO// then materialization
   // MaterializeQueries();
   // // then caching

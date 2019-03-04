@@ -1,12 +1,11 @@
 import * as React from "react";
 import * as d3 from "d3";
-import { ChartData } from "../../../runtime/runtimeTypes";
+import { ChartSpec } from "../../../runtime/runtimeTypes";
 
 interface BarChartProp {
-  data: ChartData;
+  spec: ChartSpec;
   chartHeight?: number;
   chartWidth?: number;
-  yMax?: number;
   color?: string;
 }
 
@@ -15,20 +14,24 @@ interface BarChartProp {
  * @param p props
  */
 export const BarChart: React.StatelessComponent<BarChartProp> = (p) => {
-  let y = d3.scaleLinear().rangeRound([p.chartHeight, 0]).domain([0, p.yMax]);
-  // #brittle
-  const xDomain = p.data.data.map(d => d[0].toString());
-  const x = d3.scaleBand().rangeRound([0, p.chartWidth]).padding(0.4).domain(xDomain);
+  console.log("props", p);
+  const color = p.color ? p.color : "blue";
+  const chartHeight = p.chartHeight ? p.chartHeight : 200;
+  const chartWidth = p.chartWidth ? p.chartWidth : 300;
+  const yDomain = d3.extent(p.spec.data.map(d => d[p.spec.yAttribute] as number));
+  let y = d3.scaleLinear().rangeRound([chartHeight, 0]).domain(yDomain);
+  const xDomain = p.spec.data.map(d => d[p.spec.xAttribute].toString());
+  const x = d3.scaleBand().rangeRound([0, chartWidth]).padding(0.4).domain(xDomain);
   const barWidth = x.bandwidth();
-  const bars =  p.data.data.map((d, idx) => {
-    const yPos = y(d[1] as number);
+  const bars =  p.spec.data.map((d, idx) => {
+    const yPos = y(d[p.spec.yAttribute] as number);
     return <rect
       className={"select-bars"}
       x={x(xDomain[idx])}
       y={yPos}
       width={barWidth}
-      height={p.chartHeight - yPos}
-      fill={p.color}
+      height={chartHeight - yPos}
+      fill={color}
     ></rect>;
   });
   return <svg>

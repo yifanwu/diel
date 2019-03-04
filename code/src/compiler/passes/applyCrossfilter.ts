@@ -1,4 +1,4 @@
-import { DielAst, DerivedRelation, CrossFilterIr, DerivedRelationType } from "../../parser/dielAstTypes";
+import { DielAst, DerivedRelation, CrossFilterIr, RelationType } from "../../parser/dielAstTypes";
 import { SetOperator, SelectionUnit, RelationSelection, AstType } from "../../parser/sqlAstTypes";
 
 /**
@@ -16,7 +16,7 @@ function _getViews(xIr: CrossFilterIr): DerivedRelation[] {
   // first the static ones
   const unfilteredViews: DerivedRelation[] = xIr.charts.map(c => {
     return {
-      relationType: DerivedRelationType.View,
+      relationType: RelationType.View,
       name: `${c.chartName}Unfiltered`,
       selection: c.selection
     };
@@ -36,7 +36,7 @@ function _getViews(xIr: CrossFilterIr): DerivedRelation[] {
     };
     return {
       name: `${c.chartName}Filtered`,
-      relationType: DerivedRelationType.View,
+      relationType: RelationType.View,
       selection
     };
   });

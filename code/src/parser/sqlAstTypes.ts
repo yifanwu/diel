@@ -11,6 +11,7 @@ export interface Column {
   name: string;
   type: DataType;
   constraints?: ColumnConstraints;
+  defaultValue?: ExprAst;
 }
 
 
@@ -25,7 +26,6 @@ export interface ColumnConstraints {
   notNull?: boolean;
   unique?: boolean;
   primaryKey?: boolean;
-  default?: string;
 }
 
 export enum JoinType {

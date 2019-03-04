@@ -24,8 +24,8 @@ export function assertAllStar() {
     });
   }
   const q = `
-  create input t (a int, b int);
-  create input t2 (a int, c int);
+  create event table t (a int, b int);
+  create event table t2 (a int, c int);
   create view v1 as select * from t;
   create view v2 as select t2.* from t join t2 on t.a = t2.a;
   `;

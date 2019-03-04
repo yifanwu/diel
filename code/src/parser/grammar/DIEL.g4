@@ -42,11 +42,13 @@ crossfilterChartStmt
   ;
 
 dataType
-  : INT | TEXT | BOOLEAN
+  : INT | TEXT | BOOLEAN | DATETIME
   ;
 
 columnDefinition
-  : IDENTIFIER dataType columnConstraints*
+  : columnName=IDENTIFIER dataType
+      columnConstraints*
+      (DEFAULT (singleValue=value | function=IDENTIFIER '(' (value (COMMA value)*)? ')'))?
   ;
 
 constraintDefinition
@@ -59,7 +61,7 @@ constraintDefinition
   ;
 
 originalTableStmt
-  : (REGISTER|CREATE) (INPUT|TABLE) IDENTIFIER relationDefintion DELIM
+  : ((REGISTER TABLE) | CREATE (EVENT)? TABLE) IDENTIFIER relationDefintion DELIM
   ;
 
 relationDefintion
@@ -67,24 +69,18 @@ relationDefintion
   | AS IDENTIFIER # relationDefintionCopy
   ;
 
-// outputStmt
-//   : CREATE  IDENTIFIER AS selectQuery
-//     (constraintClause)?
-//     DELIM
-//   ;
-
 constraintClause
   :  CONSTRAIN  constraintDefinition (',' constraintDefinition)*
   ;
 
 columnConstraints
   : UNIQUE
-  | PRIMARY KEY
+  | PRIMARY KEY (AUTOINCREMENT)?
   | NOT NULL
   ;
 
 viewStmt
-  : CREATE (VIEW | OUTPUT) IDENTIFIER AS selectQuery
+  : CREATE (((EVENT)? VIEW) | OUTPUT) IDENTIFIER AS selectQuery
     (constraintClause)?
     DELIM
   ;
@@ -226,10 +222,11 @@ value
   ;
 
 mathOp
-  : '+' 
-  | '-' 
-  | '*' 
+  : '*' 
   | '/' 
+  | '%'
+  | '+' 
+  | '-' 
   ;
 
 // still need to do has, exists etc.
@@ -248,81 +245,86 @@ logicOp
   ;
 
 
-INPUT: 'INPUT' | 'input';
-CROSSFILTER: 'CROSSFILTER' | 'crossfilter';
-PREDICATE : 'PREDICATE' | 'predicate';
-CONSTRAIN: 'CONSTRAIN' | 'constrain';
-TEMPLATE: 'TEMPLATE' | 'template';
-USE: 'USE' | 'use';
-XCHART: 'XCHART' | 'xchart';
-NAME: 'NAME' | 'name';
-PUBLIC: 'PUBLIC' | 'public';
-SINGLE: 'SINGLE' | 'single';
-LINE: 'LINE' | 'line';
-DYNAMIC: 'DYNAMIC' | 'dynamic';
-REGISTER: 'REGISTER' | 'register';
-TYPE: 'TYPE' | 'type';
-UDF: 'UDF' | 'udf';
-WEBWORKER: 'WEBWORKER' | 'webworker' | 'WebWorker';
+EVENT: E V E N T;
+CROSSFILTER: C R O S S F I L T E R ;
+PREDICATE : P R E D I C A T E;
+CONSTRAIN: C O N S T R A I N;
+TEMPLATE: T E M P L A T E;
+USE: U S E;
+XCHART: X C H A R T;
+NAME: N A M E;
+PUBLIC: P U B L I C;
+SINGLE: S I N G L E;
+LINE: L I N E;
+DYNAMIC: D Y N A M I C;
+REGISTER: R E G I S T E R;
+TYPE: T Y P E;
+UDF: U D F;
 
-// SQL
-CREATE: 'CREATE' | 'create';
-EXCEPT: 'EXCEPT' | 'except';
-ALL: 'ALL' | 'all';
-DROP: 'DROP' | 'drop';
-CHECK: 'CHECK' | 'check';
-UNIQUE: 'UNIQUE' | 'unique';
-PRIMARY: 'PRIMARY' | 'primary';
-FOREIGN: 'FOREIGN' | 'foreign';
-REFERENCES: 'REFERENCES' | 'references';
-KEY: 'KEY' | 'key';
-TABLE: 'TABLE' | 'table';
-VIEW: 'VIEW' | 'view';
-INT: 'NUMBER' | 'number' | 'INTEGER' | 'integer' | 'INT' | 'int';
-TEXT: 'STRING' | 'string' | 'TEXT' | 'text';
-BOOLEAN: 'BOOLEAN' | 'boolean';
-OUTPUT: 'OUTPUT' | 'output';
-PROGRAM: 'PROGRAM' | 'program';
-AFTER: 'AFTER' | 'after';
-BEGIN: 'BEGIN' | 'begin';
-END: 'END' | 'end';
-WITH: 'WITH' | 'with';
-INSERT: 'INSERT' | 'insert';
-INTO: 'INTO' | 'into';
+CREATE: C R E A T E;
+DEFAULT: D E F A U L T;
+EXCEPT: E X C E P T;
+ALL: A L L;
+DROP: D R O P;
+CHECK: C H E C K;
+UNIQUE: U N I Q U E;
+PRIMARY: P R I M A R Y;
+FOREIGN: F O R E I G N;
+REFERENCES: R E F E R E N C E S;
+KEY: K E Y;
+TABLE: T A B L E;
+VIEW: V I E W;
+BOOLEAN: B O O L E A N;
+OUTPUT: O U T P U T;
+PROGRAM: P R O G R A M;
+AFTER: A F T E R;
+BEGIN: B E G I N;
+END: E N D;
+WITH: W I T H;
+INSERT: I N S E R T;
+INTO: I N T O;
+VALUES: V A L U E S;
+AS: A S;
+SELECT: S E L E C T;
+FROM: F R O M;
+JOIN: J O I N;
+ON: O N;
+WHERE: W H E R E;
+LIMIT: L I M I T;
+EXIST: E X I S T;
+GROUP: G R O U P;
+BY: B Y;
+HAVING: H A V I N G;
+AND: A N D;
+OR: O R;
+IN: I N;
+INTERSECT : I N T E R S E C T;
+UNION: U N I O N;
+LEFT: L E F T;
+OUTER: O U T E R;
+CASE: C A S E;
+WHEN: W H E N;
+THEN: T H E N;
+ELSE: E L S E;
+IS: I S;
+NULL: N U L L;
+NOT: N O T;
+ORDER: O R D E R;
+ASC: A S C;
+DESC: D E S C;
+AUTOINCREMENT: A U T O I N C R E M E N T;
+DATETIME: D A T E T I M E;
+
+
+INT: N U M B E R  | I N T E G E R | I N T;
+TEXT: S T R I N G | T E X T;
+
+MINUS: '-';
+DELIM: ';';
 STAR: '*';
 COMMA: ',';
 PIPE: '||';
-VALUES: 'VALUES' | 'values';
-AS: 'AS' | 'as';
-SELECT: 'SELECT' | 'select';
-FROM: 'FROM' | 'from';
-JOIN: 'JOIN' | 'join';
-ON: 'ON' | 'on';
-WHERE: 'WHERE' | 'where';
-LIMIT: 'LIMIT' | 'limit';
-EXIST: 'EXIST' | 'exist';
-GROUP: 'GROUP' | 'group';
-BY: 'BY' | 'by';
-HAVING: 'HAVING' | 'having';
-AND: 'AND' | 'and';
-OR: 'OR' | 'or';
-IN: 'IN' | 'in';
-MINUS: '-';
-DELIM: ';';
-INTERSECT : 'INTERSECT' | 'intersect';
-UNION: 'UNION' | 'union';
-LEFT: 'LEFT' | 'left';
-OUTER: 'OUTER' | 'outer';
-CASE: 'CASE' | 'case';
-WHEN: 'WHEN' | 'when';
-THEN: 'THEN' | 'then';
-ELSE: 'ELSE' | 'else';
-IS: 'IS' | 'is';
-NULL: 'NULL' | 'null';
-NOT: 'NOT' | 'not';
-ORDER: 'ORDER' | 'order';
-ASC: 'ASC' | 'asc';
-DESC: 'DESC' | 'desc';
+
 
 fragment DIGIT
   : [0-9]
@@ -338,12 +340,13 @@ SIMPLE_COMMENT
   ;
 
 NUMBER
-  : MINUS? (DIGIT)+
+  : MINUS? DIGIT+ ( '.' DIGIT* )?
+  // (DIGIT)+
   ;
 
 STRING
-  : '\'' IDENTIFIER '\''
-  ;
+ : '\'' ( ~'\'' | '\'\'' )* '\''
+ ;
 
 IDENTIFIER
   : (LETTER | DIGIT | '_')+
@@ -356,3 +359,30 @@ IDENTIFIER
 WS
   : (' ' | '\t' | '\r'| '\n' | EOF ) -> channel(HIDDEN)
   ;
+
+fragment A : [aA];
+fragment B : [bB];
+fragment C : [cC];
+fragment D : [dD];
+fragment E : [eE];
+fragment F : [fF];
+fragment G : [gG];
+fragment H : [hH];
+fragment I : [iI];
+fragment J : [jJ];
+fragment K : [kK];
+fragment L : [lL];
+fragment M : [mM];
+fragment N : [nN];
+fragment O : [oO];
+fragment P : [pP];
+fragment Q : [qQ];
+fragment R : [rR];
+fragment S : [sS];
+fragment T : [tT];
+fragment U : [uU];
+fragment V : [vV];
+fragment W : [wW];
+fragment X : [xX];
+fragment Y : [yY];
+fragment Z : [zZ];

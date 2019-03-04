@@ -13,7 +13,8 @@ export interface DependencyInfo {
   // both ways for easy access
   depTree: DependencyTree;
   topologicalOrder: string[];
-  inputDependencies: Map<string, Set<string>>;
+  inputDependenciesOutput: Map<string, Set<string>>;
+  inputDependenciesAll: Map<string, Set<string>>;
 }
 
 function getRelationReferenceDep(r: RelationReference): string[] {

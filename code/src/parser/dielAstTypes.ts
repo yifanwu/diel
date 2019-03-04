@@ -27,19 +27,18 @@ export enum DataType {
 // made the design decision where the view is based on use
 // not at specification time
 // but keeping it just in case we need to differentiate in the future
-export enum DerivedRelationType {
-  View = "View",
-  StaticTable = "StaticTable",
-  // PublicView = "PublicView",
-  // PrivateView = "PrivateView",
-  Output = "Output",
-}
+// export enum RelationType {
+// }
 
 // FIXME: decide on the name
-export enum OriginalRelationType {
-  Input = "Input",
+export enum RelationType {
+  EventTable = "EventTable",
+  EventView = "EventView",
   Table = "Table",
   ExistingAndImmutable = "ExistingAndImmutable",
+  View = "View",
+  StaticTable = "StaticTable",
+  Output = "Output",
 }
 
 export enum StaticRelationType {
@@ -99,6 +98,26 @@ export const BuiltInUdfTypes: UdfType[] = [
     type: DataType.Number
   },
   {
+    udf: "/",
+    type: DataType.Number
+  },
+  {
+    udf: "*",
+    type: DataType.Number
+  },
+  {
+    udf: "+",
+    type: DataType.Number
+  },
+  {
+    udf: "-",
+    type: DataType.Number
+  },
+  {
+    udf: "round",
+    type: DataType.Number
+  },
+  {
     udf: "avg",
     type: DataType.Number
   },
@@ -111,10 +130,11 @@ export const BuiltInUdfTypes: UdfType[] = [
 interface RelationBase {
   name: string;
   constraints?: RelationConstraints;
+  relationType: RelationType;
 }
 
 export interface DerivedRelation extends RelationBase {
-  relationType: DerivedRelationType;
+  relationType: RelationType;
   selection: RelationSelection;
 }
 
@@ -126,7 +146,6 @@ export interface DerivedRelation extends RelationBase {
 
 // used for inputs and tables that are accessed by programs
 export interface OriginalRelation extends RelationBase {
-  relationType: OriginalRelationType;
   columns: Column[];
   copyFrom?: string; // this is used by templates
 }

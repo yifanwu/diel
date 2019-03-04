@@ -9,6 +9,20 @@ export interface DielRuntimeConfig {
   workerDbPaths?: string[];
 }
 
+export type SimpleObject = {[index: string]: number | string};
+interface ChartSpecBase {
+  chartType: ChartType;
+  data?: SimpleObject[];
+  // dimension: number;
+}
+
+export type ChartSpec = TwoDimCartesianCoordSpec;
+
+export interface TwoDimCartesianCoordSpec extends ChartSpecBase {
+  xAttribute: string;
+  yAttribute: string;
+}
+
 /**
  * stores information about what relations live in what sources
  * as well as how large a table is
@@ -31,39 +45,20 @@ export interface TableMetaData {
 }
 
 export enum ChartType {
-  Bar = "Bar",
-  Scatter = "Scatter"
+  BarChart = "BarChart",
+  Scatter = "Scatter",
+  LineChart = "LineChart"
 }
-
 export enum CellStatus {
   Initial = "Initial",
   Committed = "Committed"
-}
-
-export type DbRow = {[index: string]: number | string};
-
-export interface AnnotatedRows {
-  columnTypes: SimpleColumn[];
-  data: DbRow[];
-}
-
-interface ChartSpec {
-  chartType: ChartType;
-  dimension: number;
-}
-
-/**
- * #IMPROVE can do some generics here.
- */
-export interface ChartData extends ChartSpec {
-  data: DbRow[];
 }
 
 /**
  * keeping it as an independent object in case we want to keep track of user interactions?
  * -- though we should probably use DIEL to do that; thinka bout later..
  */
-export interface AnnotationSpec extends ChartSpec {
+export interface AnnotationSpec extends TwoDimCartesianCoordSpec {
   semanticId: string;
   ast: SelectionUnit;
 }

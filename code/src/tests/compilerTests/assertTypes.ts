@@ -4,7 +4,7 @@ import { DataType } from "../../parser/dielAstTypes";
 
 export function assertMultiplyType() {
   const q = `
-  create input t (a int);
+  create event table t (a int);
   create view v2 as select a*2 as newA from t;
   `;
   const logger = GenerateUnitTestErrorLogger("assertMultiplyType", q);
@@ -20,13 +20,13 @@ export function assertMultiplyType() {
 export function assertSimpleType() {
 
   let q = `
-  create input Attendance (
+  create event table Attendance (
       arrival int,
       departure int,
       aid int
   );
 
-  create input Attendee (
+  create event table Attendee (
       aid int primary key,
       area text
   );

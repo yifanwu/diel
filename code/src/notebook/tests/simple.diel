@@ -1,11 +1,4 @@
-CREATE INPUT click (a number);
+CREATE EVENT TABLE click (delta number);
 
-create output currentClick AS
-  select count from totalWorkerClickEvents order by timestep desc limit 1
-  constrain check (count < 20);
 
-CREATE view totalWorkerClickEvents AS
-  select sum(click.a) + sum(existingClicks.a) as count
-  from click
-  join existingClicks
-  constrain check (count < 10);
+create output currentClick as select sum(delta * 2) as count from click;

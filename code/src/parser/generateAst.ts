@@ -2,7 +2,7 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, DerivedRelation, ProgramSpec, ProgramsIr, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, DerivedRelationType, OriginalRelationType, DielTemplate, ForeignKey, ProgramsParserIr } from "./dielAstTypes";
+import { ExpressionValue, DerivedRelation, ProgramSpec, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError, ReportDielUserError } from "../lib/messages";
 import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst } from "./sqlAstTypes";
@@ -41,9 +41,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
     this.ir.originalRelations = ctx.originalTableStmt().map(e => (
       this.visitOriginalTableStmt(e)
     ));
-    // this.ir.outputs = ctx.outputStmt().map(e => (
-    //   this.visit(e) as DerivedRelation
-    // ));
     this.ir.views = ctx.viewStmt().map(e => (
       this.visit(e) as DerivedRelation
     ));
@@ -72,19 +69,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  // outputs
-  // visitOutputStmt(ctx: parser.OutputStmtContext): DerivedRelation {
-  //   const name = ctx.IDENTIFIER().text;
-  //   const selection = this.visit(ctx.selectQuery()) as RelationSelection;
-  //   const constraints = ctx.constraintClause() ? this.visit(ctx.constraintClause()) as RelationConstraints : null;
-  //   return {
-  //     name,
-  //     relationType: DerivedRelationType.Output,
-  //     constraints,
-  //     selection
-  //   };
-  // }
-
   visitSelectQueryDirect(ctx: parser.SelectQueryDirectContext): RelationSelection {
     // this is lazy, assume union or intersection to a hve the same columns
     const firstQuery = this.visit(ctx.selectUnitQuery()) as SelectionUnit;
@@ -105,8 +89,10 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitViewStmt(ctx: parser.ViewStmtContext): DerivedRelation {
     const name = ctx.IDENTIFIER().text;
     const relationType = ctx.VIEW()
-      ? DerivedRelationType.View
-      : DerivedRelationType.Output;
+      ? ctx.EVENT()
+        ? RelationType.EventView
+        : RelationType.View
+      : RelationType.Output;
     const constraints = ctx.constraintClause() ? this.visit(ctx.constraintClause()) as RelationConstraints : null;
     const selection = this.visit(ctx.selectQuery()) as RelationSelection;
     return {
@@ -344,7 +330,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitGroupByClause(ctx: parser.GroupByClauseContext): GroupByAst {
     const selections = ctx.expr().map(e => this.visit(e) as ExprAst);
-    const predicate = this.visitHavingClause(ctx.havingClause());
+    const predicate = ctx.havingClause() ? this.visitHavingClause(ctx.havingClause()) : null;
     return {
       selections,
       predicate
@@ -427,7 +413,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitRelationReferenceSubQuery(ctx: parser.RelationReferenceSubQueryContext): RelationReference {
     const subquery = this.visit(ctx.selectQuery()) as RelationSelection;
     const alias = ctx._alias ? ctx._alias.text : null;
-    const q = getCtxSourceCode(ctx);
     // console.log(q);
     return {
       alias,
@@ -438,7 +423,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitStaticTableStmt(ctx: parser.StaticTableStmtContext): DerivedRelation {
     // it would not be the case of server here.
     const name = ctx.IDENTIFIER().text;
-    const relationType = DerivedRelationType.StaticTable;
+    const relationType = RelationType.StaticTable;
     const selection = this.visit(ctx.selectQuery()) as RelationSelection;
     return {
       name,
@@ -448,14 +433,14 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   visitOriginalTableStmt(ctx: parser.OriginalTableStmtContext): OriginalRelation {
-    if (ctx.INPUT() && ctx.REGISTER()) {
+    if (ctx.EVENT() && ctx.REGISTER()) {
       ReportDielUserError(`You cannot register an input relation`);
     }
-    const relationType = ctx.INPUT()
-      ? OriginalRelationType.Input
+    const relationType = ctx.EVENT()
+      ? RelationType.EventTable
       : ctx.CREATE()
-        ? OriginalRelationType.Table
-        : OriginalRelationType.ExistingAndImmutable;
+        ? RelationType.Table
+        : RelationType.ExistingAndImmutable;
     const name = ctx.IDENTIFIER().text;
     let columns: Column[] = [];
     let constraints: RelationConstraints = null;
@@ -549,10 +534,29 @@ implements visitor.DIELVisitor<ExpressionValue> {
         constraints.notNull = true;
       }
     });
+    let defaultValue: any = null;
+    if (ctx.DEFAULT()) {
+      if (ctx._function) {
+        const functionReference = ctx._function.text;
+        const args = ctx.value().map(e => this.visit(e) as ExprAst);
+        // think about a more elegant comparison
+        defaultValue = {
+          exprType: ExprType.Func,
+          dataType: DataType.TBD,
+          functionType: FunctionType.Custom,
+          functionReference,
+          args
+        };
+      } else {
+        // this is a single value
+        defaultValue = this.visit(ctx._singleValue) as ExprAst;
+      }
+    }
     return {
-      name: ctx.IDENTIFIER().text,
+      name: ctx._columnName.text,
       type: parseColumnType(ctx.dataType().text),
-      constraints
+      constraints,
+      defaultValue
     };
   }
 
