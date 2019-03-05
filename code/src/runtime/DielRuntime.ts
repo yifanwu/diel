@@ -1,6 +1,6 @@
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import { DIELLexer } from "../parser/grammar/DIELLexer";
-import { DIELParser } from "../parser/grammar/DIELParser";
+import { DIELParser, QueriesContext } from "../parser/grammar/DIELParser";
 
 import { loadPage } from "../notebook/index";
 import { Database, Statement } from "sql.js";
@@ -48,7 +48,7 @@ type TickBind = {
 
 class ViewConstraintQuery {
   viewName: string;
-  queries: string[];
+  queries: string[][];
 }
 
 export type MetaDataPhysical = Map<string, TableMetaData>;
@@ -201,19 +201,7 @@ export default class DielRuntime {
       const inputDep = dependencies.get(input);
       boundFns.map(b => {
         if (inputDep.has(b.outputName)) {
-          // var name = b.outputName;
-          // if (this.constraintQueries.has(name)) {
-          //   var queries = this.constraintQueries.get(name);
-          //   if (queries) {
-          //       queries.map(q => {
-          //       const constraintResult = this.db.exec(q);
-          //       if (constraintResult && constraintResult[0] && constraintResult[0].values.length > 0) {
-          //         console.log(`%c Broke the constraint for view ${name}`, "background:red; color: white");
-          //       }
-          //     });
-          //   }
-          // }
-          // console.log(b.outputName);
+          this.constraintChecking(b.outputName);
           runOutput(b);
         }
       });
@@ -221,18 +209,24 @@ export default class DielRuntime {
   }
 
   constraintChecking(viewName: string) {
-    if (!this.checkConstraints) {
+    console.log("constraint check clicked");
+    console.log(this.checkConstraints);
+    // only check if checking mode is turned on
+    if (this.checkConstraints) {
       if (this.constraintQueries.has(viewName)) {
-        var queryObject = this.constraintQueries.get(name);
-        console.log(queryObject.queries);
+        var queryObject = this.constraintQueries.get(viewName);
+        var queries = queryObject.queries;
+
+        // run the entire constraint quries for that view
+        queries.map(ls => {
+          const constraintResult = this.db.exec(ls[0]);
+          // check if the constraint was broken
+          if (constraintResult && constraintResult[0] && constraintResult[0].values.length > 0) {
+            console.log(`%cConstraint Broken!\nview: ${viewName}\nconstraint: ${ls[1]}`, "background:red; color: white");
+          }
+        });
       }
     }
-    // report which view, and which constraint was broken
-    // to get which constraint is broken
-    // modify so that each constraint checking query is mapped to original constrain query
-
-
-    // get back original query string
   }
 
   downloadDB() {
@@ -309,15 +303,13 @@ export default class DielRuntime {
     // get sql for views constraints
     var tname: string;
     var viewConstraint: ViewConstraintQuery;
-    viewConstraintCheck(ast).map(q => {
-      if (q.length > 1) {
-        tname = q.pop();
+    viewConstraintCheck(ast).forEach((queries: string[][], viewName: string) => {
+      if (queries.length > 0) {
         viewConstraint = new ViewConstraintQuery();
-        viewConstraint.viewName = tname;
-        viewConstraint.queries = q;
-        this.constraintQueries.set(tname, viewConstraint);
+        viewConstraint.viewName = viewName;
+        viewConstraint.queries = queries;
+        this.constraintQueries.set(viewName, viewConstraint);
       }
-
     });
     console.log(this.constraintQueries);
   }
