@@ -10,6 +10,7 @@ import { DielAst, RelationConstraints } from "../../parser/dielAstTypes";
 import Visitor from "../../parser/generateAst";
 import {ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst} from "../../parser/exprAstTypes";
 import {GroupByAst, SelectionUnit, RelationReference, RelationSelection, ColumnSelection, CompositeSelection} from "../../parser/sqlAstTypes";
+import { select } from "d3";
 
 export function generateViewConstraintCheckQuery(query: string): Map<string, string[][]> {
   let ast = checkValidView(query);
@@ -199,96 +200,92 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
 
 function getUniqueQuery (view_constraints: RelationConstraints, selUnit: SelectionUnit): string[][] {
   var ret = [] as string[][];
-  // console.log(view_constraints.uniques);
   let uniques = view_constraints.uniques;
 
   // check if unique constraint exists
   if (uniques !== null && uniques.length > 0) {
     var str, i, j, groupbyArgs, groupbyColName, groupByClause, groupbySel, predicateSel;
+    // uniques = [ [ 'a1', 'a2' ], [ 'a3' ] ]
+
     for (i = 0; i < uniques.length; i++) {
       groupbyArgs = uniques[i];
-      for (j = 0; j < groupbyArgs.length; j++) {
-        groupbyColName = groupbyArgs[j];
+      // which constraint it was broken
+      var whichConstraint = `UNIQUE (${groupbyArgs})`;
+      var groupbySelections = [] as ExprColumnAst[];
 
-        // which constraint it was broken
-        var whichConstraint = `UNIQUE (${groupbyColName})`;
 
-        // format groupby AST
-        // which coloum to group by
-        groupbySel = {
-            exprType: ExprType.Column,
+      // format groupby AST
+      // which coloum to group by
+      groupbyArgs.map(function(colName) {
+        var expr = {
+          exprType: ExprType.Column,
+          dataType: DataType.TBD,
+          hasStar: false,
+          columnName: colName
+        } as ExprColumnAst;
+        groupbySelections.push(expr);
+      });
+
+
+      // format having clause AST
+      predicateSel = {
+        exprType: ExprType.Func,
+        functionType: FunctionType.Logic,
+        functionReference: ">",
+        dataType: DataType.Boolean,
+        args : [
+          {
+            exprType: ExprType.Func,
             dataType: DataType.TBD,
-            hasStar: false,
-            columnName: groupbyColName
-          } as ExprColumnAst;
-
-        // format having clause AST
-        predicateSel = {
-          exprType: ExprType.Func,
-          functionType: FunctionType.Logic,
-          functionReference: ">",
-          dataType: DataType.Boolean,
-          args : [
-            {
-              exprType: ExprType.Func,
-              dataType: DataType.TBD,
-              functionType: FunctionType.Custom,
-              functionReference: "COUNT",
-              args: [
-                {
-                  exprType: ExprType.Column,
-                  dataType: DataType.TBD,
-                  hasStar: true,
-                  columnName: groupbyColName
-                }]
-            },
-            {
-              exprType: ExprType.Val,
-              dataType: DataType.Number,
-              value: 1
-            } as ExprValAst
-          ] as ExprAst[]
-        } as ExprFunAst;
-
-        // format the whole groupby clause AST
-        groupByClause = {
-          selections: [groupbySel] as ExprAst[],
-          predicate: predicateSel
-        } as GroupByAst;
-
-
-        selUnit.groupByClause = groupByClause;
-        // change selUnit select clause
-        selUnit.columnSelections = [
-          {
-              expr: {
-                exprType: ExprType.Column,
-                dataType: DataType.TBD,
-                hasStar: false,
-                columnName: groupbyColName
-              }
-          },
-          {
-              expr: {
-                exprType: ExprType.Func,
-                dataType: DataType.TBD,
-                functionType: FunctionType.Custom,
-                functionReference: "COUNT",
-                args: [
-                  {
+            functionType: FunctionType.Custom,
+            functionReference: "COUNT",
+            args: [{
                     exprType: ExprType.Column,
                     dataType: DataType.TBD,
                     hasStar: true
-                  }
-                ]
-              }
-          }
-        ] as ColumnSelection[];
+                }]
+          },
+          {
+            exprType: ExprType.Val,
+            dataType: DataType.Number,
+            value: 1
+          } as ExprValAst
+        ] as ExprAst[]
+      } as ExprFunAst;
 
-        // Generate proper query from AST
-        str = generateViewConstraintSelection(selUnit);
-        ret.push([str, whichConstraint]);
-      }
+      // format the whole groupby clause AST
+      groupByClause = {
+        selections: groupbySelections,
+        predicate: predicateSel
+      } as GroupByAst;
+
+
+      selUnit.groupByClause = groupByClause;
+
+      // change selUnit select clause
+      var selectColumns = [];
+      groupbySelections.map(expr => {
+        selectColumns.push({expr});
+      });
+      selectColumns.push({
+        expr: {
+          exprType: ExprType.Func,
+          dataType: DataType.TBD,
+          functionType: FunctionType.Custom,
+          functionReference: "COUNT",
+          args: [
+            {
+              exprType: ExprType.Column,
+              dataType: DataType.TBD,
+              hasStar: true
+            }]}});
+
+      selUnit.columnSelections = selectColumns as ColumnSelection[];
+
+      // Generate proper query from AST
+      str = generateViewConstraintSelection(selUnit);
+      ret.push([str, whichConstraint]);
+
     }
   }
   return ret;

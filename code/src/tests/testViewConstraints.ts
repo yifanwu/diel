@@ -7,7 +7,6 @@ import { GenerateUnitTestErrorLogger } from "../lib/messages";
 
 
 const toTest = [not_null1, not_null2, check1, check2, check3, unique1, unique2];
-
 function assertCheckViewConstraintTest() {
     toTest.forEach(element => {
         const logger = GenerateUnitTestErrorLogger("assertCheckViewConstraintTest", element);
@@ -22,17 +21,6 @@ function assertCheckViewConstraintTest() {
                 console.log("=======================================");
             });
         });
-        // for (i = 0; i < viewqueries.size; i++) {
-        //     console.log(`View: ${viewqueries.forEach }`);
-        //     for (j = 0; j < viewqueries[i].length - 1; j++) {
-
-        //         q = viewqueries[i][j];
-        //         console.log(`============= Query ${j} =================`);
-        //         console.log(q);
-        //     }
-
-        //     console.log("=======================================");
-        // }
     });
 }
 

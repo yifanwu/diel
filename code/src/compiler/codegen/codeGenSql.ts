@@ -189,6 +189,7 @@ export function generateExpr(e: ExprAst): string {
       return `${f.functionReference} (${f.args.map(a => generateExpr(a)).join(", ")})`;
     }
   } else {
+    console.log(e);
     throw new Error("Expr type not handled");
   }
 }
