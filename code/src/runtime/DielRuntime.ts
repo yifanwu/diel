@@ -209,8 +209,8 @@ export default class DielRuntime {
   }
 
   constraintChecking(viewName: string) {
-    console.log("constraint check clicked");
-    console.log(this.checkConstraints);
+    // console.log("constraint check clicked");
+    console.log("toggle mode: ", this.checkConstraints);
     // only check if checking mode is turned on
     if (this.checkConstraints) {
       if (this.constraintQueries.has(viewName)) {
@@ -219,11 +219,7 @@ export default class DielRuntime {
 
         // run the entire constraint quries for that view
         queries.map(ls => {
-          const constraintResult = this.db.exec(ls[0]);
-          // check if the constraint was broken
-          if (constraintResult && constraintResult[0] && constraintResult[0].values.length > 0) {
-            console.log(`%cConstraint Broken!\nview: ${viewName}\nconstraint: ${ls[1]}`, "background:red; color: white");
-          }
+          this.reportConstraintQueryResult(ls[0], viewName, ls[1]);
         });
       }
     }
@@ -462,6 +458,21 @@ export default class DielRuntime {
       // console.table(r.values);
     } else {
       console.log("No results");
+    }
+  }
+  // used for debugging
+  reportConstraintQueryResult(query: string, viewName: string, constraint: string): boolean {
+    let r = this.db.exec(query)[0];
+    if (r) {
+      console.log(`%cConstraint Broken!\nview: ${viewName}\nconstraint: ${constraint}`, "background:red; color: white");
+      console.log(r.columns.join("\t"));
+      console.log(JSON.stringify(r.values).replace(/\],\[/g, "\n").replace("[[", "").replace("]]", "").replace(/,/g, "\t"));
+      // console.table(r.columns);
+      // console.table(r.values);
+      return true;
+    } else {
+      // console.log("No results");
+      return false;
     }
   }
 }
