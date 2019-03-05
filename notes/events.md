@@ -1,10 +1,14 @@
 # Understanding Events and Reactivity in DIEL
 
-In _DIEL_, everything is stored in table, and changes happen by appending to tables.  However, since _everything_ is a relation, we need to differentiate between state changes that should not update.  This is where talk about the differences between an input and a table.
+In _DIEL_, everything is stored in table, and changes happen by appending to tables.  However, since _everything_ is a relation, we need to differentiate between state changes that should not update. This is why we introduce the `EVENT` construct.
 
-The logic that glues the raw data to derived data are queries stored in views.  The final view that gets output to the UI is special, so we created the `OUTPUT` abstraction, and we discuss the differences between an `OUTPUT` and a `VIEW` below.
+All event relations are augmented with the logical timestep they were dependent on.  
 
-## INPUT vs TABLE
+<!-- This is where talk about the differences between an input and a table. -->
+
+<!-- The logic that glues the raw data to derived data are queries stored in views.  The final view that gets output to the UI is special, so we created the `OUTPUT` abstraction, and we discuss the differences between an `OUTPUT` and a `VIEW` below. -->
+
+## EVENT TABLE vs TABLE
 
 Events are captured as `create input`, whereas tables are captured just as `create table`.
 
@@ -19,7 +23,7 @@ CREATE OUTPUT currentCount AS
 
 Since `click` is an input, when there is an insertion into click, the bound functions to the views will be triggered. However, if the click is specified as a table, like `CREATE TABLE click (delta number);`, then there is no guanrantee that the UI that depends on `currentCount` will be kept up to date with the changes in `click`.
 
-## OUTPUT vs VIEW
+## EVENT VIEW vs VIEW
 
 A view is a query over the relations, and an `OUTPUT` is a view as well, however, it's special because it needs to be none-blocking, which is to say that it must be over tables in the main database.
 

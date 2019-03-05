@@ -1,13 +1,18 @@
 import * as React from "react";
 import * as d3 from "d3";
 import { ChartSpec } from "../../../runtime/runtimeTypes";
-import { VizLayout, DefaultVizLayout, BrushBoxOneDim, BrushBoxType } from "../../vizSpec/vizSpec";
+import { VizLayout, DefaultVizLayout, BrushBoxOneDim, BrushBoxType, FilterValueType } from "../../vizSpec/vizSpec";
 
 // we are going to over load categorical data with some order metrics
+// note: might change if we ned to accept multiple selections in the future.
 interface BarChartProp {
   spec: ChartSpec;
+  selectedDataRange?: {min: FilterValueType; max: FilterValueType};
   layout?: VizLayout;
-  color?: string;
+  colorSpec?: {
+    selected?: string,
+    default: string
+  };
   brushHandler?: (box: BrushBoxOneDim) => void;
   svgClickHandler?: () => void;
 }
@@ -22,7 +27,8 @@ export const BarChart: React.StatelessComponent<BarChartProp> = (p) => {
     return <p>no result</p>;
   }
   console.log("props", p);
-  const color = p.color ? p.color : "steelblue";
+  const color = p.colorSpec ? p.colorSpec.default : "steelblue";
+  const selectedColor = (p.colorSpec && p.colorSpec.selected) ? p.colorSpec.selected : "orange";
   const layout = p.layout ? p.layout : DefaultVizLayout;
   const {chartWidth, chartHeight} = layout;
   const yDomain = d3.extent(p.spec.data.map(d => d[p.spec.yAttribute] as number));
@@ -35,13 +41,18 @@ export const BarChart: React.StatelessComponent<BarChartProp> = (p) => {
   const barWidth = Math.round(chartWidth * 0.8 / data.length);
   const bars =  data.map((d, idx) => {
     const yPos = y(d[p.spec.yAttribute] as number);
+    const barColor = p.selectedDataRange
+      ? ((d[p.spec.xAttribute] <= p.selectedDataRange.max) && (d[p.spec.xAttribute] >= p.selectedDataRange.min))
+        ? selectedColor
+        : color
+      : color;
     return <rect
       className={"select-bars"}
       x={x(idx)}
       y={yPos}
       width={barWidth}
       height={layout.chartHeight - yPos}
-      fill={color}
+      fill={barColor}
     ></rect>;
   });
   // weird as any cast...
@@ -49,7 +60,6 @@ export const BarChart: React.StatelessComponent<BarChartProp> = (p) => {
   const xFormatter = (t: any) => {
     const idx = parseInt(t);
     const tickVal = data[idx] ? data[idx][p.spec.xAttribute] : "";
-    console.log("tickVal", tickVal);
     return tickVal;
   };
   // not sure why we need to subtract 1 but we do...

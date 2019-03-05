@@ -14,7 +14,7 @@ export interface VizLayout {
 export type BrushBox = BrushBoxOneDim | BrushBoxTwoDim;
 
 // both have well defined comparison semantics in SQLite
-type FilterValueType = number | string;
+export type FilterValueType = number | string;
 
 export enum BrushBoxType {
   OneDim = "OneDim",
