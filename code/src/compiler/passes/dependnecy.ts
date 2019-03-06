@@ -72,6 +72,7 @@ function generateDependenciesByInput(depTree: DependencyTree, ir: DielIr) {
 }
 
 /**
+ * return the set of the relations that depent on the table passed in
  * TODO add depndsOn?: true and do another pass that uses transitive closure to figure out all dependnecies
  * @param depTree
  * @param rName

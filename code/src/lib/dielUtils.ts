@@ -62,23 +62,23 @@ export async function loadDbHelper(db: Database, file: string, tick: () => () =>
 }
 
 // console tools
-export function d(db: Database, sql: string) {
-  let r = db.exec(sql);
-  if (r.length > 0) {
-    r[0].values.map((v) => {
-      v.map((c, i) => {
-        if (r[0].columns[i] === "ts") {
-          c = new Date(c as number).toDateString();
-        }
-      });
-    });
-    console.log(r[0].columns.join("\t"));
-    console.log(JSON.stringify(r[0].values).replace(/\],\[/g, "\n").replace("[[", "").replace("]]", "").replace(/,/g, "\t"));
-  } else {
-    console.log("NO RESULT");
-  }
-}
-if (typeof window !== "undefined" && window) (<any>window).d = d;
+// export function d(db: Database, sql: string) {
+//   let r = db.exec(sql);
+//   if (r.length > 0) {
+//     r[0].values.map((v) => {
+//       v.map((c, i) => {
+//         if (r[0].columns[i] === "ts") {
+//           c = new Date(c as number).toDateString();
+//         }
+//       });
+//     });
+//     console.log(r[0].columns.join("\t"));
+//     console.log(JSON.stringify(r[0].values).replace(/\],\[/g, "\n").replace("[[", "").replace("]]", "").replace(/,/g, "\t"));
+//   } else {
+//     console.log("NO RESULT");
+//   }
+// }
+// if (typeof window !== "undefined" && window) (<any>window).d = d;
 // debug assertions
 
 export function assertQueryHasResult(r: QueryResults, query?: string) {

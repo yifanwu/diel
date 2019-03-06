@@ -6,17 +6,17 @@ import { loadPage } from "../notebook/index";
 import { Database, Statement } from "sql.js";
 import { SelectionUnit } from "../parser/sqlAstTypes";
 import { RuntimeCell, SimpleObject, DielRuntimeConfig, TableMetaData, TableLocation, } from "./runtimeTypes";
-import { OriginalRelation, DerivedRelation, DielPhysicalExecution, RelationType, } from "../parser/dielAstTypes";
+import { OriginalRelation, DerivedRelation, RelationType } from "../parser/dielAstTypes";
 import { generateSelectionUnit, generateSqlFromDielAst } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
-import { CompileDiel, CompilePhysicalExecution } from "../compiler/DielCompiler";
+import { CompileDiel } from "../compiler/DielCompiler";
 import { log } from "../lib/dielUdfs";
 import { downloadHelper } from "../lib/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogWarning, QueryConsoleColorSpec } from "../lib/messages";
 import { DielIr } from "../compiler/DielIr";
 import { processSqliteMasterMetaData } from "./runtimeHelper";
 import WorkerPool from "./WorkerPool";
-// import { generateVizSpecForSingleQuery } from "../notebook/vizSpec/generateVizSpec";
+import { DielPhysicalExecution } from "../compiler/DielPhysicalExecution";
 
 // hm watch out for import path
 //  also sort of like an odd location...
@@ -238,7 +238,7 @@ export default class DielRuntime {
     // now parse DIEL
     // below are logic for the physical execution of the programs
     // we first do the distribution
-    this.physicalExecution = CompilePhysicalExecution(this);
+    this.physicalExecution = new DielPhysicalExecution(this.ir, this.metaData);
     // now execute the physical views and programs
     this.executeToDBs();
     this.setupAllInputOutputs();
@@ -253,8 +253,10 @@ export default class DielRuntime {
     workerInfo.forEach((e, i) => {
       code += e.queries;
       e.names.forEach((n) => this.metaData.set(n, {
-        location: TableLocation.Worker,
-        accessInfo: i
+        engineId: {
+          location: TableLocation.Worker,
+          accessInfo: i
+        }
       }));
     });
     console.log("got workerInfo", workerInfo);
@@ -288,23 +290,25 @@ export default class DielRuntime {
 
   // maybe change this to generating ASTs as opppsoed to strings?
   shipWorkerInput(inputName: string, timestep: number) {
-    const shipDestination = this.physicalExecution.mainToWorker.get(inputName);
+    const remotesToShipTo = this.physicalExecution.localToRemotes.get(inputName);
     const shareQuery = `select * from ${inputName}`;
     let tableRes = this.db.exec(shareQuery)[0];
     if ((!tableRes) || (!tableRes.values)) {
       LogWarning(`Query ${shareQuery} has NO result`);
     }
-    // FIXME: have more robust typing here...
-    // need to make null explicit here...
-    // selection needs to have a quote around it...
+    // FIXME: have more robust typing instead of quoting everything; look up types...
     const values = tableRes.values.map((d: any[]) => `(${d.map((v: any) => (v === null) ? "null" : `'${v}'`).join(", ")})`);
     let sql = `
       DELETE from ${inputName};
       INSERT INTO ${inputName} VALUES ${values};
     `;
     const params = {lineage: timestep};
-    shipDestination.forEach((v => {
-      this.workerPool.SendWorkerQuery(sql, WorkerCmd.ShareInputAfterTick, v, false, params);
+    remotesToShipTo.forEach((remoteId => {
+      if (remoteId.location === TableLocation.Worker) {
+        this.workerPool.SendWorkerQuery(sql, WorkerCmd.ShareInputAfterTick, remoteId.accessInfo, false, params);
+      } else {
+        throw new Error(`not yet implemented`);
+      }
     }));
   }
   /**
@@ -392,7 +396,7 @@ export default class DielRuntime {
   // also should fix the async logic
   executeToDBs() {
     LogTmp(`Executing queries to db`);
-    const mainSqlQUeries = generateSqlFromDielAst(this.physicalExecution.main);
+    const mainSqlQUeries = generateSqlFromDielAst(this.physicalExecution.local);
     for (let s of mainSqlQUeries) {
       try {
         console.log(`%c Running Query in Main:\n${s}`, "color: purple");
@@ -402,12 +406,16 @@ export default class DielRuntime {
       }
     }
     // now execute to worker!
-    this.physicalExecution.workers.forEach((v, k) => {
-      const queries = generateSqlFromDielAst(v);
+    this.physicalExecution.remotes.map((remote) => {
+      const queries = generateSqlFromDielAst(remote.info.ast);
       if (queries && queries.length > 0) {
         const sql = queries.join(";\n");
-        console.log(`%c Running Query in Worker[${k}]:\n${sql}`, "color: pink");
-        this.workerPool.SendWorkerQuery(sql, WorkerCmd.InitialSetUp, k, false);
+        console.log(`%c Running Query in Remote[${remote.id}]:\n${sql}`, "color: pink");
+        if (remote.id.location === TableLocation.Worker) {
+          this.workerPool.SendWorkerQuery(sql, WorkerCmd.InitialSetUp, remote.id.accessInfo, false);
+        } else {
+          throw new Error(`not implemnted`);
+        }
       }
     });
   }

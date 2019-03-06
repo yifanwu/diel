@@ -5,9 +5,6 @@ import { ApplyDependencies } from "./passes/dependnecy";
 import { NormalizeConstraints } from "./passes/normalizeConstraints";
 import { NormalizeColumnSelection } from "./passes/normalizeColumnSelection";
 import { InferType } from "./passes/inferType";
-import { DielPhysicalExecution } from "../parser/dielAstTypes";
-import DielRuntime from "../runtime/DielRuntime";
-import { DistributeQueries } from "./passes/distributeQueries";
 
 /**
  * Note that the compilation here is logical
@@ -26,18 +23,18 @@ export function CompileDiel(ir: DielIr) {
   return ir;
 }
 
-/**
- * At this level, we'd still be reasoning with DielAst's.
- *   E.g., we still need to be manipulating inputs
- *    However, we do not want to be thinking about outputs vs views, but then that just means
- *    we should not generate these view like things.
- * @param ir
- * @param metaData
- */
-export function CompilePhysicalExecution(rt: DielRuntime): DielPhysicalExecution {
-  return DistributeQueries(rt);
-  // TODO// then materialization
-  // MaterializeQueries();
-  // // then caching
-  // this.cacheQueries();
-}
+// /**
+//  * At this level, we'd still be reasoning with DielAst's.
+//  *   E.g., we still need to be manipulating inputs
+//  *    However, we do not want to be thinking about outputs vs views, but then that just means
+//  *    we should not generate these view like things.
+//  * @param ir
+//  * @param metaData
+//  */
+// export function CompilePhysicalExecution(rt: DielRuntime): DielPhysicalExecution {
+//   return DistributeQueries(rt);
+//   // TODO// then materialization
+//   // MaterializeQueries();
+//   // // then caching
+//   // this.cacheQueries();
+// }
