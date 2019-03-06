@@ -1,7 +1,8 @@
 import { processSqliteMasterMetaData, WorkerMetaData } from "./runtimeHelper";
 import DielRuntime, { SqliteMasterQuery, WorkerCmd } from "./DielRuntime";
-import { ReportDielUserError, LogInternalError } from "../lib/messages";
+import { LogInternalError } from "../lib/messages";
 import { QueryResults } from "sql.js";
+import { TableLocation } from "./runtimeTypes";
 
 enum WorkerMessageType {
   Promise = "Promise",
@@ -173,7 +174,10 @@ export default class WorkerPool {
           // the trigger is actually coordianted through allInput table,
           // which is event based, as opposed to input row based.
           // we need to look at what we need to ship over
-          const viewsToShare = this.rt.physicalExecution.workerToMain.get(wLoc);
+          const viewsToShare = this.rt.physicalExecution.GetEventViewsToShare({
+            location: TableLocation.Worker,
+            accessInfo: wLoc
+          });
           for (let item of viewsToShare) {
             const sql = `select * from ${item}`;
             const customId = `${WorkerCmd.ShareViewsAfterTick}`;

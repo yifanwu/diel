@@ -1,5 +1,6 @@
 import { SelectionUnit } from "../parser/sqlAstTypes";
 import { SimpleColumn } from "../compiler/DielIr";
+import { RemoteIdentification } from "../compiler/DielPhysicalExecution";
 
 export type QueryId = number;
 
@@ -31,7 +32,7 @@ export interface TwoDimCartesianCoordSpec extends ChartSpecBase {
  */
 
 export enum TableLocation {
-  Local = "Local",
+  // Local = "Local",
   Worker = "Worker",
   Remote = "Remote"
 }
@@ -39,8 +40,7 @@ export enum TableLocation {
 // assume that all the access are via some index in array for now
 // a bit brittle...
 export interface TableMetaData {
-  location: TableLocation;
-  accessInfo: number;
+  engineId: RemoteIdentification;
   rowNumber?: number;
 }
 

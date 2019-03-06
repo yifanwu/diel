@@ -1,5 +1,6 @@
 import { Column, JoinAst, RelationReference, ColumnSelection, InsertionClause, Drop, RelationSelection, CompositeSelectionUnit, OrderByAst, SelectionUnit, RawValues, GroupByAst } from "./sqlAstTypes";
 import { ExprAst, ExprValAst } from "./exprAstTypes";
+import { TableLocation } from "../runtime/runtimeTypes";
 
 export interface DielTemplate {
   variables: string[];
@@ -209,7 +210,7 @@ export interface DielAst {
   udfTypes: UdfType[];
 }
 
-export function createEmptyDieAst() {
+export function createEmptyDielAst() {
   const newAst: DielAst = {
     originalRelations: [],
     views: [],
@@ -222,23 +223,6 @@ export function createEmptyDieAst() {
   return newAst;
 }
 
-/**
- * currently include
- * - views for local/workers/remotes
- * - programs for shipping data
- *
- * future:
- * - indices
- * - caching
- */
-
-export interface DielPhysicalExecution {
-  workerToMain: Map<number, Set<string>>;
-  mainToWorker: Map<string, Set<number>>;
-  main: DielAst;
-  workers: Map<number, DielAst>;
-  remotes: Map<string, DielAst>;
-}
 
 export interface CrossFilterChartIr {
   chartName: string;
