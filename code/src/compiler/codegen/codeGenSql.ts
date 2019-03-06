@@ -84,7 +84,7 @@ export function generateViewConstraintSelection(v: SelectionUnit): string {
  */
 export function generateSelectionUnitBody(v: SelectionUnit) {
   return `${v.baseRelation ? `FROM ${generateRelationReference(v.baseRelation)}` : ""}
-  ${v.joinClauses ? v.joinClauses.map(j => generateJoin(j)) : ""}
+  ${v.joinClauses ? v.joinClauses.map(j => generateJoin(j)).join("\n") : ""}
   ${generateWhere(v.whereClause)}
   ${generateGroupBy(v.groupByClause)}
   ${generateOrderBy(v.orderByClause)}

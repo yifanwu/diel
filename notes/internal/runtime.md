@@ -10,6 +10,9 @@ The tick logic is in the method `tick` at https://github.com/yifanwu/diel/blob/m
 
 This function is invoked via a trigger on the table `allInput` in [static.sql](https://github.com/yifanwu/diel/blob/master/code/src/compiler/codegen/static.sql). Everytime there is a new event, there is a new insertion into the table `allInput`, and the trigger would be invoked.
 
+## Asynchrony
+
+When the views are over remote tables (worker or postgres), they are specified as  `create event view`.
 
 ## Phsyical execution
 

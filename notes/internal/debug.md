@@ -1,4 +1,10 @@
-# Debug
+# Debug and Dev Environment Notes
+
+## Lint and Highlighting
+
+You should be using VS Code with the `/code` directory at root (to make use of `tslint.ts`).
+
+To have the `.diel` files share the same highlighting as SQL, follow this [S/O post](https://stackoverflow.com/questions/29973619/how-to-make-vs-code-to-treat-other-file-extensions-as-certain-language).
 
 ## Using the Chrome Debugger
 

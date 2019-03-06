@@ -104,6 +104,11 @@ export default class DielRuntime {
     this.boundFns.push({outputName: view, uiUpdateFunc: reactFn, outputConfig });
   }
 
+  public GetView(view: string) {
+    // FIXME: refactor OuptConfig, not really needed
+    return this.simpleGetLocal(view, defaultOuptConfig);
+  }
+
   public NewInputMany(i: string, o: any[], lineage?: number) {
     this.newInputHelper(i, o, lineage);
   }
@@ -289,7 +294,7 @@ export default class DielRuntime {
     }
     // read the files in now
     const codeWithLine = code.split("\n");
-    console.log(`%c DIEL Code Generated:\n${codeWithLine.map((c, i) => `${i}\t${c}`).join("\n")}`, "color: green");
+    console.log(`%c DIEL Code Generated:\n${codeWithLine.map((c, i) => `${i + 1}\t${c}`).join("\n")}`, "color: green");
     const inputStream = new ANTLRInputStream(code);
     const p = new DIELParser(new CommonTokenStream(new DIELLexer(inputStream)));
     const tree = p.queries();

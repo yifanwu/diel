@@ -24,4 +24,6 @@ create output scoreDistribution AS
     count(*) as count
   from scores
   join currentPanZoom z
-  group by scoreBin;
+  group by scoreBin
+  having scoreBin <= z.maxScore
+    and scoreBin >= z.minScore;
