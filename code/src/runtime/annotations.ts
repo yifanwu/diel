@@ -1,7 +1,6 @@
 import { AnnotedSelectionUnit, AnnotationSpec, ChartType } from "./runtimeTypes";
-import { SelectionUnit } from "../parser/sqlAstTypes";
 import { ExprColumnAst, ExprType, FunctionType } from "../parser/exprAstTypes";
-import { DataType } from "../parser/dielAstTypes";
+import { SelectionUnit, DataType } from "../parser/dielAstTypes";
 
 /**
  * TODO: unclear what the interactions with the stars are for now...

@@ -1,7 +1,6 @@
-import { DielAst, DerivedRelation, DataType, OriginalRelation, RelationType } from "../parser/dielAstTypes";
-import { SelectionUnit, CompositeSelection } from "../parser/sqlAstTypes";
+import { DielAst, DerivedRelation, DataType, OriginalRelation, RelationType, SelectionUnit, CompositeSelection } from "../parser/dielAstTypes";
 import { DependencyInfo } from "./passes/passesHelper";
-import { LogWarning } from "../lib/messages";
+import { LogWarning, LogInternalError } from "../lib/messages";
 import { ExprType, ExprColumnAst } from "../parser/exprAstTypes";
 
 type CompositeSelectionFunction<T> = (s: CompositeSelection, relationName?: string) => T;
@@ -25,7 +24,20 @@ export class DielIr {
   // viewTypes: Map<string, Map<string, DataType>>;
   constructor(ast: DielAst) {
     this.ast = ast;
-    this.buildIndicesToIr();
+    // this.buildIndicesToIr();
+    const allCompositeSelections = new Map();
+    this.applyToAllCompositeSelection<void>((r, name) => {
+      allCompositeSelections.set(name, r);
+    });
+    this.allCompositeSelections = allCompositeSelections;
+    this.allOriginalRelations = new Map();
+    this.GetOriginalRelations().map((r) => {
+      this.allOriginalRelations.set(r.name, r);
+    });
+    this.allDerivedRelations = new Map();
+    this.GetAllViews().map((r) => {
+      this.allDerivedRelations.set(r.name, r);
+    });
   }
   /**
    * Public helper functions
@@ -52,17 +64,22 @@ export class DielIr {
   }
 
   public GetTypeFromDerivedRelationColumn(unit: SelectionUnit, columnName: string): DataType {
-    const column = unit.derivedColumnSelections.filter(s => {
-      if (s.expr.exprType === ExprType.Column) {
-        return (s.expr as ExprColumnAst).columnName === columnName;
-      } else if (s.expr.exprType === ExprType.Func) {
-        return (s.alias === columnName);
+    const selections = unit.derivedColumnSelections;
+    if (selections) {
+      const column = selections.filter(s => {
+        if (s.expr.exprType === ExprType.Column) {
+          return (s.expr as ExprColumnAst).columnName === columnName;
+        } else if (s.expr.exprType === ExprType.Func) {
+          return (s.alias === columnName);
+        }
+      });
+      if (column.length > 0) {
+        return column[0].expr.dataType;
+      } else {
+        return null;
       }
-    });
-    if (column.length > 0) {
-      return column[0].expr.dataType;
     } else {
-      return null;
+      LogInternalError(`Relation ${unit} does not have derivedColumnSelections`);
     }
   }
 
@@ -153,12 +170,20 @@ export class DielIr {
     if (byDependency) {
       // check if the dependency graph has been built, if not, build it now
       ir.dependencies.topologicalOrder.reduce(
-        (acc, r) => acc.concat(ir.allCompositeSelections.get(r).map(c => fun(c.relation, {ir, relationName: r}))), initial);
+        (acc: T[], r) => {
+          const compositeSelection = ir.allCompositeSelections.get(r);
+          if (compositeSelection) {
+            return acc.concat(compositeSelection.map(c => fun(c.relation, {ir, relationName: r})));
+          } else {
+            LogInternalError(`Composition Selection ${r} was not found`);
+            return [];
+          }
+        }, initial);
     } else {
       // this step flattens
       ir.ast.views.reduce((acc, r) => acc.concat(applyToDerivedRelation(r, fun)), initial);
-      return initial;
     }
+    return initial;
   }
 
   // TODO: some broken logic here...
@@ -181,30 +206,21 @@ export class DielIr {
   //   });
   // }
 
-
-  buildIndicesToIr() {
-    const allCompositeSelections = new Map();
-    this.applyToAllCompositeSelection<void>((r, name) => {
-      allCompositeSelections.set(name, r);
-    });
-    this.allCompositeSelections = allCompositeSelections;
-    this.allOriginalRelations = new Map();
-    this.GetOriginalRelations().map((r) => {
-      this.allOriginalRelations.set(r.name, r);
-    });
-    this.allDerivedRelations = new Map();
-    this.GetAllViews().map((r) => {
-      this.allDerivedRelations.set(r.name, r);
-    });
-  }
-
   applyToAllCompositeSelection<T>(fun: CompositeSelectionFunction<T>, byDependency = false): T[] {
     if (byDependency) {
       let initial: T[] = [];
       // check if the dependency graph has been built, if not, build it now
       this.dependencies.topologicalOrder.reduce(
-        (acc, r) => acc.concat(fun(this.allCompositeSelections.get(r), r))
-        , initial);
+        (acc, r) => {
+          const compositeSelection = this.allCompositeSelections.get(r);
+          if (compositeSelection) {
+            return acc.concat(fun(compositeSelection, r));
+          } else {
+            LogInternalError(`Composition Selection ${r} was not found`);
+            return [];
+          }
+        }, initial);
+      return initial;
     } else {
       // this step flattens
       return this.ast.views.map(r => fun(r.selection.compositeSelections, r.name));

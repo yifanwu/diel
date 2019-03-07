@@ -1,5 +1,5 @@
 import { DielAst, OriginalRelation, UdfType, ProgramsIr, DerivedRelation, RelationType, createEmptyDielAst } from "../parser/dielAstTypes";
-import { TableLocation } from "../runtime/runtimeTypes";
+import { RemoteType } from "../runtime/runtimeTypes";
 import { DielIr } from "../lib";
 import { MetaDataPhysical } from "../runtime/DielRuntime";
 import { generateDependenciesByName } from "./passes/dependnecy";
@@ -21,11 +21,11 @@ import { LogInternalError } from "../lib/messages";
  * - caching
  */
 
-type RemoteLocType = number;
+type RemoteIdType = number;
 
 export interface RemoteIdentification {
-  location: TableLocation;
-  accessInfo: RemoteLocType;
+  location: RemoteType;
+  id: RemoteIdType;
 }
 
 interface RemoteEngineInfo {
@@ -59,7 +59,12 @@ export class DielPhysicalExecution {
     this.local.programs = this.ir.ast.programs && (this.ir.ast.programs.size > 0) ? DeepCopy<ProgramsIr>(this.ir.ast.programs) : new Map();
     const allLocalViews = this.setupViewSharingRelated();
     allLocalViews.forEach(v => {
-      this.local.views.push(this.ir.allDerivedRelations.get(v));
+      const viewDef = this.ir.allDerivedRelations.get(v);
+      if (viewDef) {
+        this.local.views.push(viewDef);
+      } else {
+        LogInternalError(`View ${v} not defined`);
+      }
     });
     this.setupInputSharingRelated();
   }
@@ -75,24 +80,30 @@ export class DielPhysicalExecution {
       // new views that we need to create for the remote it lives in
       for (let sharedView of sharedViewNameBasedOnCurrentTable) {
         const r = this.ir.allDerivedRelations.get(sharedView);
-        if (r.relationType !== RelationType.Output) {
-          // note that the sharedView might be repeated, that's why we use a set, checking to prevent repeats
-          if (!remote.info.sharedViews.has(sharedView)) {
-            remote.info.sharedViews.add(sharedView);
-            remote.info.ast.views.push({
-              name: sharedView,
-              relationType: RelationType.View,
-              selection: r.selection
-            });
+        if (r) {
+          if (r.relationType !== RelationType.Output) {
+            // note that the sharedView might be repeated, that's why we use a set, checking to prevent repeats
+            if (!remote.info.sharedViews.has(sharedView)) {
+              remote.info.sharedViews.add(sharedView);
+              remote.info.ast.views.push({
+                name: sharedView,
+                relationType: RelationType.View,
+                selection: r.selection
+              });
+            }
+            // remove from main view defintion
+            allLocalViews.delete(sharedView);
+            // add to main static view definition
+            const sharedViewDef = this.ir.allCompositeSelections.get(sharedView);
+            if (sharedViewDef) {
+              const newR = getStaticTableFromDerived(sharedViewDef, sharedView);
+              this.local.originalRelations.push(newR);
+            } else {
+              LogInternalError(`Relation ${sharedView} was not found and was needed in query distribution!`);
+            }
           }
-          // remove from main view defintion
-          allLocalViews.delete(sharedView);
-          // add to main static view definition
-          const newR = getStaticTableFromDerived(this.ir.allCompositeSelections.get(sharedView), sharedView);
-          if (!newR) {
-            LogInternalError(`Relation ${sharedView} was not found and was needed in query distribution!`);
-          }
-          this.local.originalRelations.push(newR);
+        } else {
+          LogInternalError(`Derived Relation ${sharedView} is not found`);
         }
       }
     });
@@ -115,7 +126,12 @@ export class DielPhysicalExecution {
             if (!this.localToRemotes.has(inputName)) {
               this.localToRemotes.set(inputName, new Set());
             }
-            this.localToRemotes.get(inputName).add(remote.id);
+            const inputDef = this.localToRemotes.get(inputName);
+            if (inputDef) {
+              inputDef.add(remote.id);
+            } else {
+              LogInternalError(`localToRemotes not defined for ${inputName}`);
+            }
             // also add to the local program
             const p = this.local.programs.get(inputName);
             const newClause = generateShipWorkerInputClause(inputName);
@@ -132,7 +148,7 @@ export class DielPhysicalExecution {
   }
 
   findRemote(id: RemoteIdentification, shouldCreate = false) {
-    const r = this.remotes.find((r) => ((r.id.accessInfo === id.accessInfo) && (r.id.location === id.location)));
+    const r = this.remotes.find((r) => ((r.id.id === id.id) && (r.id.location === id.location)));
     if (r) {
       return r;
     } else if (shouldCreate) {

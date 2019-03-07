@@ -35,13 +35,13 @@ export function LogStandout(m: string) {
 }
 
 export function ReportDielBasicParsingError(m: string) {
-  console.log(`${FgRed}Parsing Error:\n%s${Reset}`, m);
+  console.log(`${FgRed}Parsing error from user provided code:\n%s${Reset}`, m);
   if (STRICT) throw new Error();
 }
 
 // note that this is in browser
 export function ReportUserRuntimeError(m: string) {
-  console.log(`%c Parsing Error: ${m}`, "color: red");
+  console.log(`%c Runtime error from user specification: ${m}`, "color: red");
 }
 
 // TODO: this should also report the line of the code

@@ -1,21 +1,21 @@
 import * as React from "react";
 
 import { diel } from "../../setup";
-import { SimpleObject, ChartType } from "../../../runtime/runtimeTypes";
+import { RelationObject, ChartType } from "../../../runtime/runtimeTypes";
 import { BarChart } from "../charts/BarChart";
 import { BrushBoxOneDim } from "../../vizSpec/vizSpec";
 
 interface LinkedBarChartsState {
-  scoreData: SimpleObject[];
-  gradeData: SimpleObject[];
-  selectedScore: SimpleObject[];
+  scoreData: RelationObject;
+  gradeData: RelationObject;
+  selectedScore: RelationObject;
 }
 
 export default class LinkedBarCharts extends React.Component<{}, LinkedBarChartsState> {
   constructor(props: {}) {
     super(props);
     this.state = {
-      scoreData: diel.GetView("scoreDistributionStatic") as any,
+      scoreData: diel.GetView("scoreDistributionStatic"),
       selectedScore: null,
       gradeData: null
     };
@@ -46,8 +46,8 @@ export default class LinkedBarCharts extends React.Component<{}, LinkedBarCharts
     };
     const selected = this.state.selectedScore
       ? {
-          min: this.state.selectedScore[0]["minScore"],
-          max: this.state.selectedScore[0]["maxScore"]
+          min: this.state.selectedScore[0]["minScore"] as number,
+          max: this.state.selectedScore[0]["maxScore"] as number
         }
       : null;
     return <>

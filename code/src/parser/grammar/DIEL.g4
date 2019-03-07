@@ -316,7 +316,7 @@ AUTOINCREMENT: A U T O I N C R E M E N T;
 DATETIME: D A T E T I M E;
 
 
-INT: N U M B E R  | I N T E G E R | I N T;
+INT: N U M B E R  | I N T E G E R | I N T | R E A L;
 TEXT: S T R I N G | T E X T;
 
 MINUS: '-';

@@ -1,5 +1,4 @@
-import { DielAst, DerivedRelation, CrossFilterIr, RelationType } from "../../parser/dielAstTypes";
-import { SetOperator, SelectionUnit, RelationSelection, AstType } from "../../parser/sqlAstTypes";
+import { DielAst, DerivedRelation, CrossFilterIr, RelationType, SetOperator, SelectionUnit, RelationSelection, AstType } from "../../parser/dielAstTypes";
 
 /**
  * Notes:

@@ -5,6 +5,7 @@ import {BrowserRouter as Router, Link, Route, Switch} from "react-router-dom";
 import Counter from "./examples/Counter";
 import ScoreZoomBarChart from "./examples/ScoreZoomBarChart";
 import LinkedBarCharts from "./examples/LinkedBarCharts";
+import PitchFork from "./examples/PitchFork";
 
 const Notebook = () => (<div>
     <ExistingRelationsPad/>
@@ -29,13 +30,18 @@ export const PageContainer = () => (<Router>
       <Link to="linkedCharts">
         Linked Bar Chart
       </Link>
+      &nbsp;
+      <Link to="pitchfork">
+        Pitch Fork (Remote)
+      </Link>
     </div>
     <div id="main">
       <Switch>
         <Route exact path="/counter" component={Counter}/>
         <Route path="/notebook" component={Notebook}/>
         <Route path="/scoreZoom" component={ScoreZoomBarChart}/>
-        <Route path="/" component={LinkedBarCharts}/>
+        <Route path="/linkedCharts" component={LinkedBarCharts}/>
+        <Route path="/" component={PitchFork} />
       </Switch>
     </div>
   </div>

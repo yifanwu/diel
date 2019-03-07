@@ -1,7 +1,6 @@
-import { JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType } from "../../parser/sqlAstTypes";
 import { ReportDielUserError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprRelationAst } from "../../parser/exprAstTypes";
-import { OriginalRelation } from "../../parser/dielAstTypes";
+import { OriginalRelation, JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType  } from "../../parser/dielAstTypes";
 import { DielIr } from "../DielIr";
 
 /**

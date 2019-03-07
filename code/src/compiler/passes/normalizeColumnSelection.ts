@@ -1,8 +1,7 @@
 import { DielIr, SimpleColumn, SelectionUnitVisitorFunctionOptions } from "../DielIr";
-import { SelectionUnit, ColumnSelection, getRelationReferenceName, RelationReference } from "../../parser/sqlAstTypes";
 import { ReportDielUserError, LogInternalError } from "../../lib/messages";
 import { ExprType, ExprColumnAst, ExprFunAst } from "../../parser/exprAstTypes";
-import { DataType } from "../../parser/dielAstTypes";
+import {  SelectionUnit, ColumnSelection, getRelationReferenceName, RelationReference, DataType } from "../../parser/dielAstTypes";
 import { copyColumnSelection, createColumnSectionFromRelationReference } from "./helper";
 
 /**
