@@ -1,0 +1,31 @@
+-- basic distribution of scores
+
+-- ah, thing about static event views... damn too many kinds
+
+create output pitchForkScoreDistribution as
+  select *
+  from pitchForkScoreDistributionEvent
+  where timestep = (
+      select max(timestep) from pitchForkScoreDistributionEvent
+    );
+
+create event view pitchForkScoreDistributionEvent as
+  select
+    round(score / 10) * 10 as scoreBin,
+    count(*) as count
+  from reviews
+  group by scoreBin;
+
+create output pitchForkYearDistribution as
+  select *
+  from pitchForkYearDistributionEvent
+  where timestep = (
+      select max(timestep) from pitchForkYearDistributionEvent
+    );
+
+create event view pitchForkYearDistributionEvent AS
+  select
+    round(pub_year / 10) * 10 as yearBin,
+    count(*) as count
+  from reviews
+  group by yearBin;

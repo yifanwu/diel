@@ -1,9 +1,7 @@
-import { ColumnSelection } from "../../parser/sqlAstTypes";
-
+import { DataType, ColumnSelection } from "../../parser/dielAstTypes";
+import { SimpleColumn } from "../DielIr";
 import { ExprType, ExprColumnAst } from "../../parser/exprAstTypes";
 
-import { DataType } from "../../parser/dielAstTypes";
-import { SimpleColumn } from "../DielIr";
 
 export function copyColumnSelection(s: ColumnSelection) {
   return  {

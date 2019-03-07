@@ -1,8 +1,4 @@
-import { DielAst, ProgramsIr, DataType, RelationType, ForeignKey } from "../../parser/dielAstTypes";
-import { Column, CompositeSelectionUnit, InsertionClause, AstType } from "../../parser/sqlAstTypes";
-
-// in this pass, we will create the Ir needed to create the SQL we need
-
+import { DielAst, ProgramsIr, DataType, RelationType, Column, CompositeSelectionUnit, InsertionClause } from "../../parser/dielAstTypes";
 
 export interface RelationSpec {
   name: string;
@@ -37,7 +33,7 @@ export interface SqlIr {
  * - staticTables do not need to be created since they already exist
  * @param ast
  */
-export function createSqlAstFromDielAst(ast: DielAst, isMain = true): SqlIr {
+export function createSqlAstFromDielAst(ast: DielAst): SqlIr {
   const inputColumns: Column[] = [
     {
       name: "timestep",
@@ -51,8 +47,6 @@ export function createSqlAstFromDielAst(ast: DielAst, isMain = true): SqlIr {
       type: DataType.Number,
     }
   ];
-  // TODO
-  // const lineageFk: ForeignKey
   const tables = ast.originalRelations
     .filter(i => i.relationType !== RelationType.ExistingAndImmutable)
     .map(i => {

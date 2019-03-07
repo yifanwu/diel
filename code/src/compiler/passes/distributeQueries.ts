@@ -1,6 +1,5 @@
 import { DielIr } from "../DielIr";
-import { DataType, OriginalRelation, RelationType } from "../../parser/dielAstTypes";
-import { RelationSelection, SetOperator, AstType, CompositeSelectionUnit } from "../../parser/sqlAstTypes";
+import { DataType, OriginalRelation, RelationType, RelationSelection, SetOperator, AstType, CompositeSelectionUnit } from "../../parser/dielAstTypes";
 import { ExprType, ExprFunAst, FunctionType, ExprValAst, ExprColumnAst } from "../../parser/exprAstTypes";
 import { ReportDielUserError, LogInternalError } from "../../lib/messages";
 

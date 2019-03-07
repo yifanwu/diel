@@ -1,5 +1,4 @@
-import { SelectionUnit } from "../parser/sqlAstTypes";
-import { SimpleColumn } from "../compiler/DielIr";
+import { SelectionUnit } from "../parser/dielAstTypes";
 import { RemoteIdentification } from "../compiler/DielPhysicalExecution";
 
 export type QueryId = number;
@@ -8,12 +7,16 @@ export interface DielRuntimeConfig {
   dielFiles: string[];
   mainDbPath?: string;
   workerDbPaths?: string[];
+  socketConnections?: {url: string, dbName: string}[];
 }
 
-export type SimpleObject = {[index: string]: number | string};
+export type RecordObject = {[index: string]: string | number | Uint8Array};
+export type RelationObject = RecordObject[];
+// export type SimpleObject = {[index: string]: number | string};
+
 interface ChartSpecBase {
   chartType: ChartType;
-  data?: SimpleObject[];
+  data?: RelationObject;
   // dimension: number;
 }
 
@@ -31,10 +34,10 @@ export interface TwoDimCartesianCoordSpec extends ChartSpecBase {
  *
  */
 
-export enum TableLocation {
+export enum RemoteType {
   // Local = "Local",
   Worker = "Worker",
-  Remote = "Remote"
+  Socket = "Socket"
 }
 
 // assume that all the access are via some index in array for now
@@ -97,4 +100,37 @@ export interface RuntimeCell {
   versions: string[];
   currentVersionIdx: number;
   currentAnnotions: AnnotedSelectionUnit;
+}
+
+
+export enum DielRemoteAction {
+  ConnectToDb = "ConnectToDb",
+  SimpleQuery = "SimpleQuery",
+  GetMetaData = "GetMetaData",
+  DefineRelations = "DefineRelations",
+  ShareInputAfterTick = "ShareInputAfterTick",
+  ShareViewsAfterInput = "ShareViewsAfterInput",
+}
+
+// export type DielMessage = DielMessageDefineView | DielMessageSimpleQuery | DielMessageShareAndFetch;
+
+export interface DielRemoteMessageId {
+  remoteAction: DielRemoteAction;
+  msgId?: number;
+  view?: string;
+  lineage?: number;
+}
+
+export interface DielRemoteMessage {
+  id: DielRemoteMessageId;
+  action: string;
+  sql?: string;
+  dbName?: string;
+  buffer?: Uint8Array;
+}
+
+export interface DielRemoteReply {
+  id: DielRemoteMessageId;
+  results: RelationObject;
+  err: any;
 }

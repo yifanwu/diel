@@ -1,34 +1,40 @@
-import { DataType, DielAst, ProgramSpec } from "../../parser/dielAstTypes";
-import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst } from "../../parser/sqlAstTypes";
+import { DataType, DielAst, ProgramSpec, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst } from "../../parser/dielAstTypes";
 import { RelationSpec, RelationQuery, SqlIr, createSqlAstFromDielAst } from "./createSqlIr";
 import { ReportDielUserError, LogInternalError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
+import { RemoteType } from "../../runtime/runtimeTypes";
 
-export function generateSqlFromDielAst(ast: DielAst) {
+export function generateSqlFromDielAst(ast: DielAst, replace = false) {
   const sqlAst = createSqlAstFromDielAst(ast);
-  return generateStringFromSqlIr(sqlAst);
+  return generateStringFromSqlIr(sqlAst, replace);
 }
 
-export function generateStringFromSqlIr(ir: SqlIr) {
-  const tables = ir.tables.map(t => generateTableSpec(t));
-  const views = ir.views.map(v => generateSqlViews(v));
+export function generateStringFromSqlIr(ir: SqlIr, replace = false) {
+  // if remoteType is server, then we need to drop the old ones if we want to make a new one
+  // we need to architect this properly to scale, but a quick fix for now
+  const tables = ir.tables.map(t => generateTableSpec(t, replace));
+  const views = ir.views.map(v => generateSqlViews(v, replace));
   let triggers: string[] = [];
   ir.triggers.forEach((v, k) => {
-    triggers = triggers.concat(generateTrigger(v, k));
+    triggers = triggers.concat(generateTrigger(v, k, replace));
   });
   return tables.concat(views).concat(triggers);
 }
 
 // FIXME note that we should probably not use the if not exist as a crutch
 // to fix later
-function generateTableSpec(t: RelationSpec): string {
-  return `create table ${t.name} (
+function generateTableSpec(t: RelationSpec, replace = false): string {
+  const replaceQuery = replace ? `DROP TABLE IF EXISTS ${t.name};` : "";
+  return `${replaceQuery}
+  CREATE TABLE ${t.name} (
     ${t.columns.map(c => generateColumnDefinition(c)).join(",\n")}
   )`;
 }
 
-export function generateSqlViews(v: RelationQuery): string {
-  return `create view ${v.name} as
+export function generateSqlViews(v: RelationQuery, replace = false): string {
+  const replaceQuery = replace ? `DROP VIEW IF EXISTS ${v.name};` : "";
+  return `${replaceQuery}
+  CREATE VIEW ${v.name} AS
   ${generateSelect(v.query)}
   `;
 }
@@ -201,12 +207,15 @@ function generateLimit(e: ExprAst): string {
   return `LIMIT ${generateExpr(e)}`;
 }
 
-function generateTrigger(queries: ProgramSpec[], input: string): string {
+function generateTrigger(queries: ProgramSpec[], input: string, replace = false): string {
   if (!input) {
     // this is the general one
     return "";
   }
-  let program = `CREATE TRIGGER ${input}DielProgram AFTER INSERT ON ${input}\nBEGIN\n`;
+  const triggerName = `${input}DielProgram`;
+  const replaceQuery = replace ? `DROP TRIGGER IF EXISTS ${triggerName};` : "";
+  let program = `${replaceQuery}
+  CREATE TRIGGER ${triggerName} AFTER INSERT ON ${input}\nBEGIN\n`;
   program += queries.map(p => {
     if (p.astType === AstType.RelationSelection) {
       const r = p as RelationSelection;

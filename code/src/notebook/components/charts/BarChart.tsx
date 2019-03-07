@@ -81,8 +81,8 @@ export const BarChart: React.StatelessComponent<BarChartProp> = (p) => {
       if (s !== null) {
         const box = {
           brushBoxType: BrushBoxType.OneDim,
-          min: data[Math.floor(x.invert(Math.min(s[0], s[1])))][p.spec.xAttribute],
-          max: data[Math.floor(x.invert(Math.max(s[0], s[1])))][p.spec.xAttribute]
+          min: data[Math.floor(x.invert(Math.min(s[0], s[1])))][p.spec.xAttribute] as number,
+          max: data[Math.floor(x.invert(Math.max(s[0], s[1])))][p.spec.xAttribute] as number
         };
         p.brushHandler(box);
       }

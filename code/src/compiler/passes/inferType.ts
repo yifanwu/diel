@@ -1,8 +1,7 @@
 import { DielIr, SelectionUnitVisitorFunctionOptions } from "../DielIr";
 import { LogInternalError } from "../../lib/messages";
-import { DataType, BuiltInColumns } from "../../parser/dielAstTypes";
+import { DataType, BuiltInColumns, SelectionUnit } from "../../parser/dielAstTypes";
 import { ExprType, ExprFunAst, ExprColumnAst, ExprAst, BuiltInFunc } from "../../parser/exprAstTypes";
-import { SelectionUnit } from "../../parser/sqlAstTypes";
 
 export function InferType(ir: DielIr) {
   ir.ApplyToImmediateSelectionUnits(inferTypeForSelection, true);

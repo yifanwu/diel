@@ -1,6 +1,5 @@
-import { SelectionUnit, RelationReference, Column } from "../../parser/sqlAstTypes";
 import { ExprType, ExprRelationAst } from "../../parser/exprAstTypes";
-import { DerivedRelation } from "../../parser/dielAstTypes";
+import { SelectionUnit, RelationReference } from "../../parser/dielAstTypes";
 import { LogInternalError } from "../../lib/messages";
 
 
@@ -35,7 +34,7 @@ export function getSelectionUnitDep(s: SelectionUnit): string[] {
   });
   if (s.whereClause && s.whereClause.exprType === ExprType.Relation) {
     const relationExpr = s.whereClause as ExprRelationAst;
-    deps = deps.concat(relationExpr.selection.compositeSelections.reduce((acc, c) => acc.concat(getSelectionUnitDep(c.relation)), []));
+    deps = deps.concat(relationExpr.selection.compositeSelections.reduce((acc: string[], c) => acc.concat(getSelectionUnitDep(c.relation)), []));
   }
   return deps;
 }
