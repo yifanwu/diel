@@ -38,6 +38,7 @@ export function findOutputDep(ir: DielIr) {
   return outputDep;
 }
 
+// FIXME: this will invoked for every record, so will not work for multiple insertions
 export function generateShipWorkerInputClause(inputName: string): RelationSelection {
     const argInputName: ExprValAst = {
       exprType: ExprType.Val,

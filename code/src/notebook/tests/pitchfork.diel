@@ -11,7 +11,7 @@ create output pitchForkScoreDistribution as
 
 create event view pitchForkScoreDistributionEvent as
   select
-    round(score / 10) * 10 as scoreBin,
+    round(score * 10 / 10) as scoreBin,
     count(*) as count
   from reviews
   group by scoreBin;
@@ -25,7 +25,7 @@ create output pitchForkYearDistribution as
 
 create event view pitchForkYearDistributionEvent AS
   select
-    round(pub_year / 10) * 10 as yearBin,
+    pub_year as yearBin,
     count(*) as count
   from reviews
   group by yearBin;

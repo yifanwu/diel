@@ -1,5 +1,5 @@
 import { SelectionUnit } from "../parser/dielAstTypes";
-import { RemoteIdentification } from "../compiler/DielPhysicalExecution";
+import { RemoteIdType } from "../compiler/DielPhysicalExecution";
 
 export type QueryId = number;
 
@@ -43,8 +43,8 @@ export enum RemoteType {
 // assume that all the access are via some index in array for now
 // a bit brittle...
 export interface TableMetaData {
-  engineId: RemoteIdentification;
-  rowNumber?: number;
+  remoteId: RemoteIdType;
+  remoteType: RemoteType;
 }
 
 export enum ChartType {
@@ -109,13 +109,14 @@ export enum DielRemoteAction {
   GetMetaData = "GetMetaData",
   DefineRelations = "DefineRelations",
   ShareInputAfterTick = "ShareInputAfterTick",
-  ShareViewsAfterInput = "ShareViewsAfterInput",
+  GetViewsToShare = "GetViewsToShare",
 }
 
 // export type DielMessage = DielMessageDefineView | DielMessageSimpleQuery | DielMessageShareAndFetch;
 
 export interface DielRemoteMessageId {
   remoteAction: DielRemoteAction;
+  input?: string;
   msgId?: number;
   view?: string;
   lineage?: number;
