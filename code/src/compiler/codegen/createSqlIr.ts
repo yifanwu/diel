@@ -38,9 +38,9 @@ export function createSqlAstFromDielAst(ast: DielAst): SqlIr {
     {
       name: "timestep",
       type: DataType.Number,
-      constraints: {
-        primaryKey: true
-      }
+      // constraints: {
+      //   primaryKey: true
+      // }
     },
     {
       name: "lineage",

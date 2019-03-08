@@ -1,6 +1,7 @@
 import { RemoteType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemoteReply, DielRemoteMessageId } from "./runtimeTypes";
 import { SqliteMasterQuery, NewInputManyFuncType } from "./DielRuntime";
 import { LogInternalError, ReportDielUserError } from "../lib/messages";
+import { RemoteIdType } from "../compiler/DielPhysicalExecution";
 // import { WorkerMetaData, processSqliteMasterMetaData } from "./runtimeHelper";
 
 async function connectToSocket(url: string): Promise<WebSocket> {
@@ -16,6 +17,7 @@ async function connectToSocket(url: string): Promise<WebSocket> {
     };
   });
 }
+
 
 // TODO: do some unit tests...
 function parseDielReply(rawStr: string): DielRemoteReply {
@@ -90,16 +92,21 @@ class ConnectionWrapper {
   }
 }
 
+export type NodeDependency = Map<string, Set<string>>;
+
 export default class Remote {
   remoteType: RemoteType;
-  id: number;
+  id: RemoteIdType;
+  // map from output to views to share
+  staticShare: NodeDependency;
   viewSharingCb: NewInputManyFuncType;
   resolves: any;
   rejects: any;
   globalMsgId: number;
   connection: ConnectionWrapper;
   // for now assume that we only need to sahre to main
-  viewsToShare: string[];
+  // based on the input that changed
+  viewsToShare: NodeDependency;
   // for sockets, it will look like 'ws://localhost:8999'
   // and for workers, it will look like a file path to the db.
   constructor(remoteType: RemoteType, remoteId: number, viewSharingCb: NewInputManyFuncType) {
@@ -110,13 +117,39 @@ export default class Remote {
     this.resolves = {};
     this.rejects = {};
   }
-  public SetViewsToShare(viewsToShare: string[]) {
-    // unfortunately this has to be set later...
+
+  public SetStaticShare(viewsToShareByOutput: NodeDependency) {
+    if (this.staticShare) {
+      LogInternalError(`Setting the static views to share again!`);
+    }
+    this.staticShare = viewsToShareByOutput;
+  }
+
+  public SetViewsToShare(viewsToShare: NodeDependency) {
     if (this.viewsToShare) {
-      LogInternalError(`Setting the views to Share again!`);
+      LogInternalError(`Setting the dynamic views to Share again!`);
     }
     this.viewsToShare = viewsToShare;
   }
+
+  public GetStaticViewsForOutput(outputName: string) {
+    // should implement caching here
+    const views = this.staticShare.get(outputName);
+    views.forEach(item => {
+      const msg: DielRemoteMessage = {
+        id: {
+          view: item,
+          lineage: -1,
+          remoteAction: DielRemoteAction.GetViewsToShare
+        },
+        sql: `select * from ${item}`,
+        action: "exec",
+      };
+      // need to pass the lineage information on
+      this.SendMsg(msg, false);
+    });
+  }
+
   async setup(connectionString: string, dbName?: string) {
     if (this.remoteType === RemoteType.Worker) {
       const newConnection = new Worker(WebWorkerSqlPath);
@@ -228,40 +261,27 @@ export default class Remote {
         if (customId === DielRemoteAction.ShareInputAfterTick) {
           // share the views: exec select * from the view
           // then insert into the table in main
-          // the trigger is actually coordianted through allInput table,
-          // which is event based, as opposed to input row based.
-          // we need to look at what we need to ship over
-          // const viewsToShare = this.rt.physicalExecution.GetEventViewsToShare({
-          //   location: RemoteType.Worker,
-          //   accessInfo: wLoc
-          // });
-          for (let item of this.viewsToShare) {
-            const msg: DielRemoteMessage = {
+          // the trigger is actually coordianted through allInput table
+          for (let item of this.viewsToShare.get(msg.id.input)) {
+            const newMsg: DielRemoteMessage = {
               id: {
-                remoteAction: DielRemoteAction.ShareViewsAfterInput
+                view: item,
+                input: msg.id.input,
+                remoteAction: DielRemoteAction.GetViewsToShare
               },
               sql: `select * from ${item}`,
               action: "exec",
             };
             // need to pass the lineage information on
-            self.SendMsg(msg, false);
+            self.SendMsg(newMsg, false);
           }
-        } else if (customId === DielRemoteAction.ShareViewsAfterInput) {
+        } else if (customId === DielRemoteAction.GetViewsToShare) {
           const view = msg.id.view;
           if (!view || !msg.id.lineage) {
             LogInternalError(`Both view and lienage should be defined for sharing views! However, I got ${JSON.stringify(msg.id, null, 2)}`);
           }
           if (msg.results.length > 0) {
             this.viewSharingCb(view, msg.results, msg.id.lineage);
-            // const columns = results[0].columns.join(", ");
-            // const valueStr = results[0].values.map((v: any) => `(${v.map((vi: any) => {
-            //   if (typeof vi === "string") {
-            //     return `'${vi}'`;
-            //   }
-            //   return vi;
-            // }).join(",")})`);
-            // const sql = `INSERT INTO ${view} (${columns}) VALUES ${valueStr};`;
-            // this.rt.db.exec(sql);
           }
         } else {
           console.log(`%c Got ${customId} and not handled, the msg is ${JSON.stringify(msg)}`, "color: red");

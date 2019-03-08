@@ -10,13 +10,22 @@ interface PitchForkState {
 }
 
 // FIXME: if we set get view on outputs we might not set it when we initially need to
+//  diel.GetView("")
 export default class PitchFork extends React.Component<{}, PitchForkState> {
   constructor(props: {}) {
     super(props);
+    diel.BindOutput("pitchForkScoreDistribution", this.setScoreData.bind(this));
+    diel.BindOutput("pitchForkYearDistribution", this.setYearData.bind(this));
     this.state = {
-      scoreData: diel.GetView("pitchForkScoreDistribution"),
-      yearData: diel.GetView("pitchForkYearDistribution"),
+      scoreData: null,
+      yearData: diel.GetView(""),
     };
+  }
+  setYearData(r: RelationObject) {
+    this.setState({yearData: r});
+  }
+  setScoreData(r: RelationObject) {
+    this.setState({scoreData: r});
   }
   render() {
     const scoreSpec = {

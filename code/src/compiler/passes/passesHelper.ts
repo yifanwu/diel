@@ -5,7 +5,7 @@ import { LogInternalError } from "../../lib/messages";
 
 export type DependencyTree = Map<string, {
   dependsOn: string[],
-  isDependentOn: string[]
+  isDependedBy: string[]
 }>;
 
 export interface DependencyInfo {

@@ -4,11 +4,14 @@ import DielRuntime from "../runtime/DielRuntime";
 const workerDbPaths: string[] = undefined;
 const dielPrefix = "./src/notebook/tests/";
 const dielFiles = [
-  // `${dielPrefix}simple.diel`,
+  // the following are local
+  // fixme: make simple and counter-worker have different names...
+  `${dielPrefix}simple.diel`,
+  `${dielPrefix}linked-bar-charts.diel`,
+  `${dielPrefix}single-bar-chart-zoom.diel`,
+  // the following are remotes
   `${dielPrefix}pitchfork.diel`,
   `${dielPrefix}counter-worker.diel`,
-  `${dielPrefix}linked-bar-charts.diel`,
-  `${dielPrefix}single-bar-chart-zoom.diel`
 ];
 const mainDbPath = "./UI-dist/test.db";
 
