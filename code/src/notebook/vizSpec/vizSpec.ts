@@ -130,7 +130,8 @@ export function generateVizSpecForSingleQuery(rt: DielRuntime, q: DerivedRelatio
 
     
     const r = rt.db.exec(`select count() from ${q.name} group by `);
-  } else if (timeColumns.length + numericColumns.length == 2) {
+  } else if (timeColumns.length + numericColumns.length == 2)
+   {
 
   } else {
     return spec
