@@ -20,6 +20,11 @@ export function SetSymmetricDifference<T>(setA: Set<T>, setB: Set<T>): Set<T> {
   return _difference;
 }
 
+/**
+ * find elements in A but not in B
+ * @param setA
+ * @param setB
+ */
 export function SetDifference<T>(setA: Set<T>, setB: Set<T>): Set<T> {
   let _difference = new Set(setA);
   for (let elem of setB) {

@@ -175,7 +175,8 @@ export class DielIr {
           if (compositeSelection) {
             return acc.concat(compositeSelection.map(c => fun(c.relation, {ir, relationName: r})));
           } else {
-            LogInternalError(`Composition Selection ${r} was not found`);
+            // this is an input, it's normal
+            // LogInternalError(`Composition Selection ${r} was not found`);
             return [];
           }
         }, initial);

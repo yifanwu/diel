@@ -4,19 +4,19 @@ export function testTopologicalSort() {
   const depTree: DependencyTree = new Map([
     ["v1", {
       dependsOn: ["v2"],
-      isDependentOn: []
+      isDependedBy: []
     }],
     ["v2", {
       dependsOn: ["v3"],
-      isDependentOn: []
+      isDependedBy: ["v1"]
     }],
     ["v3", {
       dependsOn: ["v4"],
-      isDependentOn: []
+      isDependedBy: ["v2"]
     }],
     ["v4", {
       dependsOn: [],
-      isDependentOn: []
+      isDependedBy: ["v3"]
     }],
   ]);
   const sorted = getTopologicalOrder(depTree);

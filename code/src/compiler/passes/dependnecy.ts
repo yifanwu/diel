@@ -5,14 +5,14 @@ import { SetIntersection } from "../../lib/dielUtils";
 
 export function ApplyDependencies(ir: DielIr) {
   // first build the tree
-  let depTree: DependencyTree = new Map<string, {dependsOn: string[], isDependentOn: string[]}>();
+  let depTree: DependencyTree = new Map<string, {dependsOn: string[], isDependedBy: string[]}>();
   ir.ApplyToImmediateSelectionUnits<void>((s, optional) => {
     const rName = optional.relationName;
     if (!rName) {
       throw new Error(`relation name must be defined`);
     }
     const deps = getSelectionUnitDep(s);
-    let dependsOn: string[];
+    let dependsOn: string[] = [];
     if (depTree.has(rName)) {
       const existingDep = depTree.get(rName);
       dependsOn = deps.concat(existingDep.dependsOn);
@@ -21,10 +21,21 @@ export function ApplyDependencies(ir: DielIr) {
     }
     depTree.set(rName, {
       dependsOn,
-      isDependentOn: null
+      isDependedBy: []
     });
   });
-  // TODO need to do another pass to set the isDependentOn
+  // TODO: make the depends on a set as opposed to a string, easier to search.
+
+  // another pass to set the isDependentOn
+  depTree.forEach((value, key) => {
+    value.dependsOn.map(dO => {
+      // it's possible that these don't exist, if they are the leaves
+      if (!depTree.has(dO)) {
+        depTree.set(dO, {dependsOn: [], isDependedBy: []});
+      }
+      depTree.get(dO).isDependedBy.push(key);
+    });
+  });
   // we need to do another pass where we look up the other direction and populate it...
   // sahana?
   const topologicalOrder = getTopologicalOrder(depTree);
@@ -78,7 +89,7 @@ function generateDependenciesByInput(depTree: DependencyTree, ir: DielIr) {
  * @param rName
  * @param depndsOn the boolean is defaulted to true, if it's false, it's the other direction.
  */
-export function generateDependenciesByName(depTree: DependencyTree, rName: string) {
+export function generateDependenciesByName(depTree: DependencyTree, rName: string): Set<string> {
   const allDependencies = new Set<string>();
   oneStep(rName, allDependencies);
   // recursively checks for dependencies
