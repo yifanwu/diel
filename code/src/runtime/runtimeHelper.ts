@@ -59,6 +59,7 @@ export function parseSqlJsWorkerResult(data: QueryResults[]): RelationObject {
       });
       return oi;
     });
+    return o;
   }
   return [];
 }

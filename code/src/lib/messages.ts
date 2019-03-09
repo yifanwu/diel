@@ -41,7 +41,9 @@ export function ReportDielBasicParsingError(m: string) {
 
 // note that this is in browser
 export function ReportUserRuntimeError(m: string) {
-  console.log(`%c Runtime error from user specification: ${m}`, "color: red");
+  debugger;
+  throw new Error(m);
+  // console.log(`%c Runtime error from user specification: ${m}`, "color: red");
 }
 
 // TODO: this should also report the line of the code

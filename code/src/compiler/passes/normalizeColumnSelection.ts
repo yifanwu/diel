@@ -1,8 +1,9 @@
-import { DielIr, SimpleColumn, SelectionUnitVisitorFunctionOptions } from "../DielIr";
+import { DielIr, SimpleColumn, SelectionUnitVisitorFunctionOptions, BuiltInColumn } from "../DielIr";
 import { ReportDielUserError, LogInternalError } from "../../lib/messages";
 import { ExprType, ExprColumnAst, ExprFunAst } from "../../parser/exprAstTypes";
 import {  SelectionUnit, ColumnSelection, getRelationReferenceName, RelationReference, DataType } from "../../parser/dielAstTypes";
 import { copyColumnSelection, createColumnSectionFromRelationReference } from "./helper";
+import { generateSelectionUnitBody } from "../codegen/codeGenSql";
 
 /**
  * the pass removes the .* as well as filling in where the columns comes from if it's not specified
@@ -10,7 +11,7 @@ import { copyColumnSelection, createColumnSectionFromRelationReference } from ".
  * - supports subqueries, e.g., select k.* from (select * from t1) k;
  */
 export function NormalizeColumnSelection(ir: DielIr) {
-  ir.ApplyToImmediateSelectionUnits(normalizeColumnForSelectionUnit, true);
+  ir.ApplyToImmediateSelectionUnits<void>(normalizeColumnForSelectionUnit, true);
 }
 
 function columnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[] {
@@ -124,7 +125,7 @@ function starCase(ir: DielIr, s: SelectionUnit, currentColumnExpr: ExprColumnAst
     }
 }
 
-function normalizeColumnForSelectionUnit(s: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions) {
+function normalizeColumnForSelectionUnit(s: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions): void {
     const derivedColumnSelections: ColumnSelection[][] = s.columnSelections.map(c => {
       if (c.expr.exprType === ExprType.Column) {
         const currentColumnExpr = c.expr as ExprColumnAst;
@@ -139,11 +140,24 @@ function normalizeColumnForSelectionUnit(s: SelectionUnit, optional: SelectionUn
           // NOTE: not going to handle unnamed temporary relation for now, e.g.
           // `select a from (select a from t1);`
           // case 1: relation is in baserelation
+          // UGH this is so ugly...
+          if (currentColumnExpr.columnName.toUpperCase() === BuiltInColumn.TIMESTAMP) {
+            // FIXME: check if base is input; too lazy for now
+            return [createColumnSectionFromRelationReference(c, {columnName: currentColumnExpr.columnName, type: DataType.TimeStamp}, s.baseRelation.relationName)];
+          }
+          if (currentColumnExpr.columnName.toUpperCase() === BuiltInColumn.TIMESTEP) {
+            // FIXME: check if base is input; too lazy for now
+            return [createColumnSectionFromRelationReference(c, {columnName: currentColumnExpr.columnName, type: DataType.Number}, s.baseRelation.relationName)];
+          }
           const columnsFrombaseSelection = columnsFromRelationReference(optional.ir, s.baseRelation);
           const foundFrombase = columnsFrombaseSelection.filter(cBase => cBase.columnName === currentColumnExpr.columnName);
           if (foundFrombase.length > 0) {
             // FIXME: this assumption will break when the relation is temporarily defined
             return [createColumnSectionFromRelationReference(c, foundFrombase[0], s.baseRelation.relationName)];
+          } else {
+            // the user should specify where the column is from if there are join cases (this is the assumption held by SQLite)
+            // this might be a case where we could improve SQLite
+            ReportDielUserError(`Column ${currentColumnExpr.columnName} is not found in ${s.baseRelation.relationName}. If it's specified in the join clause, please specify which relation the column is from.`, generateSelectionUnitBody(s));
           }
         }
       } else {

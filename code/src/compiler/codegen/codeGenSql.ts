@@ -64,7 +64,7 @@ export function generateSelectionUnit(v: SelectionUnit): string {
   //   ? generateColumnSelection(v.columnSelections)
     // : generateColumnSelection(v.derivedColumnSelections)
     // ;
-  return `SELECT ${selection}
+  return `SELECT ${v.isDistinct ? "DISTINCT" : ""} ${selection}
     ${generateSelectionUnitBody(v)}
   `;
 }

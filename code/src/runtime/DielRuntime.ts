@@ -412,7 +412,6 @@ export default class DielRuntime {
             input: inputName,
             remoteAction: DielRemoteAction.ShareInputAfterTick
           },
-          action: "exec",
           sql,
         };
         remote.SendMsg(msg);
@@ -537,7 +536,7 @@ export default class DielRuntime {
             id: {
               remoteAction: DielRemoteAction.DefineRelations
             },
-            action: "run",
+            // action: "run",
             sql
           };
           remoteInstance.SendMsg(msg);
