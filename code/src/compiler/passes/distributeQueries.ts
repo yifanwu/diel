@@ -9,14 +9,22 @@ export function getStaticTableFromDerived(r: CompositeSelectionUnit[], relation:
     throw new Error(`query not normalized and cannot be distributed to main`);
   }
   const columns = originalColumns.map(c => {
+    let columnName: string;
     if (!c.alias) {
-      ReportDielUserError(`Must specify alias for view columns, and you did not for ${relation}, with column ${JSON.stringify(c, null, 2)}`);
+      if (c.expr.exprType === ExprType.Column) {
+        columnName = (c.expr as ExprColumnAst).columnName;
+      } else {
+        ReportDielUserError(`Must specify alias for view columns if they are not colume selections!
+         You did not for ${relation}, with column ${JSON.stringify(c, null, 2)}`);
+      }
+    } else {
+      columnName = c.alias;
     }
     if (!c.expr.dataType) {
       LogInternalError(`Didn't specify the data type in the relation ${relation}!`);
     }
     return {
-      name: c.alias,
+      name: columnName,
       type: c.expr.dataType,
     };
   });

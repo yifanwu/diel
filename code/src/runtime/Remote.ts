@@ -2,6 +2,7 @@ import { RemoteType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRe
 import { SqliteMasterQuery, NewInputManyFuncType } from "./DielRuntime";
 import { LogInternalError, ReportDielUserError } from "../lib/messages";
 import { RemoteIdType } from "../compiler/DielPhysicalExecution";
+import { parseSqlJsWorkerResult } from "./runtimeHelper";
 // import { WorkerMetaData, processSqliteMasterMetaData } from "./runtimeHelper";
 
 async function connectToSocket(url: string): Promise<WebSocket> {
@@ -28,31 +29,15 @@ function parseDielReply(rawStr: string): DielRemoteReply {
 
 const WebWorkerSqlPath = "./UI-dist/worker.sql.js";
 
-
-// function parseWorkerId(id: string) {
-//   const tokens = id.split("-");
-//   const messageType = tokens[0];
-//   let isPromise = false;
-//   let promiseId = -1;
-//   let customId: string;
-//   let infoObj: any;
-//   if (messageType === WorkerMessageType.Promise) {
-//     isPromise = true;
-//     promiseId = parseInt(tokens[1]);
-//     customId = tokens[2];
-//   } else {
-//     customId = tokens[1];
-//     if (tokens.length > 2) {
-//       infoObj = JSON.parse(tokens[2]);
-//     }
-//   }
-//   return {
-//     isPromise,
-//     promiseId,
-//     customId,
-//     infoObj
-//   };
-// }
+const DielRemoteActionToEngineActionWorker = new Map<DielRemoteAction, string>([
+  [DielRemoteAction.GetViewsToShare, "exec"],
+  [DielRemoteAction.GetResultsByPromise, "exec"],
+  [DielRemoteAction.ConnectToDb, "open"],
+  [DielRemoteAction.DefineRelations, "exec"],
+  [DielRemoteAction.ShareInputAfterTick, "exec"]
+]);
+const DielRemoteActionToEngineActionSocket = new Map(DielRemoteActionToEngineActionWorker);
+DielRemoteActionToEngineActionSocket.set(DielRemoteAction.DefineRelations, "run");
 
 // to unify worker and websocket
 class ConnectionWrapper {
@@ -66,18 +51,23 @@ class ConnectionWrapper {
   }
   send(msg: DielRemoteMessage) {
     // FIXME: deal with nulls etc.
-    const newMessage = {
-      id: JSON.stringify(msg.id),
-      action: msg.action,
-      sql: msg.sql,
-      dbName: msg.dbName,
-      buffer: msg.buffer
-    };
+    // action creation logic:
+    // DefineRelations: exec for Worker, and run for socket...
     if (this.remoteType === RemoteType.Worker) {
       // FIXME: might need some adaptor logic here to make worker the same as socket
-      (this.connection as Worker).postMessage(msg);
+      (this.connection as Worker).postMessage({
+        action: DielRemoteActionToEngineActionWorker.get(msg.id.remoteAction),
+        ...msg
+      });
     } else {
-      // FIXME: might need to serialize
+      // FIXME: clear serialization logic
+      const newMessage = {
+        id: JSON.stringify(msg.id),
+        action: DielRemoteActionToEngineActionSocket.get(msg.id.remoteAction),
+        sql: msg.sql,
+        dbName: msg.dbName,
+        buffer: msg.buffer
+      };
       (this.connection as WebSocket).send(JSON.stringify(newMessage));
     }
   }
@@ -143,7 +133,7 @@ export default class Remote {
           remoteAction: DielRemoteAction.GetViewsToShare
         },
         sql: `select * from ${item}`,
-        action: "exec",
+        // action: "exec",
       };
       // need to pass the lineage information on
       this.SendMsg(msg, false);
@@ -163,7 +153,7 @@ export default class Remote {
       // we should block because if it's not ack-ed the rest of the messages cannot be processed properly
       await this.SendMsg({
         id: {remoteAction: DielRemoteAction.ConnectToDb},
-        action: "open",
+        // action: "open",
         buffer,
       }, true);
     } else {
@@ -174,7 +164,7 @@ export default class Remote {
         if (dbName) {
           await this.SendMsg({
             id: {remoteAction: DielRemoteAction.ConnectToDb},
-            action: "open",
+            // action: "open",
             dbName
           }, true);
         }
@@ -224,20 +214,25 @@ export default class Remote {
       // but if this is worker, then we just need to unpack id...
       // so annoying
       let msg: DielRemoteReply | undefined;
-      try {
-        if (this.remoteType === RemoteType.Socket) {
+      if (this.remoteType === RemoteType.Socket) {
+        try {
           msg = parseDielReply(event.data);
-        } else {
+        } catch (e) {
+          console.log(`%cSocket sent mal-formatted message: ${JSON.stringify(event.data, null, 2)}`, "color: red");
+          return;
+        }
+      } else {
+        if (event.data.id) {
           msg = {
-            id: JSON.parse(event.data.id) as DielRemoteMessageId,
-            results: event.data.results,
+            id: event.data.id as DielRemoteMessageId,
+            results: parseSqlJsWorkerResult(event.data.results),
             err: event.data.err
           };
+         } else {
+          console.log(`%c\nWorker sent mal-formatted message: ${event.data}`, "color: red");
+          return;
+         }
         }
-      } catch (e) {
-        console.log(`%cServer sent mal-formatted message: `, event, "color: red");
-        return;
-      }
       if (msg.id.msgId > -1) {
         const promiseId = msg.id.msgId;
         if (msg.err) {
@@ -270,7 +265,7 @@ export default class Remote {
                 remoteAction: DielRemoteAction.GetViewsToShare
               },
               sql: `select * from ${item}`,
-              action: "exec",
+              // action: "exec",
             };
             // need to pass the lineage information on
             self.SendMsg(newMsg, false);
@@ -296,8 +291,8 @@ export default class Remote {
    */
   async getMetaData(): Promise<RelationObject> {
     const promise = this.SendMsg({
-      id: {remoteAction: DielRemoteAction.GetMetaData},
-      action: "exec",
+      id: {remoteAction: DielRemoteAction.GetResultsByPromise},
+      // action: "exec",
       sql: SqliteMasterQuery
     }, true);
     const data = await promise;

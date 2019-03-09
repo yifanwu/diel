@@ -7,6 +7,12 @@ type CompositeSelectionFunction<T> = (s: CompositeSelection, relationName?: stri
 export type SelectionUnitVisitorFunctionOptions = {relationName?: string, ir?: DielIr};
 export type SimpleColumn = {columnName: string, type: DataType};
 type SelectionUnitFunction<T> = (s: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions) => T;
+
+export enum BuiltInColumn {
+  TIMESTEP = "TIMESTEP",
+  TIMESTAMP = "TIMESTAMP"
+}
+
 /**
  * instead of exposing the IR internals whenever something accesses it
  * we will abstract it away in a class (doesn't have to be OO,

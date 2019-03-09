@@ -348,6 +348,7 @@ export interface RelationSelection extends AstBase {
 export interface SelectionUnit {
   // this is first filled in by getting rid of the stars
   // then it's filled by the type inference pass
+  isDistinct?: boolean;
   derivedColumnSelections?: ColumnSelection[];
   // these are filled in the parsing step
   columnSelections: ColumnSelection[];
