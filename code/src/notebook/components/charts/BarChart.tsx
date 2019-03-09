@@ -1,20 +1,14 @@
 import * as React from "react";
 import * as d3 from "d3";
 import { ChartSpec } from "../../../runtime/runtimeTypes";
-import { VizLayout, DefaultVizLayout, BrushBoxOneDim, BrushBoxType, FilterValueType } from "../../vizSpec/vizSpec";
+import { DefaultVizLayout, BrushBoxOneDim, BrushBoxType, FilterValueType, ChartPropShared } from "../../vizSpec/vizSpec";
 
 // we are going to over load categorical data with some order metrics
 // note: might change if we ned to accept multiple selections in the future.
-interface BarChartProp {
+interface BarChartProp extends ChartPropShared {
   spec: ChartSpec;
   selectedDataRange?: {min: FilterValueType; max: FilterValueType};
-  layout?: VizLayout;
-  colorSpec?: {
-    selected?: string,
-    default: string
-  };
   brushHandler?: (box: BrushBoxOneDim) => void;
-  svgClickHandler?: () => void;
 }
 
 /**

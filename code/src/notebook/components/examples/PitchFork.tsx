@@ -18,7 +18,7 @@ export default class PitchFork extends React.Component<{}, PitchForkState> {
     diel.BindOutput("pitchForkYearDistribution", this.setYearData.bind(this));
     this.state = {
       scoreData: null,
-      yearData: diel.GetView(""),
+      yearData: null,
     };
   }
   setYearData(r: RelationObject) {

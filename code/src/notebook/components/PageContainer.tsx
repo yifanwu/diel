@@ -6,6 +6,7 @@ import Counter from "./examples/Counter";
 import ScoreZoomBarChart from "./examples/ScoreZoomBarChart";
 import LinkedBarCharts from "./examples/LinkedBarCharts";
 import PitchFork from "./examples/PitchFork";
+import Flights from "./examples/Flights";
 
 const Notebook = () => (<div>
     <ExistingRelationsPad/>
@@ -34,6 +35,9 @@ export const PageContainer = () => (<Router>
       <Link to="pitchfork">
         Pitch Fork (Remote)
       </Link>
+      <Link to="flights">
+        Flights (Remote)
+      </Link>
     </div>
     <div id="main">
       <Switch>
@@ -41,7 +45,8 @@ export const PageContainer = () => (<Router>
         <Route path="/notebook" component={Notebook}/>
         <Route path="/scoreZoom" component={ScoreZoomBarChart}/>
         <Route path="/linkedCharts" component={LinkedBarCharts}/>
-        <Route path="/" component={PitchFork} />
+        <Route path="/pitchfork" component={PitchFork} />
+        <Route path="/" component={Flights} />
       </Switch>
     </div>
   </div>

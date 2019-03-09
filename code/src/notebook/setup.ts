@@ -1,7 +1,7 @@
 import DielRuntime from "../runtime/DielRuntime";
 
-// const workerDbPaths = ["./UI-dist/test-worker.db"];
-const workerDbPaths: string[] = undefined;
+const workerDbPaths = ["./UI-dist/flights.sqlite"];
+// const workerDbPaths: string[] = undefined;
 const dielPrefix = "./src/notebook/tests/";
 const dielFiles = [
   // the following are local
@@ -11,7 +11,7 @@ const dielFiles = [
   `${dielPrefix}single-bar-chart-zoom.diel`,
   // the following are remotes
   `${dielPrefix}pitchfork.diel`,
-  `${dielPrefix}counter-worker.diel`,
+  `${dielPrefix}flights-worker.diel`,
 ];
 const mainDbPath = "./UI-dist/test.db";
 

@@ -11,6 +11,15 @@ export interface VizLayout {
   marginLeft: number;
 }
 
+export interface ChartPropShared {
+  layout?: VizLayout;
+  svgClickHandler?: () => void;
+  colorSpec?: {
+    selected?: string,
+    default: string
+  };
+}
+
 export type BrushBox = BrushBoxOneDim | BrushBoxTwoDim;
 
 // both have well defined comparison semantics in SQLite

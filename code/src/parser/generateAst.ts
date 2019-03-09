@@ -110,6 +110,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
       throw new Error(`There should be some column values in select, query is ${selectQuery}`);
     }
     let body = null;
+    const isDistinct = ctx.DISTINCT() ? true : false;
     if (ctx.FROM()) {
       const baseRelation = this.visit(ctx.relationReference()) as RelationReference;
       const joinClauses = ctx.joinClause().map(e => this.visit(e) as JoinAst);
@@ -127,6 +128,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
       };
     }
     return {
+      isDistinct,
       columnSelections,
       ...body,
     };

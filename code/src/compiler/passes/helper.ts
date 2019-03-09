@@ -25,6 +25,6 @@ export function createColumnSectionFromRelationReference(original: ColumnSelecti
       hasStar: false,
       relationName,
     },
-    alias: original.alias,
+    alias: original.alias ? original.alias : simpleColomn.columnName,
   };
 }

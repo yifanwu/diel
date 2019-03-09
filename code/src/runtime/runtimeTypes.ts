@@ -106,7 +106,7 @@ export interface RuntimeCell {
 export enum DielRemoteAction {
   ConnectToDb = "ConnectToDb",
   SimpleQuery = "SimpleQuery",
-  GetMetaData = "GetMetaData",
+  GetResultsByPromise = "GetResultsByPromise",
   DefineRelations = "DefineRelations",
   ShareInputAfterTick = "ShareInputAfterTick",
   GetViewsToShare = "GetViewsToShare",
@@ -124,7 +124,7 @@ export interface DielRemoteMessageId {
 
 export interface DielRemoteMessage {
   id: DielRemoteMessageId;
-  action: string;
+  // action: string;
   sql?: string;
   dbName?: string;
   buffer?: Uint8Array;
