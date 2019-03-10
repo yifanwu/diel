@@ -1,5 +1,5 @@
 import { assertSimpleType, assertMultiplyType } from "./compilerTests/assertTypes";
-import { testTopologicalSort } from "./unitTest";
+import { testTopologicalSort, testDistributionLogc } from "./unitTest";
 import { assertBasicNormalizationOfRelation } from "./compilerTests/assertNormalization";
 import { assertBasicOperators } from "./parserTests/basicOperatorsTest";
 import { codeGenBasicSQLTest } from "./codeGenTests/sqlTest";
@@ -25,7 +25,9 @@ create view v2 as select a from t1 join (select max(b) as b from t2) m on m.b = 
 create view v3 as select a from t1 where b in (select b from t2 where c = 'hello');
 `;
 
-testTopologicalSort();
+testDistributionLogc();
+
+// testTopologicalSort();
 
 
 // assertBasicConstraints();

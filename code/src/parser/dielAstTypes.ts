@@ -24,20 +24,13 @@ export enum DataType {
   TBD = "TBD"
 }
 
-// made the design decision where the view is based on use
-// not at specification time
-// but keeping it just in case we need to differentiate in the future
-// export enum RelationType {
-// }
-
-// FIXME: decide on the name
 export enum RelationType {
   EventTable = "EventTable",
   EventView = "EventView",
   Table = "Table",
   ExistingAndImmutable = "ExistingAndImmutable",
   View = "View",
-  StaticTable = "StaticTable",
+  // StaticTable = "StaticTable",
   Output = "Output",
 }
 
@@ -62,7 +55,6 @@ export interface TransferInfo {
   location: string;
 }
 
-// currently only support a single output
 export interface UdfType {
   udf: string;
   type: DataType;
@@ -138,32 +130,17 @@ export interface DerivedRelation extends RelationBase {
   selection: RelationSelection;
 }
 
-// export interface ExistingRelation extends RelationBase {
-//   relationType: StaticRelationType;
-//   columns: Column[];
-//   serverInfo?: ServerConnection;
-// }
-
-// used for inputs and tables that are accessed by programs
 export interface OriginalRelation extends RelationBase {
   columns: Column[];
   copyFrom?: string; // this is used by templates
 }
 
-// TODO
-export interface ServerConnection {
-  serverName: string;
-}
+export type Relation = DerivedRelation | OriginalRelation;
 
 export type ForeignKey = {
   sourceColumn: string, targetRelation: string, targetColumn: string
 };
 
-// wow constraints are complicated
-// they are not recursive though
-// evaluating them will be a pain probably as well
-// I wonder if there is a similar dataflow structure for constraints???
-// also need to merge this with the column constraints later... ugh ugly
 export interface RelationConstraints {
   relationNotNull: boolean;
   relationHasOneRow: boolean;
@@ -172,13 +149,13 @@ export interface RelationConstraints {
   uniques?: string[][]; // there could be multiple unique claueses
   exprChecks?: ExprAst[]; // these are actually on colunmn level, a bit weird here
   foreignKeys?: ForeignKey[];
-  // the other parts are in columns.. ugh
+  // the other parts are in columns, which are normalized in in the normalize constraints pass
 }
 
 export type ProgramSpec = RelationSelection | InsertionClause;
 
 /**
- * If input is not specified, it's over all inputs.
+ * If input is not specified, i.e. "", it's over all inputs.
  */
 export type ProgramsIr = Map<string, ProgramSpec[]>;
 

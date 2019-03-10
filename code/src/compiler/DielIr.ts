@@ -1,4 +1,4 @@
-import { DielAst, DerivedRelation, DataType, OriginalRelation, RelationType, SelectionUnit, CompositeSelection } from "../parser/dielAstTypes";
+import { DielAst, DerivedRelation, DataType, OriginalRelation, RelationType, SelectionUnit, CompositeSelection, Relation } from "../parser/dielAstTypes";
 import { DependencyInfo } from "./passes/passesHelper";
 import { LogWarning, LogInternalError } from "../lib/messages";
 import { ExprType, ExprColumnAst } from "../parser/exprAstTypes";
@@ -44,6 +44,20 @@ export class DielIr {
     this.GetAllViews().map((r) => {
       this.allDerivedRelations.set(r.name, r);
     });
+  }
+  GetRelationDef(rName: string): Relation {
+    // first search in original, then serach in derived, compalin otherwise
+    const original = this.allOriginalRelations.get(rName);
+    if (original) {
+      return original;
+    } else {
+      const derived = this.allDerivedRelations.get(rName);
+      if (derived) {
+        return derived;
+      } else {
+        LogInternalError(`Relation ${rName} not defined`);
+      }
+    }
   }
   /**
    * Public helper functions

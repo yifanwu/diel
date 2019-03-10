@@ -2,7 +2,7 @@ import { DataType, DielAst, ProgramSpec, Column, CompositeSelectionUnit, Inserti
 import { RelationSpec, RelationQuery, SqlIr, createSqlAstFromDielAst } from "./createSqlIr";
 import { ReportDielUserError, LogInternalError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
-import { RemoteType } from "../../runtime/runtimeTypes";
+import { DbType } from "../../runtime/runtimeTypes";
 
 export function generateSqlFromDielAst(ast: DielAst, replace = false) {
   const sqlAst = createSqlAstFromDielAst(ast);
