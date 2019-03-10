@@ -1,8 +1,7 @@
-import { DataType, DielAst, ProgramSpec, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst } from "../../parser/dielAstTypes";
+import { DataType, DielAst, Commands, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst } from "../../parser/dielAstTypes";
 import { RelationSpec, RelationQuery, SqlIr, createSqlAstFromDielAst } from "./createSqlIr";
 import { ReportDielUserError, LogInternalError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
-import { DbType } from "../../runtime/runtimeTypes";
 
 export function generateSqlFromDielAst(ast: DielAst, replace = false) {
   const sqlAst = createSqlAstFromDielAst(ast);
@@ -207,7 +206,7 @@ function generateLimit(e: ExprAst): string {
   return `LIMIT ${generateExpr(e)}`;
 }
 
-function generateTrigger(queries: ProgramSpec[], input: string, replace = false): string {
+function generateTrigger(queries: Commands[], input: string, replace = false): string {
   if (!input) {
     // this is the general one
     return "";

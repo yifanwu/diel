@@ -69,7 +69,7 @@ export function ApplyDependencies(ir: DielIr) {
 function generateDependenciesByInput(depTree: DependencyTree, ir: DielIr) {
   const inputDependenciesOutput = new Map<string, Set<string>>();
   const inputDependenciesAll = new Map<string, Set<string>>();
-  const outputSet = new Set(ir.GetAllViews().filter(v => v.relationType === RelationType.Output).map(o => o.name));
+  const outputSet = new Set(ir.GetAllDerivedViews().filter(v => v.relationType === RelationType.Output).map(o => o.name));
   ir.GetEventRelationNames().map(i => {
     const allDependencies = generateDependenciesByName(depTree, i);
     const inputDependencyValues = SetIntersection<string>(allDependencies, outputSet);

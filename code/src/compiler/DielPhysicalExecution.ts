@@ -4,7 +4,7 @@ import { DielIr } from "../lib";
 import { PhysicalMetaData } from "../runtime/DielRuntime";
 import { generateDependenciesByName } from "./passes/dependnecy";
 import { DeepCopy, SetIntersection } from "../lib/dielUtils";
-import { findOutputDep, getStaticTableFromDerived, generateShipWorkerInputClause, isRelationTypeDerived, SingleDistribution } from "./passes/distributeQueries";
+import { findOutputDep, getEventTableFromDerived, generateShipWorkerInputClause, SingleDistribution, QueryDistributionRecursiveEval } from "./passes/distributeQueries";
 import { LogInternalError } from "../lib/messages";
 import { getSelectionUnitAnnotation } from "../runtime/annotations";
 import { DependencyTree, NodeDependencyAugmented } from "./passes/passesHelper";
@@ -27,20 +27,15 @@ import { NodeDependency } from "../runtime/Remote";
 export type DbIdType = number;
 export type RelationId = string;
 
-export type JobPerTick = {
+export type JobPerInput = {
   viewToShip: RelationId,
   viewsToGet: Set<RelationId>,
   dependentOutput: Set<RelationId>,
-  destination: DbIdType
+  destinations: Set<DbIdType>
 };
 
 // HARDCODED
 export const LocalDbId = 1;
-
-interface RemoteExecutionSpec {
-  ast: DielAst;
-  jobs: JobPerTick[];
-}
 
 /**
  * Note that ir and metaData are read only
@@ -49,18 +44,9 @@ interface RemoteExecutionSpec {
 export class DielPhysicalExecution {
   ir: DielIr; // read only
   metaData: PhysicalMetaData; // read only
-  dbExecutionSpecs: Map<DbIdType, RemoteExecutionSpec>;
+  astSpecPerDb: Map<DbIdType, DielAst>;
   runtimeOutputNames: Set<RelationId>;
-  // local: DielAst;
-  // maps inputNames to remote destinations
-  // localToRemotes: Map<string, Set<DbIdType>>;
-  // this is to trigger evaluations of static event views
-  // FIXME: might need refactoring
-  // staticEventViews: {
-  //   dependentOutputs: Set<string>;
-  //   viewName: string;
-  //   remoteId: DbIdType
-  // }[];
+  distributions: SingleDistribution[];
 
   constructor(ir: DielIr, metaData: PhysicalMetaData) {
     this.ir = ir;
@@ -68,11 +54,10 @@ export class DielPhysicalExecution {
     // get all the outputs and loop
     const augmentedDep = this.augmentDepTree(this.ir.dependencies.depTree);
     // let's first figure out the shipping information
-    const distributions = this.distributedEval(augmentedDep);
-    this.dbExecutionSpecs = this.getExecutionSpecsFromDistribution(distributions);
-
+    this.distributions = this.distributedEval(augmentedDep);
+    // organize it by db-engines so we know how to set it up
     // then construct the definitions
-
+    this.astSpecPerDb = this.getExecutionSpecsFromDistribution(this.distributions);
   }
 
   /**
@@ -85,28 +70,73 @@ export class DielPhysicalExecution {
     this.runtimeOutputNames.add(outputName);
   }
 
-  getExecutionSpecsFromDistribution(distributions: SingleDistribution[]): Map<DbIdType, RemoteExecutionSpec> {
-    return new Map();
+  getExecutionSpecsFromDistribution(distributions: SingleDistribution[]): Map<DbIdType, DielAst> {
+    const astSpecPerDb = new Map();
+    // first get the in
+    distributions.map(distribution => {
+      // if (distribution.from !== distribution.to) {
+      if (!astSpecPerDb.has(distribution.to)) {
+        astSpecPerDb.set(distribution.to, createEmptyDielAst());
+      }
+      const rDef = this.ir.GetRelationDef(distribution.relationName);
+      switch (rDef.relationType) {
+        case RelationType.EventTable:
+        case RelationType.Table:
+        case RelationType.ExistingAndImmutable:
+          astSpecPerDb.get(distribution.to).views.push(rDef);
+          break;
+        case RelationType.EventView:
+        case RelationType.View:
+          const originalRelationDef = getEventTableFromDerived(rDef as DerivedRelation);
+          astSpecPerDb.get(distribution.to).views.push(originalRelationDef);
+          break;
+        default:
+          LogInternalError(`RelationType Not handled: ${rDef.relationType}`);
+      }
+      // }
+    });
+    // then get the out
+    return astSpecPerDb;
   }
 
   /**
    * recursive function to evaluate what view needs to be where
    */
   distributedEval(augmentedDep: Map<string, NodeDependencyAugmented>) {
-    const outputNodes = this.ir.GetOutputs().map(o => augmentedDep.get(o.name));
-    const distributions: any[] = [];
-    outputNodes.map(output => {
-      if (output.relationType !== RelationType.Output) {
-        LogInternalError(`DistributedEval must be called on outputs, but you called on ${output}`);
-      }
+    const selectRelationEvalOwner = this.selectRelationEvalOwner.bind(this);
+    const scope = {augmentedDep, selectRelationEvalOwner};
+    const distributions: SingleDistribution[] = [];
+    this.ir.GetOutputs().map(output => {
+      augmentedDep.get(output.name).dependsOn.map(dep => {
+        const result = QueryDistributionRecursiveEval(distributions, scope, dep);
+        // need to send all the final views to local!
+        distributions.push({
+          forRelationName: output.name,
+          relationName: result.relationName,
+          from: result.dbId,
+          to: LocalDbId
+        });
+      });
     });
     return distributions;
   }
 
-  getShippingInformationForInput(inputName: RelationId): Set<DbIdType> {
-    return new Set(this.dbExecutionSpecs.get(LocalDbId).jobs
-      .filter(j => (j.viewsToGet.has(inputName) && SetIntersection(this.runtimeOutputNames, j.dependentOutput).size > 0))
-      .map(j => j.destination));
+  getShippingInfoForDbByEvent(eventTable: RelationId, engineId: DbIdType) {
+    const destinationDbIds = this.distributions
+                                .filter(d => ((d.relationName === eventTable)
+                                           && (d.from === engineId)
+                                           && (d.to !== d.from)))
+                                .map(d => d.to);
+    // right now this is overly conservative, it would wait for all the things
+    // might be empty if it does not need anything
+    const relationsNeeded = this.distributions
+                                .filter(d => ((d.forRelationName === eventTable)
+                                           && (d.to === engineId)
+                                           && (d.to !== d.from)));
+    return {
+      destinationDbIds,
+      relationsNeeded
+    };
   }
 
   getLocalDbAst() {
@@ -114,7 +144,7 @@ export class DielPhysicalExecution {
   }
 
   getAstFromDbId(dbId: DbIdType) {
-    return this.dbExecutionSpecs.get(dbId).ast;
+    return this.astSpecPerDb.get(dbId);
   }
 
   /**
@@ -158,7 +188,7 @@ export class DielPhysicalExecution {
   }
 
   getRemoteInfoById(remoteId: DbIdType) {
-    return this.dbExecutionSpecs.get(remoteId);
+    return this.astSpecPerDb.get(remoteId);
   }
 
   getDbIdByRelationName(rName: string): DbIdType {
