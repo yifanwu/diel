@@ -356,7 +356,7 @@ export default class DielRuntime {
   }
 
   shipWorkerInput(inputName: string, timestep: number) {
-    const remotesToShipTo = this.physicalExecution.getShippingInformationForInput(inputName);
+    const remotesToShipTo = this.physicalExecution.getShippingInfoForDbByEvent(inputName, LocalDbId);
     const shareQuery = `select * from ${inputName}`;
     let tableRes = this.db.exec(shareQuery)[0];
     if ((!tableRes) || (!tableRes.values)) {
@@ -368,7 +368,7 @@ export default class DielRuntime {
       DELETE from ${inputName};
       INSERT INTO ${inputName} VALUES ${values};
     `;
-    remotesToShipTo.forEach((remoteId => {
+    remotesToShipTo.destinationDbIds.forEach((remoteId => {
       const remote = this.findRemote(remoteId);
       if (remote) {
         const msg: DielRemoteMessage = {
@@ -417,7 +417,7 @@ export default class DielRuntime {
 
   setupAllInputOutputs() {
     // this.ir.GetInputs().map(i => this.setupNewInput(i));
-    this.ir.GetAllViews().map(o => this.setupNewOutput(o));
+    this.ir.GetAllDerivedViews().map(o => this.setupNewOutput(o));
   }
 
   /**
@@ -489,10 +489,10 @@ export default class DielRuntime {
       }
     }
     // now execute to worker!
-    this.physicalExecution.dbExecutionSpecs.forEach((remoteInfo, id) => {
+    this.physicalExecution.astSpecPerDb.forEach((ast, id) => {
       const remoteInstance = this.findRemote(id);
       const replace = remoteInstance.remoteType === DbType.Socket;
-      const queries = generateSqlFromDielAst(remoteInfo.ast, replace);
+      const queries = generateSqlFromDielAst(ast, replace);
       if (remoteInstance) {
         if (queries && queries.length > 0) {
           const sql = queries.join(";\n");

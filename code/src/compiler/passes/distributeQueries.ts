@@ -1,27 +1,16 @@
-import { DielIr } from "../DielIr";
+import { DielIr, isRelationTypeDerived } from "../DielIr";
 import { DataType, OriginalRelation, RelationType, RelationSelection, SetOperator, AstType, CompositeSelectionUnit, DerivedRelation, Relation } from "../../parser/dielAstTypes";
 import { ExprType, ExprFunAst, FunctionType, ExprValAst, ExprColumnAst } from "../../parser/exprAstTypes";
 import { ReportDielUserError, LogInternalError } from "../../lib/messages";
 import { DbIdType, RelationId } from "../DielPhysicalExecution";
 import { NodeDependencyAugmented } from "./passesHelper";
 
-const DerivedRelationTypes = new Set([RelationType.View, RelationType.EventView, , RelationType.Output]);
-const OriginalRelationTypes = new Set([RelationType.Table, RelationType.EventTable, RelationType.ExistingAndImmutable]);
-
-export function isRelationTypeDerived(rType: RelationType) {
-  if (DerivedRelationTypes.has(rType)) {
-    return true;
-  } else if (OriginalRelationTypes.has(rType)) {
-    return false;
-  } else {
-    LogInternalError(`RelationType ${rType} is not defined to be derived or not`);
-  }
-}
-
 export type SingleDistribution = {
   relationName: string,
   from: DbIdType,
   to: DbIdType
+  // this is the relation that needs this relation being sent
+  forRelationName: string,
 };
 
 type RecursiveEvalResult = {
@@ -53,7 +42,8 @@ export function QueryDistributionRecursiveEval(
       distributions.push({
         relationName: result.relationName,
         from: result.dbId,
-        to: owner
+        to: owner,
+        forRelationName: node.relationName,
       });
     });
     return {
@@ -64,7 +54,8 @@ export function QueryDistributionRecursiveEval(
     distributions.push({
       relationName: node.relationName,
       from: node.remoteId,
-      to: node.remoteId
+      to: node.remoteId,
+      forRelationName: node.relationName,
     });
     return {
       relationName: node.relationName,
@@ -85,8 +76,8 @@ export function getShippingInfoFromDistributedEval() {
 
 }
 
-export function getStaticTableFromDerived(r: CompositeSelectionUnit[], relation: string) {
-  const originalColumns = r[0].relation.derivedColumnSelections;
+export function getEventTableFromDerived(relation: DerivedRelation) {
+  const originalColumns = relation.selection.compositeSelections[0].relation.derivedColumnSelections;
   if (!originalColumns) {
     throw new Error(`query not normalized and cannot be distributed to main`);
   }
@@ -111,7 +102,7 @@ export function getStaticTableFromDerived(r: CompositeSelectionUnit[], relation:
     };
   });
   let createSpec: OriginalRelation = {
-    name: relation,
+    name: relation.name,
     relationType: RelationType.EventTable,
     columns
   };

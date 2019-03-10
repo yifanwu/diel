@@ -18,7 +18,7 @@ import { DielIr } from "../DielIr";
  */
 export function applyTemplates(ir: DielIr) {
   // note: i think the concat should be fine with modifying in place?
-  ir.GetViews().map(r => tryToApplyATemplate(r.selection));
+  ir.GetAllDerivedViews().map(r => tryToApplyATemplate(r.selection));
   ir.ast.crossfilters.map(x => {
     x.charts.map(c => {
       tryToApplyATemplate(c.predicate);
