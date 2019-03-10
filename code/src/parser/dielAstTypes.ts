@@ -136,6 +136,7 @@ export interface OriginalRelation extends RelationBase {
 }
 
 export type Relation = DerivedRelation | OriginalRelation;
+export type Commands = RelationSelection | InsertionClause | DropClause;
 
 export type ForeignKey = {
   sourceColumn: string, targetRelation: string, targetColumn: string
@@ -152,12 +153,11 @@ export interface RelationConstraints {
   // the other parts are in columns, which are normalized in in the normalize constraints pass
 }
 
-export type ProgramSpec = RelationSelection | InsertionClause;
 
 /**
  * If input is not specified, i.e. "", it's over all inputs.
  */
-export type ProgramsIr = Map<string, ProgramSpec[]>;
+export type ProgramsIr = Map<string, Commands[]>;
 
 export interface DielConfig {
   name?: string;
@@ -175,24 +175,28 @@ export interface DielContext {
 }
 
 export interface DielAst {
+  relations: Relation[];
+  commands: Commands[];
   // inputs: OriginalRelation[];
-  originalRelations: OriginalRelation[];
+  // originalRelations: OriginalRelation[];
   // outputs: DerivedRelation[];
-  views: DerivedRelation[];
+  // views: DerivedRelation[];
   programs: ProgramsIr;
-  inserts: InsertionClause[];
-  drops: Drop[];
+  // inserts: InsertionClause[];
+    // drops: DropClause[];
   crossfilters: CrossFilterIr[];
   udfTypes: UdfType[];
 }
 
 export function createEmptyDielAst() {
   const newAst: DielAst = {
-    originalRelations: [],
-    views: [],
+    // originalRelations: [],
+    relations: [],
+    // views: [],
     programs: new Map(),
-    inserts: [],
-    drops: [],
+    // inserts: [],
+    commands: [],
+    // drops: []
     crossfilters: [],
     udfTypes: [],
   };
@@ -212,7 +216,7 @@ export interface CrossFilterIr {
   charts: CrossFilterChartIr[];
 }
 
-export type ProgramsParserIr = {input: string, queries: ProgramSpec[]};
+export type ProgramsParserIr = {input: string, queries: Commands[]};
 
 export type ExpressionValue = DielAst
   | OriginalRelation
@@ -226,7 +230,7 @@ export type ExpressionValue = DielAst
   | CompositeSelectionUnit
   | RelationSelection
   | RelationConstraints
-  | ProgramSpec[]
+  | Commands[]
   | string
   | string[]
   | RawValues
@@ -296,7 +300,8 @@ export enum SetOperator {
 }
 
 export enum AstType {
-  Insert = "INSERT",
+  Drop = "Drop",
+  Insert = "Insert",
   Join = "Join",
   RelationSelection = "RelationSelection"
 }
@@ -391,6 +396,6 @@ export interface OrderByAst {
   selection: ExprAst;
 }
 
-export interface Drop {
+export interface DropClause extends AstBase {
   relationName: string;
 }

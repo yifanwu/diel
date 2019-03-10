@@ -2,6 +2,7 @@ import { DependencyTree, getTopologicalOrder, NodeDependencyAugmented } from "..
 import { RelationId, LocalDbId, DbIdType } from "../compiler/DielPhysicalExecution";
 import { SingleDistribution, QueryDistributionRecursiveEval } from "../compiler/passes/distributeQueries";
 import { RelationType } from "../parser/dielAstTypes";
+import { BgGreen, Reset } from "../lib/messages";
 
 export function testTopologicalSort() {
   const depTree: DependencyTree = new Map([
@@ -80,8 +81,53 @@ export function testDistributionLogc() {
     augmentedDep,
     selectRelationEvalOwner
   }, "o1");
+  const expected = [
+    {
+      relationName: "i1",
+      from: 1,
+      to: 1
+    },
+    {
+      relationName: "i2",
+      from: 1,
+      to: 1
+    },
+    {
+      relationName: "r1",
+      from: 2,
+      to: 2
+    },
+    {
+      relationName: "i1",
+      from: 1,
+      to: 2
+    },
+    {
+      relationName: "i2",
+      from: 1,
+      to: 2
+    },
+    {
+      relationName: "r1",
+      from: 2,
+      to: 2
+    }
+  ];
   // DO assertions
-  console.log(`Dependencies: ${JSON.stringify(distributions, null, 2)}`);
+  if (expected.length !== distributions.length) {
+    throw new Error(`Distribution incorrect length, expected ${JSON.stringify(expected, null, 2)}, but got ${JSON.stringify(distributions, null, 2)}`);
+  }
+  expected.map(e => {
+    const f = distributions.find(d => (e.relationName === d.relationName) && (e.to === d.to));
+    if (!f || f.from !== e.from) {
+      throw new Error(`Distribution incorrect! Expected to find ${JSON.stringify(e, null, 2)}`);
+    }
+  });
+  console.log(`${BgGreen}Passed testDistributionLogc!${Reset}`);
+}
+
+export function testDistributionLogcComplex() {
+  // TODO
 }
 
 export function testDependencyGraph() {
