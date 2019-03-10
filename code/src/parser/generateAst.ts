@@ -421,17 +421,17 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitStaticTableStmt(ctx: parser.StaticTableStmtContext): DerivedRelation {
-    // it would not be the case of server here.
-    const name = ctx.IDENTIFIER().text;
-    const relationType = RelationType.StaticTable;
-    const selection = this.visit(ctx.selectQuery()) as RelationSelection;
-    return {
-      name,
-      relationType,
-      selection
-    };
-  }
+  // visitStaticTableStmt(ctx: parser.StaticTableStmtContext): DerivedRelation {
+  //   // it would not be the case of server here.
+  //   const name = ctx.IDENTIFIER().text;
+  //   const relationType = RelationType.StaticTable;
+  //   const selection = this.visit(ctx.selectQuery()) as RelationSelection;
+  //   return {
+  //     name,
+  //     relationType,
+  //     selection
+  //   };
+  // }
 
   visitOriginalTableStmt(ctx: parser.OriginalTableStmtContext): OriginalRelation {
     if (ctx.EVENT() && ctx.REGISTER()) {
