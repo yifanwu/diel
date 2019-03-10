@@ -3,7 +3,6 @@ grammar DIEL;
 queries : (
            viewStmt
            | programStmt
-           | staticTableStmt
            | crossfilterStmt
            | templateStmt
            | insertQuery
@@ -12,10 +11,6 @@ queries : (
            | registerTypeUdf
            | dropQuery
           )+;
-
-staticTableStmt
-  : CREATE TABLE IDENTIFIER AS selectQuery DELIM
-  ;
 
 registerTypeUdf
   : REGISTER UDF IDENTIFIER TYPE dataType DELIM

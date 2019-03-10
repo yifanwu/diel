@@ -1,1 +1,1 @@
-import { RemoteIdType } from "../compiler/DielPhysicalExecution";
+import { DbIdType } from "../compiler/DielPhysicalExecution";

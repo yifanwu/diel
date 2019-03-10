@@ -4,7 +4,7 @@ import { DIELParser } from "../parser/grammar/DIELParser";
 
 import { loadPage } from "../notebook/index";
 import { Database, Statement } from "sql.js";
-import { RuntimeCell, DielRemoteAction, DielRemoteMessage, RelationObject, DielRuntimeConfig, TableMetaData, RemoteType, RecordObject, } from "./runtimeTypes";
+import { RuntimeCell, DielRemoteAction, DielRemoteMessage, RelationObject, DielRuntimeConfig, TableMetaData, DbType, RecordObject, } from "./runtimeTypes";
 import { OriginalRelation, DerivedRelation, RelationType, SelectionUnit } from "../parser/dielAstTypes";
 import { generateSelectionUnit, generateSqlFromDielAst } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
@@ -14,7 +14,7 @@ import { downloadHelper, SetIntersection, SetUnion, SetDifference } from "../lib
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogWarning, QueryConsoleColorSpec } from "../lib/messages";
 import { DielIr } from "../compiler/DielIr";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject } from "./runtimeHelper";
-import { DielPhysicalExecution, RemoteIdType } from "../compiler/DielPhysicalExecution";
+import { DielPhysicalExecution, DbIdType, LocalDbId } from "../compiler/DielPhysicalExecution";
 import Remote from "./Remote";
 import { simpleMaterializeAst } from "../compiler/passes/materialization";
 
@@ -38,7 +38,14 @@ type TickBind = {
   outputConfig: OutputConfig
 };
 
-export type MetaDataPhysical = Map<string, TableMetaData>;
+type DbMetaData = {
+  dbType: DbType;
+};
+
+export type PhysicalMetaData = {
+  dbs: Map<DbIdType, DbMetaData>;
+  relationLocation: Map<string, TableMetaData>;
+};
 
 export type NewInputManyFuncType = (view: string, o: RelationObject, lineage?: number) => void;
 
@@ -54,10 +61,10 @@ export default class DielRuntime {
   ir: DielIr;
   physicalExecution: DielPhysicalExecution;
   // constraintsQueries: string[];
-  remotes: Remote[];
+  dbEngines: Remote[];
   workerDbPaths: string[];
   // derived information from remotes, maps tables to their locations
-  metaData: MetaDataPhysical;
+  physicalMetaData: PhysicalMetaData;
   runtimeConfig: DielRuntimeConfig;
   cells: RuntimeCell[];
   db: Database;
@@ -71,11 +78,14 @@ export default class DielRuntime {
     this.runtimeConfig = runtimeConfig;
     this.cells = [];
     this.visitor = new Visitor();
-    this.remotes = [];
+    this.dbEngines = [];
     // the following are run time bindings for the reactive layer
     // this.input = new Map();
     this.output = new Map();
-    this.metaData = new Map();
+    this.physicalMetaData = {
+      dbs: new Map(),
+      relationLocation: new Map()
+    };
     this.boundFns = [];
     this.runOutput = this.runOutput.bind(this);
     this.tick = this.tick.bind(this);
@@ -184,9 +194,9 @@ export default class DielRuntime {
   }
 
   // helper function to find Remotes that are in charge of the output
-  findRemoteForOutput(output: string): RemoteIdType | null {
-    for (let i = 0; i < this.remotes.length; i ++) {
-      const remote = this.remotes[i];
+  findRemoteForOutput(output: string): DbIdType | null {
+    for (let i = 0; i < this.dbEngines.length; i ++) {
+      const remote = this.dbEngines[i];
       if (remote.staticShare.has(output)) {
         return remote.id;
       }
@@ -267,7 +277,7 @@ export default class DielRuntime {
     // now parse DIEL
     // below are logic for the physical execution of the programs
     // we first do the distribution
-    this.physicalExecution = new DielPhysicalExecution(this.ir, this.metaData);
+    this.physicalExecution = new DielPhysicalExecution(this.ir, this.physicalMetaData);
     // now execute the physical views and programs
     this.updateRemotesBasedOnPhysicalExecution();
     this.executeToDBs();
@@ -283,18 +293,17 @@ export default class DielRuntime {
     let code = processSqlMetaDataFromRelationObject(tableDefinitions);
     // processSqliteMasterMetaData(r).queries;
     // then for remotes
-    for (let i = 0; i < this.remotes.length; i ++) {
-      const remote = this.remotes[i];
-      const metadata = await remote.getMetaData();
+    for (let i = 0; i < this.dbEngines.length; i ++) {
+      const db = this.dbEngines[i];
+      const metadata = await db.getMetaData();
       code += metadata.map(m => m["sql"] + ";").join("\n");
       metadata.map(m => {
         const name = m["name"].toString();
-        if (this.metaData.has(name)) {
+        if (this.physicalMetaData.relationLocation.has(name)) {
           LogInternalError(`DBs should not have the same table names`);
         } else {
-          this.metaData.set(name, {
-            remoteType: remote.remoteType,
-            remoteId: remote.id
+          this.physicalMetaData.relationLocation.set(name, {
+            dbId: db.id
           });
         }
       });
@@ -315,20 +324,20 @@ export default class DielRuntime {
 
   async setupRemotes() {
     const inputCallback = this.NewInputMany.bind(this);
-    let counter = 0;
+    let counter = LocalDbId;
     const workerWaiting = this.runtimeConfig.workerDbPaths
       ? this.runtimeConfig.workerDbPaths.map(path => {
         counter++;
-        const remote = new Remote(RemoteType.Worker, counter, inputCallback);
-        this.remotes.push(remote);
+        const remote = new Remote(DbType.Worker, counter, inputCallback);
+        this.dbEngines.push(remote);
         return remote.setup(path);
       })
       : [];
     const socketWaiting = this.runtimeConfig.socketConnections
       ? this.runtimeConfig.socketConnections.map(socket => {
         counter++;
-        const remote = new Remote(RemoteType.Socket, counter, inputCallback);
-        this.remotes.push(remote);
+        const remote = new Remote(DbType.Socket, counter, inputCallback);
+        this.dbEngines.push(remote);
         return remote.setup(socket.url, socket.dbName);
       })
       : [];
@@ -337,50 +346,7 @@ export default class DielRuntime {
   }
 
   updateRemotesBasedOnPhysicalExecution() {
-    // based on the new information derived from the physical execution
-    // intersection of things dependent on the input
-    // and the views that need to be shipped
 
-    // we also need to update the read from the output
-    // get all the views to ship, then see if they overlap with no
-    let allDependentViewsByInput = new Set<string>();
-    this.ir.dependencies.inputDependenciesAll.forEach((inputDependentViews, _) => {
-      // merge
-      allDependentViewsByInput = SetUnion(allDependentViewsByInput, inputDependentViews);
-    });
-    // now find all the shipped views that are not in this
-    const allOutputs = new Set<string>();
-    this.ir.allDerivedRelations.forEach((r, relation) => {
-      if (r.relationType === RelationType.Output) {
-        allOutputs.add(relation);
-      }
-    });
-    this.remotes.map(remote => {
-      const nodeDependency = new Map<string, Set<string>>();
-      const allShared = this.physicalExecution.findRemoteInfo(remote.id).allSharedViews;
-      this.ir.dependencies.inputDependenciesAll.forEach((inputDependentViews, keyInput) => {
-        nodeDependency.set(keyInput, SetIntersection(inputDependentViews, allShared));
-      });
-      remote.SetViewsToShare(nodeDependency);
-      // check shipped
-      const toShip =  this.physicalExecution.findRemoteInfo(remote.id).viewsToShip;
-      // get the set that is in toShip but not in allDependentViewsByInput
-      const staticShares = SetDifference(toShip, allDependentViewsByInput);
-      const staticShipByOutputDependency = new Map<string, Set<string>>();
-      // now group them by outputs, which is a depTree lookup;
-      staticShares.forEach(toShare => {
-        this.ir.dependencies.depTree.get(toShare).isDependedBy.map(depended => {
-          if (allOutputs.has(depended)) {
-            if (staticShipByOutputDependency.has(depended)) {
-              staticShipByOutputDependency.get(depended).add(toShare);
-            } else {
-              staticShipByOutputDependency.set(depended, new Set([toShare]));
-            }
-          }
-        });
-      });
-      remote.SetStaticShare(staticShipByOutputDependency);
-    });
   }
 
   setupUDFs() {
@@ -389,9 +355,8 @@ export default class DielRuntime {
     this.db.create_function("shipWorkerInput", this.shipWorkerInput.bind(this));
   }
 
-  // maybe change this to generating ASTs as opppsoed to strings?
   shipWorkerInput(inputName: string, timestep: number) {
-    const remotesToShipTo = this.physicalExecution.localToRemotes.get(inputName);
+    const remotesToShipTo = this.physicalExecution.getShippingInformationForInput(inputName);
     const shareQuery = `select * from ${inputName}`;
     let tableRes = this.db.exec(shareQuery)[0];
     if ((!tableRes) || (!tableRes.values)) {
@@ -419,9 +384,9 @@ export default class DielRuntime {
     }));
   }
 
-  findRemote(remoteId: RemoteIdType) {
+  findRemote(remoteId: DbIdType) {
     // some increment logic...
-    const r = this.remotes[remoteId - 1];
+    const r = this.dbEngines[remoteId - 1];
     if (!r) {
       LogInternalError(`Remote ${remoteId} not found`);
     }
@@ -514,7 +479,7 @@ export default class DielRuntime {
   // also should fix the async logic
   executeToDBs() {
     LogTmp(`Executing queries to db`);
-    const mainSqlQUeries = generateSqlFromDielAst(this.physicalExecution.local);
+    const mainSqlQUeries = generateSqlFromDielAst(this.physicalExecution.getLocalDbAst());
     for (let s of mainSqlQUeries) {
       try {
         console.log(`%c Running Query in Main:\n${s}`, "color: purple");
@@ -524,9 +489,9 @@ export default class DielRuntime {
       }
     }
     // now execute to worker!
-    this.physicalExecution.remoteInfo.forEach((remoteInfo, id) => {
+    this.physicalExecution.dbExecutionSpecs.forEach((remoteInfo, id) => {
       const remoteInstance = this.findRemote(id);
-      const replace = remoteInstance.remoteType === RemoteType.Socket;
+      const replace = remoteInstance.remoteType === DbType.Socket;
       const queries = generateSqlFromDielAst(remoteInfo.ast, replace);
       if (remoteInstance) {
         if (queries && queries.length > 0) {

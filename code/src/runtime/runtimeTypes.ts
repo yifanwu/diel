@@ -1,5 +1,5 @@
 import { SelectionUnit } from "../parser/dielAstTypes";
-import { RemoteIdType } from "../compiler/DielPhysicalExecution";
+import { DbIdType } from "../compiler/DielPhysicalExecution";
 
 export type QueryId = number;
 
@@ -34,8 +34,8 @@ export interface TwoDimCartesianCoordSpec extends ChartSpecBase {
  *
  */
 
-export enum RemoteType {
-  // Local = "Local",
+export enum DbType {
+  Local = "Local",
   Worker = "Worker",
   Socket = "Socket"
 }
@@ -43,8 +43,7 @@ export enum RemoteType {
 // assume that all the access are via some index in array for now
 // a bit brittle...
 export interface TableMetaData {
-  remoteId: RemoteIdType;
-  remoteType: RemoteType;
+  dbId: DbIdType;
 }
 
 export enum ChartType {

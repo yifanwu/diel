@@ -1,11 +1,14 @@
-import { DielAst, OriginalRelation, UdfType, ProgramsIr, DerivedRelation, RelationType, createEmptyDielAst } from "../parser/dielAstTypes";
-import { RemoteType } from "../runtime/runtimeTypes";
+import { DielAst, OriginalRelation, UdfType, ProgramsIr, DerivedRelation, RelationType, createEmptyDielAst, Relation } from "../parser/dielAstTypes";
+import { DbType } from "../runtime/runtimeTypes";
 import { DielIr } from "../lib";
-import { MetaDataPhysical } from "../runtime/DielRuntime";
+import { PhysicalMetaData } from "../runtime/DielRuntime";
 import { generateDependenciesByName } from "./passes/dependnecy";
 import { DeepCopy, SetIntersection } from "../lib/dielUtils";
-import { findOutputDep, getStaticTableFromDerived, generateShipWorkerInputClause } from "./passes/distributeQueries";
+import { findOutputDep, getStaticTableFromDerived, generateShipWorkerInputClause, isRelationTypeDerived, SingleDistribution } from "./passes/distributeQueries";
 import { LogInternalError } from "../lib/messages";
+import { getSelectionUnitAnnotation } from "../runtime/annotations";
+import { DependencyTree, NodeDependencyAugmented } from "./passes/passesHelper";
+import { NodeDependency } from "../runtime/Remote";
 
 /**
  * currently include
@@ -21,13 +24,22 @@ import { LogInternalError } from "../lib/messages";
  * - caching
  */
 
-export type RemoteIdType = number;
+export type DbIdType = number;
+export type RelationId = string;
 
-interface RemoteEngineInfo {
-  // some redundancy
+export type JobPerTick = {
+  viewToShip: RelationId,
+  viewsToGet: Set<RelationId>,
+  dependentOutput: Set<RelationId>,
+  destination: DbIdType
+};
+
+// HARDCODED
+export const LocalDbId = 1;
+
+interface RemoteExecutionSpec {
   ast: DielAst;
-  allSharedViews: Set<string>;
-  viewsToShip: Set<string>;
+  jobs: JobPerTick[];
 }
 
 /**
@@ -36,147 +48,126 @@ interface RemoteEngineInfo {
  */
 export class DielPhysicalExecution {
   ir: DielIr; // read only
-  metaData: MetaDataPhysical; // read only
-  remoteInfo: Map<RemoteIdType, RemoteEngineInfo>;
-  local: DielAst;
+  metaData: PhysicalMetaData; // read only
+  dbExecutionSpecs: Map<DbIdType, RemoteExecutionSpec>;
+  runtimeOutputNames: Set<RelationId>;
+  // local: DielAst;
   // maps inputNames to remote destinations
-  localToRemotes: Map<string, Set<RemoteIdType>>;
+  // localToRemotes: Map<string, Set<DbIdType>>;
   // this is to trigger evaluations of static event views
   // FIXME: might need refactoring
-  staticEventViews: {
-    dependentOutputs: Set<string>;
-    viewName: string;
-    remoteId: RemoteIdType
-  }[];
+  // staticEventViews: {
+  //   dependentOutputs: Set<string>;
+  //   viewName: string;
+  //   remoteId: DbIdType
+  // }[];
 
-  constructor(ir: DielIr, metaData: MetaDataPhysical) {
+  constructor(ir: DielIr, metaData: PhysicalMetaData) {
     this.ir = ir;
     this.metaData = metaData;
-    this.remoteInfo = new Map();
-    this.local = createEmptyDielAst();
-    this.localToRemotes = new Map();
-    this.local.originalRelations = DeepCopy<OriginalRelation[]>(ir.ast.originalRelations);
-    this.local.udfTypes = DeepCopy<UdfType[]>(this.ir.ast.udfTypes);
-    this.local.programs = this.ir.ast.programs && (this.ir.ast.programs.size > 0) ? DeepCopy<ProgramsIr>(this.ir.ast.programs) : new Map();
-    const allLocalViews = this.setupViewSharingRelated();
-    allLocalViews.forEach(v => {
-      const viewDef = this.ir.allDerivedRelations.get(v);
-      if (viewDef) {
-        this.local.views.push(viewDef);
-      } else {
-        LogInternalError(`View ${v} not defined`);
+    // get all the outputs and loop
+    const augmentedDep = this.augmentDepTree(this.ir.dependencies.depTree);
+    // let's first figure out the shipping information
+    const distributions = this.distributedEval(augmentedDep);
+    this.dbExecutionSpecs = this.getExecutionSpecsFromDistribution(distributions);
+
+    // then construct the definitions
+
+  }
+
+  /**
+   * This one finalizes the outputs so that it knows what static inputs to ship over initially.
+   * TODO: Add output
+   */
+  public AddRuntimeOutput(outputName: string) {
+    // check if this is static
+    // actually add to the views to ship
+    this.runtimeOutputNames.add(outputName);
+  }
+
+  getExecutionSpecsFromDistribution(distributions: SingleDistribution[]): Map<DbIdType, RemoteExecutionSpec> {
+    return new Map();
+  }
+
+  /**
+   * recursive function to evaluate what view needs to be where
+   */
+  distributedEval(augmentedDep: Map<string, NodeDependencyAugmented>) {
+    const outputNodes = this.ir.GetOutputs().map(o => augmentedDep.get(o.name));
+    const distributions: any[] = [];
+    outputNodes.map(output => {
+      if (output.relationType !== RelationType.Output) {
+        LogInternalError(`DistributedEval must be called on outputs, but you called on ${output}`);
       }
     });
-    this.setupInputSharingRelated();
-    // FIXME: there is actually performance issue here: even the views not dependent on the inputs will be evalauted again and shared
-    //   The solution would be to have better depdency logic #PROJECT
-    // basically mark the views with what inputs they are dependent on
-    // also we don't need to ship all the views, just the final one that gets evaluated by the output
-    // so there is a difference between the views that are shared and the views that are used by outputs
-    // find all the destinations being shipped to, for the destinations that are not being shipped to
-    // then subtract all the views from the sharing
-              // also check if it depends on any inputs
-              // if it does not, add it to staticEventViews
-              // maybe we need the backward link now?
+    return distributions;
   }
 
-  setupViewSharingRelated() {
-    const outputDep = findOutputDep(this.ir);
-    const allLocalViews = new Set(this.ir.ast.views.map((v) => v.name));
-    this.metaData.forEach((tableMetaData, table) => {
-      const info = this.findRemoteInfo(tableMetaData.remoteId, true);
-      // we need to find this worker, or create it
-      const viewsThatDependOnCurrentRemoteTable = generateDependenciesByName(this.ir.dependencies.depTree, table);
-
-      // const sharedViewNameBasedOnCurrentTable = SetIntersection(, viewsThatDependOnCurrentRemoteTable);
-      // new views that we need to create for the remote it lives in
-      for (let sharedView of viewsThatDependOnCurrentRemoteTable) {
-        const r = this.ir.allDerivedRelations.get(sharedView);
-        if (r) {
-          if (r.relationType !== RelationType.Output) {
-            // note that the sharedView might be repeated, that's why we use a set, checking to prevent repeats
-            if (!info.allSharedViews.has(sharedView)) {
-              info.allSharedViews.add(sharedView);
-              info.ast.views.push({
-                name: sharedView,
-                relationType: RelationType.View,
-                selection: r.selection
-              });
-              // remove from main view defintion
-              allLocalViews.delete(sharedView);
-              // add to main static view definition
-              const sharedViewDef = this.ir.allCompositeSelections.get(sharedView);
-              if (sharedViewDef) {
-                const newR = getStaticTableFromDerived(sharedViewDef, sharedView);
-                this.local.originalRelations.push(newR);
-              } else {
-                LogInternalError(`Relation ${sharedView} was not found and was needed in query distribution!`);
-              }
-              // only ship it if it's the most immediately used
-              if (outputDep.has(sharedView)) {
-                info.viewsToShip.add(sharedView);
-              }
-            }
-          }
-        } else {
-          LogInternalError(`Derived Relation ${sharedView} is not found`);
-        }
-      }
-    });
-    return allLocalViews;
-  }
-  setupInputSharingRelated() {
-    // figure out what to share with the remotes
-    // lets iterate on the remotes, and check against each input to decide if the input should be added
-    this.remoteInfo.forEach((info, id) => {
-      this.ir.dependencies.inputDependenciesAll.forEach((
-          viewsThatDependsOnTheInput,
-          inputName
-        ) => {
-        const intersect = SetIntersection(viewsThatDependsOnTheInput, info.allSharedViews);
-        if (intersect.size > 0) {
-          const newR = this.ir.allOriginalRelations.get(inputName);
-          // not an error if null: we only want to ship original relations
-          if (newR) {
-            info.ast.originalRelations.push(newR);
-            if (!this.localToRemotes.has(inputName)) {
-              this.localToRemotes.set(inputName, new Set());
-            }
-            const inputDef = this.localToRemotes.get(inputName);
-            if (inputDef) {
-              inputDef.add(id);
-            } else {
-              LogInternalError(`localToRemotes not defined for ${inputName}`);
-            }
-            // also add to the local program
-            const p = this.local.programs.get(inputName);
-            const newClause = generateShipWorkerInputClause(inputName);
-            if (p) {
-              p.push(newClause);
-            } else {
-              this.local.programs.set(inputName, [newClause]);
-            }
-          }
-        }
-      });
-    });
-
+  getShippingInformationForInput(inputName: RelationId): Set<DbIdType> {
+    return new Set(this.dbExecutionSpecs.get(LocalDbId).jobs
+      .filter(j => (j.viewsToGet.has(inputName) && SetIntersection(this.runtimeOutputNames, j.dependentOutput).size > 0))
+      .map(j => j.destination));
   }
 
-  findRemoteInfo(id: RemoteIdType, shouldCreate = false) {
-    const r = this.remoteInfo.get(id);
-    if (r) {
-      return r;
-    } else if (shouldCreate) {
-      const info: RemoteEngineInfo = {
-        ast: createEmptyDielAst(),
-        allSharedViews: new Set(),
-        viewsToShip: new Set()
+  getLocalDbAst() {
+    return this.getAstFromDbId(LocalDbId);
+  }
+
+  getAstFromDbId(dbId: DbIdType) {
+    return this.dbExecutionSpecs.get(dbId).ast;
+  }
+
+  /**
+   * adding where the location is, as well as the type of location it is.
+   */
+  augmentDepTree(depTree: DependencyTree) {
+    const augmentedTree = new Map<string, NodeDependencyAugmented>();
+    depTree.forEach((nodDep, relationName) => {
+      const remoteId = this.getDbIdByRelationName(relationName);
+      const relationType = this.ir.GetRelationDef(relationName).relationType;
+      const nodeDepAugmetned: NodeDependencyAugmented = {
+        remoteId,
+        relationName,
+        relationType,
+        ...Object.assign({}, nodDep),
       };
-      this.remoteInfo.set(id, info);
-      return info;
+      augmentedTree.set(relationName, nodeDepAugmetned);
+    });
+    return augmentedTree;
+  }
+  // this function needs to access the metadata
+  selectRelationEvalOwner(dbIds: Set<DbIdType>): DbIdType {
+    // right now just pick a socket if it's there
+    // need to look up its information
+    let workerId = null;
+    dbIds.forEach(dbId => {
+      const dbType = this.metaData.dbs.get(dbId).dbType;
+      switch (dbType) {
+        case DbType.Socket: {
+          return dbId;
+        }
+        case DbType.Worker: {
+          workerId = dbId;
+        }
+      }
+    });
+    if (workerId) {
+      return workerId;
+    }
+    return LocalDbId;
+  }
+
+  getRemoteInfoById(remoteId: DbIdType) {
+    return this.dbExecutionSpecs.get(remoteId);
+  }
+
+  getDbIdByRelationName(rName: string): DbIdType {
+    // look up metadata
+    const r = this.metaData.relationLocation.get(rName);
+    if (r) {
+      return r.dbId;
     } else {
-      throw LogInternalError(`findRemote on ${id} did not return a value!`);
+      LogInternalError(`Cannot find relation ${rName}`);
     }
   }
 }

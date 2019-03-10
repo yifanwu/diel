@@ -1,7 +1,7 @@
-import { RemoteType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemoteReply, DielRemoteMessageId } from "./runtimeTypes";
+import { DbType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemoteReply, DielRemoteMessageId } from "./runtimeTypes";
 import { SqliteMasterQuery, NewInputManyFuncType } from "./DielRuntime";
 import { LogInternalError, ReportDielUserError } from "../lib/messages";
-import { RemoteIdType } from "../compiler/DielPhysicalExecution";
+import { DbIdType } from "../compiler/DielPhysicalExecution";
 import { parseSqlJsWorkerResult } from "./runtimeHelper";
 // import { WorkerMetaData, processSqliteMasterMetaData } from "./runtimeHelper";
 
@@ -42,10 +42,10 @@ DielRemoteActionToEngineActionSocket.set(DielRemoteAction.DefineRelations, "run"
 // to unify worker and websocket
 class ConnectionWrapper {
 
-  remoteType: RemoteType;
+  remoteType: DbType;
   connection: Worker | WebSocket;
 
-  constructor(connection: Worker | WebSocket, remoteType: RemoteType) {
+  constructor(connection: Worker | WebSocket, remoteType: DbType) {
     this.remoteType = remoteType;
     this.connection = connection;
   }
@@ -53,7 +53,7 @@ class ConnectionWrapper {
     // FIXME: deal with nulls etc.
     // action creation logic:
     // DefineRelations: exec for Worker, and run for socket...
-    if (this.remoteType === RemoteType.Worker) {
+    if (this.remoteType === DbType.Worker) {
       // FIXME: might need some adaptor logic here to make worker the same as socket
       (this.connection as Worker).postMessage({
         action: DielRemoteActionToEngineActionWorker.get(msg.id.remoteAction),
@@ -74,7 +74,7 @@ class ConnectionWrapper {
 
   // FIXME: maybe don't need this since they have the same name
   setHandler(f: (event: any) => void) {
-    if (this.remoteType === RemoteType.Worker) {
+    if (this.remoteType === DbType.Worker) {
       (this.connection as Worker).onmessage = f;
     } else {
       (this.connection as WebSocket).onmessage = f;
@@ -85,8 +85,8 @@ class ConnectionWrapper {
 export type NodeDependency = Map<string, Set<string>>;
 
 export default class Remote {
-  remoteType: RemoteType;
-  id: RemoteIdType;
+  remoteType: DbType;
+  id: DbIdType;
   // map from output to views to share
   staticShare: NodeDependency;
   viewSharingCb: NewInputManyFuncType;
@@ -99,7 +99,7 @@ export default class Remote {
   viewsToShare: NodeDependency;
   // for sockets, it will look like 'ws://localhost:8999'
   // and for workers, it will look like a file path to the db.
-  constructor(remoteType: RemoteType, remoteId: number, viewSharingCb: NewInputManyFuncType) {
+  constructor(remoteType: DbType, remoteId: number, viewSharingCb: NewInputManyFuncType) {
     this.remoteType = remoteType;
     this.id = remoteId;
     this.viewSharingCb = viewSharingCb;
@@ -141,7 +141,7 @@ export default class Remote {
   }
 
   async setup(connectionString: string, dbName?: string) {
-    if (this.remoteType === RemoteType.Worker) {
+    if (this.remoteType === DbType.Worker) {
       const newConnection = new Worker(WebWorkerSqlPath);
       this.connection = new ConnectionWrapper(newConnection, this.remoteType);
       // note that this must be set before the await is called, otherwise we get into a dealock!
@@ -214,7 +214,7 @@ export default class Remote {
       // but if this is worker, then we just need to unpack id...
       // so annoying
       let msg: DielRemoteReply | undefined;
-      if (this.remoteType === RemoteType.Socket) {
+      if (this.remoteType === DbType.Socket) {
         try {
           msg = parseDielReply(event.data);
         } catch (e) {

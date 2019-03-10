@@ -1,7 +1,89 @@
 import { DielIr } from "../DielIr";
-import { DataType, OriginalRelation, RelationType, RelationSelection, SetOperator, AstType, CompositeSelectionUnit } from "../../parser/dielAstTypes";
+import { DataType, OriginalRelation, RelationType, RelationSelection, SetOperator, AstType, CompositeSelectionUnit, DerivedRelation, Relation } from "../../parser/dielAstTypes";
 import { ExprType, ExprFunAst, FunctionType, ExprValAst, ExprColumnAst } from "../../parser/exprAstTypes";
 import { ReportDielUserError, LogInternalError } from "../../lib/messages";
+import { DbIdType, RelationId } from "../DielPhysicalExecution";
+import { NodeDependencyAugmented } from "./passesHelper";
+
+const DerivedRelationTypes = new Set([RelationType.View, RelationType.EventView, , RelationType.Output]);
+const OriginalRelationTypes = new Set([RelationType.Table, RelationType.EventTable, RelationType.ExistingAndImmutable]);
+
+export function isRelationTypeDerived(rType: RelationType) {
+  if (DerivedRelationTypes.has(rType)) {
+    return true;
+  } else if (OriginalRelationTypes.has(rType)) {
+    return false;
+  } else {
+    LogInternalError(`RelationType ${rType} is not defined to be derived or not`);
+  }
+}
+
+export type SingleDistribution = {
+  relationName: string,
+  from: DbIdType,
+  to: DbIdType
+};
+
+type RecursiveEvalResult = {
+  relationName: RelationId,
+  dbId: DbIdType
+};
+
+// keeping this functional so we can test it properly, this is why
+// this has so many parameters
+export function QueryDistributionRecursiveEval(
+  distributions: SingleDistribution[],
+  scope: {
+    augmentedDep: Map<RelationId, NodeDependencyAugmented>,
+    selectRelationEvalOwner: (dbIds: Set<DbIdType>) => DbIdType,
+  },
+  relationId: RelationId): RecursiveEvalResult {
+  // find where rel lives, need to access metadata, or just have it augmented with the metadata already?
+  // base case
+  const node = scope.augmentedDep.get(relationId);
+  if (!node) {
+    LogInternalError(`Relation ${relationId} not found!`);
+  }
+  if (isRelationTypeDerived(node.relationType)) {
+    // derived, need to look at the things it needs, then decide who should own this relation
+    // logic that decides the relation
+    const dependentRecResults = node.dependsOn.map(depRelation => QueryDistributionRecursiveEval(distributions, scope, depRelation));
+    const owner = scope.selectRelationEvalOwner(new Set(dependentRecResults.map(r => r.dbId)));
+    dependentRecResults.map(result => {
+      distributions.push({
+        relationName: result.relationName,
+        from: result.dbId,
+        to: owner
+      });
+    });
+    return {
+      relationName: node.relationName,
+      dbId: owner
+    };
+  } else {
+    distributions.push({
+      relationName: node.relationName,
+      from: node.remoteId,
+      to: node.remoteId
+    });
+    return {
+      relationName: node.relationName,
+      dbId: node.remoteId
+    };
+  }
+}
+
+/**
+ * there might be corner cases where the view is not shipped e.g. here V1 might not be shipped? it is
+ *     V2
+ *    / \
+ *   V1  R
+ *  / \
+ * I   R
+ */
+export function getShippingInfoFromDistributedEval() {
+
+}
 
 export function getStaticTableFromDerived(r: CompositeSelectionUnit[], relation: string) {
   const originalColumns = r[0].relation.derivedColumnSelections;

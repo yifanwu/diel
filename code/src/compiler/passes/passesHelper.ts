@@ -1,12 +1,20 @@
 import { ExprType, ExprRelationAst } from "../../parser/exprAstTypes";
-import { SelectionUnit, RelationReference } from "../../parser/dielAstTypes";
+import { SelectionUnit, RelationReference, RelationType } from "../../parser/dielAstTypes";
 import { LogInternalError } from "../../lib/messages";
+import { DbIdType } from "../DielPhysicalExecution";
 
+export interface NodeDependencyAugmented extends NodeDependency {
+  relationName: string;
+  remoteId?: DbIdType; // only has remoteId if it's an original table
+  relationType: RelationType;
+}
 
-export type DependencyTree = Map<string, {
+export type NodeDependency = {
   dependsOn: string[],
   isDependedBy: string[]
-}>;
+};
+
+export type DependencyTree = Map<string, NodeDependency>;
 
 export interface DependencyInfo {
   // both ways for easy access
