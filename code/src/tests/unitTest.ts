@@ -1,5 +1,5 @@
 import { DependencyTree, getTopologicalOrder, NodeDependencyAugmented } from "../compiler/passes/passesHelper";
-import { RelationId, LocalDbId, DbIdType } from "../compiler/DielPhysicalExecution";
+import { RelationIdType, LocalDbId, DbIdType } from "../compiler/DielPhysicalExecution";
 import { SingleDistribution, QueryDistributionRecursiveEval } from "../compiler/passes/distributeQueries";
 import { RelationType } from "../parser/dielAstTypes";
 import { BgGreen, Reset } from "../lib/messages";
@@ -32,7 +32,7 @@ export function testTopologicalSort() {
 
 export function testDistributionLogc() {
   // set up
-  const augmentedDep = new Map<RelationId, NodeDependencyAugmented>();
+  const augmentedDep = new Map<RelationIdType, NodeDependencyAugmented>();
   const depI1: NodeDependencyAugmented = {
     relationName: "i1",
     remoteId: LocalDbId,

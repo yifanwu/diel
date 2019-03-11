@@ -2,19 +2,20 @@ import { DielIr, isRelationTypeDerived } from "../DielIr";
 import { DataType, OriginalRelation, RelationType, RelationSelection, SetOperator, AstType, CompositeSelectionUnit, DerivedRelation, Relation } from "../../parser/dielAstTypes";
 import { ExprType, ExprFunAst, FunctionType, ExprValAst, ExprColumnAst } from "../../parser/exprAstTypes";
 import { ReportDielUserError, LogInternalError } from "../../lib/messages";
-import { DbIdType, RelationId } from "../DielPhysicalExecution";
+import { DbIdType, RelationIdType } from "../DielPhysicalExecution";
 import { NodeDependencyAugmented } from "./passesHelper";
 
 export type SingleDistribution = {
-  relationName: string,
+  relationName: RelationIdType,
   from: DbIdType,
   to: DbIdType
   // this is the relation that needs this relation being sent
-  forRelationName: string,
+  forRelationName: RelationIdType,
+  finalOutputName: RelationIdType
 };
 
 type RecursiveEvalResult = {
-  relationName: RelationId,
+  relationName: RelationIdType,
   dbId: DbIdType
 };
 
@@ -23,16 +24,21 @@ type RecursiveEvalResult = {
 export function QueryDistributionRecursiveEval(
   distributions: SingleDistribution[],
   scope: {
-    augmentedDep: Map<RelationId, NodeDependencyAugmented>,
+    augmentedDep: Map<RelationIdType, NodeDependencyAugmented>,
     selectRelationEvalOwner: (dbIds: Set<DbIdType>) => DbIdType,
+    outputName: RelationIdType,
   },
-  relationId: RelationId): RecursiveEvalResult {
+  relationId: RelationIdType): RecursiveEvalResult {
   // find where rel lives, need to access metadata, or just have it augmented with the metadata already?
   // base case
   const node = scope.augmentedDep.get(relationId);
   if (!node) {
     LogInternalError(`Relation ${relationId} not found!`);
   }
+  const sharedPartialDistributionObj = {
+    forRelationName: node.relationName,
+    finalOutputName: scope.outputName,
+  };
   if (isRelationTypeDerived(node.relationType)) {
     // derived, need to look at the things it needs, then decide who should own this relation
     // logic that decides the relation
@@ -43,7 +49,7 @@ export function QueryDistributionRecursiveEval(
         relationName: result.relationName,
         from: result.dbId,
         to: owner,
-        forRelationName: node.relationName,
+        ...sharedPartialDistributionObj
       });
     });
     return {
@@ -55,7 +61,7 @@ export function QueryDistributionRecursiveEval(
       relationName: node.relationName,
       from: node.remoteId,
       to: node.remoteId,
-      forRelationName: node.relationName,
+      ...sharedPartialDistributionObj
     });
     return {
       relationName: node.relationName,
@@ -117,38 +123,4 @@ export function findOutputDep(ir: DielIr) {
   const outputDep = new Set<string>();
   ir.GetOutputs().map(o => depTree.get(o.name).dependsOn.map(d => outputDep.add(d)));
   return outputDep;
-}
-
-// FIXME: this will invoked for every record, so will not work for multiple insertions
-export function generateShipWorkerInputClause(inputName: string): RelationSelection {
-    const argInputName: ExprValAst = {
-      exprType: ExprType.Val,
-      dataType: DataType.String,
-      value: inputName
-    };
-    const argLineage: ExprColumnAst = {
-      columnName: "timestep",
-      exprType: ExprType.Column,
-      dataType: DataType.String,
-      relationName: "new",
-      hasStar: false
-    };
-    // FIXME: this function reference is a bit brittle
-    const expr: ExprFunAst = {
-      exprType: ExprType.Func,
-      dataType: DataType.Void,
-      functionType: FunctionType.Custom,
-      functionReference: "shipWorkerInput",
-      args: [argInputName, argLineage]
-    };
-    const newQuery: RelationSelection = {
-      astType: AstType.RelationSelection,
-      compositeSelections: [{
-        op: SetOperator.NA,
-        relation: {
-          columnSelections: [{expr}]
-        }
-      }]
-    };
-    return newQuery;
 }

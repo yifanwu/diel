@@ -14,7 +14,7 @@ export function LogInternalError(m: string) {
   if (STRICT) throw new Error();
 }
 
-export function LogWarning(m: string) {
+export function LogInternalWarning(m: string) {
   if (typeof window === "undefined") {
     console.log(`${FgRed}%s${Reset}`, m);
   } else {
