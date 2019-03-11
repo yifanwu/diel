@@ -1,6 +1,6 @@
 import { DielAst, DerivedRelation, DataType, OriginalRelation, RelationType, SelectionUnit, CompositeSelection, Relation } from "../parser/dielAstTypes";
 import { DependencyInfo } from "./passes/passesHelper";
-import { LogWarning, LogInternalError } from "../lib/messages";
+import { LogInternalWarning, LogInternalError } from "../lib/messages";
 import { ExprType, ExprColumnAst } from "../parser/exprAstTypes";
 
 type CompositeSelectionFunction<T> = (s: CompositeSelection, relationName?: string) => T;
@@ -26,21 +26,13 @@ export function isRelationTypeDerived(rType: RelationType) {
   }
 }
 
-/**
- * instead of exposing the IR internals whenever something accesses it
- * we will abstract it away in a class (doesn't have to be OO,
- *   just easier to reason about for now)
- */
 export class DielIr {
 
   ast: DielAst;
   dependencies: DependencyInfo;
-  // we want to access the derived relations by name and be iterables
-  // FIXME: a bit weird that we are accessing the selection directly for derived but not for the dynamic one...
   private allDerivedRelations: Map<string, DerivedRelation>;
   private allCompositeSelections: Map<string, CompositeSelection>;
   private allOriginalRelations: Map<string, OriginalRelation>;
-  // viewTypes: Map<string, Map<string, DataType>>;
   constructor(ast: DielAst) {
     this.ast = ast;
     // this.buildIndicesToIr();
@@ -72,12 +64,8 @@ export class DielIr {
       }
     }
   }
-  /**
-   * Public helper functions
-   */
-  public GetRelationColumnType(relationName: string, columnName: string) {
-    // return the type
-    // first search the derived, then the source relations
+
+  public GetRelationColumnType(relationName: string, columnName: string): DataType | null {
     const derived = this.allCompositeSelections.get(relationName);
     if (derived) {
       return this.GetTypeFromDerivedRelationColumn(derived[0].relation, columnName);
@@ -96,7 +84,7 @@ export class DielIr {
     }
   }
 
-  public GetTypeFromDerivedRelationColumn(unit: SelectionUnit, columnName: string): DataType {
+  public GetTypeFromDerivedRelationColumn(unit: SelectionUnit, columnName: string): DataType | null {
     const selections = unit.derivedColumnSelections;
     if (selections) {
       const column = selections.filter(s => {
@@ -117,12 +105,11 @@ export class DielIr {
   }
 
   public GetAllDerivedViews(): DerivedRelation[] {
-    // return this.ast.relations.filter(r => (r.relationType === RelationType.View) || (r.relationType === RelationType.EventView));
     return this.ast.relations.filter(r => isRelationTypeDerived(r.relationType)) as DerivedRelation[];
   }
 
-  public GetOutputs() {
-    return this.ast.relations.filter(r => r.relationType === RelationType.Output);
+  public GetOutputs(): DerivedRelation[] {
+    return this.ast.relations.filter(r => r.relationType === RelationType.Output) as DerivedRelation[];
   }
 
   public GetOriginalRelations(): OriginalRelation[] {
@@ -133,12 +120,7 @@ export class DielIr {
     return this.GetOriginalRelations().filter(r => r.relationType !== RelationType.ExistingAndImmutable);
   }
 
-  // public GetAllDerivedViews() {
-  //   return this.ast.relations.filter(r => r.relationType !== RelationType.StaticTable);
-  // }
-
   public GetEventByName(n: string) {
-    // could be either a table or a view
     const o = this.allOriginalRelations.get(n);
     if (o) {
       return o;
@@ -147,7 +129,7 @@ export class DielIr {
     if (d && (d.relationType === RelationType.EventView)) {
       return d;
     }
-    LogWarning(`GetEventByName for ${n} failed`);
+    LogInternalWarning(`GetEventByName for ${n} failed`);
   }
 
   /**
