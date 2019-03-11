@@ -4,18 +4,18 @@ import { DIELParser } from "../parser/grammar/DIELParser";
 
 import { loadPage } from "../notebook/index";
 import { Database, Statement } from "sql.js";
-import { RuntimeCell, DielRemoteAction, DielRemoteMessage, RelationObject, DielRuntimeConfig, TableMetaData, DbType, RecordObject, } from "./runtimeTypes";
+import { RuntimeCell, DielRemoteAction, DielRemoteMessage, RelationObject, DielRuntimeConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, } from "./runtimeTypes";
 import { OriginalRelation, DerivedRelation, RelationType, SelectionUnit } from "../parser/dielAstTypes";
 import { generateSelectionUnit, generateSqlFromDielAst } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
 import { CompileDiel } from "../compiler/DielCompiler";
 import { log } from "../lib/dielUdfs";
-import { downloadHelper, SetIntersection, SetUnion, SetDifference } from "../lib/dielUtils";
-import { LogInternalError, LogTmp, ReportUserRuntimeError, LogWarning, QueryConsoleColorSpec } from "../lib/messages";
+import { downloadHelper } from "../lib/dielUtils";
+import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, QueryConsoleColorSpec } from "../lib/messages";
 import { DielIr } from "../compiler/DielIr";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject } from "./runtimeHelper";
 import { DielPhysicalExecution, DbIdType, LocalDbId } from "../compiler/DielPhysicalExecution";
-import Remote from "./Remote";
+import DbEngine from "./DbEngine";
 import { simpleMaterializeAst } from "../compiler/passes/materialization";
 
 const StaticSqlFile = "./src/compiler/codegen/static.sql";
@@ -25,17 +25,10 @@ export const SqliteMasterQuery = `
   SELECT sql, name FROM sqlite_master WHERE type='table' and sql not null`;
 
 type ReactFunc = (v: any) => void;
-type OutputConfig = {
-  notNull?: boolean,
-};
-const defaultOuptConfig = {
-  notNull: false,
-};
 
 type TickBind = {
   outputName: string,
   uiUpdateFunc: ReactFunc,
-  outputConfig: OutputConfig
 };
 
 type DbMetaData = {
@@ -49,39 +42,26 @@ export type PhysicalMetaData = {
 
 export type NewInputManyFuncType = (view: string, o: RelationObject, lineage?: number) => void;
 
-/**
- * DielIr would now take an empty ast
- * - we would then progressively add queries, also contains the setup logic with the db here
- * - there would be no sql and ts generation here as a result
- * - also use the DielIr internal functions to add the new queries
- *
- * FIXME: fix the DIEL congfig logic
- */
 export default class DielRuntime {
   ir: DielIr;
   physicalExecution: DielPhysicalExecution;
-  // constraintsQueries: string[];
-  dbEngines: Remote[];
+  dbEngines: DbEngine[];
   workerDbPaths: string[];
-  // derived information from remotes, maps tables to their locations
   physicalMetaData: PhysicalMetaData;
   runtimeConfig: DielRuntimeConfig;
   cells: RuntimeCell[];
   db: Database;
   visitor: Visitor;
   protected boundFns: TickBind[];
-  protected output: Map<string, Statement>;
+  protected runtimeOutputs: Map<string, Statement>;
 
   constructor(runtimeConfig: DielRuntimeConfig) {
-    // temp, fixme
-    (<any>window).diel = this;
+    (<any>window).diel = this; // for debugging
     this.runtimeConfig = runtimeConfig;
     this.cells = [];
     this.visitor = new Visitor();
     this.dbEngines = [];
-    // the following are run time bindings for the reactive layer
-    // this.input = new Map();
-    this.output = new Map();
+    this.runtimeOutputs = new Map();
     this.physicalMetaData = {
       dbs: new Map(),
       relationLocation: new Map()
@@ -93,16 +73,24 @@ export default class DielRuntime {
     this.setup();
   }
 
-  public BindOutput(outputName: string, reactFn: ReactFunc, cIn = {} as OutputConfig) {
-    if (!this.output.has(outputName)) {
-      ReportUserRuntimeError(`output not defined ${outputName}, from current outputs of: [${Array.from(this.output.keys()).join(", ")}]`);
+  public BindOutput(outputName: string, reactFn: ReactFunc) {
+    if (!this.runtimeOutputs.has(outputName)) {
+      ReportUserRuntimeError(`output not defined ${outputName}, from current outputs of: [${Array.from(this.runtimeOutputs.keys()).join(", ")}]`);
     }
     // immtable
-    const outputConfig = Object.assign({}, defaultOuptConfig, cIn);
-    this.boundFns.push({outputName: outputName, uiUpdateFunc: reactFn, outputConfig });
-    const staticRemote = this.findRemoteForOutput(outputName);
-    if (staticRemote) {
-      this.findRemote(staticRemote).GetStaticViewsForOutput(outputName);
+    // const outputConfig = Object.assign({}, defaultOuptConfig);
+    this.boundFns.push({outputName: outputName, uiUpdateFunc: reactFn });
+    // this is used for views that do not have inputs
+    const staticTriggers = this.physicalExecution.getStaticAsyncViewTrigger(outputName);
+    if (staticTriggers && staticTriggers.length > 0) {
+      console.log(`Sending triggers for async static output: ${outputName}`);
+      staticTriggers.map(t => {
+        const msg: RemoteShipRelationMessage = {
+          remoteAction: DielRemoteAction.ShipRelation,
+          relationName: t.relation
+        };
+        this.findRemoteDbEngine(t.dbId).SendMsg(msg);
+      });
     }
   }
 
@@ -115,7 +103,7 @@ export default class DielRuntime {
    */
   public GetView(view: string): RelationObject {
     // FIXME: refactor OuptConfig, not really needed
-    return this.simpleGetLocal(view, defaultOuptConfig);
+    return this.simpleGetLocal(view);
   }
 
   // verbose just to make sure that the exported type is kept in sync
@@ -123,24 +111,8 @@ export default class DielRuntime {
     this.newInputHelper(view, o, lineage);
   }
 
-  // FIXME: gotta do some run time type checking here!
-  // also fixme should use codegen and not string manipulation?
-  // very inefficient, fixme
   public NewInput(i: string, o: any) {
     this.newInputHelper(i, [o]);
-    // let tsI = Object.assign({$ts: timeNow()}, o);
-    // TODO: check if the objects match
-    // then add the dollar signs
-    // const inStmt = this.input.get(i);
-
-    // if (!inStmt) {
-    //   ReportUserRuntimeError(`Input ${i} not found`);
-    //   return;
-    // }
-    // const keys = Object.keys(o);
-    // let newO: any = {};
-    // keys.map(k => newO[`$${k}`] = o[k]);
-    // inStmt.run(newO);
   }
 
   // FIXME: use AST instead of string manipulation...
@@ -155,7 +127,6 @@ export default class DielRuntime {
           .selection.compositeSelections[0]
           .relation.derivedColumnSelections.map(c => c.alias);
       }
-      // ${r.columns.map(c => c.name).map(v => `$${v}`).join(", ")}
       const rowQuerys = objs.map(o => {
         let values = ["max(timestep)"];
         columnNames.map(cName => {
@@ -175,7 +146,7 @@ export default class DielRuntime {
           return `select ${values.join(",")} from allInputs`;
         }
       });
-      // lazy
+      // lazy, not using AST codegen...
       let insertQuery;
       if (lineage) {
         insertQuery = `insert into ${eventName} (timestep, ${columnNames.join(", ")}, lineage)
@@ -193,23 +164,13 @@ export default class DielRuntime {
     }
   }
 
-  // helper function to find Remotes that are in charge of the output
-  findRemoteForOutput(output: string): DbIdType | null {
-    for (let i = 0; i < this.dbEngines.length; i ++) {
-      const remote = this.dbEngines[i];
-      if (remote.staticShare.has(output)) {
-        return remote.id;
-      }
-    }
-    return null;
-  }
   /**
    * this is the execution logic
    *   where we do distributed query execution
    *   and possibly materialization (basically can be in SQL triggers or our own even handling layer)
    */
   runOutput(b: TickBind) {
-    const r = this.simpleGetLocal(b.outputName, b.outputConfig);
+    const r = this.simpleGetLocal(b.outputName);
     if (r) {
       b.uiUpdateFunc(r);
     }
@@ -239,17 +200,17 @@ export default class DielRuntime {
     downloadHelper(blob,  "session");
   }
 
-  simpleGetLocal(view: string, c: OutputConfig): RelationObject {
-    const s = this.output.get(view);
+  simpleGetLocal(view: string): RelationObject {
+    const s = this.runtimeOutputs.get(view);
     if (s) {
       s.bind({});
       let r = [];
       while (s.step()) {
         r.push(s.getAsObject());
       }
-      if (c.notNull && r.length === 0) {
-        throw new Error(`${view} should not be null`);
-      }
+      // if (c.notNull && r.length === 0) {
+      //   throw new Error(`${view} should not be null`);
+      // }
       if (r.length > 0) {
         return r;
       } else {
@@ -328,7 +289,7 @@ export default class DielRuntime {
     const workerWaiting = this.runtimeConfig.workerDbPaths
       ? this.runtimeConfig.workerDbPaths.map(path => {
         counter++;
-        const remote = new Remote(DbType.Worker, counter, inputCallback);
+        const remote = new DbEngine(DbType.Worker, counter, inputCallback);
         this.dbEngines.push(remote);
         return remote.setup(path);
       })
@@ -336,7 +297,7 @@ export default class DielRuntime {
     const socketWaiting = this.runtimeConfig.socketConnections
       ? this.runtimeConfig.socketConnections.map(socket => {
         counter++;
-        const remote = new Remote(DbType.Socket, counter, inputCallback);
+        const remote = new DbEngine(DbType.Socket, counter, inputCallback);
         this.dbEngines.push(remote);
         return remote.setup(socket.url, socket.dbName);
       })
@@ -352,7 +313,7 @@ export default class DielRuntime {
   setupUDFs() {
     this.db.create_function("log", log);
     this.db.create_function("tick", this.tick());
-    this.db.create_function("shipWorkerInput", this.shipWorkerInput.bind(this));
+    // this.db.create_function("shipWorkerInput", this.shipWorkerInput.bind(this));
   }
 
   shipWorkerInput(inputName: string, timestep: number) {
@@ -360,7 +321,7 @@ export default class DielRuntime {
     const shareQuery = `select * from ${inputName}`;
     let tableRes = this.db.exec(shareQuery)[0];
     if ((!tableRes) || (!tableRes.values)) {
-      LogWarning(`Query ${shareQuery} has NO result`);
+      LogInternalWarning(`Query ${shareQuery} has NO result`);
     }
     // FIXME: have more robust typing instead of quoting everything; look up types...
     const values = tableRes.values.map((d: any[]) => `(${d.map((v: any) => (v === null) ? "null" : `'${v}'`).join(", ")})`);
@@ -369,14 +330,11 @@ export default class DielRuntime {
       INSERT INTO ${inputName} VALUES ${values};
     `;
     remotesToShipTo.destinationDbIds.forEach((remoteId => {
-      const remote = this.findRemote(remoteId);
+      const remote = this.findRemoteDbEngine(remoteId);
       if (remote) {
-        const msg: DielRemoteMessage = {
-          id: {
-            lineage: timestep,
-            input: inputName,
-            remoteAction: DielRemoteAction.ShareInputAfterTick
-          },
+        const msg: RemoteUpdateRelationMessage = {
+          remoteAction: DielRemoteAction.UpdateRelation,
+          relationName: inputName,
           sql,
         };
         remote.SendMsg(msg);
@@ -384,7 +342,7 @@ export default class DielRuntime {
     }));
   }
 
-  findRemote(remoteId: DbIdType) {
+  findRemoteDbEngine(remoteId: DbIdType) {
     // some increment logic...
     const r = this.dbEngines[remoteId - 1];
     if (!r) {
@@ -427,7 +385,7 @@ export default class DielRuntime {
    */
   private setupNewOutput(r: DerivedRelation) {
     const q = `select * from ${r.name}`;
-    this.output.set(
+    this.runtimeOutputs.set(
       r.name,
       this.dbPrepare(q)
     );
@@ -490,18 +448,15 @@ export default class DielRuntime {
     }
     // now execute to worker!
     this.physicalExecution.astSpecPerDb.forEach((ast, id) => {
-      const remoteInstance = this.findRemote(id);
+      const remoteInstance = this.findRemoteDbEngine(id);
       const replace = remoteInstance.remoteType === DbType.Socket;
       const queries = generateSqlFromDielAst(ast, replace);
       if (remoteInstance) {
         if (queries && queries.length > 0) {
           const sql = queries.join(";\n");
           console.log(`%c Running Query in Remote[${id}]:\n${sql}`, "color: pink");
-          const msg: DielRemoteMessage = {
-            id: {
-              remoteAction: DielRemoteAction.DefineRelations
-            },
-            // action: "run",
+          const msg: RemoteExecuteMessage = {
+            remoteAction: DielRemoteAction.DefineRelations,
             sql
           };
           remoteInstance.SendMsg(msg);

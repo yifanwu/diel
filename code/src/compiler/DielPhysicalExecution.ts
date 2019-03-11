@@ -1,14 +1,10 @@
-import { DielAst, OriginalRelation, UdfType, ProgramsIr, DerivedRelation, RelationType, createEmptyDielAst, Relation } from "../parser/dielAstTypes";
+import { DielAst, DerivedRelation, RelationType, createEmptyDielAst } from "../parser/dielAstTypes";
 import { DbType } from "../runtime/runtimeTypes";
 import { DielIr } from "../lib";
 import { PhysicalMetaData } from "../runtime/DielRuntime";
-import { generateDependenciesByName } from "./passes/dependnecy";
-import { DeepCopy, SetIntersection } from "../lib/dielUtils";
-import { findOutputDep, getEventTableFromDerived, generateShipWorkerInputClause, SingleDistribution, QueryDistributionRecursiveEval } from "./passes/distributeQueries";
+import { getEventTableFromDerived, SingleDistribution, QueryDistributionRecursiveEval } from "./passes/distributeQueries";
 import { LogInternalError } from "../lib/messages";
-import { getSelectionUnitAnnotation } from "../runtime/annotations";
 import { DependencyTree, NodeDependencyAugmented } from "./passes/passesHelper";
-import { NodeDependency } from "../runtime/Remote";
 
 /**
  * currently include
@@ -25,12 +21,13 @@ import { NodeDependency } from "../runtime/Remote";
  */
 
 export type DbIdType = number;
-export type RelationId = string;
+export type RelationIdType = string;
+export type LogicalTimestep = number;
 
 export type JobPerInput = {
-  viewToShip: RelationId,
-  viewsToGet: Set<RelationId>,
-  dependentOutput: Set<RelationId>,
+  viewToShip: RelationIdType,
+  viewsToGet: Set<RelationIdType>,
+  dependentOutput: Set<RelationIdType>,
   destinations: Set<DbIdType>
 };
 
@@ -45,7 +42,7 @@ export class DielPhysicalExecution {
   ir: DielIr; // read only
   metaData: PhysicalMetaData; // read only
   astSpecPerDb: Map<DbIdType, DielAst>;
-  runtimeOutputNames: Set<RelationId>;
+  runtimeOutputNames: Set<RelationIdType>;
   distributions: SingleDistribution[];
 
   constructor(ir: DielIr, metaData: PhysicalMetaData) {
@@ -104,24 +101,37 @@ export class DielPhysicalExecution {
    */
   distributedEval(augmentedDep: Map<string, NodeDependencyAugmented>) {
     const selectRelationEvalOwner = this.selectRelationEvalOwner.bind(this);
-    const scope = {augmentedDep, selectRelationEvalOwner};
-    const distributions: SingleDistribution[] = [];
+    let distributionsForAllOutput: SingleDistribution[] = [];
     this.ir.GetOutputs().map(output => {
+      const distributions: SingleDistribution[] = [];
+      const scope = {augmentedDep, selectRelationEvalOwner, outputName: output.name};
       augmentedDep.get(output.name).dependsOn.map(dep => {
         const result = QueryDistributionRecursiveEval(distributions, scope, dep);
-        // need to send all the final views to local!
+        // send all the final views to local
         distributions.push({
           forRelationName: output.name,
           relationName: result.relationName,
           from: result.dbId,
-          to: LocalDbId
+          to: LocalDbId,
+          finalOutputName: output.name,
         });
       });
+      distributionsForAllOutput = distributionsForAllOutput.concat(distributions);
     });
-    return distributions;
+    return distributionsForAllOutput;
   }
 
-  getShippingInfoForDbByEvent(eventTable: RelationId, engineId: DbIdType) {
+  getStaticAsyncViewTrigger(outputName: string): {dbId: DbIdType, relation: RelationIdType}[] {
+    return this.distributions
+               .filter(d => ((d.finalOutputName === outputName)
+                          && (d.to === d.from)))
+               .map(d => ({
+                 dbId: d.to,
+                 relation: d.relationName
+               }));
+  }
+
+  getShippingInfoForDbByEvent(eventTable: RelationIdType, engineId: DbIdType) {
     const destinationDbIds = this.distributions
                                 .filter(d => ((d.relationName === eventTable)
                                            && (d.from === engineId)

@@ -1,5 +1,5 @@
 import { SelectionUnit } from "../parser/dielAstTypes";
-import { DbIdType } from "../compiler/DielPhysicalExecution";
+import { DbIdType, RelationIdType, LogicalTimestep } from "../compiler/DielPhysicalExecution";
 
 export type QueryId = number;
 
@@ -12,12 +12,10 @@ export interface DielRuntimeConfig {
 
 export type RecordObject = {[index: string]: string | number | Uint8Array};
 export type RelationObject = RecordObject[];
-// export type SimpleObject = {[index: string]: number | string};
 
 interface ChartSpecBase {
   chartType: ChartType;
   data?: RelationObject;
-  // dimension: number;
 }
 
 export type ChartSpec = TwoDimCartesianCoordSpec;
@@ -31,17 +29,13 @@ export interface TwoDimCartesianCoordSpec extends ChartSpecBase {
  * stores information about what relations live in what sources
  * as well as how large a table is
  * should be table oriented...
- *
  */
-
 export enum DbType {
   Local = "Local",
   Worker = "Worker",
   Socket = "Socket"
 }
 
-// assume that all the access are via some index in array for now
-// a bit brittle...
 export interface TableMetaData {
   dbId: DbIdType;
 }
@@ -104,33 +98,55 @@ export interface RuntimeCell {
 
 export enum DielRemoteAction {
   ConnectToDb = "ConnectToDb",
-  SimpleQuery = "SimpleQuery",
   GetResultsByPromise = "GetResultsByPromise",
   DefineRelations = "DefineRelations",
-  ShareInputAfterTick = "ShareInputAfterTick",
-  GetViewsToShare = "GetViewsToShare",
+  UpdateRelation = "UpdateRelation",
+  ShipRelation = "ShipRelation",
 }
-
-// export type DielMessage = DielMessageDefineView | DielMessageSimpleQuery | DielMessageShareAndFetch;
 
 export interface DielRemoteMessageId {
   remoteAction: DielRemoteAction;
-  input?: string;
-  msgId?: number;
-  view?: string;
+  relationName?: RelationIdType;
+  msgId?: number; // currently only used for fullfilling promises.
   lineage?: number;
 }
-
-export interface DielRemoteMessage {
-  id: DielRemoteMessageId;
-  // action: string;
-  sql?: string;
-  dbName?: string;
-  buffer?: Uint8Array;
-}
-
 export interface DielRemoteReply {
   id: DielRemoteMessageId;
   results: RelationObject;
   err: any;
 }
+
+// this will be what's encoded in the id
+interface DielRemoteMessageBase {
+  remoteAction: DielRemoteAction;
+  msgId?: number;
+  lineage?: LogicalTimestep;
+}
+
+
+export interface RemoteGetResultsByPromiseMessage extends RemoteExecuteMessage {
+  msgId: number;
+}
+
+export interface RemoteShipRelationMessage extends DielRemoteMessageBase {
+  relationName: RelationIdType;
+}
+
+export interface RemoteOpenDbMessage extends DielRemoteMessageBase {
+  dbName?: string;     // for socket
+  buffer?: Uint8Array; // for worker
+}
+
+export interface RemoteUpdateRelationMessage extends RemoteExecuteMessage {
+  relationName: RelationIdType; // redundancy
+}
+
+export interface RemoteExecuteMessage extends DielRemoteMessageBase {
+  sql: string;
+}
+
+export type DielRemoteMessage = RemoteGetResultsByPromiseMessage
+                                | RemoteShipRelationMessage
+                                | RemoteUpdateRelationMessage
+                                | RemoteOpenDbMessage
+                                ;
