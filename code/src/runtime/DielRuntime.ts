@@ -90,16 +90,14 @@ export default class DielRuntime {
     // this is used for views that do not have inputs
     const staticTriggers = this.physicalExecution.getStaticAsyncViewTrigger(outputName);
     if (staticTriggers && staticTriggers.length > 0) {
-      console.log(`Sending triggers for async static output: ${outputName}`);
+      console.log(`Sending triggers for async static output: ${outputName}`, staticTriggers);
       staticTriggers.map(t => {
-        t.destinations.map(dbId => {
           const msg: RemoteShipRelationMessage = {
             remoteAction: DielRemoteAction.ShipRelation,
             relationName: t.relation,
-            dbId
+            dbId: t.destination
           };
           this.findRemoteDbEngine(t.dbId).SendMsg(msg);
-        });
       });
     }
   }
@@ -150,7 +148,7 @@ export default class DielRuntime {
       });
       const finalQuery = `
       insert into ${eventName} (timestep, ${columnNames.join(", ")}) values
-        ${values.map(v => `(${v.join(", ")})`)};
+        ${values.map(v => `(${this.timestep}, ${v.join(", ")})`)};
       insert into allInputs (timestep, inputRelation, timestamp ${lineage ? `, lineage` : ""}) values
         (${this.timestep}, '${eventName}', ${Date.now()} ${lineage ? `, ${lineage}` : ""});`;
       console.log(`%c Tick Executing\n${finalQuery}`, QueryConsoleColorSpec);
