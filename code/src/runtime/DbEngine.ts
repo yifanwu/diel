@@ -1,5 +1,5 @@
 import { DbType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemoteReply, DielRemoteMessageId, RemoteOpenDbMessage, RemoteExecuteMessage, RemoteShipRelationMessage, GetRelationToShipFuncType, RemoteUpdateRelationMessage } from "./runtimeTypes";
-import { SqliteMasterQuery, RelationShippingFuncType } from "./DielRuntime";
+import { SqliteMasterQuery, RelationShippingFuncType, INIT_TIMESTEP } from "./DielRuntime";
 import { LogInternalError, ReportDielUserError, LogInternalWarning, DielInternalErrorType, LogInfo } from "../lib/messages";
 import { DbIdType, LogicalTimestep, RelationIdType, LocalDbId, DielPhysicalExecution } from "../compiler/DielPhysicalExecution";
 import { parseSqlJsWorkerResult } from "./runtimeHelper";
@@ -87,6 +87,7 @@ export default class DbEngine {
       // we should block because if it's not ack-ed the rest of the messages cannot be processed properly
       await this.SendMsg({
         remoteAction: DielRemoteAction.ConnectToDb,
+        lineage: INIT_TIMESTEP,
         buffer,
       }, true);
     } else if (this.remoteType === DbType.Socket) {
@@ -97,6 +98,7 @@ export default class DbEngine {
         if (dbName) {
           await this.SendMsg({
             remoteAction: DielRemoteAction.ConnectToDb,
+            lineage: INIT_TIMESTEP,
             dbName
           }, true);
         }
@@ -127,6 +129,7 @@ export default class DbEngine {
           currentItem.relationsToShipDestinations.get(relationName).forEach(dbId => {
             const shipMsg: RemoteShipRelationMessage = {
               remoteAction: DielRemoteAction.ShipRelation,
+              lineage: INIT_TIMESTEP,
               relationName,
               dbId
             };
@@ -228,6 +231,10 @@ export default class DbEngine {
       }
       case DielRemoteAction.ShipRelation: {
         const shipMsg = msg as RemoteShipRelationMessage;
+        const newId = {
+          ...id,
+          relationName: shipMsg.relationName,
+        };
         if (isPromise) {
           LogInternalError(`You cannot wait on ${DielRemoteAction.ShipRelation}`);
         }
@@ -238,12 +245,13 @@ export default class DbEngine {
           const staticShip = this.physicalExeuctionRef.getBubbledUpRelationToShipForOutput(this.id, shipMsg.relationName);
           // in theory I think we can just invoke the connection directly.
           staticShip.map(t => {
-            const msg: RemoteShipRelationMessage = {
+            const staticMsg: RemoteShipRelationMessage = {
               remoteAction: DielRemoteAction.ShipRelation,
               relationName: t.relation,
-              dbId: t.destination
+              dbId: t.destination,
+              lineage: msg.lineage,
             };
-            this.SendMsg(msg);
+            this.SendMsg(staticMsg);
           });
           return;
         }
@@ -256,7 +264,7 @@ export default class DbEngine {
         const msgToSend = {
           sql: `select * from ${shipMsg.relationName};`
         };
-        return this.connection.send(id, msgToSend, isPromise);
+        return this.connection.send(newId, msgToSend, isPromise);
       }
       case DielRemoteAction.GetResultsByPromise: {
         const sql = (msg as RemoteExecuteMessage).sql;
@@ -314,6 +322,7 @@ export default class DbEngine {
   async getMetaData(id: DbIdType): Promise<{id: DbIdType, data: RelationObject}> {
     const promise = this.SendMsg({
       remoteAction: DielRemoteAction.GetResultsByPromise,
+      lineage: INIT_TIMESTEP, // might change later because we can load new databases later?
       sql: SqliteMasterQuery
     }, true);
     const data = await promise;

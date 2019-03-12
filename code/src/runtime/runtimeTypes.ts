@@ -121,8 +121,8 @@ export interface DielRemoteReply {
 // this will be what's encoded in the id
 interface DielRemoteMessageBase {
   remoteAction: DielRemoteAction;
+  lineage: LogicalTimestep;
   msgId?: number;
-  lineage?: LogicalTimestep;
 }
 
 
