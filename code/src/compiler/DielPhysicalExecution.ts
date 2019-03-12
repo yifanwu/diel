@@ -1,4 +1,4 @@
-import { DielAst, DerivedRelation, RelationType, createEmptyDielAst } from "../parser/dielAstTypes";
+import { DielAst, DerivedRelation, RelationType, createEmptyDielAst, Relation } from "../parser/dielAstTypes";
 import { DbType } from "../runtime/runtimeTypes";
 import { DielIr } from "../lib";
 import { PhysicalMetaData } from "../runtime/DielRuntime";
@@ -7,6 +7,7 @@ import { LogInternalError } from "../lib/messages";
 import { DependencyTree, NodeDependencyAugmented } from "./passes/passesHelper";
 import { SetIntersection } from "../lib/dielUtils";
 import { isRelationTypeDerived } from "./DielIr";
+import { access } from "fs";
 
 /**
  * currently include
@@ -74,29 +75,48 @@ export class DielPhysicalExecution {
     this.runtimeOutputNames.add(outputName);
   }
 
-  getExecutionSpecsFromDistribution(distributions: SingleDistribution[]): Map<DbIdType, DielAst> {
+  private getExecutionSpecsFromDistribution(distributions: SingleDistribution[]): Map<DbIdType, DielAst> {
     const astSpecPerDb = new Map<DbIdType, DielAst>();
     // first get the in
+    function setIfNotExist(dbId: DbIdType) {
+      if (!astSpecPerDb.has(dbId)) {
+        astSpecPerDb.set(dbId, createEmptyDielAst());
+      }
+      return astSpecPerDb.get(dbId);
+    }
+    function addRelationIfOnlyNotExist(relationDef: Relation[], newDef: Relation) {
+      if (!relationDef.find(r => r.name === newDef.name)) {
+        relationDef.push(newDef);
+      }
+    }
     distributions.map(distribution => {
       // if (distribution.from !== distribution.to) {
-      if (!astSpecPerDb.has(distribution.to)) {
-        astSpecPerDb.set(distribution.to, createEmptyDielAst());
-      }
       // there are quite a few repetitions because the list is denormalized (fanout by outputs)
-      const currenRelationDef = astSpecPerDb.get(distribution.to).relations;
-      if (!currenRelationDef.find(r => r.name === distribution.relationName)) {
-        const rDef = this.ir.GetRelationDef(distribution.relationName);
-        // we should transform it if it's been shipped over, and that it was a derived view before
-        if ((distribution.from !== distribution.to) && isRelationTypeDerived(rDef.relationType)) {
-          const derivedRelation = getEventTableFromDerived(rDef as DerivedRelation);
-          currenRelationDef.push(derivedRelation);
+      const astToSpec = setIfNotExist(distribution.to);
+      const astFromSpec = setIfNotExist(distribution.from);
+      const rDef = this.ir.GetRelationDef(distribution.relationName);
+        if (isRelationTypeDerived(rDef.relationType)) {
+          if (distribution.from !== distribution.to) {
+            const eventTableDef = getEventTableFromDerived(rDef as DerivedRelation);
+            addRelationIfOnlyNotExist(astToSpec.relations, eventTableDef);
+            addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
+          }
         } else {
-          currenRelationDef.push(rDef);
+          addRelationIfOnlyNotExist(astToSpec.relations, rDef);
         }
-      }
       // these are outputs
       if (!astSpecPerDb.get(LocalDbId).relations.find(r => r.name === distribution.finalOutputName)) {
         astSpecPerDb.get(LocalDbId).relations.push(this.ir.GetRelationDef(distribution.finalOutputName));
+      }
+    });
+    // sanity check: only localDB is allowed to have EventTables!
+    astSpecPerDb.forEach((ast, dbId) => {
+      if (dbId !== LocalDbId) {
+        ast.relations.map(r => {
+          if (r.relationType === RelationType.EventTable) {
+            LogInternalError(`only local DB instance  (${LocalDbId}) is allowed to have ${RelationType.EventTable}, but ${dbId} has it too, for ${r.name}`);
+          }
+        });
       }
     });
     // then get the out
@@ -127,42 +147,51 @@ export class DielPhysicalExecution {
     });
     return distributionsForAllOutput;
   }
+// , output: RelationIdType
+  getBubbledUpRelationToShipForOutput(dbId: DbIdType, relation: RelationIdType): {destination: DbIdType, relation: RelationIdType}[] {
+    const distributions = this.distributions;
+    function helper(acc: {destination: DbIdType, relation: RelationIdType}[], dbId: DbIdType, relation: RelationIdType) {
+      distributions.map(d => {
+        // (d.finalOutputName === output)
+        if ((d.relationName === relation) && (d.from === dbId)) {
+          if ((d.to === d.from) && (d.forRelationName !== relation)) {
+            helper(acc, d.to, d.forRelationName);
+          } else if ((d.to !== d.from)) {
+            acc.push({
+              destination: d.to,
+              relation: d.relationName
+              });
+          }
+        }
+      });
+    }
+    let acc: {destination: DbIdType, relation: RelationIdType}[] = [];
+    helper(acc, dbId, relation);
+    return acc;
+  }
 
-  getStaticAsyncViewTrigger(outputName: string): {dbId: DbIdType, relation: RelationIdType, destination: DbIdType}[] {
+  getStaticAsyncViewTrigger(outputName: string): {dbId: DbIdType, relation: RelationIdType}[] | null {
+    // also need to make sure that there are no input dependnecies at all
     const remoteSources = this.distributions
                         .filter(d => ((d.finalOutputName === outputName)
-                          && (d.to === d.from)
-                          && (d.from !== LocalDbId)));
-    // now we recurse on the sources to see if they need to be shipped anywhere
-    const result: {dbId: DbIdType, relation: RelationIdType, destination: DbIdType}[] = [];
-    remoteSources.map(source => {
-      this.distributions
-          .filter(d => ((d.finalOutputName === outputName)
-                    && (d.to !== d.from)
-                    && (d.relationName === source.relationName)
-                    && (d.from === source.to)))
-          .map(d => {
-            if (!result.find(r => (r.dbId === d.from) && (r.relation === d.relationName) && (r.destination === d.to))) {
-              result.push({
-                dbId: d.from,
-                relation: d.relationName,
-                destination: d.to
-              });
-            }
+                          && (d.to === d.from)));
+    const hasInput = remoteSources.reduce((acc, v) => acc || (v.from === LocalDbId), false);
+    if (hasInput) {
+      return null;
+    } else {
+      const dedupeRelations = new Set<string>();
+      const result: {dbId: DbIdType, relation: RelationIdType}[] = [];
+      remoteSources.map(d => {
+        if (!dedupeRelations.has(d.relationName)) {
+          dedupeRelations.add(d.relationName);
+          result.push({
+            dbId: d.from,
+            relation: d.relationName
           });
-    });
-    return result;
-                  //         return            .map(d => {
-                  // const destinations = this.distributions
-                  //                          .filter(d2 => (d2.from === d.from)
-                  //                                     && (d2.to !== d2.from))
-                  //                          .map(d2 => d2.to);
-              //     return {
-              //       dbId: d.to,
-              //       relation: d.relationName,
-              //       destinations
-              //     };
-              //  });
+        }
+      });
+      return result;
+    }
   }
 
   // FIXME: there is probably a faster way to do this as part of the recursion...
@@ -170,6 +199,7 @@ export class DielPhysicalExecution {
     // a list of the views and their dependencies
     // if input is specified, we will filter dependencies by those relations that depend on the input
     const relationsToShip = this.distributions.filter(d => (d.from === dbId)).map(d => d.relationName);
+    // return (dbId: DbIdType, lineage: LogicalTimestep) => {
     const relationDependency: Map<RelationIdType, Set<RelationIdType>> = new Map();
     // const relationDestinations: Map<RelationIdType, Set<RelationIdType>> = new Map();
     relationsToShip.map(r => {
@@ -185,6 +215,7 @@ export class DielPhysicalExecution {
       relationDependency.set(r, deps);
     });
     return relationDependency;
+    // };
   }
 
   getRelationsToShipForDb(dbId: DbIdType, lineage: LogicalTimestep) {

@@ -91,14 +91,16 @@ export default class DielRuntime {
     const staticTriggers = this.physicalExecution.getStaticAsyncViewTrigger(outputName);
     if (staticTriggers && staticTriggers.length > 0) {
       console.log(`Sending triggers for async static output: ${outputName}`, staticTriggers);
-      staticTriggers.map(t => {
+      if (staticTriggers) {
+        staticTriggers.map(t => {
           const msg: RemoteShipRelationMessage = {
             remoteAction: DielRemoteAction.ShipRelation,
             relationName: t.relation,
-            dbId: t.destination
+            dbId: t.dbId
           };
           this.findRemoteDbEngine(t.dbId).SendMsg(msg);
       });
+      }
     }
   }
 
@@ -223,8 +225,8 @@ export default class DielRuntime {
     const materialization = simpleMaterializeAst(this.ir);
     console.log(JSON.stringify(materialization, null, 2));
     this.physicalExecution = new DielPhysicalExecution(this.ir, this.physicalMetaData, this.getEventByTimestep);
-    this.updateRemotesBasedOnPhysicalExecution();
-    this.executeToDBs();
+    // this.updateRemotesBasedOnPhysicalExecution();
+    await this.executeToDBs();
     this.ir.GetAllDerivedViews().map(o => this.setupNewOutput(o));
     loadPage();
   }
@@ -301,13 +303,14 @@ export default class DielRuntime {
     return;
   }
 
-  private updateRemotesBasedOnPhysicalExecution() {
-    const getRelationDependencies = this.physicalExecution.getRelationDependenciesForDb;
-    const getRelationsToShip = this.physicalExecution.getRelationsToShipForDb;
-    this.dbEngines.forEach((db) => {
-      db.setupByPhysicalExecution(getRelationDependencies, getRelationsToShip);
-    });
-  }
+  // private updateRemotesBasedOnPhysicalExecution() {
+  //   this.dbEngines.forEach((db) => {
+  //     const getRelationDependencies = this.physicalExecution.getRelationDependenciesForDb(db.id);
+  //     const getRelationsToShip = this.physicalExecution.getRelationsToShipForDb.bind(this);
+  //     const getBubbledUpRelationToShip = this.physicalExecution.getBubbledUpRelationToShip.bind(this);
+  //     db.setupByPhysicalExecution(getRelationDependencies, getRelationsToShip, getBubbledUpRelationToShip);
+  //   });
+  // }
 
   private setupUDFs() {
     this.db.create_function("log", log);
@@ -429,11 +432,11 @@ export default class DielRuntime {
   // takes in teh SqlIrs in different environments and sticks them into the databases
   // FIXME: better async handling
   // also should fix the async logic
-  executeToDBs() {
+  async executeToDBs() {
     LogTmp(`Executing queries to db`);
     // const mainSqlQUeries = generateSqlFromDielAst(this.physicalExecution.getLocalDbAst());
-    // debugger;
     // now execute to worker!
+    const promises: Promise<any>[] = [];
     this.physicalExecution.astSpecPerDb.forEach((ast, id) => {
       if (id === LocalDbId) {
         const queries = generateSqlFromDielAst(ast);
@@ -447,23 +450,25 @@ export default class DielRuntime {
         }
       } else {
         const remoteInstance = this.findRemoteDbEngine(id);
+        remoteInstance.setPhysicalExecutionReference(this.physicalExecution);
         const replace = remoteInstance.remoteType === DbType.Socket;
         const queries = generateSqlFromDielAst(ast, replace);
         if (remoteInstance) {
           if (queries && queries.length > 0) {
-            const sql = queries.join(";\n");
-            console.log(`%c Running Query in Remote[${id}]:\n${sql}`, "color: pink");
+            const sql = queries.map(q => q + ";").join("\n");
             const msg: RemoteExecuteMessage = {
               remoteAction: DielRemoteAction.DefineRelations,
               sql
             };
-            remoteInstance.SendMsg(msg);
+            promises.push(remoteInstance.SendMsg(msg, true));
           }
         } else {
           LogInternalError(`Remote ${id} is not found!`);
         }
       }
     });
+    await Promise.all(promises);
+    return;
   }
 
   // used for debugging
