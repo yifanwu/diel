@@ -41,11 +41,11 @@ export const PageContainer = () => (<Router>
     </div>
     <div id="main">
       <Switch>
-        <Route exact path="/counter" component={Counter}/>
+        {/* <Route exact path="/counter" component={Counter}/>
         <Route path="/notebook" component={Notebook}/>
         <Route path="/scoreZoom" component={ScoreZoomBarChart}/>
         <Route path="/linkedCharts" component={LinkedBarCharts}/>
-        <Route path="/pitchfork" component={PitchFork} />
+        <Route path="/pitchfork" component={PitchFork} /> */}
         <Route path="/" component={Flights} />
       </Switch>
     </div>
