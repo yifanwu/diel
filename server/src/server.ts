@@ -2,6 +2,7 @@ import * as express from "express";
 import * as http from "http";
 import * as WebSocket from "ws";
 import * as sqlite from "better-sqlite3";
+import { LogWarning, LogInfo } from "./messages";
 
 interface DielMessage {
   id: string;
@@ -74,10 +75,10 @@ wss.on("connection", (ws: WebSocket) => {
           if (dbFile) {
             db = new sqlite(dbFile);
           } else {
-            throw new Error(`The DB ${msg.dbName} is not defined.`);
+            LogWarning(`The DB ${msg.dbName} is not defined.`);
           }
         } else {
-          throw new Error(`The message ${JSON.stringify(msg)} did not define dbName.`);
+          LogWarning(`The message ${JSON.stringify(msg)} did not define dbName.`);
         }
         ws.send(JSON.stringify({
           id: msg.id
@@ -93,7 +94,7 @@ wss.on("connection", (ws: WebSocket) => {
               id: msg.id,
             }));
           } catch (e) {
-            console.log(`${FgRed}Error executing to database! ${e}\nThe query was ${msg.sql}${Reset}`);
+            LogWarning(`Error executing to database! ${e}\nThe query was ${msg.sql}${Reset}`);
             return;
           }
         }
@@ -105,17 +106,17 @@ wss.on("connection", (ws: WebSocket) => {
             const stmt = db.prepare(msg.sql);
             const results = stmt.all();
             // FIXME: need to know what the object even looks like here...
-            console.log(JSON.stringify(results, null, 2));
+            LogInfo(JSON.stringify(results, null, 2));
             ws.send(JSON.stringify({
               id: msg.id,
               results
             }));
           } catch (e) {
-            console.log(`${FgRed}Error executing to database! ${e}\nThe query was ${msg.sql}${Reset}`);
+            LogWarning(`Error executing to database! ${e}\nThe query was ${msg.sql}`);
             return;
           }
         } else {
-          console.log(`${FgRed}Exec actions must define the query${Reset}`);
+          LogWarning(`Exec actions must define the query`);
         }
         break;
       }
@@ -130,7 +131,7 @@ wss.on("connection", (ws: WebSocket) => {
   // const stmt = db.prepare('SELECT * FROM cats WHERE name = ?');
   // const cats = stmt.all('Joey');
   // send immediatly a feedback to the incoming connection
-  ws.send("Hi there, I am a WebSocket server");
+  // ws.send("Hi there, I am a WebSocket server");
 });
 
 // start our server

@@ -77,6 +77,8 @@ export function createSqlAstFromDielAst(ast: DielAst): SqlIr {
           });
           break;
         }
+        case RelationType.Output:
+        case RelationType.EventView:
         case RelationType.View: {
           const v = iUnionType as DerivedRelation;
           views.push({
@@ -90,7 +92,7 @@ export function createSqlAstFromDielAst(ast: DielAst): SqlIr {
           // pass
           break;
         default:
-          LogInternalError(`Should all be handled`, DielInternalErrorType.UnionTypeNotAllHandled);
+          LogInternalError(`Should all be handled, but ${iUnionType.relationType} was not`, DielInternalErrorType.UnionTypeNotAllHandled);
       }
     });
     const programsToAddRaw = ast.programs.get("");
