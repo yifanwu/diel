@@ -19,7 +19,7 @@ import DbEngine from "./DbEngine";
 import { simpleMaterializeAst } from "../compiler/passes/materialization";
 
 const StaticSqlFile = "./src/compiler/codegen/static.sql";
-
+export const INIT_TIMESTEP = 1;
 
 export const SqliteMasterQuery = `
   SELECT sql, name FROM sqlite_master WHERE type='table' and sql not null`;
@@ -59,7 +59,7 @@ export default class DielRuntime {
 
   constructor(runtimeConfig: DielRuntimeConfig) {
     (<any>window).diel = this; // for debugging
-    this.timestep = 0;
+    this.timestep = INIT_TIMESTEP;
     this.runtimeConfig = runtimeConfig;
     this.eventByTimestep = new Map();
     this.cells = [];
@@ -96,7 +96,8 @@ export default class DielRuntime {
           const msg: RemoteShipRelationMessage = {
             remoteAction: DielRemoteAction.ShipRelation,
             relationName: t.relation,
-            dbId: t.dbId
+            dbId: t.dbId,
+            lineage: INIT_TIMESTEP
           };
           this.findRemoteDbEngine(t.dbId).SendMsg(msg);
       });
@@ -337,6 +338,7 @@ export default class DielRuntime {
         const msg: RemoteUpdateRelationMessage = {
           remoteAction: DielRemoteAction.UpdateRelation,
           relationName: inputName,
+          lineage: timestep,
           sql,
         };
         remote.SendMsg(msg);
@@ -458,6 +460,7 @@ export default class DielRuntime {
             const sql = queries.map(q => q + ";").join("\n");
             const msg: RemoteExecuteMessage = {
               remoteAction: DielRemoteAction.DefineRelations,
+              lineage: INIT_TIMESTEP,
               sql
             };
             promises.push(remoteInstance.SendMsg(msg, true));
