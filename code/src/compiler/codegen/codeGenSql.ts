@@ -4,6 +4,7 @@ import { ReportDielUserError, LogInternalError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
 
 export function generateSqlFromDielAst(ast: DielAst, replace = false) {
+  debugger;
   const sqlAst = createSqlAstFromDielAst(ast);
   return generateStringFromSqlIr(sqlAst, replace);
 }

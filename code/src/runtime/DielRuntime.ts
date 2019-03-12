@@ -4,7 +4,7 @@ import { DIELParser } from "../parser/grammar/DIELParser";
 
 import { loadPage } from "../notebook/index";
 import { Database, Statement } from "sql.js";
-import { RuntimeCell, DielRemoteAction, DielRemoteMessage, RelationObject, DielRuntimeConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, } from "./runtimeTypes";
+import { RuntimeCell, DielRemoteAction, RelationObject, DielRuntimeConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, } from "./runtimeTypes";
 import { OriginalRelation, DerivedRelation, RelationType, SelectionUnit } from "../parser/dielAstTypes";
 import { generateSelectionUnit, generateSqlFromDielAst } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
@@ -47,7 +47,7 @@ export default class DielRuntime {
   eventByTimestep: Map<LogicalTimestep, RelationIdType>;
   ir: DielIr;
   physicalExecution: DielPhysicalExecution;
-  dbEngines: DbEngine[];
+  dbEngines: Map<DbIdType, DbEngine>;
   workerDbPaths: string[];
   physicalMetaData: PhysicalMetaData;
   runtimeConfig: DielRuntimeConfig;
@@ -64,7 +64,7 @@ export default class DielRuntime {
     this.eventByTimestep = new Map();
     this.cells = [];
     this.visitor = new Visitor();
-    this.dbEngines = [];
+    this.dbEngines = new Map();
     this.runtimeOutputs = new Map();
     this.physicalMetaData = {
       dbs: new Map(),
@@ -227,29 +227,46 @@ export default class DielRuntime {
     this.physicalExecution = new DielPhysicalExecution(this.ir, this.physicalMetaData, this.getEventByTimestep);
     this.updateRemotesBasedOnPhysicalExecution();
     this.executeToDBs();
-    this.setupAllInputOutputs();
+    this.ir.GetAllDerivedViews().map(o => this.setupNewOutput(o));
     loadPage();
   }
 
   async initialCompile() {
     this.visitor = new Visitor();
     const tableDefinitions = SqlJsGetObjectArrayFromQuery(this.db, SqliteMasterQuery);
+    tableDefinitions.map(m => {
+      const name = m["name"].toString();
+      if (this.physicalMetaData.relationLocation.has(name)) {
+        LogInternalError(`DBs should not have the same table names`);
+      } else {
+        this.physicalMetaData.relationLocation.set(name, {
+          dbId: LocalDbId
+        });
+      }
+    });
+    this.physicalMetaData.dbs.set(LocalDbId, {dbType: DbType.Local});
     let code = processSqlMetaDataFromRelationObject(tableDefinitions);
-    for (let i = 0; i < this.dbEngines.length; i ++) {
-      const db = this.dbEngines[i];
-      const metadata = await db.getMetaData();
-      code += metadata.map(m => m["sql"] + ";").join("\n");
-      metadata.map(m => {
+    // for (let i = 0; i < this.dbEngines.length; i ++) {
+    const promises: Promise<{id: DbIdType, data: RecordObject[]}>[] = [];
+    this.dbEngines.forEach((db) => {
+      this.physicalMetaData.dbs.set(db.id, {dbType: db.remoteType});
+      promises.push(db.getMetaData(db.id));
+    });
+    const metadatas = await Promise.all(promises);
+    metadatas.map(mD => {
+      code += processSqlMetaDataFromRelationObject(mD.data);
+      // .map(m => m["sql"] + ";").join("\n");
+      mD.data.map(m => {
         const name = m["name"].toString();
         if (this.physicalMetaData.relationLocation.has(name)) {
           LogInternalError(`DBs should not have the same table names`);
         } else {
           this.physicalMetaData.relationLocation.set(name, {
-            dbId: db.id
+            dbId: mD.id
           });
         }
       });
-    }
+    });
     for (let i = 0; i < this.runtimeConfig.dielFiles.length; i ++) {
       const f = this.runtimeConfig.dielFiles[i];
       code += await (await fetch(f)).text();
@@ -263,32 +280,22 @@ export default class DielRuntime {
     this.ir = CompileDiel(new DielIr(ast));
   }
 
-  // shipRelation() {
-  //   // in theory passes from one engine to another engine
-  //   // worker to main, main to worker
-  //   // worker to worker
-  //   // worker to socket, socket to worker
-  //   // socket to main, main to socket, socket to socket
-  // }
-
   async setupRemotes() {
     const inputCallback = this.NewInputMany.bind(this);
     let counter = LocalDbId;
-    const getRelationDependencies = this.physicalExecution.getRelationDependenciesForDb;
-    const getRelationsToShip = this.physicalExecution.getRelationsToShipForDb;
     const workerWaiting = this.runtimeConfig.workerDbPaths
       ? this.runtimeConfig.workerDbPaths.map(path => {
         counter++;
-        const remote = new DbEngine(DbType.Worker, counter, inputCallback, getRelationDependencies, getRelationsToShip);
-        this.dbEngines.push(remote);
+        const remote = new DbEngine(DbType.Worker, counter, inputCallback);
+        this.dbEngines.set(counter, remote);
         return remote.setup(path);
       })
       : [];
     const socketWaiting = this.runtimeConfig.socketConnections
       ? this.runtimeConfig.socketConnections.map(socket => {
         counter++;
-        const remote = new DbEngine(DbType.Socket, counter, inputCallback, getRelationDependencies, getRelationsToShip);
-        this.dbEngines.push(remote);
+        const remote = new DbEngine(DbType.Socket, counter, inputCallback);
+        this.dbEngines.set(counter, remote);
         return remote.setup(socket.url, socket.dbName);
       })
       : [];
@@ -296,11 +303,15 @@ export default class DielRuntime {
     return;
   }
 
-  updateRemotesBasedOnPhysicalExecution() {
-
+  private updateRemotesBasedOnPhysicalExecution() {
+    const getRelationDependencies = this.physicalExecution.getRelationDependenciesForDb;
+    const getRelationsToShip = this.physicalExecution.getRelationsToShipForDb;
+    this.dbEngines.forEach((db) => {
+      db.setupByPhysicalExecution(getRelationDependencies, getRelationsToShip);
+    });
   }
 
-  setupUDFs() {
+  private setupUDFs() {
     this.db.create_function("log", log);
     // this.db.create_function("tick", this.tick());
     // this.db.create_function("shipWorkerInput", this.shipWorkerInput.bind(this));
@@ -332,9 +343,9 @@ export default class DielRuntime {
     }));
   }
 
-  findRemoteDbEngine(remoteId: DbIdType) {
+  private findRemoteDbEngine(remoteId: DbIdType) {
     // some increment logic...
-    const r = this.dbEngines[remoteId - 1];
+    const r = this.dbEngines.get(remoteId);
     if (!r) {
       LogInternalError(`Remote ${remoteId} not found`);
     }
@@ -357,17 +368,12 @@ export default class DielRuntime {
       (<any>window).mainDb = this.db;
       // FIXME: might have some weird issues with types of DIEL tables?
     }
+    // this.dbEngines.set(LocalDbId, this.db);
     // and run the static file that we need
     const staticQuery = await (await fetch(StaticSqlFile)).text();
     this.db.run(staticQuery);
     return;
   }
-
-  setupAllInputOutputs() {
-    // this.ir.GetInputs().map(i => this.setupNewInput(i));
-    this.ir.GetAllDerivedViews().map(o => this.setupNewOutput(o));
-  }
-
   /**
    * output tables HAVE to be local tables
    *   since they are synchronous --- if they are over other tables
@@ -427,32 +433,37 @@ export default class DielRuntime {
   // also should fix the async logic
   executeToDBs() {
     LogTmp(`Executing queries to db`);
-    const mainSqlQUeries = generateSqlFromDielAst(this.physicalExecution.getLocalDbAst());
-    for (let s of mainSqlQUeries) {
-      try {
-        console.log(`%c Running Query in Main:\n${s}`, "color: purple");
-        this.db.run(s);
-      } catch (error) {
-        LogInternalError(`Error while running\n${s}\n${error}`);
-      }
-    }
+    // const mainSqlQUeries = generateSqlFromDielAst(this.physicalExecution.getLocalDbAst());
+    // debugger;
     // now execute to worker!
     this.physicalExecution.astSpecPerDb.forEach((ast, id) => {
-      const remoteInstance = this.findRemoteDbEngine(id);
-      const replace = remoteInstance.remoteType === DbType.Socket;
-      const queries = generateSqlFromDielAst(ast, replace);
-      if (remoteInstance) {
-        if (queries && queries.length > 0) {
-          const sql = queries.join(";\n");
-          console.log(`%c Running Query in Remote[${id}]:\n${sql}`, "color: pink");
-          const msg: RemoteExecuteMessage = {
-            remoteAction: DielRemoteAction.DefineRelations,
-            sql
-          };
-          remoteInstance.SendMsg(msg);
+      if (id === LocalDbId) {
+        const queries = generateSqlFromDielAst(ast);
+        for (let s of queries) {
+          try {
+            console.log(`%c Running Query in Main:\n${s}`, "color: purple");
+            this.db.run(s);
+          } catch (error) {
+            LogInternalError(`Error while running\n${s}\n${error}`);
+          }
         }
       } else {
-        LogInternalError(`Remote ${id} is not found!`);
+        const remoteInstance = this.findRemoteDbEngine(id);
+        const replace = remoteInstance.remoteType === DbType.Socket;
+        const queries = generateSqlFromDielAst(ast, replace);
+        if (remoteInstance) {
+          if (queries && queries.length > 0) {
+            const sql = queries.join(";\n");
+            console.log(`%c Running Query in Remote[${id}]:\n${sql}`, "color: pink");
+            const msg: RemoteExecuteMessage = {
+              remoteAction: DielRemoteAction.DefineRelations,
+              sql
+            };
+            remoteInstance.SendMsg(msg);
+          }
+        } else {
+          LogInternalError(`Remote ${id} is not found!`);
+        }
       }
     });
   }
