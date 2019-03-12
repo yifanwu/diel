@@ -83,15 +83,20 @@ export class DielPhysicalExecution {
         astSpecPerDb.set(distribution.to, createEmptyDielAst());
       }
       // there are quite a few repetitions because the list is denormalized (fanout by outputs)
-      if (!astSpecPerDb.get(distribution.to).relations.find(r => r.name === distribution.relationName)) {
+      const currenRelationDef = astSpecPerDb.get(distribution.to).relations;
+      if (!currenRelationDef.find(r => r.name === distribution.relationName)) {
         const rDef = this.ir.GetRelationDef(distribution.relationName);
         // we should transform it if it's been shipped over, and that it was a derived view before
         if ((distribution.from !== distribution.to) && isRelationTypeDerived(rDef.relationType)) {
           const derivedRelation = getEventTableFromDerived(rDef as DerivedRelation);
-          astSpecPerDb.get(distribution.to).relations.push(derivedRelation);
+          currenRelationDef.push(derivedRelation);
         } else {
-          astSpecPerDb.get(distribution.to).relations.push(rDef);
+          currenRelationDef.push(rDef);
         }
+      }
+      // these are outputs
+      if (!astSpecPerDb.get(LocalDbId).relations.find(r => r.name === distribution.finalOutputName)) {
+        astSpecPerDb.get(LocalDbId).relations.push(this.ir.GetRelationDef(distribution.finalOutputName));
       }
     });
     // then get the out
@@ -123,21 +128,41 @@ export class DielPhysicalExecution {
     return distributionsForAllOutput;
   }
 
-  getStaticAsyncViewTrigger(outputName: string): {dbId: DbIdType, relation: RelationIdType, destinations: DbIdType[]}[] {
-    return this.distributions
-               .filter(d => ((d.finalOutputName === outputName)
-                          && (d.to === d.from)))
-               .map(d => {
-                  const destinations = this.distributions
-                                           .filter(d2 => (d2.from === d.from)
-                                                      && (d2.to !== d2.from))
-                                           .map(d2 => d2.to);
-                  return {
-                    dbId: d.to,
-                    relation: d.relationName,
-                    destinations
-                  };
-               });
+  getStaticAsyncViewTrigger(outputName: string): {dbId: DbIdType, relation: RelationIdType, destination: DbIdType}[] {
+    const remoteSources = this.distributions
+                        .filter(d => ((d.finalOutputName === outputName)
+                          && (d.to === d.from)
+                          && (d.from !== LocalDbId)));
+    // now we recurse on the sources to see if they need to be shipped anywhere
+    const result: {dbId: DbIdType, relation: RelationIdType, destination: DbIdType}[] = [];
+    remoteSources.map(source => {
+      this.distributions
+          .filter(d => ((d.finalOutputName === outputName)
+                    && (d.to !== d.from)
+                    && (d.relationName === source.relationName)
+                    && (d.from === source.to)))
+          .map(d => {
+            if (!result.find(r => (r.dbId === d.from) && (r.relation === d.relationName) && (r.destination === d.to))) {
+              result.push({
+                dbId: d.from,
+                relation: d.relationName,
+                destination: d.to
+              });
+            }
+          });
+    });
+    return result;
+                  //         return            .map(d => {
+                  // const destinations = this.distributions
+                  //                          .filter(d2 => (d2.from === d.from)
+                  //                                     && (d2.to !== d2.from))
+                  //                          .map(d2 => d2.to);
+              //     return {
+              //       dbId: d.to,
+              //       relation: d.relationName,
+              //       destinations
+              //     };
+              //  });
   }
 
   // FIXME: there is probably a faster way to do this as part of the recursion...
