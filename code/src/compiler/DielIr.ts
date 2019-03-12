@@ -1,7 +1,8 @@
 import { DielAst, DerivedRelation, DataType, OriginalRelation, RelationType, SelectionUnit, CompositeSelection, Relation } from "../parser/dielAstTypes";
 import { DependencyInfo } from "./passes/passesHelper";
-import { LogInternalWarning, LogInternalError } from "../lib/messages";
-import { ExprType, ExprColumnAst } from "../parser/exprAstTypes";
+import { LogInternalWarning, LogInternalError, DielInternalErrorType } from "../lib/messages";
+import { ExprType, ExprColumnAst, ExprFunAst } from "../parser/exprAstTypes";
+import { RelationIdType } from "./DielPhysicalExecution";
 
 type CompositeSelectionFunction<T> = (s: CompositeSelection, relationName?: string) => T;
 export type SelectionUnitVisitorFunctionOptions = {relationName?: string, ir?: DielIr};
@@ -26,6 +27,23 @@ export function isRelationTypeDerived(rType: RelationType) {
   }
 }
 
+export function columnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[] {
+  return su.derivedColumnSelections.map(cs => {
+    if (cs.expr.exprType === ExprType.Column) {
+      const columnExpr = cs.expr as ExprColumnAst;
+      return {
+        columnName: cs.alias ? cs.alias : columnExpr.columnName,
+        type: columnExpr.dataType
+      };
+    } else {
+      const functionExpr = cs.expr as ExprFunAst;
+      return {
+        columnName: cs.alias,
+        type: functionExpr.dataType
+      };
+    }
+  });
+}
 export class DielIr {
 
   ast: DielAst;
@@ -102,6 +120,22 @@ export class DielIr {
     } else {
       LogInternalError(`Relation ${unit} does not have derivedColumnSelections`);
     }
+  }
+  public GetColumnsFromRelationName(relationName: string): SimpleColumn[] {
+    const relationDef = this.GetRelationDefinition(relationName);
+    if (relationDef) {
+      if (isRelationTypeDerived(relationDef.relationType)) {
+        return columnsFromSelectionUnit((relationDef as DerivedRelation).selection.compositeSelections[0].relation);
+      } else {
+        return (relationDef as OriginalRelation).columns.map(c => ({columnName: c.name, type: c.type}));
+      }
+    } else {
+      LogInternalError(`Cannot find relation ${relationName}`, DielInternalErrorType.RelationNotFound);
+    }
+  }
+
+  public GetRelationDefinition(relationName: RelationIdType) {
+    return this.ast.relations.find(r => r.name === relationName);
   }
 
   public GetAllDerivedViews(): DerivedRelation[] {

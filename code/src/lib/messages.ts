@@ -10,11 +10,13 @@ export const BgYellow = "\x1b[43m";
 export const QueryConsoleColorSpec = "color: green";
 
 export enum DielInternalErrorType {
+  RelationNotFound = "RelationNotFound",
   NotImplemented = "NotImplemented",
-  Untitled = "Untitled"
+  Untitled = "Untitled",
+  UnionTypeNotAllHandled = "UnionTypeNotAllHandled"
 }
 
-export function LogInternalError(m: string, errorType=DielInternalErrorType.Untitled) {
+export function LogInternalError(m: string, errorType = DielInternalErrorType.Untitled) {
   if (typeof window === "undefined") {
     console.log(`${FgRed}%s${Reset}`, m);
   } else {
