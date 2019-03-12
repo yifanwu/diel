@@ -37,7 +37,7 @@ export type LogicalTimestep = number;
 
 // HARDCODED
 export const LocalDbId = 1;
-
+export const NoEventLineage = -1;
 /**
  * Note that ir and metaData are read only
  *   putting the reference in the class for easier access.
@@ -48,10 +48,12 @@ export class DielPhysicalExecution {
   astSpecPerDb: Map<DbIdType, DielAst>;
   runtimeOutputNames: Set<RelationIdType>;
   distributions: SingleDistribution[];
+  getEventByTimestep: (step: LogicalTimestep) => RelationIdType;
 
-  constructor(ir: DielIr, metaData: PhysicalMetaData) {
+  constructor(ir: DielIr, metaData: PhysicalMetaData, getEventByTimestep: (step: LogicalTimestep) => RelationIdType) {
     this.ir = ir;
     this.metaData = metaData;
+    this.getEventByTimestep = getEventByTimestep;
     // get all the outputs and loop
     const augmentedDep = this.augmentDepTree(this.ir.dependencies.depTree);
     // let's first figure out the shipping information
@@ -143,33 +145,43 @@ export class DielPhysicalExecution {
   }
 
   // FIXME: there is probably a faster way to do this as part of the recursion...
-  getRelationDependenciesForDb(dbId: DbIdType, inputEvent?: RelationIdType) {
+  getRelationDependenciesForDb(dbId: DbIdType, lineage: LogicalTimestep) {
     // a list of the views and their dependencies
     // if input is specified, we will filter dependencies by those relations that depend on the input
     const relationsToShip = this.distributions.filter(d => (d.from === dbId)).map(d => d.relationName);
     const relationDependency: Map<RelationIdType, Set<RelationIdType>> = new Map();
-    const relationDestinations: Map<RelationIdType, Set<RelationIdType>> = new Map();
+    // const relationDestinations: Map<RelationIdType, Set<RelationIdType>> = new Map();
     relationsToShip.map(r => {
       const singleDependency = this.distributions.filter(d => (d.forRelationName === r) && (d.to === dbId)).map(d => d.relationName);
-      const destinations = this.distributions.filter(d => (d.from === dbId) && (d.relationName === r)).map(d => d.to);
+      // const destinations = this.distributions.filter(d => (d.from === dbId) && (d.relationName === r)).map(d => d.to);
       let deps;
-      if (inputEvent) {
-        deps = SetIntersection(new Set(singleDependency), this.ir.dependencies.inputDependenciesAll.get(inputEvent));
-      } else {
+      if (lineage === NoEventLineage ) {
         deps = new Set(singleDependency);
+      } else {
+        const inputEvent = this.getEventByTimestep(lineage);
+        deps = SetIntersection(new Set(singleDependency), this.ir.dependencies.inputDependenciesAll.get(inputEvent));
       }
       relationDependency.set(r, deps);
-      relationDestinations.set(r.relationDestinations);
-      {
-        deps,
-        destinations: 
-      });
     });
-    return {
-      deps: relationDependency
-      destinations: 
-    };
+    return relationDependency;
   }
+
+  getRelationsToShipForDb(dbId: DbIdType, lineage: LogicalTimestep) {
+    // a list of the views and their dependencies
+    // if input is specified, we will filter dependencies by those relations that depend on the input
+    const relationsToShip = new Map<RelationIdType, Set<DbIdType>>();
+    this.distributions
+        .filter(d => (d.from === dbId) && (d.from !== d.to))
+        .map(d => {
+          if (!relationsToShip.has(d.relationName)) {
+            relationsToShip.set(d.relationName, new Set([d.to]));
+          } else {
+            relationsToShip.get(d.relationName).add(d.to);
+          }
+        });
+    return relationsToShip;
+  }
+
 
   getShippingInfoForDbByEvent(eventTable: RelationIdType, engineId: DbIdType) {
     const destinationDbIds = this.distributions

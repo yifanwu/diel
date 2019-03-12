@@ -1,4 +1,6 @@
-import { DielAst, ProgramsIr, DataType, RelationType, Column, CompositeSelectionUnit, InsertionClause } from "../../parser/dielAstTypes";
+import { DielAst, ProgramsIr, DataType, RelationType, Column, CompositeSelectionUnit, InsertionClause, OriginalRelation, DerivedRelation, Commands } from "../../parser/dielAstTypes";
+import { RelationIdType } from "../DielPhysicalExecution";
+import { LogInternalError, DielInternalErrorType } from "../../lib/messages";
 
 export interface RelationSpec {
   name: string;
@@ -25,7 +27,7 @@ export interface SqlIr {
   tables: RelationSpec[];
   views: RelationQuery[];
   triggers: ProgramsIr;
-  inserts: InsertionClause[];
+  commands: Commands[];
 }
 
 /**
@@ -47,30 +49,50 @@ export function createSqlAstFromDielAst(ast: DielAst): SqlIr {
       type: DataType.Number,
     }
   ];
-  const tables = ast.originalRelations
-    .filter(i => i.relationType !== RelationType.ExistingAndImmutable)
-    .map(i => {
-      if (i.relationType === RelationType.EventTable) {
-        return {
-          name: i.name,
-          columns: i.columns.concat(inputColumns)
-        };
-      } else if (i.relationType === RelationType.Table) {
-        return {
-          name: i.name,
-          columns: i.columns
-        };
+  const tables: {
+    name: RelationIdType,
+    columns: Column[]
+  }[] = [];
+  const views: {
+    name: RelationIdType,
+    sqlRelationType: SqlRelationType,
+    query: CompositeSelectionUnit[]
+  }[] = [];
+  ast.relations
+    .map(iUnionType => {
+      switch (iUnionType.relationType) {
+        case RelationType.EventTable: {
+          const i = iUnionType as OriginalRelation;
+          tables.push({
+            name: i.name,
+            columns: i.columns.concat(inputColumns)
+          });
+          break;
+        }
+        case RelationType.Table: {
+          const i = iUnionType as OriginalRelation;
+          tables.push({
+            name: i.name,
+            columns: i.columns
+          });
+          break;
+        }
+        case RelationType.View: {
+          const v = iUnionType as DerivedRelation;
+          views.push({
+            name: v.name,
+            sqlRelationType: v.relationType === RelationType.View ? SqlRelationType.View : SqlRelationType.Table,
+            query: v.selection.compositeSelections
+          });
+          break;
+        }
+        case RelationType.ExistingAndImmutable:
+          // pass
+          break;
+        default:
+          LogInternalError(`Should all be handled`, DielInternalErrorType.UnionTypeNotAllHandled);
       }
-      throw new Error(`SQL IR creation error`);
     });
-
-    const views = ast.views
-    .map(v => ({
-      name: v.name,
-      sqlRelationType: v.relationType === RelationType.View ? SqlRelationType.View : SqlRelationType.Table,
-      query: v.selection.compositeSelections
-    }));
-
     const programsToAddRaw = ast.programs.get("");
     const programsToAdd = programsToAddRaw ? programsToAddRaw : [];
 
@@ -89,11 +111,11 @@ export function createSqlAstFromDielAst(ast: DielAst): SqlIr {
       triggers.set(input, [...programsToAdd, ...v ]);
   });
 
-  const inserts = ast.inserts;
+  const commands = ast.commands;
   return {
     tables,
     views,
     triggers,
-    inserts
+    commands
   };
 }

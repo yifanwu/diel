@@ -1,4 +1,4 @@
-import { DielIr, SimpleColumn, SelectionUnitVisitorFunctionOptions, BuiltInColumn } from "../DielIr";
+import { DielIr, SimpleColumn, SelectionUnitVisitorFunctionOptions, BuiltInColumn, columnsFromSelectionUnit } from "../DielIr";
 import { ReportDielUserError, LogInternalError } from "../../lib/messages";
 import { ExprType, ExprColumnAst, ExprFunAst } from "../../parser/exprAstTypes";
 import {  SelectionUnit, ColumnSelection, getRelationReferenceName, RelationReference, DataType } from "../../parser/dielAstTypes";
@@ -14,35 +14,6 @@ export function NormalizeColumnSelection(ir: DielIr) {
   ir.ApplyToImmediateSelectionUnits<void>(normalizeColumnForSelectionUnit, true);
 }
 
-function columnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[] {
-  return su.derivedColumnSelections.map(cs => {
-    if (cs.expr.exprType === ExprType.Column) {
-      const columnExpr = cs.expr as ExprColumnAst;
-      return {
-        columnName: cs.alias ? cs.alias : columnExpr.columnName,
-        type: columnExpr.dataType
-      };
-    } else {
-      const functionExpr = cs.expr as ExprFunAst;
-      return {
-        columnName: cs.alias,
-        type: functionExpr.dataType
-      };
-    }
-  });
-}
-
-function columnsFromRelationName(ir: DielIr, relationName: string): SimpleColumn[] {
-  const derived = ir.allCompositeSelections.get(relationName);
-  if (derived) {
-    return columnsFromSelectionUnit(derived[0].relation);
-  }
-  const original = ir.allOriginalRelations.get(relationName);
-  if (original) {
-    return original.columns.map(c => ({columnName: c.name, type: c.type}));
-  }
-  LogInternalError(`Cannot find relation ${relationName}`);
-}
 
 function columnsFromRelationReference(ir: DielIr, ref: RelationReference, refName?: string): SimpleColumn[] {
   if (refName && !((ref.alias === refName) || (ref.relationName === refName))) {
@@ -54,7 +25,7 @@ function columnsFromRelationReference(ir: DielIr, ref: RelationReference, refNam
     normalizeColumnForSelectionUnit(newSelUnit, {ir});
     return columnsFromSelectionUnit(newSelUnit);
   } else {
-    return columnsFromRelationName(ir, ref.relationName);
+    return ir.GetColumnsFromRelationName(ref.relationName);
   }
 }
 

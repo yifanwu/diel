@@ -1,11 +1,12 @@
 import { GenerateUnitTestErrorLogger } from "../../lib/messages";
 import { ExprColumnAst } from "../../parser/exprAstTypes";
 import { DielIr } from "../../lib";
+import { DerivedRelation } from "../../parser/dielAstTypes";
 
 export function assertBasicNormalizationOfRelation(ir: DielIr, q: string) {
   const logger = GenerateUnitTestErrorLogger("assertBasicNormalizationOfRelation", q);
-  const v1Relation = ir.allCompositeSelections.get("v1");
-  const aSelection = v1Relation[0].relation.derivedColumnSelections[0].expr as ExprColumnAst;
+  const v1Relation = ir.GetRelationDef("v1") as DerivedRelation;
+  const aSelection = v1Relation.selection.compositeSelections[0].relation.derivedColumnSelections[0].expr as ExprColumnAst;
   if (aSelection.relationName !== "t1") {
     logger(`Normalization pass failed, I had expected a to be matched with relation t1. Got: ${JSON.stringify(aSelection, null, 2)}`);
   }
