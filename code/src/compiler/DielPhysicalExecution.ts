@@ -5,6 +5,7 @@ import { PhysicalMetaData } from "../runtime/DielRuntime";
 import { getEventTableFromDerived, SingleDistribution, QueryDistributionRecursiveEval } from "./passes/distributeQueries";
 import { LogInternalError } from "../lib/messages";
 import { DependencyTree, NodeDependencyAugmented } from "./passes/passesHelper";
+import { SetIntersection } from "../lib/dielUtils";
 
 /**
  * currently include
@@ -24,12 +25,15 @@ export type DbIdType = number;
 export type RelationIdType = string;
 export type LogicalTimestep = number;
 
-export type JobPerInput = {
-  viewToShip: RelationIdType,
-  viewsToGet: Set<RelationIdType>,
-  dependentOutput: Set<RelationIdType>,
-  destinations: Set<DbIdType>
-};
+// export type RelationDependency = Map<RelationIdType Set<RelationIdType>>;
+// export type RelationDestinations =
+
+// export type JobPerInput = {
+//   viewToShip: RelationIdType,
+//   viewsToGet: Set<RelationIdType>,
+//   dependentOutput: Set<RelationIdType>,
+//   destinations: Set<DbIdType>
+// };
 
 // HARDCODED
 export const LocalDbId = 1;
@@ -121,14 +125,50 @@ export class DielPhysicalExecution {
     return distributionsForAllOutput;
   }
 
-  getStaticAsyncViewTrigger(outputName: string): {dbId: DbIdType, relation: RelationIdType}[] {
+  getStaticAsyncViewTrigger(outputName: string): {dbId: DbIdType, relation: RelationIdType, destinations: DbIdType[]}[] {
     return this.distributions
                .filter(d => ((d.finalOutputName === outputName)
                           && (d.to === d.from)))
-               .map(d => ({
-                 dbId: d.to,
-                 relation: d.relationName
-               }));
+               .map(d => {
+                  const destinations = this.distributions
+                                           .filter(d2 => (d2.from === d.from)
+                                                      && (d2.to !== d2.from))
+                                           .map(d2 => d2.to);
+                  return {
+                    dbId: d.to,
+                    relation: d.relationName,
+                    destinations
+                  };
+               });
+  }
+
+  // FIXME: there is probably a faster way to do this as part of the recursion...
+  getRelationDependenciesForDb(dbId: DbIdType, inputEvent?: RelationIdType) {
+    // a list of the views and their dependencies
+    // if input is specified, we will filter dependencies by those relations that depend on the input
+    const relationsToShip = this.distributions.filter(d => (d.from === dbId)).map(d => d.relationName);
+    const relationDependency: Map<RelationIdType, Set<RelationIdType>> = new Map();
+    const relationDestinations: Map<RelationIdType, Set<RelationIdType>> = new Map();
+    relationsToShip.map(r => {
+      const singleDependency = this.distributions.filter(d => (d.forRelationName === r) && (d.to === dbId)).map(d => d.relationName);
+      const destinations = this.distributions.filter(d => (d.from === dbId) && (d.relationName === r)).map(d => d.to);
+      let deps;
+      if (inputEvent) {
+        deps = SetIntersection(new Set(singleDependency), this.ir.dependencies.inputDependenciesAll.get(inputEvent));
+      } else {
+        deps = new Set(singleDependency);
+      }
+      relationDependency.set(r, deps);
+      relationDestinations.set(r.relationDestinations);
+      {
+        deps,
+        destinations: 
+      });
+    });
+    return {
+      deps: relationDependency
+      destinations: 
+    };
   }
 
   getShippingInfoForDbByEvent(eventTable: RelationIdType, engineId: DbIdType) {

@@ -9,8 +9,17 @@ export const BgYellow = "\x1b[43m";
 
 export const QueryConsoleColorSpec = "color: green";
 
-export function LogInternalError(m: string) {
-  console.log(`${FgRed}%s${Reset}`, m);
+export enum DielInternalErrorType {
+  NotImplemented = "NotImplemented",
+  Untitled = "Untitled"
+}
+
+export function LogInternalError(m: string, errorType=DielInternalErrorType.Untitled) {
+  if (typeof window === "undefined") {
+    console.log(`${FgRed}%s${Reset}`, m);
+  } else {
+    console.log(`%cError[${errorType}]: ${m}`, "color: red");
+  }
   if (STRICT) throw new Error();
 }
 

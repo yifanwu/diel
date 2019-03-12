@@ -2,15 +2,17 @@
 
 create table allInputs (
   timestep integer primary key,
-  timestamp DATETIME DEFAULT 0,
-  -- timestamp DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
-  inputRelation text not null
+  -- DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))
+  -- timestamp kept track of in the JS code
+  timestamp DATETIME not null,
+  inputRelation text not null,
+  lineage integer,
 );
 
--- special name
-insert into allInputs (inputRelation) values ('__init__');
+-- -- special name
+-- insert into allInputs (inputRelation) values ('__init__');
 
-create trigger afterAllInputs after insert on allInputs
-begin
-  select tick(new.inputRelation);
-end;
+-- create trigger afterAllInputs after insert on allInputs
+-- begin
+--   select tick(new.inputRelation);
+-- end;
