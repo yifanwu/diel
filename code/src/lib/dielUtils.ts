@@ -33,6 +33,19 @@ export function SetDifference<T>(setA: Set<T>, setB: Set<T>): Set<T> {
   return _difference;
 }
 
+export function IsSuperset<T>(superset: Set<T>, subset: Set<T>): boolean {
+  for (let elem of subset) {
+      if (!superset.has(elem)) {
+          return false;
+      }
+  }
+  return true;
+}
+
+export function IsSetIdentical<T>(setA: Set<T>, setB: Set<T>): boolean {
+  return SetDifference(setA, setB).size === 0;
+}
+
 export function SetUnion<T>(setA: Set<T>, setB: Set<T>): Set<T> {
   let _union = new Set(setA);
   for (let elem of setB) {

@@ -10,6 +10,8 @@ export interface DielRuntimeConfig {
   socketConnections?: {url: string, dbName: string}[];
 }
 
+export type GetRelationToShipFuncType = (dbId: DbIdType, relation: string, step: LogicalTimestep) => Set<string>;
+
 export type RecordObject = {[index: string]: string | number | Uint8Array};
 export type RelationObject = RecordObject[];
 
@@ -130,6 +132,7 @@ export interface RemoteGetResultsByPromiseMessage extends RemoteExecuteMessage {
 
 export interface RemoteShipRelationMessage extends DielRemoteMessageBase {
   relationName: RelationIdType;
+  dbId: DbIdType;
 }
 
 export interface RemoteOpenDbMessage extends DielRemoteMessageBase {
