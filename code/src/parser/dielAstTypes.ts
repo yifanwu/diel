@@ -26,6 +26,9 @@ export enum DataType {
 
 export enum RelationType {
   EventTable = "EventTable",
+  // these are etables taht do not generate their own timesteps
+  // their temporal relationships are managed by the queue
+  // IntermediateEventTable = "IntermediateEventTable",
   EventView = "EventView",
   Table = "Table",
   ExistingAndImmutable = "ExistingAndImmutable",

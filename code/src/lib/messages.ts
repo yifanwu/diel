@@ -20,6 +20,7 @@ export function LogInternalError(m: string, errorType = DielInternalErrorType.Un
   if (typeof window === "undefined") {
     console.log(`${FgRed}%s${Reset}`, m);
   } else {
+    debugger;
     console.log(`%cError[${errorType}]: ${m}`, "color: red");
   }
   if (STRICT) throw new Error();

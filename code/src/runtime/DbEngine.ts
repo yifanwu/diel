@@ -1,7 +1,7 @@
 import { DbType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemoteReply, DielRemoteMessageId, RemoteOpenDbMessage, RemoteExecuteMessage, RemoteShipRelationMessage, GetRelationToShipFuncType, RemoteUpdateRelationMessage } from "./runtimeTypes";
 import { SqliteMasterQuery, RelationShippingFuncType } from "./DielRuntime";
-import { LogInternalError, ReportDielUserError, LogInternalWarning, DielInternalErrorType } from "../lib/messages";
-import { DbIdType, LogicalTimestep, RelationIdType, LocalDbId } from "../compiler/DielPhysicalExecution";
+import { LogInternalError, ReportDielUserError, LogInternalWarning, DielInternalErrorType, LogInfo } from "../lib/messages";
+import { DbIdType, LogicalTimestep, RelationIdType, LocalDbId, DielPhysicalExecution } from "../compiler/DielPhysicalExecution";
 import { parseSqlJsWorkerResult } from "./runtimeHelper";
 import { IsSuperset, IsSetIdentical } from "../lib/dielUtils";
 import { ConnectionWrapper } from "./ConnectionWrapper";
@@ -29,6 +29,7 @@ export type NodeDependency = Map<string, Set<string>>;
 export default class DbEngine {
   // the queue is complete if all the shipment is sent
   currentQueueHead: LogicalTimestep;
+  physicalExeuctionRef: DielPhysicalExecution;
   queueMap: Map<LogicalTimestep, {
     received: Set<RelationIdType>;
     receivedValues: RemoteUpdateRelationMessage[];
@@ -45,9 +46,9 @@ export default class DbEngine {
   relationShippingCallback: RelationShippingFuncType;
   connection: ConnectionWrapper;
   // set up later
-  getRelationDependencies: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<RelationIdType>>;
-  getRelationDestinations: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<DbIdType>>;
-
+  // getRelationDependencies: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<RelationIdType>>;
+  // getRelationDestinations: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<DbIdType>>;
+  // getBubbledUpRelationToShip: (dbId: DbIdType, relation: RelationIdType) => {destination: DbIdType, relation: RelationIdType}[];
   // for sockets, it will look like 'ws://localhost:8999'
   // and for workers, it will look like a file path to the db.
   constructor(remoteType: DbType,
@@ -59,13 +60,19 @@ export default class DbEngine {
     this.relationShippingCallback = relationShippingCallback;
   }
 
-  setupByPhysicalExecution(
-    getRelationDependencies: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<RelationIdType>>,
-    getRelationDestinations: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<DbIdType>>
-  ) {
-    this.getRelationDestinations = getRelationDestinations;
-    this.getRelationDependencies = getRelationDependencies;
+  setPhysicalExecutionReference(physicalExeuctionRef: DielPhysicalExecution) {
+    this.physicalExeuctionRef = physicalExeuctionRef;
   }
+
+  // setupByPhysicalExecution(
+  //   getRelationDependencies: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<RelationIdType>>,
+  //   getRelationDestinations: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<DbIdType>>,
+  //   getBubbledUpRelationToShip: (dbId: DbIdType, relation: RelationIdType) => {destination: DbIdType, relation: RelationIdType}[]
+  // ) {
+  //   this.getRelationDestinations = getRelationDestinations;
+  //   this.getRelationDependencies = getRelationDependencies;
+  //   this.getBubbledUpRelationToShip = getBubbledUpRelationToShip;
+  // }
 
   async setup(connectionString: string, dbName?: string) {
     if (this.remoteType === DbType.Worker) {
@@ -98,30 +105,10 @@ export default class DbEngine {
       }
     } else if (this.remoteType === DbType.Local) {
       LogInternalError(`Should not use DbEngine wrapper for local`);
-      // if (connectionString) {
-      // } else {
-      // }
     } else {
       LogInternalError(`handle different connections`, DielInternalErrorType.UnionTypeNotAllHandled);
     }
   }
-
-  /**
-   * FIXME: add caching
-   * only things that are supposed to change on this tick, or was not recieved need to be waited on
-   * things that will change are the things dependent on the event, we can record that.
-   */
-  // private getShipment(inputEvent?: RelationIdType): ShipMent {
-  //   const ship = new Map<RelationIdType, boolean>();
-  //   this.getRelationDependencies(this.id, inputEvent);
-  //   // if (!this.cachedRelationDependencies.has(inputEvent)) {
-  //   //   this.cachedRelationDependencies.set(inputEvent, ;
-  //   // }
-  //   // for (let relationName of this.cachedRelationDependencies.get(inputEvent).keys()) {
-  //   //   ship.set(relationName, false);
-  //   // }
-  //   return ship;
-  // }
 
   // RECURSIVE
   private evaluateQueueOnUpdateHandler() {
@@ -211,9 +198,9 @@ export default class DbEngine {
           this.queueMap.set(msg.lineage, {
             receivedValues: [],
             received: new Set([updateMsg.relationName]),
-            relationsToShipDeps: this.getRelationDependencies(this.id, msg.lineage),
+            relationsToShipDeps: this.physicalExeuctionRef.getRelationDependenciesForDb(this.id, msg.lineage),
             shipped: new Set(),
-            relationsToShipDestinations: this.getRelationDestinations(this.id, msg.lineage)
+            relationsToShipDestinations: this.physicalExeuctionRef.getRelationsToShipForDb(this.id, msg.lineage)
           });
         }
         // push this on to the message queue
@@ -232,13 +219,39 @@ export default class DbEngine {
         }
       }
       case DielRemoteAction.DefineRelations: {
-        break;
+        const defineMsg = msg as RemoteExecuteMessage;
+        const msgToSend = {
+          sql: defineMsg.sql
+        };
+        console.log(`%c Running Query in Remote[${this.id}]:\n${defineMsg.sql}`, "color: pink");
+        return this.connection.send(id, msgToSend, isPromise);
       }
       case DielRemoteAction.ShipRelation: {
         const shipMsg = msg as RemoteShipRelationMessage;
+        if (isPromise) {
+          LogInternalError(`You cannot wait on ${DielRemoteAction.ShipRelation}`);
+        }
+        // also need to check if it's being shipped to itself, in which case, we need to bubble up
+        if (shipMsg.dbId === this.id) {
+          // note that this is a good hook for materialization
+          LogInfo(`Shipping to itself, this is a local evaluation`);
+          const staticShip = this.physicalExeuctionRef.getBubbledUpRelationToShipForOutput(this.id, shipMsg.relationName);
+          // in theory I think we can just invoke the connection directly.
+          staticShip.map(t => {
+            const msg: RemoteShipRelationMessage = {
+              remoteAction: DielRemoteAction.ShipRelation,
+              relationName: t.relation,
+              dbId: t.destination
+            };
+            this.SendMsg(msg);
+          });
+          return;
+        }
+        // else
         if ((this.id !== LocalDbId) && (shipMsg.dbId !== LocalDbId)) {
           // this case is not yet supported
-          LogInternalError(`Shipping across remote engines`, DielInternalErrorType.NotImplemented);
+          LogInternalError(`Shipping across remote engines from ${this.id} to ${shipMsg.dbId}`, DielInternalErrorType.NotImplemented);
+          return;
         }
         const msgToSend = {
           sql: `select * from ${shipMsg.relationName};`
@@ -280,12 +293,16 @@ export default class DbEngine {
           }
           break;
         }
+        case DielRemoteAction.DefineRelations: {
+          console.log(`Relations defined successfully for ${this.id}`);
+          break;
+        }
         case DielRemoteAction.ConnectToDb: {
           console.log(`Db opened for ${this.id}`);
           break;
         }
         default:
-          LogInternalError(``, DielInternalErrorType.UnionTypeNotAllHandled);
+          LogInternalError(`You should handle ${msg.id.remoteAction} as well`, DielInternalErrorType.UnionTypeNotAllHandled);
       }
     };
     return handleMsg;

@@ -109,7 +109,7 @@ export function getEventTableFromDerived(relation: DerivedRelation) {
   });
   let createSpec: OriginalRelation = {
     name: relation.name,
-    relationType: RelationType.EventTable,
+    relationType: relation.relationType === RelationType.EventView ? RelationType.EventTable : RelationType.Table,
     columns
   };
   return createSpec;

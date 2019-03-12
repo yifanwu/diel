@@ -41,7 +41,7 @@ export default class Flights extends React.Component<{}, FlightsState> {
       />
       : <p>No result</p>;
     if (this.state.selectionData) {
-      const options = this.state.selectionData.map(d => <a onClick={() => diel.NewInput("originSelectionEvent", {airportCode: d.origin})}>{d.origin}</a>);
+      const options = this.state.selectionData.map(d => <a onClick={() => diel.NewInput("originSelectionEvent", {origin: d.origin})}>{d.origin}</a>);
       return <>
       <h2>Flight data visualized!</h2>
       <div className="dropdown">

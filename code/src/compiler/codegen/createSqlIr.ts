@@ -30,25 +30,26 @@ export interface SqlIr {
   commands: Commands[];
 }
 
+const inputColumns: Column[] = [
+  {
+    name: "timestep",
+    type: DataType.Number,
+    // constraints: {
+    //   primaryKey: true
+    // }
+  },
+  {
+    name: "lineage",
+    type: DataType.Number,
+  }
+];
+
 /**
  * Notes:
  * - staticTables do not need to be created since they already exist
  * @param ast
  */
 export function createSqlAstFromDielAst(ast: DielAst): SqlIr {
-  const inputColumns: Column[] = [
-    {
-      name: "timestep",
-      type: DataType.Number,
-      // constraints: {
-      //   primaryKey: true
-      // }
-    },
-    {
-      name: "lineage",
-      type: DataType.Number,
-    }
-  ];
   const tables: {
     name: RelationIdType,
     columns: Column[]
@@ -69,6 +70,7 @@ export function createSqlAstFromDielAst(ast: DielAst): SqlIr {
           });
           break;
         }
+        // case RelationType.IntermediateEventTable:
         case RelationType.Table: {
           const i = iUnionType as OriginalRelation;
           tables.push({
