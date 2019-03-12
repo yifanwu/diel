@@ -6,6 +6,7 @@ import { getEventTableFromDerived, SingleDistribution, QueryDistributionRecursiv
 import { LogInternalError } from "../lib/messages";
 import { DependencyTree, NodeDependencyAugmented } from "./passes/passesHelper";
 import { SetIntersection } from "../lib/dielUtils";
+import { isRelationTypeDerived } from "./DielIr";
 
 /**
  * currently include
@@ -74,29 +75,24 @@ export class DielPhysicalExecution {
   }
 
   getExecutionSpecsFromDistribution(distributions: SingleDistribution[]): Map<DbIdType, DielAst> {
-    const astSpecPerDb = new Map();
+    const astSpecPerDb = new Map<DbIdType, DielAst>();
     // first get the in
     distributions.map(distribution => {
       // if (distribution.from !== distribution.to) {
       if (!astSpecPerDb.has(distribution.to)) {
         astSpecPerDb.set(distribution.to, createEmptyDielAst());
       }
-      const rDef = this.ir.GetRelationDef(distribution.relationName);
-      switch (rDef.relationType) {
-        case RelationType.EventTable:
-        case RelationType.Table:
-        case RelationType.ExistingAndImmutable:
-          astSpecPerDb.get(distribution.to).views.push(rDef);
-          break;
-        case RelationType.EventView:
-        case RelationType.View:
-          const originalRelationDef = getEventTableFromDerived(rDef as DerivedRelation);
-          astSpecPerDb.get(distribution.to).views.push(originalRelationDef);
-          break;
-        default:
-          LogInternalError(`RelationType Not handled: ${rDef.relationType}`);
+      // there are quite a few repetitions because the list is denormalized (fanout by outputs)
+      if (!astSpecPerDb.get(distribution.to).relations.find(r => r.name === distribution.relationName)) {
+        const rDef = this.ir.GetRelationDef(distribution.relationName);
+        // we should transform it if it's been shipped over, and that it was a derived view before
+        if ((distribution.from !== distribution.to) && isRelationTypeDerived(rDef.relationType)) {
+          const derivedRelation = getEventTableFromDerived(rDef as DerivedRelation);
+          astSpecPerDb.get(distribution.to).relations.push(derivedRelation);
+        } else {
+          astSpecPerDb.get(distribution.to).relations.push(rDef);
+        }
       }
-      // }
     });
     // then get the out
     return astSpecPerDb;
@@ -215,8 +211,12 @@ export class DielPhysicalExecution {
   augmentDepTree(depTree: DependencyTree) {
     const augmentedTree = new Map<string, NodeDependencyAugmented>();
     depTree.forEach((nodDep, relationName) => {
-      const remoteId = this.getDbIdByRelationName(relationName);
       const relationType = this.ir.GetRelationDef(relationName).relationType;
+      const remoteId = (relationType === RelationType.EventTable || relationType === RelationType.Table)
+        ? LocalDbId
+        : (relationType === RelationType.ExistingAndImmutable)
+          ? this.getDbIdByRelationName(relationName)
+          : null;
       const nodeDepAugmetned: NodeDependencyAugmented = {
         remoteId,
         relationName,
@@ -232,17 +232,22 @@ export class DielPhysicalExecution {
     // right now just pick a socket if it's there
     // need to look up its information
     let workerId = null;
-    dbIds.forEach(dbId => {
-      const dbType = this.metaData.dbs.get(dbId).dbType;
-      switch (dbType) {
-        case DbType.Socket: {
-          return dbId;
+    for (let dbId of dbIds) {
+      const dbMetaData = this.metaData.dbs.get(dbId);
+      if (dbMetaData) {
+        const dbType = dbMetaData.dbType;
+        switch (dbType) {
+          case DbType.Socket: {
+            return dbId;
+          }
+          case DbType.Worker: {
+            workerId = dbId;
+          }
         }
-        case DbType.Worker: {
-          workerId = dbId;
-        }
+      } else {
+        debugger;
       }
-    });
+    }
     if (workerId) {
       return workerId;
     }

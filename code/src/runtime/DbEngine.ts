@@ -4,6 +4,7 @@ import { LogInternalError, ReportDielUserError, LogInternalWarning, DielInternal
 import { DbIdType, LogicalTimestep, RelationIdType, LocalDbId } from "../compiler/DielPhysicalExecution";
 import { parseSqlJsWorkerResult } from "./runtimeHelper";
 import { IsSuperset, IsSetIdentical } from "../lib/dielUtils";
+import { ConnectionWrapper } from "./ConnectionWrapper";
 // import { WorkerMetaData, processSqliteMasterMetaData } from "./runtimeHelper";
 
 async function connectToSocket(url: string): Promise<WebSocket> {
@@ -20,74 +21,10 @@ async function connectToSocket(url: string): Promise<WebSocket> {
   });
 }
 
-function parseDielReply(rawStr: string): DielRemoteReply {
-  let msg = JSON.parse(rawStr);
-  msg.id = JSON.parse(msg.id);
-  return msg;
-}
 
 const WebWorkerSqlPath = "./UI-dist/worker.sql.js";
 
-const DielRemoteActionToEngineActionWorker = new Map<DielRemoteAction, string>([
-  [DielRemoteAction.GetResultsByPromise, "exec"],
-  [DielRemoteAction.ConnectToDb, "open"],
-  [DielRemoteAction.DefineRelations, "exec"],
-  [DielRemoteAction.ShipRelation, "exec"]
-]);
-const DielRemoteActionToEngineActionSocket = new Map(DielRemoteActionToEngineActionWorker);
-DielRemoteActionToEngineActionSocket.set(DielRemoteAction.DefineRelations, "run");
-
-// to unify worker and websocket
-class ConnectionWrapper {
-
-  remoteType: DbType;
-  connection: Worker | WebSocket;
-
-  constructor(connection: Worker | WebSocket, remoteType: DbType) {
-    this.remoteType = remoteType;
-    this.connection = connection;
-  }
-
-  send(id: {
-    remoteAction: DielRemoteAction,
-    msgId: number,
-    destinationDbId?: DbIdType,
-    lineage: LogicalTimestep
-  }, msgToSend: {buffer: any} | {sql: string}) {
-    if (this.remoteType === DbType.Worker) {
-      // FIXME: might need some adaptor logic here to make worker the same as socket
-      const action = DielRemoteActionToEngineActionWorker.get(id.remoteAction);
-      const worker = (this.connection as Worker);
-      // FIXME: JSON.stringify(id) ?
-      worker.postMessage({
-        id,
-        action,
-        ...msgToSend
-      });
-    } else {
-      // FIXME: clear serialization logic
-      const action = DielRemoteActionToEngineActionSocket.get(id.remoteAction);
-      const newMessage = {
-        id,
-        action,
-        ...msgToSend
-      };
-      (this.connection as WebSocket).send(JSON.stringify(newMessage));
-    }
-  }
-
-  // FIXME: maybe don't need this since they have the same name
-  setHandler(f: (event: any) => void) {
-    if (this.remoteType === DbType.Worker) {
-      (this.connection as Worker).onmessage = f;
-    } else {
-      (this.connection as WebSocket).onmessage = f;
-    }
-  }
-}
-
 export type NodeDependency = Map<string, Set<string>>;
-// type ShipMent = Map<RelationIdType, boolean>;
 
 export default class DbEngine {
   // the queue is complete if all the shipment is sent
@@ -102,33 +39,32 @@ export default class DbEngine {
   }>;
   remoteType: DbType;
   id: DbIdType;
-  getRelationDependencies: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<RelationIdType>>;
-  getRelationDestinations: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<DbIdType>>;
   // maps input to anothe map where we look at the relations
   // cachedRelationDependencies: Map<RelationIdType, RelationDependency>;
   // getRelationsToShipAfterUpdate: GetRelationToShipFuncType;
   relationShippingCallback: RelationShippingFuncType;
-  resolves: any;
-  rejects: any;
-  globalMsgId: number;
   connection: ConnectionWrapper;
-  viewsToShareByEvent: NodeDependency;
+  // set up later
+  getRelationDependencies: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<RelationIdType>>;
+  getRelationDestinations: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<DbIdType>>;
+
   // for sockets, it will look like 'ws://localhost:8999'
   // and for workers, it will look like a file path to the db.
   constructor(remoteType: DbType,
               remoteId: number,
               relationShippingCallback: RelationShippingFuncType,
-              getRelationDependencies: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<RelationIdType>>,
-              getRelationDestinations: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<DbIdType>>
           ) {
     this.remoteType = remoteType;
     this.id = remoteId;
     this.relationShippingCallback = relationShippingCallback;
+  }
+
+  setupByPhysicalExecution(
+    getRelationDependencies: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<RelationIdType>>,
+    getRelationDestinations: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<DbIdType>>
+  ) {
     this.getRelationDestinations = getRelationDestinations;
     this.getRelationDependencies = getRelationDependencies;
-    this.globalMsgId = 0;
-    this.resolves = {};
-    this.rejects = {};
   }
 
   async setup(connectionString: string, dbName?: string) {
@@ -146,7 +82,7 @@ export default class DbEngine {
         remoteAction: DielRemoteAction.ConnectToDb,
         buffer,
       }, true);
-    } else {
+    } else if (this.remoteType === DbType.Socket) {
       try {
         const socket = await connectToSocket(connectionString);
         this.connection = new ConnectionWrapper(socket, this.remoteType);
@@ -160,6 +96,13 @@ export default class DbEngine {
       } catch (e) {
         ReportDielUserError(`Socket ${connectionString} had error: ${e}.`);
       }
+    } else if (this.remoteType === DbType.Local) {
+      LogInternalError(`Should not use DbEngine wrapper for local`);
+      // if (connectionString) {
+      // } else {
+      // }
+    } else {
+      LogInternalError(`handle different connections`, DielInternalErrorType.UnionTypeNotAllHandled);
     }
   }
 
@@ -221,7 +164,7 @@ export default class DbEngine {
         const msgToSend = {
           sql: updateMsg.sql
         };
-        this.connection.send(id, msgToSend);
+        this.connection.send(id, msgToSend, false);
       });
       this.evaluateQueueOnUpdateHandler();
     } else {
@@ -237,17 +180,24 @@ export default class DbEngine {
     // let msgToSend: {buffer: any} | {sql: string};
     const id = {
       remoteAction: msg.remoteAction,
-      msgId: msg.msgId,
       lineage: msg.lineage,
     };
     switch (msg.remoteAction) {
       case DielRemoteAction.ConnectToDb: {
-        const buffer = (msg as RemoteOpenDbMessage).buffer;
-        const msgToSend = {
-          buffer
-        };
-        this.connection.send(id, msgToSend);
-        return;
+        const opMsg = msg as RemoteOpenDbMessage;
+        if (this.remoteType === DbType.Worker) {
+          const buffer = opMsg.buffer;
+          const msgToSend = {
+            buffer
+          };
+          return this.connection.send(id, msgToSend, isPromise);
+        } else {
+          const dbName = opMsg.dbName;
+          const msgToSend = {
+            dbName
+          };
+          return this.connection.send(id, msgToSend, isPromise);
+        }
       }
       case DielRemoteAction.UpdateRelation: {
         const updateMsg = msg as RemoteUpdateRelationMessage;
@@ -272,12 +222,14 @@ export default class DbEngine {
           const msgToSend = {
             sql: updateMsg.sql
           };
-          this.connection.send(id, msgToSend);
+          // if (isPromise) {
+          //   LogInternalError(`Cannot wait on Promise ${DielRemoteAction.UpdateRelation}`);
+          // }
+          return this.connection.send(id, msgToSend, isPromise);
           // this.queueMap.get(updateMsg.lineage).receivedValues.set(updateMsg.relationName, updateMsg);
         } else {
           this.queueMap.get(msg.lineage).receivedValues.push(updateMsg);
         }
-        return;
       }
       case DielRemoteAction.DefineRelations: {
         break;
@@ -291,24 +243,14 @@ export default class DbEngine {
         const msgToSend = {
           sql: `select * from ${shipMsg.relationName};`
         };
-        this.connection.send(id, msgToSend);
-        return;
+        return this.connection.send(id, msgToSend, isPromise);
       }
       case DielRemoteAction.GetResultsByPromise: {
         const sql = (msg as RemoteExecuteMessage).sql;
         const msgToSend = {
           sql
         };
-        // do the promise thing here
-        const msgId = this.globalMsgId++;
-        msg.msgId = msgId;
-        const self = this;
-        return new Promise(function (resolve, reject) {
-          // save callbacks for later
-          self.resolves[msgId] = resolve;
-          self.rejects[msgId] = reject;
-          (self.connection).send(id, msgToSend);
-        });
+        return this.connection.send(id, msgToSend, true);
       }
       default:
         LogInternalError(`DielRemoteAction ${msg.remoteAction} not handled`);
@@ -316,66 +258,34 @@ export default class DbEngine {
   }
 
   getHandleMsgForRemote() {
-    const self = this;
-    const handleMsg = (event: MessageEvent) => {
+    const handleMsg = (msg: DielRemoteReply) => {
       console.log(`Remote ${this.id} (${this.remoteType}) handling message`, event);
       // if this is socket we need to unpack all, but if this is worker, then we just need to unpack id... so annoying
-      let msg: DielRemoteReply | undefined;
-      if (this.remoteType === DbType.Socket) {
-        try {
-          msg = parseDielReply(event.data);
-        } catch (e) {
-          console.log(`%cSocket sent mal-formatted message: ${JSON.stringify(event.data, null, 2)}`, "color: red");
-          return;
+      switch (msg.id.remoteAction) {
+        case DielRemoteAction.UpdateRelation: {
+          this.evaluateQueueOnUpdateHandler();
+          break;
         }
-      } else {
-        if (event.data.id) {
-          msg = {
-            id: event.data.id as DielRemoteMessageId,
-            results: parseSqlJsWorkerResult(event.data.results),
-            err: event.data.err
-          };
-        } else {
-          console.log(`%c\nWorker sent mal-formatted message: ${event.data}`, "color: red");
-          return;
+        case DielRemoteAction.GetResultsByPromise: {
+          console.log(`Db get results for ${this.id} done.`);
+          break;
         }
-      }
-      if (msg.id.msgId > -1) { // this is a promise no need to do anything else
-        const promiseId = msg.id.msgId;
-        if (msg.err) {
-          // error condition
-          const reject = self.rejects[promiseId];
-          if (reject) {
-            reject(msg.err);
+        case DielRemoteAction.ShipRelation: {
+          const view = msg.id.relationName;
+          if (!view || !msg.id.lineage) {
+            LogInternalError(`Both view and lineage should be defined for sharing views! However, I got ${JSON.stringify(msg.id, null, 2)}`);
           }
-        } else {
-          const resolve = self.resolves[promiseId];
-          if (resolve) {
-            resolve(msg);
+          if (msg.results.length > 0) {
+            this.relationShippingCallback(view, msg.results, msg.id.lineage);
           }
+          break;
         }
-        // purge used callbacks
-        delete self.resolves[promiseId];
-        delete self.rejects[promiseId];
-      } else {
-        switch (msg.id.remoteAction) {
-          case DielRemoteAction.UpdateRelation: {
-            this.evaluateQueueOnUpdateHandler();
-            break;
-          }
-          case DielRemoteAction.ShipRelation: {
-            const view = msg.id.relationName;
-            if (!view || !msg.id.lineage) {
-              LogInternalError(`Both view and lineage should be defined for sharing views! However, I got ${JSON.stringify(msg.id, null, 2)}`);
-            }
-            if (msg.results.length > 0) {
-              this.relationShippingCallback(view, msg.results, msg.id.lineage);
-            }
-            break;
-          }
-          default:
-          console.log(`%c Msg ${JSON.stringify(msg)} is not handled`, "color: red");
+        case DielRemoteAction.ConnectToDb: {
+          console.log(`Db opened for ${this.id}`);
+          break;
         }
+        default:
+          LogInternalError(``, DielInternalErrorType.UnionTypeNotAllHandled);
       }
     };
     return handleMsg;
@@ -384,12 +294,15 @@ export default class DbEngine {
   /**
    * SqlitemasterQuery returns sql and name
    */
-  async getMetaData(): Promise<RelationObject> {
+  async getMetaData(id: DbIdType): Promise<{id: DbIdType, data: RelationObject}> {
     const promise = this.SendMsg({
       remoteAction: DielRemoteAction.GetResultsByPromise,
       sql: SqliteMasterQuery
     }, true);
     const data = await promise;
-    return data.results;
+    return {
+      id,
+      data: data.results
+    };
   }
 }
