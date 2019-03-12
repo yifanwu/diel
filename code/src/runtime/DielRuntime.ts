@@ -77,6 +77,9 @@ export default class DielRuntime {
     this.setup();
   }
 
+  getEventByTimestep(timestep: LogicalTimestep) {
+    return this.eventByTimestep.get(timestep);
+  }
   public BindOutput(outputName: string, reactFn: ReactFunc) {
     if (!this.runtimeOutputs.has(outputName)) {
       ReportUserRuntimeError(`output not defined ${outputName}, from current outputs of: [${Array.from(this.runtimeOutputs.keys()).join(", ")}]`);
@@ -185,7 +188,6 @@ export default class DielRuntime {
   //   return (input: string, step: LogicalTimestep) => {
   //     // note for Lucie: add constraint checking
   //     console.log(`%c tick ${input}`, "color: blue");
-      
   //   };
   // }
 
@@ -222,7 +224,7 @@ export default class DielRuntime {
     this.setupUDFs();
     const materialization = simpleMaterializeAst(this.ir);
     console.log(JSON.stringify(materialization, null, 2));
-    this.physicalExecution = new DielPhysicalExecution(this.ir, this.physicalMetaData);
+    this.physicalExecution = new DielPhysicalExecution(this.ir, this.physicalMetaData, this.getEventByTimestep);
     this.updateRemotesBasedOnPhysicalExecution();
     this.executeToDBs();
     this.setupAllInputOutputs();
@@ -261,23 +263,23 @@ export default class DielRuntime {
     this.ir = CompileDiel(new DielIr(ast));
   }
 
-  shipRelation() {
-    // in theory passes from one engine to another engine
-    // worker to main, main to worker
-    // worker to worker
-    // worker to socket, socket to worker
-    // socket to main, main to socket, socket to socket
-    
-  }
+  // shipRelation() {
+  //   // in theory passes from one engine to another engine
+  //   // worker to main, main to worker
+  //   // worker to worker
+  //   // worker to socket, socket to worker
+  //   // socket to main, main to socket, socket to socket
+  // }
 
   async setupRemotes() {
     const inputCallback = this.NewInputMany.bind(this);
     let counter = LocalDbId;
     const getRelationDependencies = this.physicalExecution.getRelationDependenciesForDb;
+    const getRelationsToShip = this.physicalExecution.getRelationsToShipForDb;
     const workerWaiting = this.runtimeConfig.workerDbPaths
       ? this.runtimeConfig.workerDbPaths.map(path => {
         counter++;
-        const remote = new DbEngine(DbType.Worker, counter, inputCallback, getRelationDependencies);
+        const remote = new DbEngine(DbType.Worker, counter, inputCallback, getRelationDependencies, getRelationsToShip);
         this.dbEngines.push(remote);
         return remote.setup(path);
       })
@@ -285,7 +287,7 @@ export default class DielRuntime {
     const socketWaiting = this.runtimeConfig.socketConnections
       ? this.runtimeConfig.socketConnections.map(socket => {
         counter++;
-        const remote = new DbEngine(DbType.Socket, counter, getRelationDependencies);
+        const remote = new DbEngine(DbType.Socket, counter, inputCallback, getRelationDependencies, getRelationsToShip);
         this.dbEngines.push(remote);
         return remote.setup(socket.url, socket.dbName);
       })

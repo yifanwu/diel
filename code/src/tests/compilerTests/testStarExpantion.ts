@@ -1,12 +1,12 @@
-import { getDielIr } from "../../lib/cli-compiler";
+ import { getDielIr } from "../../lib/cli-compiler";
 import { GenerateUnitTestErrorLogger, LogInfo } from "../../lib/messages";
 import { ExprColumnAst } from "../../parser/exprAstTypes";
-import { DataType } from "../../parser/dielAstTypes";
+import { DataType, DerivedRelation } from "../../parser/dielAstTypes";
 
 export function assertAllStar() {
   function assertColumns(viewName: string, selections: {columnName: string, relationName: string, dataType: DataType}[]) {
-    const view = ir.allCompositeSelections.get(viewName);
-    const columns = view[0].relation.derivedColumnSelections;
+    const view = ir.GetRelationDef(viewName) as DerivedRelation;
+    const columns = view.selection.compositeSelections[0].relation.derivedColumnSelections;
     if (!columns) {
       logger(`${viewName} is not expanded`);
     }

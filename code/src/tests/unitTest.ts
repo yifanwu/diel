@@ -77,10 +77,12 @@ export function testDistributionLogc() {
     return Math.max(...Array.from(dbIds));
   }
   const distributions: SingleDistribution[] = [];
-  QueryDistributionRecursiveEval(distributions, {
+  const scope = {
     augmentedDep,
-    selectRelationEvalOwner
-  }, "o1");
+    selectRelationEvalOwner,
+    outputName: "dummy"
+  };
+  QueryDistributionRecursiveEval(distributions, scope, "o1");
   const expected = [
     {
       relationName: "i1",
