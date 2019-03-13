@@ -25,10 +25,10 @@ export const Scatterplot: React.StatelessComponent<ScatterplotProps> = (p) => {
   const yDomain = d3.extent(yValues);
   const x = d3.scaleLinear()
               .domain(xDomain)
-              .rangeRound([0, innerWidth]);
+              .rangeRound([0, layout.chartWidth]);
   const y = d3.scaleLinear()
               .domain(yDomain)
-              .rangeRound([innerHeight, 0]);
+              .rangeRound([layout.chartHeight, 0]);
 
   // construct the axes
   const axisBottom = d3.axisBottom(x)
@@ -62,7 +62,7 @@ export const Scatterplot: React.StatelessComponent<ScatterplotProps> = (p) => {
   }
   let circles: JSX.Element[] = null;
   if ((data) && (data.length > 0)) {
-    circles = data.map((d, i) => <circle r="1.5" cx={x(d[xAttribute] as number)} cy={y(d[yAttribute] as number)} fill={color} fillOpacity={0.5}></circle> );
+    circles = data.map((d, i) => <circle r="3" cx={x(d[xAttribute] as number)} cy={y(d[yAttribute] as number)} fill={color} fillOpacity={0.5}></circle> );
   }
   return (
       <svg

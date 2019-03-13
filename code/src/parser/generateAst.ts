@@ -87,7 +87,9 @@ implements visitor.DIELVisitor<ExpressionValue> {
       ? ctx.EVENT()
         ? RelationType.EventView
         : RelationType.View
-      : RelationType.Output;
+      : ctx.TABLE()
+        ? RelationType.DerivedTable
+        : RelationType.Output;
     const constraints = ctx.constraintClause() ? this.visit(ctx.constraintClause()) as RelationConstraints : null;
     const selection = this.visit(ctx.selectQuery()) as RelationSelection;
     return {
@@ -399,10 +401,12 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitRelationReferenceSimple(ctx: parser.RelationReferenceSimpleContext): RelationReference {
     const relationName = ctx._relation.text;
+    const isLatest = ctx.LASTEST() ? true : false;
     // check if the name is a relation
     const alias = ctx._alias ? ctx._alias.text : null;
     return {
       alias,
+      isLatest,
       relationName
     };
   }

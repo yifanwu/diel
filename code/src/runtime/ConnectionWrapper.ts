@@ -1,6 +1,8 @@
 import { DbType, DielRemoteAction, DielRemoteReply, DielRemoteMessageId } from "./runtimeTypes";
 import { DbIdType, LogicalTimestep } from "../compiler/DielPhysicalExecution";
 import { parseSqlJsWorkerResult } from "./runtimeHelper";
+import { downloadHelper } from "../lib/dielUtils";
+import { LogInfo, LogInternalError } from "../lib/messages";
 
 type FinalMsgType = {buffer: any} | {sql: string} | {dbName: string};
 
@@ -16,12 +18,14 @@ interface FinalPromiseIdType extends FinalIdType {
 }
 const DielRemoteActionToEngineActionWorker = new Map<DielRemoteAction, string>([
   [DielRemoteAction.GetResultsByPromise, "exec"],
+  [DielRemoteAction.UpdateRelation, "exec"],
   [DielRemoteAction.ConnectToDb, "open"],
   [DielRemoteAction.DefineRelations, "exec"],
   [DielRemoteAction.ShipRelation, "exec"]
 ]);
 const DielRemoteActionToEngineActionSocket = new Map(DielRemoteActionToEngineActionWorker);
 DielRemoteActionToEngineActionSocket.set(DielRemoteAction.DefineRelations, "run");
+DielRemoteActionToEngineActionSocket.set(DielRemoteAction.UpdateRelation, "run");
 
 
 // to unify worker and websocket
@@ -61,13 +65,18 @@ export class ConnectionWrapper {
     if (this.remoteType === DbType.Worker) {
       // FIXME: might need some adaptor logic here to make worker the same as socket
       const action = DielRemoteActionToEngineActionWorker.get(id.remoteAction);
+      if (!action) {
+        LogInternalError(`Action must be defined, but not for ${id.remoteAction}`);
+      }
       const worker = (this.connection as Worker);
       // FIXME: JSON.stringify(id) ?
-      worker.postMessage({
+      const finalMsg = {
         id,
         action,
         ...msgToSend
-      });
+      };
+      LogInfo(`Posting to Worker`, finalMsg);
+      worker.postMessage(finalMsg);
     } else {
       // FIXME: clear serialization logic
       const action = DielRemoteActionToEngineActionSocket.get(id.remoteAction);
@@ -84,16 +93,26 @@ export class ConnectionWrapper {
   setHandler(f: (msg: DielRemoteReply) => void) {
     const self = this;
     const newF = (event: any) => {
+      console.log(`Handling message`, event);
       let msg: DielRemoteReply | undefined;
       if (this.remoteType === DbType.Socket) {
         try {
           msg = parseDielReply(event.data);
+          // special debugging case
+          if ((msg as any).id === "test") return;
         } catch (e) {
           console.log(`%cSocket sent mal-formatted message: ${JSON.stringify(event.data, null, 2)}`, "color: red");
           return;
         }
       } else {
         if (event.data.id) {
+          // special debugging case
+          if (event.data.id === "test") return;
+          if (event.data.id === "download") {
+            let blob = new Blob([event.data.buffer]);
+            downloadHelper(blob, "workerSession");
+            return;
+          }
           msg = {
             id: event.data.id as DielRemoteMessageId,
             results: parseSqlJsWorkerResult(event.data.results),

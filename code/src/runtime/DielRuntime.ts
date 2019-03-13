@@ -11,7 +11,7 @@ import Visitor from "../parser/generateAst";
 import { CompileDiel } from "../compiler/DielCompiler";
 import { log } from "../lib/dielUdfs";
 import { downloadHelper } from "../lib/dielUtils";
-import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, QueryConsoleColorSpec } from "../lib/messages";
+import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, QueryConsoleColorSpec, ReportUserRuntimeWarning, DielInternalErrorType } from "../lib/messages";
 import { DielIr } from "../compiler/DielIr";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject } from "./runtimeHelper";
 import { DielPhysicalExecution, DbIdType, LocalDbId, LogicalTimestep, RelationIdType } from "../compiler/DielPhysicalExecution";
@@ -119,15 +119,17 @@ export default class DielRuntime {
 
   // verbose just to make sure that the exported type is kept in sync
   public NewInputMany: RelationShippingFuncType = (view: string, o: any, lineage?: number) => {
+    lineage = lineage ? lineage : this.timestep;
     this.newInputHelper(view, o, lineage);
   }
 
-  public NewInput(i: string, o: any) {
-    this.newInputHelper(i, [o]);
+  public NewInput(i: string, o: any, lineage?: number) {
+    lineage = lineage ? lineage : this.timestep;
+    this.newInputHelper(i, [o], lineage);
   }
 
   // FIXME: use AST instead of string manipulation...
-  private newInputHelper(eventName: string, objs: any[], lineage?: number) {
+  private newInputHelper(eventName: string, objs: any[], lineage: number) {
     this.timestep++;
     this.eventByTimestep.set(this.timestep, eventName);
     let columnNames: string[] = [];
@@ -150,10 +152,10 @@ export default class DielRuntime {
         });
       });
       const finalQuery = `
-      insert into ${eventName} (timestep, ${columnNames.join(", ")}) values
-        ${values.map(v => `(${this.timestep}, ${v.join(", ")})`)};
-      insert into allInputs (timestep, inputRelation, timestamp ${lineage ? `, lineage` : ""}) values
-        (${this.timestep}, '${eventName}', ${Date.now()} ${lineage ? `, ${lineage}` : ""});`;
+      insert into ${eventName} (timestep, lineage, ${columnNames.join(", ")}) values
+        ${values.map(v => `(${this.timestep}, ${lineage}, ${v.join(", ")})`)};
+      insert into allInputs (timestep, inputRelation, timestamp, lineage) values
+        (${this.timestep}, '${eventName}', ${Date.now()}, ${lineage});`;
       console.log(`%c Tick Executing\n${finalQuery}`, QueryConsoleColorSpec);
       this.db.exec(finalQuery);
       const inputDep = this.ir.dependencies.inputDependenciesOutput.get(eventName);
@@ -192,10 +194,17 @@ export default class DielRuntime {
   //   };
   // }
 
-  downloadDB() {
-    let dRaw = this.db.export();
-    let blob = new Blob([dRaw]);
-    downloadHelper(blob,  "session");
+  downloadDB(dbId?: DbIdType) {
+    if ((!dbId) || (dbId === LocalDbId)) {
+      let dRaw = this.db.export();
+      let blob = new Blob([dRaw]);
+      downloadHelper(blob,  "session");
+    } else {
+      const remote = this.dbEngines.get(dbId);
+      if (remote) {
+        remote.downloadDb();
+      }
+    }
   }
 
   simpleGetLocal(view: string): RelationObject {
@@ -209,7 +218,7 @@ export default class DielRuntime {
       if (r.length > 0) {
         return r;
       } else {
-        ReportUserRuntimeError(`${view} did not return any results.`);
+        ReportUserRuntimeWarning(`${view} did not return any results.`);
       }
     } else {
       ReportUserRuntimeError(`${view} does not exist.`);
@@ -225,7 +234,7 @@ export default class DielRuntime {
     this.setupUDFs();
     const materialization = simpleMaterializeAst(this.ir);
     console.log(JSON.stringify(materialization, null, 2));
-    this.physicalExecution = new DielPhysicalExecution(this.ir, this.physicalMetaData, this.getEventByTimestep);
+    this.physicalExecution = new DielPhysicalExecution(this.ir, this.physicalMetaData, this.getEventByTimestep.bind(this));
     // this.updateRemotesBasedOnPhysicalExecution();
     await this.executeToDBs();
     this.ir.GetAllDerivedViews().map(o => this.setupNewOutput(o));
@@ -279,6 +288,7 @@ export default class DielRuntime {
     const tree = p.queries();
     let ast = this.visitor.visitQueries(tree);
     this.ir = CompileDiel(new DielIr(ast));
+    // test the IR here
   }
 
   async setupRemotes() {
@@ -320,30 +330,45 @@ export default class DielRuntime {
   }
 
   shipWorkerInput(inputName: string, timestep: number) {
-    const remotesToShipTo = this.physicalExecution.getShippingInfoForDbByEvent(inputName, LocalDbId);
-    const shareQuery = `select * from ${inputName}`;
-    let tableRes = this.db.exec(shareQuery)[0];
-    if ((!tableRes) || (!tableRes.values)) {
-      LogInternalWarning(`Query ${shareQuery} has NO result`);
-    }
-    // FIXME: have more robust typing instead of quoting everything; look up types...
-    const values = tableRes.values.map((d: any[]) => `(${d.map((v: any) => (v === null) ? "null" : `'${v}'`).join(", ")})`);
-    let sql = `
-      DELETE from ${inputName};
-      INSERT INTO ${inputName} VALUES ${values};
-    `;
-    remotesToShipTo.destinationDbIds.forEach((remoteId => {
-      const remote = this.findRemoteDbEngine(remoteId);
-      if (remote) {
-        const msg: RemoteUpdateRelationMessage = {
+    // const remotesToShipTo = this.physicalExecution.getShippingInfoForDbByEvent(inputName, LocalDbId);
+    const remotesToShipTo = this.physicalExecution.getBubbledUpRelationToShip(LocalDbId, inputName);
+    // FIXME: we can improve performance by grouping by the views to ship so that they are not evaluated multiple times.
+    if (remotesToShipTo && remotesToShipTo.length > 0) {
+      remotesToShipTo.map(t => {
+        const shareQuery = `select * from ${t.relation}`;
+        let tableRes = this.db.exec(shareQuery)[0];
+        if ((!tableRes) || (!tableRes.values)) {
+          LogInternalWarning(`Query ${shareQuery} has NO result`);
+        }
+        // FIXME: have more robust typing instead of quoting everything; look up types...
+        const values = tableRes.values.map((d: any[]) => `(${d.map((v: any) => (v === null) ? "null" : `'${v}'`).join(", ")})`);
+        let sql = `
+          DELETE from ${t.relation};
+          INSERT INTO ${t.relation} VALUES ${values};
+        `;
+        const updateMsg: RemoteUpdateRelationMessage = {
           remoteAction: DielRemoteAction.UpdateRelation,
-          relationName: inputName,
+          relationName: t.relation,
           lineage: timestep,
-          sql,
+          sql
         };
-        remote.SendMsg(msg);
-      }
-    }));
+        this.dbEngines.get(t.destination).SendMsg(updateMsg);
+      });
+    }
+    // if (remotesToShipTo.destinationDbIds && remotesToShipTo.destinationDbIds.length > 0) {
+    //   remotesToShipTo.destinationDbIds.forEach((remoteId => {
+    //     const remote = this.findRemoteDbEngine(remoteId);
+    //     if (remote) {
+    //       const msg: RemoteUpdateRelationMessage = {
+    //         remoteAction: DielRemoteAction.UpdateRelation,
+    //         relationName: inputName,
+    //         lineage: timestep,
+    //         sql,
+    //       };
+    //       remote.SendMsg(msg);
+    //     }
+    //   }));
+    // }
   }
 
   private findRemoteDbEngine(remoteId: DbIdType) {
