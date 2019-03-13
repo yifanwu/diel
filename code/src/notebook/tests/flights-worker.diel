@@ -1,6 +1,6 @@
 CREATE EVENT TABLE originSelectionEvent (origin text);
 
-create view currentOriginSelection AS
+create output currentOriginSelection AS
   select origin, timestep from originSelectionEvent
     where timestep = (select max(timestep) from originSelectionEvent);
 
@@ -9,10 +9,9 @@ create output allPastSelections AS
 
 create output delayDistanceByOrigin AS
   select *
-  from delayDistanceByOriginEvent e;
-
+  from delayDistanceByOriginEvent e
 -- FIXME: something wrong with the lineage of events...
-  -- join currentOriginSelection s on e.lineage = s.timestep;
+  join currentOriginSelection s on e.lineage = s.timestep;
 
 -- sampling 200
 create table sampledFlights AS

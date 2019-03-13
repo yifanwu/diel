@@ -86,7 +86,7 @@ export function createSqlAstFromDielAst(ast: DielAst): SqlIr {
           const v = iUnionType as DerivedRelation;
           views.push({
             name: v.name,
-            sqlRelationType: v.relationType === RelationType.View ? SqlRelationType.View : SqlRelationType.Table,
+            sqlRelationType: (v.relationType === RelationType.View) ? SqlRelationType.View : SqlRelationType.Table,
             query: v.selection.compositeSelections
           });
           break;
