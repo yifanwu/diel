@@ -40,7 +40,7 @@ export const Scatterplot: React.StatelessComponent<ScatterplotProps> = (p) => {
   let brushDiv: JSX.Element = null;
   if (p.brushHandler) {
     const brush = d3.brush()
-    .extent([[0, 0], [innerWidth, innerHeight]])
+    .extent([[0, 0], [layout.chartWidth, layout.chartHeight]])
     .on("end", function() {
       // [[x0, y0], [x1, y1]],
       const s = d3.brushSelection(this) as [[number, number], [number, number]];
@@ -70,7 +70,7 @@ export const Scatterplot: React.StatelessComponent<ScatterplotProps> = (p) => {
         width={layout.chartWidth + layout.marginLeft + layout.marginRight}height={layout.chartHeight + layout.marginTop + layout.marginBottom}>
         <g transform={"translate(" + layout.marginLeft + "," + layout.marginTop + ")"}>
           <g ref={(g) => d3.select(g).call(axisBottom)}
-            transform={"translate(0," + innerHeight + ")"}></g>
+            transform={"translate(0," + layout.chartHeight + ")"}></g>
           <g ref={(g) => d3.select(g).call(axisLeft)}></g>
           {circles}
           {brushDiv}
