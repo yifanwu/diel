@@ -119,11 +119,13 @@ export default class DielRuntime {
 
   // verbose just to make sure that the exported type is kept in sync
   public NewInputMany: RelationShippingFuncType = (view: string, o: any, lineage?: number) => {
+    debugger;
     lineage = lineage ? lineage : this.timestep;
     this.newInputHelper(view, o, lineage);
   }
 
   public NewInput(i: string, o: any, lineage?: number) {
+    debugger;
     lineage = lineage ? lineage : this.timestep;
     this.newInputHelper(i, [o], lineage);
   }
@@ -237,7 +239,7 @@ export default class DielRuntime {
     this.physicalExecution = new DielPhysicalExecution(this.ir, this.physicalMetaData, this.getEventByTimestep.bind(this));
     // this.updateRemotesBasedOnPhysicalExecution();
     await this.executeToDBs();
-    this.ir.GetAllDerivedViews().map(o => this.setupNewOutput(o));
+    this.ir.GetOutputs().map(o => this.setupNewOutput(o));
     loadPage();
   }
 
@@ -419,7 +421,7 @@ export default class DielRuntime {
     try {
       return this.db.prepare(q);
     } catch (e) {
-      console.log(`%c Had error ${e} while running query ${q}`, "color: red");
+      LogInternalError(`Got ${e} while preparing for query ${q}`);
     }
   }
 
