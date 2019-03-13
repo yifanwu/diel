@@ -27,6 +27,7 @@ const WebWorkerSqlPath = "./UI-dist/worker.sql.js";
 export type NodeDependency = Map<string, Set<string>>;
 
 export default class DbEngine {
+  totalMsgCount: number; // for debugging
   // the queue is complete if all the shipment is sent
   currentQueueHead: LogicalTimestep;
   physicalExeuctionRef: DielPhysicalExecution;
@@ -57,6 +58,8 @@ export default class DbEngine {
           ) {
     this.remoteType = remoteType;
     this.id = remoteId;
+    this.totalMsgCount = 0;
+    this.queueMap = new Map();
     this.relationShippingCallback = relationShippingCallback;
   }
 
@@ -126,16 +129,21 @@ export default class DbEngine {
       if (!currentItem.shipped.has(relationName)) {
         if (IsSuperset(currentItem.received, deps)) {
           // then ship, and set
-          currentItem.relationsToShipDestinations.get(relationName).forEach(dbId => {
-            const shipMsg: RemoteShipRelationMessage = {
-              remoteAction: DielRemoteAction.ShipRelation,
-              lineage: INIT_TIMESTEP,
-              relationName,
-              dbId
-            };
-            this.SendMsg(shipMsg);
-          });
-          currentItem.shipped.add(relationName);
+          const destinations = currentItem.relationsToShipDestinations.get(relationName);
+          if (destinations) {
+            destinations.forEach(dbId => {
+              const shipMsg: RemoteShipRelationMessage = {
+                remoteAction: DielRemoteAction.ShipRelation,
+                lineage: INIT_TIMESTEP,
+                relationName,
+                dbId
+              };
+              this.SendMsg(shipMsg);
+            });
+            currentItem.shipped.add(relationName);
+          } else {
+            LogInternalWarning(`Might be an error here trying to find what was not defined`);
+          }
         }
       }
     });
@@ -143,20 +151,23 @@ export default class DbEngine {
     if (currentItem.shipped.size === currentItem.relationsToShipDeps.size) {
       // now let's delete
       this.queueMap.delete(this.currentQueueHead);
-      this.currentQueueHead = Math.min(...this.queueMap.keys());
-      // also load the next queue's results in
-      this.queueMap.get(this.currentQueueHead).receivedValues.map(updateMsg => {
-        const id = {
-          remoteAction: updateMsg.remoteAction,
-          msgId: updateMsg.msgId,
-          lineage: updateMsg.lineage,
-        };
-        const msgToSend = {
-          sql: updateMsg.sql
-        };
-        this.connection.send(id, msgToSend, false);
-      });
-      this.evaluateQueueOnUpdateHandler();
+      // if there is more in the queue to address, deal with them
+      if (this.queueMap.size > 0) {
+        this.currentQueueHead = Math.min(...this.queueMap.keys());
+        // also load the next queue's results in
+        this.queueMap.get(this.currentQueueHead).receivedValues.map(updateMsg => {
+          const id = {
+            remoteAction: updateMsg.remoteAction,
+            msgId: updateMsg.msgId,
+            lineage: updateMsg.lineage,
+          };
+          const msgToSend = {
+            sql: updateMsg.sql
+          };
+          this.connection.send(id, msgToSend, false);
+        });
+        this.evaluateQueueOnUpdateHandler();
+      }
     } else {
       return;
     }
@@ -164,6 +175,12 @@ export default class DbEngine {
 
   public SendMsg(msg: DielRemoteMessage, isPromise = false): Promise<DielRemoteReply> | null {
     console.log("sending message", msg);
+    this.totalMsgCount++;
+    // FIXME: remove this for production
+    if (this.totalMsgCount > 100) {
+      debugger;
+      LogInternalError(`Too many messages`);
+    }
     // if (customId.indexOf("-") > -1) {
     //   LogInternalError(`ID cannot contain protected character "-", but you used ${customId}`);
     // }
@@ -242,7 +259,7 @@ export default class DbEngine {
         if (shipMsg.dbId === this.id) {
           // note that this is a good hook for materialization
           LogInfo(`Shipping to itself, this is a local evaluation`);
-          const staticShip = this.physicalExeuctionRef.getBubbledUpRelationToShipForOutput(this.id, shipMsg.relationName);
+          const staticShip = this.physicalExeuctionRef.getBubbledUpRelationToShip(this.id, shipMsg.relationName);
           // in theory I think we can just invoke the connection directly.
           staticShip.map(t => {
             const staticMsg: RemoteShipRelationMessage = {
@@ -280,7 +297,6 @@ export default class DbEngine {
 
   getHandleMsgForRemote() {
     const handleMsg = (msg: DielRemoteReply) => {
-      console.log(`Remote ${this.id} (${this.remoteType}) handling message`, event);
       // if this is socket we need to unpack all, but if this is worker, then we just need to unpack id... so annoying
       switch (msg.id.remoteAction) {
         case DielRemoteAction.UpdateRelation: {
@@ -314,6 +330,18 @@ export default class DbEngine {
       }
     };
     return handleMsg;
+  }
+
+  public downloadDb() {
+    // only available on workers
+    if (this.remoteType === DbType.Worker) {
+      (this.connection.connection as Worker).postMessage({
+        id: "download",
+        action: "export",
+      });
+    } else {
+      LogInternalWarning(`You cannot download anything that's not Workers here`);
+    }
   }
 
   /**

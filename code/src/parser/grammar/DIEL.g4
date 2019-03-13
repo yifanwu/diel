@@ -75,7 +75,7 @@ columnConstraints
   ;
 
 viewStmt
-  : CREATE (((EVENT)? VIEW) | OUTPUT) IDENTIFIER AS selectQuery
+  : CREATE (((EVENT)? VIEW) | OUTPUT | TABLE) IDENTIFIER AS selectQuery
     (constraintClause)?
     DELIM
   ;
@@ -179,7 +179,7 @@ limitClause
   ;
 
 relationReference
-  : relation=IDENTIFIER (AS? alias=IDENTIFIER)? # relationReferenceSimple
+  : (LASTEST?) relation=IDENTIFIER (AS? alias=IDENTIFIER)? # relationReferenceSimple
   | '(' selectQuery ')' (AS? alias=IDENTIFIER)? # relationReferenceSubQuery
   ;
 
@@ -313,6 +313,7 @@ DISTINCT: D I S T I N C T;
 
 INT: N U M B E R  | I N T E G E R | I N T | R E A L;
 TEXT: S T R I N G | T E X T;
+LASTEST: L A S T E S T;
 
 MINUS: '-';
 DELIM: ';';

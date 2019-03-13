@@ -4,15 +4,16 @@ import { ExprType, ExprColumnAst } from "../../parser/exprAstTypes";
 
 
 export function copyColumnSelection(s: ColumnSelection) {
-  return  {
+  const columnName = (s.expr as ExprColumnAst).columnName;
+  return {
     expr: {
       exprType: ExprType.Column,
       dataType: DataType.TBD,
-      columnName: (s.expr as ExprColumnAst).columnName,
+      columnName,
       hasStar: false,
       relationName: (s.expr  as ExprColumnAst).relationName,
     },
-    alias: s.alias,
+    alias: s.alias ? s.alias : columnName,
   };
 }
 

@@ -13,7 +13,8 @@ export enum DielInternalErrorType {
   RelationNotFound = "RelationNotFound",
   NotImplemented = "NotImplemented",
   Untitled = "Untitled",
-  UnionTypeNotAllHandled = "UnionTypeNotAllHandled"
+  UnionTypeNotAllHandled = "UnionTypeNotAllHandled",
+  MalFormedAst = "MalFormedAst"
 }
 
 export function LogInternalError(m: string, errorType = DielInternalErrorType.Untitled) {
@@ -34,8 +35,8 @@ export function LogInternalWarning(m: string) {
   }
 }
 
-export function LogInfo(m: string) {
-  console.log(`${BgGreen}%s${Reset}`, m);
+export function LogInfo(m: string, obj?: any) {
+  console.log(`${FgBlue}%s${Reset}`, m, obj);
 }
 
 export function LogTmp(m: string) {
@@ -49,6 +50,10 @@ export function LogStandout(m: string) {
 export function ReportDielBasicParsingError(m: string) {
   console.log(`${FgRed}Parsing error from user provided code:\n%s${Reset}`, m);
   if (STRICT) throw new Error();
+}
+
+export function ReportUserRuntimeWarning(m: string) {
+  console.log(`%cUser runtime warning: ${m}`, "color: orange");
 }
 
 // note that this is in browser
