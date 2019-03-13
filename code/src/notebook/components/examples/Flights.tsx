@@ -7,6 +7,7 @@ import { Scatterplot } from "../charts/ScatterPlot";
 interface FlightsState {
   data: RelationObject;
   selectionData: RelationObject;
+  pastSelectionData: RelationObject;
 }
 
 export default class Flights extends React.Component<{}, FlightsState> {
@@ -14,10 +15,16 @@ export default class Flights extends React.Component<{}, FlightsState> {
     super(props);
     diel.BindOutput("delayDistanceByOrigin", this.setData.bind(this));
     diel.BindOutput("allOriginAirports", this.setSelectionData.bind(this));
+    diel.BindOutput("allPastSelections", this.setAllPastSelections.bind(this));
     this.state = {
       data: null,
       selectionData: null,
+      pastSelectionData: []
     };
+  }
+
+  setAllPastSelections(r: RelationObject) {
+    this.setState({pastSelectionData: r});
   }
 
   setSelectionData(r: RelationObject) {
@@ -33,7 +40,7 @@ export default class Flights extends React.Component<{}, FlightsState> {
       chartType: ChartType.Scatter,
       data: this.state.data,
       xAttribute: "delay",
-      yAttribute: "count"
+      yAttribute: "distance"
     };
     const chartDiv = this.state.data
       ? <Scatterplot
@@ -49,6 +56,7 @@ export default class Flights extends React.Component<{}, FlightsState> {
         <div className="dropdown-content">{options}</div>
       </div>
       {chartDiv}
+      <div>Your past selections: {this.state.pastSelectionData.map(p => <span>{p.origin}</span>)}</div>
     </>;
     } else {
       return <p>Loading options...</p>;

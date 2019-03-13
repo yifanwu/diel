@@ -100,6 +100,9 @@ export class DielPhysicalExecution {
             const eventTableDef = getEventTableFromDerived(rDef as DerivedRelation);
             addRelationIfOnlyNotExist(astToSpec.relations, eventTableDef);
             addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
+          } else {
+            // doesn't matter from or to, it's the same
+            addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
           }
         } else {
           addRelationIfOnlyNotExist(astToSpec.relations, rDef);
@@ -148,7 +151,7 @@ export class DielPhysicalExecution {
     return distributionsForAllOutput;
   }
 // , output: RelationIdType
-  getBubbledUpRelationToShipForOutput(dbId: DbIdType, relation: RelationIdType): {destination: DbIdType, relation: RelationIdType}[] {
+  getBubbledUpRelationToShip(dbId: DbIdType, relation: RelationIdType): {destination: DbIdType, relation: RelationIdType}[] {
     const distributions = this.distributions;
     function helper(acc: {destination: DbIdType, relation: RelationIdType}[], dbId: DbIdType, relation: RelationIdType) {
       distributions.map(d => {
@@ -157,10 +160,13 @@ export class DielPhysicalExecution {
           if ((d.to === d.from) && (d.forRelationName !== relation)) {
             helper(acc, d.to, d.forRelationName);
           } else if ((d.to !== d.from)) {
-            acc.push({
-              destination: d.to,
-              relation: d.relationName
-              });
+            // only push if it's not already there
+            if (!acc.find(a => (a.destination === d.to) && (a.relation === d.relationName))) {
+              acc.push({
+                destination: d.to,
+                relation: d.relationName
+                });
+            }
           }
         }
       });
@@ -212,10 +218,11 @@ export class DielPhysicalExecution {
         const inputEvent = this.getEventByTimestep(lineage);
         deps = SetIntersection(new Set(singleDependency), this.ir.dependencies.inputDependenciesAll.get(inputEvent));
       }
-      relationDependency.set(r, deps);
+      if (deps && deps.size > 0) {
+        relationDependency.set(r, deps);
+      }
     });
     return relationDependency;
-    // };
   }
 
   getRelationsToShipForDb(dbId: DbIdType, lineage: LogicalTimestep) {
@@ -234,7 +241,8 @@ export class DielPhysicalExecution {
     return relationsToShip;
   }
 
-
+  // this also needs to be recursive, because even if the inputs are not immediately shipped,
+  // they might have dependencies down the line
   getShippingInfoForDbByEvent(eventTable: RelationIdType, engineId: DbIdType) {
     const destinationDbIds = this.distributions
                                 .filter(d => ((d.relationName === eventTable)
@@ -272,7 +280,7 @@ export class DielPhysicalExecution {
         ? LocalDbId
         : (relationType === RelationType.ExistingAndImmutable)
           ? this.getDbIdByRelationName(relationName)
-          : null;
+          : null; // this is null because we might not know, and need the recursive processing to set
       const nodeDepAugmetned: NodeDependencyAugmented = {
         remoteId,
         relationName,

@@ -81,6 +81,7 @@ export function createSqlAstFromDielAst(ast: DielAst): SqlIr {
         }
         case RelationType.Output:
         case RelationType.EventView:
+        case RelationType.DerivedTable:
         case RelationType.View: {
           const v = iUnionType as DerivedRelation;
           views.push({

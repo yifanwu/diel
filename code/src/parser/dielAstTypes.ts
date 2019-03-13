@@ -31,6 +31,7 @@ export enum RelationType {
   // IntermediateEventTable = "IntermediateEventTable",
   EventView = "EventView",
   Table = "Table",
+  DerivedTable = "DerivedTable",
   ExistingAndImmutable = "ExistingAndImmutable",
   View = "View",
   // StaticTable = "StaticTable",
@@ -347,6 +348,7 @@ export interface SelectionUnit {
 
 export interface RelationReference {
   relationName?: string;
+  isLatest?: boolean;
   alias?: string;
   subquery?: RelationSelection;
 }

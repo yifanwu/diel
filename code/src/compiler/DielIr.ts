@@ -14,7 +14,7 @@ export enum BuiltInColumn {
   TIMESTAMP = "TIMESTAMP"
 }
 
-const DerivedRelationTypes = new Set([RelationType.View, RelationType.EventView, , RelationType.Output]);
+const DerivedRelationTypes = new Set([RelationType.View, RelationType.EventView, , RelationType.Output, RelationType.DerivedTable]);
 const OriginalRelationTypes = new Set([RelationType.Table, RelationType.EventTable, RelationType.ExistingAndImmutable]);
 
 export function isRelationTypeDerived(rType: RelationType) {
@@ -68,19 +68,25 @@ export class DielIr {
       this.allDerivedRelations.set(r.name, r);
     });
   }
+
   GetRelationDef(rName: string): Relation {
     // first search in original, then serach in derived, compalin otherwise
-    const original = this.allOriginalRelations.get(rName);
-    if (original) {
-      return original;
+    const result = this.ast.relations.find(r => r.name === rName);
+    if (result) {
+      return result;
     } else {
-      const derived = this.allDerivedRelations.get(rName);
-      if (derived) {
-        return derived;
-      } else {
-        LogInternalError(`Relation ${rName} not defined`);
-      }
+      LogInternalError(`Relation ${rName} not defined`);
     }
+    // const original = this.allOriginalRelations.get(rName);
+    // if (original) {
+    //   return original;
+    // } else {
+    //   const derived = this.allDerivedRelations.get(rName);
+    //   if (derived) {
+    //     return derived;
+    //   } else {
+    //   }
+    // }
   }
 
   public GetRelationColumnType(relationName: string, columnName: string): DataType | null {
