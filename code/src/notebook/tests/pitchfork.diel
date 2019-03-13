@@ -1,5 +1,8 @@
 -- basic distribution of scores
 
+-- OK let's add some interaction
+-- 
+
 -- ah, thing about static event views... damn too many kinds
 
 create output pitchForkScoreDistribution as

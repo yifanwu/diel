@@ -1,4 +1,4 @@
-import { STRICT } from "../compiler/config";
+import { STRICT, DEBUG } from "../compiler/config";
 
 export const FgRed = "\x1b[31m";
 export const FgBlue = "\x1b[34m";
@@ -21,7 +21,7 @@ export function LogInternalError(m: string, errorType = DielInternalErrorType.Un
   if (typeof window === "undefined") {
     console.log(`${FgRed}%s${Reset}`, m);
   } else {
-    debugger;
+    if (DEBUG) debugger;
     console.log(`%cError[${errorType}]: ${m}`, "color: red");
   }
   if (STRICT) throw new Error();
@@ -58,8 +58,8 @@ export function ReportUserRuntimeWarning(m: string) {
 
 // note that this is in browser
 export function ReportUserRuntimeError(m: string) {
-  debugger;
-  throw new Error(m);
+  if (DEBUG) debugger;
+  if (STRICT) throw new Error(m);
   // console.log(`%c Runtime error from user specification: ${m}`, "color: red");
 }
 

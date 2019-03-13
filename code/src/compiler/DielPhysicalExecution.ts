@@ -95,21 +95,22 @@ export class DielPhysicalExecution {
       const astToSpec = setIfNotExist(distribution.to);
       const astFromSpec = setIfNotExist(distribution.from);
       const rDef = this.ir.GetRelationDef(distribution.relationName);
-        if (isRelationTypeDerived(rDef.relationType)) {
-          if (distribution.from !== distribution.to) {
-            const eventTableDef = getEventTableFromDerived(rDef as DerivedRelation);
-            addRelationIfOnlyNotExist(astToSpec.relations, eventTableDef);
-            addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
-          } else {
-            // doesn't matter from or to, it's the same
-            addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
-          }
+      if (isRelationTypeDerived(rDef.relationType)) {
+        if (distribution.from !== distribution.to) {
+          const eventTableDef = getEventTableFromDerived(rDef as DerivedRelation);
+          addRelationIfOnlyNotExist(astToSpec.relations, eventTableDef);
+          addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
         } else {
-          addRelationIfOnlyNotExist(astToSpec.relations, rDef);
+          // doesn't matter from or to, it's the same
+          addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
         }
+      } else {
+        addRelationIfOnlyNotExist(astToSpec.relations, rDef);
+      }
       // these are outputs
-      if (!astSpecPerDb.get(LocalDbId).relations.find(r => r.name === distribution.finalOutputName)) {
-        astSpecPerDb.get(LocalDbId).relations.push(this.ir.GetRelationDef(distribution.finalOutputName));
+      const astSepcLocal = setIfNotExist(LocalDbId);
+      if (!astSepcLocal.relations.find(r => r.name === distribution.finalOutputName)) {
+        astSepcLocal.relations.push(this.ir.GetRelationDef(distribution.finalOutputName));
       }
     });
     // sanity check: only localDB is allowed to have EventTables!

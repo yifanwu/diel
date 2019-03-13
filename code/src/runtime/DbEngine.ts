@@ -123,7 +123,7 @@ export default class DbEngine {
     }
     const currentItem = this.queueMap.get(this.currentQueueHead);
     if (!currentItem) {
-      LogInternalError(`Queue should contain current head!`);
+      LogInternalError(`Queue should contain current head ${this.currentQueueHead}, but it contains ${this.queueMap.keys()}!`);
     }
     currentItem.relationsToShipDeps.forEach((deps, relationName) => {
       if (!currentItem.shipped.has(relationName)) {
@@ -134,7 +134,7 @@ export default class DbEngine {
             destinations.forEach(dbId => {
               const shipMsg: RemoteShipRelationMessage = {
                 remoteAction: DielRemoteAction.ShipRelation,
-                lineage: INIT_TIMESTEP,
+                lineage: this.currentQueueHead,
                 relationName,
                 dbId
               };
@@ -151,6 +151,7 @@ export default class DbEngine {
     if (currentItem.shipped.size === currentItem.relationsToShipDeps.size) {
       // now let's delete
       this.queueMap.delete(this.currentQueueHead);
+      this.currentQueueHead = null;
       // if there is more in the queue to address, deal with them
       if (this.queueMap.size > 0) {
         this.currentQueueHead = Math.min(...this.queueMap.keys());
@@ -178,7 +179,6 @@ export default class DbEngine {
     this.totalMsgCount++;
     // FIXME: remove this for production
     if (this.totalMsgCount > 100) {
-      debugger;
       LogInternalError(`Too many messages`);
     }
     // if (customId.indexOf("-") > -1) {
@@ -247,6 +247,7 @@ export default class DbEngine {
         return this.connection.send(id, msgToSend, isPromise);
       }
       case DielRemoteAction.ShipRelation: {
+        debugger;
         const shipMsg = msg as RemoteShipRelationMessage;
         const newId = {
           ...id,
