@@ -45,5 +45,10 @@ create output allOriginAirports AS
   select * from allOriginAirportsEvent;
 
 create event view allOriginAirportsEvent AS
-  select distinct origin
-  from flights;
+  select
+    origin,
+    count() as c
+  from flights
+    group by origin
+  order by c
+  limit 10;
