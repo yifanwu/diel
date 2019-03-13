@@ -1,7 +1,7 @@
 import DielRuntime from "../runtime/DielRuntime";
 
-const workerDbPaths = ["./UI-dist/flights.sqlite"];
-// const workerDbPaths = ["./UI-dist/flightsSmall.sqlite"];
+// const workerDbPaths = ["./UI-dist/flights.sqlite"];
+const workerDbPaths = ["./UI-dist/flightsSmall.sqlite"];
 // const workerDbPaths: string[] = undefined;
 const dielPrefix = "./src/notebook/tests/";
 const dielFiles = [
