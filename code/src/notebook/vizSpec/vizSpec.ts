@@ -126,10 +126,12 @@ export function generateVizSpecForSingleQuery(rt: DielRuntime, q: DerivedRelatio
   } else if (timeColumns.length + numericColumns.length == 1) {
     
     var combined = timeColumns.concat(numericColumns);
-    var columnName = (combined[0].alias) ? combined[0].alias : combined[0].expr; //how to get column name
+    var columnName = (combined[0].alias) ? combined[0].alias : "column";
 
     
-    const r = rt.db.exec(`select count() from ${q.name} group by `);
+    
+    
+    const r = rt.db.exec(`select count() from ${q.name} group by ${columnName}`);
   } else if (timeColumns.length + numericColumns.length == 2)
    {
 
