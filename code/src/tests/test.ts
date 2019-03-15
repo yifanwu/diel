@@ -9,6 +9,7 @@ import { assertAllStar } from "./compilerTests/testStarExpantion";
 import { assertBasicConstraints } from "./parserTests/constraintsTest";
 import { getDielIr } from "../lib/cli-compiler";
 import { assertFunctionParsing } from "./parserTests/functionTest";
+import { assertLatestSyntax } from "./compilerTests/testSyntaxSugar";
 
 // TODO: refactor tests to share more compiling and save some time...
 
@@ -27,7 +28,8 @@ create view v2 as select a from t1 join (select max(b) as b from t2) m on m.b = 
 create view v3 as select a from t1 where b in (select b from t2 where c = 'hello');
 `;
 
-testDistributionLogc();
+// testDistributionLogc();
+assertLatestSyntax(); // LUCIE TODO
 
 // testTopologicalSort();
 

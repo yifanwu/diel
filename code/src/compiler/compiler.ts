@@ -13,7 +13,7 @@ export function parse(code: string) {
   return new parser.DIELParser(tokenStream);
 }
 
-export function getSelectionUnitAst(code: string) {
+export function getVanillaSelectionUnitAst(code: string) {
   const inputStream = new ANTLRInputStream(code);
   const l = new lexer.DIELLexer(inputStream);
   const tokenStream = new CommonTokenStream(l);
@@ -21,8 +21,13 @@ export function getSelectionUnitAst(code: string) {
   const tree = p.selectUnitQuery();
   let visitor = new Visitor();
   let selectionUnitAst = visitor.visitSelectUnitQuery(tree);
+  return selectionUnitAst;
+}
+
+export function getSelectionUnitAst(code: string) {
   // FIXME: limitation: do not use stars
   // normalizeColumnSelection
+  const selectionUnitAst = getVanillaSelectionUnitAst(code);
   inferTypeForSelection(selectionUnitAst, {ir: diel.ir});
   // inferType
   return selectionUnitAst;
