@@ -313,7 +313,7 @@ DISTINCT: D I S T I N C T;
 
 INT: N U M B E R  | I N T E G E R | I N T | R E A L;
 TEXT: S T R I N G | T E X T;
-LATEST: L A S T E S T;
+LATEST: L A T E S T;
 
 MINUS: '-';
 DELIM: ';';
