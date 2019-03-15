@@ -1,5 +1,4 @@
-import { DataType } from "./dielAstTypes";
-import { ColumnSelection, RelationSelection } from "./sqlAstTypes";
+import { DataType, ColumnSelection, RelationSelection } from "./dielAstTypes";
 
 /**
  * Notes

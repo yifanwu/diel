@@ -1,5 +1,4 @@
-import { DielAst, DerivedRelation, CrossFilterIr, RelationType } from "../../parser/dielAstTypes";
-import { SetOperator, SelectionUnit, RelationSelection, AstType } from "../../parser/sqlAstTypes";
+import { DielAst, DerivedRelation, CrossFilterIr, RelationType, SetOperator, SelectionUnit, RelationSelection, AstType } from "../../parser/dielAstTypes";
 
 /**
  * Notes:
@@ -8,7 +7,7 @@ import { SetOperator, SelectionUnit, RelationSelection, AstType } from "../../pa
  */
 export function applyCrossfilter(ast: DielAst): void {
   const newSetsOfViews = ast.crossfilters.map(c => _getViews(c));
-  ast.views = ast.views.concat(...newSetsOfViews);
+  ast.relations = ast.relations.concat(...newSetsOfViews);
 }
 
 function _getViews(xIr: CrossFilterIr): DerivedRelation[] {

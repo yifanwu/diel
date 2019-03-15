@@ -3,7 +3,6 @@ grammar DIEL;
 queries : (
            viewStmt
            | programStmt
-           | staticTableStmt
            | crossfilterStmt
            | templateStmt
            | insertQuery
@@ -12,10 +11,6 @@ queries : (
            | registerTypeUdf
            | dropQuery
           )+;
-
-staticTableStmt
-  : CREATE TABLE IDENTIFIER AS selectQuery DELIM
-  ;
 
 registerTypeUdf
   : REGISTER UDF IDENTIFIER TYPE dataType DELIM
@@ -80,7 +75,7 @@ columnConstraints
   ;
 
 viewStmt
-  : CREATE (((EVENT)? VIEW) | OUTPUT) IDENTIFIER AS selectQuery
+  : CREATE (((EVENT)? VIEW) | OUTPUT | TABLE) IDENTIFIER AS selectQuery
     (constraintClause)?
     DELIM
   ;
@@ -129,7 +124,7 @@ setOp
   ;
 
 selectUnitQuery
-  : SELECT
+  : SELECT (DISTINCT)?
     selectColumnClause (',' selectColumnClause)*
     (
       FROM
@@ -184,7 +179,7 @@ limitClause
   ;
 
 relationReference
-  : relation=IDENTIFIER (AS? alias=IDENTIFIER)? # relationReferenceSimple
+  : (LASTEST?) relation=IDENTIFIER (AS? alias=IDENTIFIER)? # relationReferenceSimple
   | '(' selectQuery ')' (AS? alias=IDENTIFIER)? # relationReferenceSubQuery
   ;
 
@@ -204,9 +199,9 @@ expr
 // note that for the column one we should not recuycle th earlier selectColumnClause because
 // that's recursive and we want to keep unit as the base case IMO (not a concrete pattern yet)
 unitExpr
-  : (relation=IDENTIFIER '.')? (column=IDENTIFIER | STAR)       # unitExprColumn
-  | '(' selectQuery ')'  # unitExprSubQuery // check to make sure it's a single value
-  | value                    # unitExprValue
+  : (relation=IDENTIFIER '.')? (column=IDENTIFIER | STAR) # unitExprColumn
+  | '(' selectQuery ')'                                   # unitExprSubQuery // check to make sure it's a single value
+  | value                                                 # unitExprValue
   ;
 
 selectColumnClause
@@ -314,10 +309,11 @@ ASC: A S C;
 DESC: D E S C;
 AUTOINCREMENT: A U T O I N C R E M E N T;
 DATETIME: D A T E T I M E;
+DISTINCT: D I S T I N C T;
 
-
-INT: N U M B E R  | I N T E G E R | I N T;
+INT: N U M B E R  | I N T E G E R | I N T | R E A L;
 TEXT: S T R I N G | T E X T;
+LASTEST: L A S T E S T;
 
 MINUS: '-';
 DELIM: ';';

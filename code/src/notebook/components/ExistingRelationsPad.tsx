@@ -1,6 +1,6 @@
 import * as React from "react";
 import { diel } from "../setup";
-import { Column } from "../../parser/sqlAstTypes";
+import { Column } from "../../parser/dielAstTypes";
 
 interface ExistingRelationsPadState {
 }

@@ -29,6 +29,13 @@ body {
   color: orange;
 }
 
+.top-nav {
+  height: 50px;
+}
+
+.right-body {
+  float: left;
+}
 
 btn {
   border: 0;
@@ -70,4 +77,13 @@ td, th {
   border: 1px solid #999;
   padding: 0.5rem;
   text-align: left;
+}
+
+.selection-options {
+  padding: 10px;
+  background-color: lightblue;
+}
+
+.selection-options:hover {
+  background-color: deepskyblue;
 }

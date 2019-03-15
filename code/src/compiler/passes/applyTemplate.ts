@@ -1,7 +1,6 @@
-import { JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType } from "../../parser/sqlAstTypes";
 import { ReportDielUserError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprRelationAst } from "../../parser/exprAstTypes";
-import { OriginalRelation } from "../../parser/dielAstTypes";
+import { OriginalRelation, JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType  } from "../../parser/dielAstTypes";
 import { DielIr } from "../DielIr";
 
 /**
@@ -19,7 +18,7 @@ import { DielIr } from "../DielIr";
  */
 export function applyTemplates(ir: DielIr) {
   // note: i think the concat should be fine with modifying in place?
-  ir.GetViews().map(r => tryToApplyATemplate(r.selection));
+  ir.GetAllDerivedViews().map(r => tryToApplyATemplate(r.selection));
   ir.ast.crossfilters.map(x => {
     x.charts.map(c => {
       tryToApplyATemplate(c.predicate);

@@ -4,46 +4,35 @@ import { DIELParser, QueriesContext } from "../parser/grammar/DIELParser";
 
 import { loadPage } from "../notebook/index";
 import { Database, Statement } from "sql.js";
-import { SelectionUnit } from "../parser/sqlAstTypes";
-import { RuntimeCell, SimpleObject, DielRuntimeConfig, TableMetaData, TableLocation, } from "./runtimeTypes";
-import { OriginalRelation, DerivedRelation, DielPhysicalExecution, RelationType, } from "../parser/dielAstTypes";
-import { generateSelectionUnit, generateSqlFromDielAst } from "../compiler/codegen/codeGenSql";
+import { RuntimeCell, DielRemoteAction, RelationObject, DielRuntimeConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, } from "./runtimeTypes";
+import { OriginalRelation, DerivedRelation, RelationType, SelectionUnit } from "../parser/dielAstTypes";
+import { generateSelectionUnit, generateSqlFromDielAst, generateSqlViews } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
-import { CompileDiel, CompilePhysicalExecution } from "../compiler/DielCompiler";
+import { CompileDiel } from "../compiler/DielCompiler";
 import { log } from "../lib/dielUdfs";
 import { downloadHelper } from "../lib/dielUtils";
-import { LogInternalError, LogTmp, ReportUserRuntimeError, LogWarning, QueryConsoleColorSpec } from "../lib/messages";
+import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, QueryConsoleColorSpec, ReportUserRuntimeWarning, DielInternalErrorType, ReportDielUserError, UserErrorType } from "../lib/messages";
 import { DielIr } from "../compiler/DielIr";
-import { processSqliteMasterMetaData } from "./runtimeHelper";
-import WorkerPool from "./WorkerPool";
-// import { generateVizSpecForSingleQuery } from "../notebook/vizSpec/generateVizSpec";
+import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult } from "./runtimeHelper";
+import { DielPhysicalExecution, DbIdType, LocalDbId, LogicalTimestep, RelationIdType } from "../compiler/DielPhysicalExecution";
+import DbEngine from "./DbEngine";
+import { CreateDerivedSelectionSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
 
 import {viewConstraintCheck} from "../tests/compilerTests/generateViewConstraints";
 
 // hm watch out for import path
 //  also sort of like an odd location...
 const StaticSqlFile = "./src/compiler/codegen/static.sql";
+export const INIT_TIMESTEP = 1;
 
-export enum WorkerCmd {
-  InitialSetUp = "InitialSetUp",
-  ShareInputAfterTick = "ShareInputAfterTick",
-  ShareViewsAfterTick = "ShareViewsAfterTick",
-}
-
-export const SqliteMasterQuery = `SELECT sql, name table_name FROM sqlite_master WHERE type='table' and sql not null`;
+export const SqliteMasterQuery = `
+  SELECT sql, name FROM sqlite_master WHERE type='table' and sql not null`;
 
 type ReactFunc = (v: any) => void;
-type OutputConfig = {
-  notNull?: boolean,
-};
-const defaultOuptConfig = {
-  notNull: false,
-};
 
 type TickBind = {
   outputName: string,
   uiUpdateFunc: ReactFunc,
-  outputConfig: OutputConfig
 };
 
 class ViewConstraintQuery {
@@ -52,133 +41,149 @@ class ViewConstraintQuery {
 }
 
 export type MetaDataPhysical = Map<string, TableMetaData>;
+type DbMetaData = {
+  dbType: DbType;
+};
 
-/**
- * DielIr would now take an empty ast
- * - we would then progressively add queries, also contains the setup logic with the db here
- * - there would be no sql and ts generation here as a result
- * - also use the DielIr internal functions to add the new queries
- *
- * FIXME: fix the DIEL congfig logic
- */
+export type PhysicalMetaData = {
+  dbs: Map<DbIdType, DbMetaData>;
+  relationLocation: Map<string, TableMetaData>;
+};
+
+export type RelationShippingFuncType = (view: string, o: RelationObject, lineage?: number) => void;
+
 export default class DielRuntime {
+  timestep: LogicalTimestep;
+  eventByTimestep: Map<LogicalTimestep, RelationIdType>;
   ir: DielIr;
   physicalExecution: DielPhysicalExecution;
-  // constraintsQueries: string[];
-  workerPool: WorkerPool;
-  metaData: MetaDataPhysical;
+  dbEngines: Map<DbIdType, DbEngine>;
+  workerDbPaths: string[];
+  physicalMetaData: PhysicalMetaData;
   runtimeConfig: DielRuntimeConfig;
   cells: RuntimeCell[];
   db: Database;
+  scales: RelationObject;
   visitor: Visitor;
   constraintQueries: Map<string, ViewConstraintQuery>;
   checkConstraints: boolean;
   protected boundFns: TickBind[];
-  protected output: Map<string, Statement>;
+  protected runtimeOutputs: Map<string, Statement>;
 
   constructor(runtimeConfig: DielRuntimeConfig) {
-    // temp, fixme
-    (<any>window).diel = this;
+    (<any>window).diel = this; // for debugging
+    this.timestep = INIT_TIMESTEP;
     this.runtimeConfig = runtimeConfig;
+    this.eventByTimestep = new Map();
     this.cells = [];
     this.visitor = new Visitor();
     this.constraintQueries = new Map();
     this.checkConstraints = true;
-    // the following are run time bindings for the reactive layer
-    // this.input = new Map();
-    this.output = new Map();
-    this.metaData = new Map();
+    this.dbEngines = new Map();
+    this.runtimeOutputs = new Map();
+    this.physicalMetaData = {
+      dbs: new Map(),
+      relationLocation: new Map()
+    };
     this.boundFns = [];
     this.runOutput = this.runOutput.bind(this);
-    this.tick = this.tick.bind(this);
+    // this.tick = this.tick.bind(this);
     this.BindOutput = this.BindOutput.bind(this);
     this.setup();
   }
 
-  public BindOutput(view: string, reactFn: ReactFunc, cIn = {} as OutputConfig) {
-    if (!this.output.has(view)) {
-      ReportUserRuntimeError(`output not defined ${view}, from current outputs of: [${Array.from(this.output.keys()).join(", ")}]`);
+  getEventByTimestep(timestep: LogicalTimestep) {
+    return this.eventByTimestep.get(timestep);
+  }
+  public BindOutput(outputName: string, reactFn: ReactFunc) {
+    if (!this.runtimeOutputs.has(outputName)) {
+      ReportUserRuntimeError(`output not defined ${outputName}, from current outputs of: [${Array.from(this.runtimeOutputs.keys()).join(", ")}]`);
     }
     // immtable
-    const outputConfig = Object.assign({}, defaultOuptConfig, cIn);
-    this.boundFns.push({outputName: view, uiUpdateFunc: reactFn, outputConfig });
+    // const outputConfig = Object.assign({}, defaultOuptConfig);
+    this.boundFns.push({outputName: outputName, uiUpdateFunc: reactFn });
+    // this is used for views that do not have inputs
+    const staticTriggers = this.physicalExecution.getStaticAsyncViewTrigger(outputName);
+    if (staticTriggers && staticTriggers.length > 0) {
+      console.log(`Sending triggers for async static output: ${outputName}`, staticTriggers);
+      if (staticTriggers) {
+        staticTriggers.map(t => {
+          const msg: RemoteShipRelationMessage = {
+            remoteAction: DielRemoteAction.ShipRelation,
+            relationName: t.relation,
+            dbId: t.dbId,
+            lineage: INIT_TIMESTEP
+          };
+          this.findRemoteDbEngine(t.dbId).SendMsg(msg);
+      });
+      }
+    }
   }
 
-  public GetView(view: string) {
+
+  /**
+   * GetView need to know if it's dependent on an event table
+   *   in which case it will go and fetch the depdent events which are NOT depent on inputs
+   *   it will also remember if this was done before
+   *   add these special cases into physical execution logic
+   * @param view
+   */
+  public GetView(view: string): RelationObject {
     // FIXME: refactor OuptConfig, not really needed
-    return this.simpleGetLocal(view, defaultOuptConfig);
+    return this.simpleGetLocal(view);
   }
 
-  public NewInputMany(i: string, o: any[], lineage?: number) {
-    this.newInputHelper(i, o, lineage);
+  // verbose just to make sure that the exported type is kept in sync
+  public NewInputMany: RelationShippingFuncType = (view: string, o: any, lineage?: number) => {
+    lineage = lineage ? lineage : this.timestep;
+    this.newInputHelper(view, o, lineage);
   }
 
-  // FIXME: gotta do some run time type checking here!
-  // also fixme should use codegen and not string manipulation?
-  // very inefficient, fixme
-  public NewInput(i: string, o: any) {
-    this.newInputHelper(i, [o]);
-    // let tsI = Object.assign({$ts: timeNow()}, o);
-    // TODO: check if the objects match
-    // then add the dollar signs
-    // const inStmt = this.input.get(i);
-
-    // if (!inStmt) {
-    //   ReportUserRuntimeError(`Input ${i} not found`);
-    //   return;
-    // }
-    // const keys = Object.keys(o);
-    // let newO: any = {};
-    // keys.map(k => newO[`$${k}`] = o[k]);
-    // inStmt.run(newO);
+  public NewInput(i: string, o: any, lineage?: number) {
+    lineage = lineage ? lineage : this.timestep;
+    this.newInputHelper(i, [o], lineage);
   }
 
   // FIXME: use AST instead of string manipulation...
-  private newInputHelper(i: string, objs: any[], lineage?: number) {
-    const r = this.ir.GetEventByName(i);
+  private newInputHelper(eventName: string, objs: any[], lineage: number) {
+    this.timestep++;
+    this.eventByTimestep.set(this.timestep, eventName);
     let columnNames: string[] = [];
-    if (r.relationType === RelationType.EventTable) {
-      columnNames = (r as OriginalRelation).columns.map(c => c.name);
-    } else {
-      columnNames = (r as DerivedRelation)
-        .selection.compositeSelections[0]
-        .relation.derivedColumnSelections.map(c => c.alias);
-    }
-    // ${r.columns.map(c => c.name).map(v => `$${v}`).join(", ")}
-    const rowQuerys = objs.map(o => {
-      let values = ["max(timestep)"];
-      columnNames.map(cName => {
-        const raw = o[cName];
-        if ((raw === null) || (raw === undefined)) {
-          ReportUserRuntimeError(`We expected the input ${cName}, but it was not defined in the object.`);
-        }
-        if (typeof raw === "string") {
-          values.push(`'${raw}'`);
-        } else {
-          values.push(raw);
+    const eventDefinition = this.ir.GetEventByName(eventName);
+    if (eventDefinition) {
+      if (eventDefinition.relationType === RelationType.EventTable) {
+        columnNames = (eventDefinition as OriginalRelation).columns.map(c => c.name);
+      } else {
+        columnNames = (eventDefinition as DerivedRelation)
+          .selection.compositeSelections[0]
+          .relation.derivedColumnSelections.map(c => c.alias);
+      }
+      const values = objs.map(o => {
+        return columnNames.map(cName => {
+          const raw = o[cName];
+          if ((raw === null) || (raw === undefined)) {
+            ReportUserRuntimeError(`We expected the input ${cName}, but it was not defined in the object.`);
+          }
+          return (typeof raw === "string") ? `'${raw}'` : raw;
+        });
+      });
+      const finalQuery = `
+      insert into ${eventName} (timestep, lineage, ${columnNames.join(", ")}) values
+        ${values.map(v => `(${this.timestep}, ${lineage}, ${v.join(", ")})`)};
+      insert into allInputs (timestep, inputRelation, timestamp, lineage) values
+        (${this.timestep}, '${eventName}', ${Date.now()}, ${lineage});`;
+      console.log(`%c Tick Executing\n${finalQuery}`, QueryConsoleColorSpec);
+      this.db.exec(finalQuery);
+      const inputDep = this.ir.dependencies.inputDependenciesOutput.get(eventName);
+      this.boundFns.map(b => {
+        if (inputDep.has(b.outputName)) {
+          this.runOutput(b);
         }
       });
-      if (lineage) {
-        return `select ${values.join(",")}, ${lineage} from allInputs`;
-      } else {
-        return `select ${values.join(",")} from allInputs`;
-      }
-    });
-    // lazy
-    let insertQuery;
-    if (lineage) {
-      insertQuery = `insert into ${r.name} (timestep, ${columnNames.join(", ")}, lineage)
-      ${rowQuerys.join("\nUNION\n")};`;
-
+      this.shipWorkerInput(eventName, this.timestep);
     } else {
-      insertQuery = `insert into ${r.name} (timestep, ${columnNames.join(", ")})
-      ${rowQuerys.join("\nUNION\n")};`;
+      ReportUserRuntimeError(`Event ${eventName} is not defined`);
     }
-    const finalQuery = `${insertQuery}
-    insert into allInputs (inputRelation) values ('${r.name}');`;
-    console.log(`%c ${finalQuery}`, QueryConsoleColorSpec);
-    this.db.exec(finalQuery);
-
   }
 
   /**
@@ -187,7 +192,7 @@ export default class DielRuntime {
    *   and possibly materialization (basically can be in SQL triggers or our own even handling layer)
    */
   runOutput(b: TickBind) {
-    const r = this.simpleGetLocal(b.outputName, b.outputConfig);
+    const r = this.simpleGetLocal(b.outputName);
     if (r) {
       b.uiUpdateFunc(r);
     }
@@ -230,69 +235,109 @@ export default class DielRuntime {
     }
   }
 
-  downloadDB() {
-    let dRaw = this.db.export();
-    let blob = new Blob([dRaw]);
-    downloadHelper(blob,  "session");
+  // downloadDB() {
+  //   let dRaw = this.db.export();
+  //   let blob = new Blob([dRaw]);
+  //   downloadHelper(blob,  "session");
+  // tick() {
+  //   const boundFns = this.boundFns;
+  //   const runOutput = this.runOutput;
+  //   const dependencies = this.ir.dependencies.inputDependenciesOutput;
+  //   const shipWorkerInput = this.shipWorkerInput;
+  //   return (input: string, step: LogicalTimestep) => {
+  //     // note for Lucie: add constraint checking
+  //     console.log(`%c tick ${input}`, "color: blue");
+  //   };
+  // }
+
+  downloadDB(dbId?: DbIdType) {
+    if ((!dbId) || (dbId === LocalDbId)) {
+      let dRaw = this.db.export();
+      let blob = new Blob([dRaw]);
+      downloadHelper(blob,  "session");
+    } else {
+      const remote = this.dbEngines.get(dbId);
+      if (remote) {
+        remote.downloadDb();
+      }
+    }
   }
 
-  simpleGetLocal(view: string, c: OutputConfig) {
-    const s = this.output.get(view);
-    s.bind({});
-    let r = [];
-    while (s.step()) {
-      r.push(s.getAsObject());
+  simpleGetLocal(view: string): RelationObject {
+    const s = this.runtimeOutputs.get(view);
+    if (s) {
+      s.bind({});
+      let r = [];
+      while (s.step()) {
+        r.push(s.getAsObject());
+      }
+      if (r.length > 0) {
+        return r;
+      } else {
+        ReportUserRuntimeWarning(`${view} did not return any results.`);
+      }
+    } else {
+      ReportUserRuntimeError(`${view} does not exist.`);
     }
-    if (c.notNull && r.length === 0) {
-      throw new Error(`${view} should not be null`);
-    }
-    if (r.length > 0) {
-      return r;
-    }
-    console.log(`%cError ${view} did not return a value`, "color: red");
     return null;
   }
 
-
-  /**
-   * sets up both the maindb and the worker
-   * TODO: a local SQLite/Postgres instance
-   */
   private async setup() {
     console.log(`Setting up DielRuntime with ${JSON.stringify(this.runtimeConfig)}`);
     await this.setupMainDb();
-    await this.setupWorkerPool();
+    await this.setupRemotes();
     await this.initialCompile();
     this.setupUDFs();
-    // now parse DIEL
-    // below are logic for the physical execution of the programs
-    // we first do the distribution
-    this.physicalExecution = CompilePhysicalExecution(this);
-    // now execute the physical views and programs
-    this.executeToDBs();
-    this.setupAllInputOutputs();
+    this.physicalExecution = new DielPhysicalExecution(this.ir, this.physicalMetaData, this.getEventByTimestep.bind(this));
+    await this.executeToDBs();
+    this.ir.GetOutputs().map(o => this.setupNewOutput(o));
+    this.scales = ParseSqlJsWorkerResult(this.db.exec("select * from __scales"));
     loadPage();
   }
 
   async initialCompile() {
     this.visitor = new Visitor();
-    const r = this.db.exec(SqliteMasterQuery);
-    let code = processSqliteMasterMetaData(r).queries;
-    let workerInfo = await this.workerPool.getMetaData();
-    workerInfo.forEach((e, i) => {
-      code += e.queries;
-      e.names.forEach((n) => this.metaData.set(n, {
-        location: TableLocation.Worker,
-        accessInfo: i
-      }));
+    const tableDefinitions = SqlJsGetObjectArrayFromQuery(this.db, SqliteMasterQuery);
+    tableDefinitions.map(m => {
+      const name = m["name"].toString();
+      if (this.physicalMetaData.relationLocation.has(name)) {
+        LogInternalError(`DBs should not have the same table names`);
+      } else {
+        this.physicalMetaData.relationLocation.set(name, {
+          dbId: LocalDbId
+        });
+      }
     });
-    console.log("got workerInfo", workerInfo);
-    // TODO: for workers as well
+    this.physicalMetaData.dbs.set(LocalDbId, {dbType: DbType.Local});
+    let code = processSqlMetaDataFromRelationObject(tableDefinitions);
+    // for (let i = 0; i < this.dbEngines.length; i ++) {
+    const promises: Promise<{id: DbIdType, data: RecordObject[]}>[] = [];
+    this.dbEngines.forEach((db) => {
+      this.physicalMetaData.dbs.set(db.id, {dbType: db.remoteType});
+      promises.push(db.getMetaData(db.id));
+    });
+    const metadatas = await Promise.all(promises);
+    metadatas.map(mD => {
+      code += processSqlMetaDataFromRelationObject(mD.data);
+      // .map(m => m["sql"] + ";").join("\n");
+      mD.data.map(m => {
+        const name = m["name"].toString();
+        if (this.physicalMetaData.relationLocation.has(name)) {
+          LogInternalError(`DBs should not have the same table names`);
+        } else {
+          this.physicalMetaData.relationLocation.set(name, {
+            dbId: mD.id
+          });
+        }
+      });
+    });
+
+    // get the static ones
+    code += await (await fetch(StaticSqlFile)).text();
     for (let i = 0; i < this.runtimeConfig.dielFiles.length; i ++) {
       const f = this.runtimeConfig.dielFiles[i];
       code += await (await fetch(f)).text();
     }
-    // read the files in now
     const codeWithLine = code.split("\n");
     console.log(`%c DIEL Code Generated:\n${codeWithLine.map((c, i) => `${i + 1}\t${c}`).join("\n")}`, "color: green");
     const inputStream = new ANTLRInputStream(code);
@@ -313,42 +358,98 @@ export default class DielRuntime {
       }
     });
     console.log(this.constraintQueries);
+    // test the IR here
   }
 
-
-  async setupWorkerPool() {
-    this.workerPool = new WorkerPool(this.runtimeConfig.workerDbPaths, this);
-    await this.workerPool.setup();
+  async setupRemotes() {
+    const inputCallback = this.NewInputMany.bind(this);
+    let counter = LocalDbId;
+    const workerWaiting = this.runtimeConfig.workerDbPaths
+      ? this.runtimeConfig.workerDbPaths.map(path => {
+        counter++;
+        const remote = new DbEngine(DbType.Worker, counter, inputCallback);
+        this.dbEngines.set(counter, remote);
+        return remote.setup(path);
+      })
+      : [];
+    const socketWaiting = this.runtimeConfig.socketConnections
+      ? this.runtimeConfig.socketConnections.map(socket => {
+        counter++;
+        const remote = new DbEngine(DbType.Socket, counter, inputCallback);
+        this.dbEngines.set(counter, remote);
+        return remote.setup(socket.url, socket.dbName);
+      })
+      : [];
+    await Promise.all(workerWaiting.concat(socketWaiting));
     return;
   }
 
-  setupUDFs() {
+  // private updateRemotesBasedOnPhysicalExecution() {
+  //   this.dbEngines.forEach((db) => {
+  //     const getRelationDependencies = this.physicalExecution.getRelationDependenciesForDb(db.id);
+  //     const getRelationsToShip = this.physicalExecution.getRelationsToShipForDb.bind(this);
+  //     const getBubbledUpRelationToShip = this.physicalExecution.getBubbledUpRelationToShip.bind(this);
+  //     db.setupByPhysicalExecution(getRelationDependencies, getRelationsToShip, getBubbledUpRelationToShip);
+  //   });
+  // }
+
+  private setupUDFs() {
     this.db.create_function("log", log);
-    this.db.create_function("tick", this.tick());
-    this.db.create_function("shipWorkerInput", this.shipWorkerInput.bind(this));
+    // this.db.create_function("tick", this.tick());
+    // this.db.create_function("shipWorkerInput", this.shipWorkerInput.bind(this));
   }
 
-  // maybe change this to generating ASTs as opppsoed to strings?
   shipWorkerInput(inputName: string, timestep: number) {
-    const shipDestination = this.physicalExecution.mainToWorker.get(inputName);
-    const shareQuery = `select * from ${inputName}`;
-    let tableRes = this.db.exec(shareQuery)[0];
-    if ((!tableRes) || (!tableRes.values)) {
-      LogWarning(`Query ${shareQuery} has NO result`);
+    // const remotesToShipTo = this.physicalExecution.getShippingInfoForDbByEvent(inputName, LocalDbId);
+    const remotesToShipTo = this.physicalExecution.getBubbledUpRelationToShip(LocalDbId, inputName);
+    // FIXME: we can improve performance by grouping by the views to ship so that they are not evaluated multiple times.
+    if (remotesToShipTo && remotesToShipTo.length > 0) {
+      remotesToShipTo.map(t => {
+        const shareQuery = `select * from ${t.relation}`;
+        let tableRes = this.db.exec(shareQuery)[0];
+        if ((!tableRes) || (!tableRes.values)) {
+          LogInternalWarning(`Query ${shareQuery} has NO result`);
+        }
+        // FIXME: have more robust typing instead of quoting everything; look up types...
+        const values = tableRes.values.map((d: any[]) => `(${d.map((v: any) => (v === null) ? "null" : `'${v}'`).join(", ")})`);
+        let sql = `
+          DELETE from ${t.relation};
+          INSERT INTO ${t.relation} VALUES ${values};
+        `;
+        const updateMsg: RemoteUpdateRelationMessage = {
+          remoteAction: DielRemoteAction.UpdateRelation,
+          relationName: t.relation,
+          lineage: timestep,
+          sql
+        };
+        this.dbEngines.get(t.destination).SendMsg(updateMsg);
+      });
     }
-    // FIXME: have more robust typing here...
-    // need to make null explicit here...
-    // selection needs to have a quote around it...
-    const values = tableRes.values.map((d: any[]) => `(${d.map((v: any) => (v === null) ? "null" : `'${v}'`).join(", ")})`);
-    let sql = `
-      DELETE from ${inputName};
-      INSERT INTO ${inputName} VALUES ${values};
-    `;
-    const params = {lineage: timestep};
-    shipDestination.forEach((v => {
-      this.workerPool.SendWorkerQuery(sql, WorkerCmd.ShareInputAfterTick, v, false, params);
-    }));
+    // if (remotesToShipTo.destinationDbIds && remotesToShipTo.destinationDbIds.length > 0) {
+    //   remotesToShipTo.destinationDbIds.forEach((remoteId => {
+    //     const remote = this.findRemoteDbEngine(remoteId);
+    //     if (remote) {
+    //       const msg: RemoteUpdateRelationMessage = {
+    //         remoteAction: DielRemoteAction.UpdateRelation,
+    //         relationName: inputName,
+    //         lineage: timestep,
+    //         sql,
+    //       };
+    //       remote.SendMsg(msg);
+    //     }
+    //   }));
+    // }
   }
+
+  private findRemoteDbEngine(remoteId: DbIdType) {
+    // some increment logic...
+    const r = this.dbEngines.get(remoteId);
+    if (!r) {
+      LogInternalError(`Remote ${remoteId} not found`);
+    }
+    return r;
+  }
+
   /**
    * returns the DIEL code that will be ran to register the tables
    */
@@ -365,24 +466,17 @@ export default class DielRuntime {
       (<any>window).mainDb = this.db;
       // FIXME: might have some weird issues with types of DIEL tables?
     }
-    // and run the static file that we need
-    const staticQuery = await (await fetch(StaticSqlFile)).text();
-    this.db.run(staticQuery);
     return;
-  }
-
-  setupAllInputOutputs() {
-    // this.ir.GetInputs().map(i => this.setupNewInput(i));
-    this.ir.GetAllViews().map(o => this.setupNewOutput(o));
   }
   /**
    * output tables HAVE to be local tables
    *   since they are synchronous --- if they are over other tables
    *   it would be handled via some trigger programs
+   * FIXME: just pass in what it needs, the name str
    */
   private setupNewOutput(r: DerivedRelation) {
     const q = `select * from ${r.name}`;
-    this.output.set(
+    this.runtimeOutputs.set(
       r.name,
       this.dbPrepare(q)
     );
@@ -392,34 +486,68 @@ export default class DielRuntime {
     try {
       return this.db.prepare(q);
     } catch (e) {
-      console.log(`%c Had error ${e} while running query ${q}`, "color: red");
+      LogInternalError(`Got ${e} while preparing for query ${q}`);
     }
   }
 
   /**
    * returns the results as an array of objects (sql.js)
    */
-  ExecuteAstQuery(ast: SelectionUnit): SimpleObject[] {
+  ExecuteAstQuery(ast: SelectionUnit): RelationObject {
     const queryString = generateSelectionUnit(ast);
     return this.ExecuteStringQuery(queryString);
   }
 
-  ExecuteStringQuery(q: string): SimpleObject[] {
-    let r: SimpleObject[] = [];
-    this.db.each(q, (row) => { r.push(row as SimpleObject); }, () => {});
+  ExecuteStringQuery(q: string): RelationObject {
+    let r: RelationObject = [];
+    this.db.each(q, (row) => { r.push(row as RecordObject); }, () => {});
     return r;
   }
 
-  // TODO low pri
-  // ChangeQueryVersion(qId: QueryId, ) {
-  // }
-
-  AddQuery() {
-    throw new Error(`not implemnted`);
-    // const cId = this.generateQId();
-    // const name = this.createCellName(cId);
+  // takes in teh SqlIrs in different environments and sticks them into the databases
+  // FIXME: better async handling
+  // also should fix the async logic
+  async executeToDBs() {
+    LogTmp(`Executing queries to db`);
+    // const mainSqlQUeries = generateSqlFromDielAst(this.physicalExecution.getLocalDbAst());
+    // now execute to worker!
+    const promises: Promise<any>[] = [];
+    this.physicalExecution.astSpecPerDb.forEach((ast, id) => {
+      if (id === LocalDbId) {
+        const queries = generateSqlFromDielAst(ast);
+        for (let s of queries) {
+          try {
+            console.log(`%c Running Query in Main:\n${s}`, "color: purple");
+            this.db.run(s);
+          } catch (error) {
+            LogInternalError(`Error while running\n${s}\n${error}`);
+          }
+        }
+      } else {
+        const remoteInstance = this.findRemoteDbEngine(id);
+        remoteInstance.setPhysicalExecutionReference(this.physicalExecution);
+        const replace = remoteInstance.remoteType === DbType.Socket;
+        const queries = generateSqlFromDielAst(ast, replace);
+        if (remoteInstance) {
+          if (queries && queries.length > 0) {
+            const sql = queries.map(q => q + ";").join("\n");
+            const msg: RemoteExecuteMessage = {
+              remoteAction: DielRemoteAction.DefineRelations,
+              lineage: INIT_TIMESTEP,
+              sql
+            };
+            promises.push(remoteInstance.SendMsg(msg, true));
+          }
+        } else {
+          LogInternalError(`Remote ${id} is not found!`);
+        }
+      }
+    });
+    await Promise.all(promises);
+    return;
   }
 
+  // ------------------------ for notebook related -----------------------------
   ChangeQuery() {
     throw new Error(`not implemnted`);
     // const q = this.getQueryById(qId);
@@ -429,31 +557,38 @@ export default class DielRuntime {
     // refresh the annotation
   }
 
-  // takes in teh SqlIrs in different environments and sticks them into the databases
-  // FIXME: better async handling
-  // also should fix the async logic
-  executeToDBs() {
-    LogTmp(`Executing queries to db`);
-    const mainSqlQUeries = generateSqlFromDielAst(this.physicalExecution.main);
-    for (let s of mainSqlQUeries) {
-      try {
-        console.log(`%c Running Query in Main:\n${s}`, "color: purple");
-        this.db.run(s);
-      } catch (error) {
-        LogInternalError(`Error while running\n${s}\n${error}`);
-      }
+  public GetScales(output: string, component?: string) {
+    let result;
+    if (component) {
+      result = this.scales.filter(s => s.component === component && s.output === output);
     }
-    // now execute to worker!
-    this.physicalExecution.workers.forEach((v, k) => {
-      const queries = generateSqlFromDielAst(v);
-      if (queries && queries.length > 0) {
-        const sql = queries.join(";\n");
-        console.log(`%c Running Query in Worker[${k}]:\n${sql}`, "color: pink");
-        this.workerPool.SendWorkerQuery(sql, WorkerCmd.InitialSetUp, k, false);
-      }
-    });
+    result = this.scales.filter(s => s.outputName === output);
+    if (!result || result.length === 0) {
+      ReportDielUserError(`Scale not defined for ${output} ${component ? `for compoenetn ${component}` : ""}`, UserErrorType.UndefinedScale);
+    } else if (result.length > 1) {
+      ReportUserRuntimeWarning(`Output ${output} used for multiple ${component ? `for compoenetn ${component}` : ""}`);
+    }
+    return result;
   }
-  // used for debugging
+  /**
+   * AddView will take in a derived relation (the view)
+   * FIXME/TODO:
+   * - assume this is local (so it does not need to be processed by distributed query)
+   * - also assume that it's compiled (i.e., typed & normalized etc)
+   * and we can just add it to the output list
+   */
+  public AddView(q: DerivedRelation) {
+    const queryStr = generateSqlViews(CreateDerivedSelectionSqlAstFromDielAst(q));
+    this.addViewToLocal(queryStr);
+    this.setupNewOutput(q);
+  }
+
+  private addViewToLocal(query: string): void {
+    // exec to loca!
+    this.db.run(query);
+  }
+
+  // ------------------------ debugging related ---------------------------
   inspectQueryResult(query: string) {
     let r = this.db.exec(query)[0];
     if (r) {

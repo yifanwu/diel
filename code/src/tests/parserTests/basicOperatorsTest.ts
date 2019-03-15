@@ -2,6 +2,7 @@ import { getDielIr } from "../../lib/cli-compiler";
 import { GenerateUnitTestErrorLogger, LogInfo } from "../../lib/messages";
 import { ExprColumnAst, ExprFunAst } from "../../parser/exprAstTypes";
 import { assertExprAsFunctionWithName, assertExprAsColumnWithname, assertValue } from "../testHelper";
+import { DerivedRelation } from "../../parser/dielAstTypes";
 
 export function assertBasicOperators() {
   let q = `
@@ -14,7 +15,7 @@ export function assertBasicOperators() {
   `;
   const logger = GenerateUnitTestErrorLogger("assertBasicOperators", q);
   let ir = getDielIr(q);
-  const v1Relation = ir.allCompositeSelections.get("v1")[0].relation;
+  const v1Relation = (ir.GetRelationDef("v1") as DerivedRelation).selection.compositeSelections[0].relation;
   // test group by
   const groupByClauses = v1Relation.groupByClause;
   if (groupByClauses.selections.length !== 1) {

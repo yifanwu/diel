@@ -1,12 +1,12 @@
 import * as React from "react";
 
 import { diel } from "../../setup";
-import { SimpleObject, ChartType } from "../../../runtime/runtimeTypes";
+import { ChartType, RelationObject } from "../../../runtime/runtimeTypes";
 import { BarChart } from "../charts/BarChart";
 import { BrushBoxOneDim } from "../../vizSpec/vizSpec";
 
 interface ScoreZoomBarChartState {
-  data: SimpleObject[];
+  data: RelationObject;
 }
 
 export default class ScoreZoomBarChart extends React.Component<{}, ScoreZoomBarChartState> {
@@ -26,6 +26,7 @@ export default class ScoreZoomBarChart extends React.Component<{}, ScoreZoomBarC
   render() {
     const spec = {
       chartType: ChartType.BarChart,
+      relationName: "scoreDistribution",
       data: this.state.data,
       xAttribute: "scoreBin",
       yAttribute: "count"

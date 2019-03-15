@@ -1,8 +1,7 @@
 import { generateSelectionUnit } from "../../compiler/codegen/codeGenSql";
 import { GenerateUnitTestErrorLogger } from "../../lib/messages";
-import { SelectionUnit, JoinType, AstType } from "../../parser/sqlAstTypes";
 import { ExprType, FunctionType } from "../../parser/exprAstTypes";
-import { DataType } from "../../parser/dielAstTypes";
+import { DataType, SelectionUnit, JoinType, AstType } from "../../parser/dielAstTypes";
 
 /**
  * stripped of space and lower cased

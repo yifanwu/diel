@@ -1,5 +1,5 @@
-import { Column, JoinAst, RelationReference, ColumnSelection, InsertionClause, Drop, RelationSelection, CompositeSelectionUnit, OrderByAst, SelectionUnit, RawValues, GroupByAst } from "./sqlAstTypes";
 import { ExprAst, ExprValAst } from "./exprAstTypes";
+import { LogInternalError } from "../lib/messages";
 
 export interface DielTemplate {
   variables: string[];
@@ -24,20 +24,17 @@ export enum DataType {
   TBD = "TBD"
 }
 
-// made the design decision where the view is based on use
-// not at specification time
-// but keeping it just in case we need to differentiate in the future
-// export enum RelationType {
-// }
-
-// FIXME: decide on the name
 export enum RelationType {
   EventTable = "EventTable",
+  // these are etables taht do not generate their own timesteps
+  // their temporal relationships are managed by the queue
+  // IntermediateEventTable = "IntermediateEventTable",
   EventView = "EventView",
   Table = "Table",
+  DerivedTable = "DerivedTable",
   ExistingAndImmutable = "ExistingAndImmutable",
   View = "View",
-  StaticTable = "StaticTable",
+  // StaticTable = "StaticTable",
   Output = "Output",
 }
 
@@ -62,7 +59,6 @@ export interface TransferInfo {
   location: string;
 }
 
-// currently only support a single output
 export interface UdfType {
   udf: string;
   type: DataType;
@@ -134,36 +130,21 @@ interface RelationBase {
 }
 
 export interface DerivedRelation extends RelationBase {
-  relationType: RelationType;
   selection: RelationSelection;
 }
 
-// export interface ExistingRelation extends RelationBase {
-//   relationType: StaticRelationType;
-//   columns: Column[];
-//   serverInfo?: ServerConnection;
-// }
-
-// used for inputs and tables that are accessed by programs
 export interface OriginalRelation extends RelationBase {
   columns: Column[];
   copyFrom?: string; // this is used by templates
 }
 
-// TODO
-export interface ServerConnection {
-  serverName: string;
-}
+export type Relation = DerivedRelation | OriginalRelation;
+export type Command = RelationSelection | InsertionClause | DropClause;
 
 export type ForeignKey = {
   sourceColumn: string, targetRelation: string, targetColumn: string
 };
 
-// wow constraints are complicated
-// they are not recursive though
-// evaluating them will be a pain probably as well
-// I wonder if there is a similar dataflow structure for constraints???
-// also need to merge this with the column constraints later... ugh ugly
 export interface RelationConstraints {
   relationNotNull: boolean;
   relationHasOneRow: boolean;
@@ -172,15 +153,14 @@ export interface RelationConstraints {
   uniques?: string[][]; // there could be multiple unique claueses
   exprChecks?: ExprAst[]; // these are actually on colunmn level, a bit weird here
   foreignKeys?: ForeignKey[];
-  // the other parts are in columns.. ugh
+  // the other parts are in columns, which are normalized in in the normalize constraints pass
 }
 
-export type ProgramSpec = RelationSelection | InsertionClause;
 
 /**
- * If input is not specified, it's over all inputs.
+ * If input is not specified, i.e. "", it's over all inputs.
  */
-export type ProgramsIr = Map<string, ProgramSpec[]>;
+export type ProgramsIr = Map<string, Command[]>;
 
 export interface DielConfig {
   name?: string;
@@ -198,47 +178,34 @@ export interface DielContext {
 }
 
 export interface DielAst {
+  relations: Relation[];
+  commands: Command[];
   // inputs: OriginalRelation[];
-  originalRelations: OriginalRelation[];
+  // originalRelations: OriginalRelation[];
   // outputs: DerivedRelation[];
-  views: DerivedRelation[];
+  // views: DerivedRelation[];
   programs: ProgramsIr;
-  inserts: InsertionClause[];
-  drops: Drop[];
+  // inserts: InsertionClause[];
+    // drops: DropClause[];
   crossfilters: CrossFilterIr[];
   udfTypes: UdfType[];
 }
 
-export function createEmptyDieAst() {
+export function createEmptyDielAst() {
   const newAst: DielAst = {
-    originalRelations: [],
-    views: [],
+    // originalRelations: [],
+    relations: [],
+    // views: [],
     programs: new Map(),
-    inserts: [],
-    drops: [],
+    // inserts: [],
+    commands: [],
+    // drops: []
     crossfilters: [],
     udfTypes: [],
   };
   return newAst;
 }
 
-/**
- * currently include
- * - views for local/workers/remotes
- * - programs for shipping data
- *
- * future:
- * - indices
- * - caching
- */
-
-export interface DielPhysicalExecution {
-  workerToMain: Map<number, Set<string>>;
-  mainToWorker: Map<string, Set<number>>;
-  main: DielAst;
-  workers: Map<number, DielAst>;
-  remotes: Map<string, DielAst>;
-}
 
 export interface CrossFilterChartIr {
   chartName: string;
@@ -252,8 +219,7 @@ export interface CrossFilterIr {
   charts: CrossFilterChartIr[];
 }
 
-
-export type ProgramsParserIr = {input: string, queries: ProgramSpec[]};
+export type ProgramsParserIr = {input: string, queries: Command[]};
 
 export type ExpressionValue = DielAst
   | OriginalRelation
@@ -267,7 +233,7 @@ export type ExpressionValue = DielAst
   | CompositeSelectionUnit
   | RelationSelection
   | RelationConstraints
-  | ProgramSpec[]
+  | Command[]
   | string
   | string[]
   | RawValues
@@ -285,3 +251,155 @@ export type ExpressionValue = DielAst
   | UdfType
   | TemplateVariableAssignmentUnit
   ;
+
+
+export interface ColumnSelection {
+  expr: ExprAst; // the column name is subsumed by the ExprAst...
+  alias?: string;
+}
+
+export interface Column {
+  name: string;
+  type: DataType;
+  constraints?: ColumnConstraints;
+  defaultValue?: ExprAst;
+}
+
+
+// note that the string would need to contain quotes itself...
+// export interface DefaultValue {
+//   dataType: DataType;
+//   value: ;
+// }
+
+// currently a bit lazy about the default representation...
+export interface ColumnConstraints {
+  notNull?: boolean;
+  unique?: boolean;
+  primaryKey?: boolean;
+}
+
+export enum JoinType {
+  LeftOuter = "LeftOuter",
+  Inner = "Inner",
+  CROSS = "Cross"
+}
+
+export interface CompositeSelectionUnit {
+  // sequence of unions and intersections; SQL does not allow parenthesis here, they can create subqueries though
+  op: SetOperator;
+  relation: SelectionUnit;
+}
+
+/**
+ * NA is used fort he first relation
+ */
+export enum SetOperator {
+  NA = "NA",
+  UNION = "UNION",
+  UNIONALL = "UNIONALL",
+  INTERSECT = "INTERSECT",
+  EXCEPT = "EXCEPT"
+}
+
+export enum AstType {
+  Drop = "Drop",
+  Insert = "Insert",
+  Join = "Join",
+  RelationSelection = "RelationSelection"
+}
+
+interface AstBase {
+  astType: AstType;
+}
+
+export type CompositeSelection = CompositeSelectionUnit[];
+
+// ugh cannot be called selection because the DOM apparently is using this...
+export interface RelationSelection extends AstBase {
+  templateSpec?: TemplateVariableAssignments;
+  compositeSelections: CompositeSelection;
+}
+
+/**
+ * This is the meat of DIEL IR
+ * - it is recursive
+ * - derivedColumnSelections contains normalized selections
+ *   (all selections have specified source relations)
+ * - columns are derived types
+ * - note that the original query is left intact, so that the
+ *   user's original representation are kept as is.
+ */
+export interface SelectionUnit {
+  // this is first filled in by getting rid of the stars
+  // then it's filled by the type inference pass
+  isDistinct?: boolean;
+  derivedColumnSelections?: ColumnSelection[];
+  // these are filled in the parsing step
+  columnSelections: ColumnSelection[];
+  baseRelation?: RelationReference;
+  joinClauses?: JoinAst[];
+  whereClause?: ExprAst;
+  groupByClause?: GroupByAst;
+  orderByClause?: OrderByAst[];
+  limitClause?: ExprAst;
+}
+
+export interface RelationReference {
+  relationName?: string;
+  isLatest?: boolean;
+  alias?: string;
+  subquery?: RelationSelection;
+}
+
+/**
+ * If there is a subquery, then use alias, otherwise use the original relation name
+ * @param r relation reference
+ */
+export function getRelationReferenceName(r: RelationReference) {
+  const n = r.subquery ? r.alias : r.relationName;
+  if (!n) {
+    LogInternalError(`RelationReference either does not have an alias or name:\n ${JSON.stringify(r)}`);
+  }
+  return n;
+}
+
+export interface JoinAst extends AstBase {
+  templateSpec?: TemplateVariableAssignments;
+  joinType: JoinType;
+  relation: RelationReference;
+  alias?: string;
+  predicate?: ExprAst;
+}
+
+export type RawValues = (string|number|boolean)[];
+
+/**
+ * Insertion clause is either direct insertion of values
+ *   or derived another view
+ */
+export interface InsertionClause extends AstBase {
+  relation: string;
+  columns: string[];
+  selection?: RelationSelection;
+  values?: RawValues;
+}
+
+export enum Order {
+  ASC = "ASC",
+  DESC = "DESC"
+}
+
+export interface GroupByAst {
+  selections: ExprAst[];
+  predicate?: ExprAst;
+}
+
+export interface OrderByAst {
+  order: Order;
+  selection: ExprAst;
+}
+
+export interface DropClause extends AstBase {
+  relationName: string;
+}

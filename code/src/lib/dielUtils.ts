@@ -20,12 +20,30 @@ export function SetSymmetricDifference<T>(setA: Set<T>, setB: Set<T>): Set<T> {
   return _difference;
 }
 
+/**
+ * find elements in A but not in B
+ * @param setA
+ * @param setB
+ */
 export function SetDifference<T>(setA: Set<T>, setB: Set<T>): Set<T> {
   let _difference = new Set(setA);
   for (let elem of setB) {
     _difference.delete(elem);
   }
   return _difference;
+}
+
+export function IsSuperset<T>(superset: Set<T>, subset: Set<T>): boolean {
+  for (let elem of subset) {
+      if (!superset.has(elem)) {
+          return false;
+      }
+  }
+  return true;
+}
+
+export function IsSetIdentical<T>(setA: Set<T>, setB: Set<T>): boolean {
+  return SetDifference(setA, setB).size === 0;
 }
 
 export function SetUnion<T>(setA: Set<T>, setB: Set<T>): Set<T> {
@@ -62,23 +80,23 @@ export async function loadDbHelper(db: Database, file: string, tick: () => () =>
 }
 
 // console tools
-export function d(db: Database, sql: string) {
-  let r = db.exec(sql);
-  if (r.length > 0) {
-    r[0].values.map((v) => {
-      v.map((c, i) => {
-        if (r[0].columns[i] === "ts") {
-          c = new Date(c as number).toDateString();
-        }
-      });
-    });
-    console.log(r[0].columns.join("\t"));
-    console.log(JSON.stringify(r[0].values).replace(/\],\[/g, "\n").replace("[[", "").replace("]]", "").replace(/,/g, "\t"));
-  } else {
-    console.log("NO RESULT");
-  }
-}
-if (typeof window !== "undefined" && window) (<any>window).d = d;
+// export function d(db: Database, sql: string) {
+//   let r = db.exec(sql);
+//   if (r.length > 0) {
+//     r[0].values.map((v) => {
+//       v.map((c, i) => {
+//         if (r[0].columns[i] === "ts") {
+//           c = new Date(c as number).toDateString();
+//         }
+//       });
+//     });
+//     console.log(r[0].columns.join("\t"));
+//     console.log(JSON.stringify(r[0].values).replace(/\],\[/g, "\n").replace("[[", "").replace("]]", "").replace(/,/g, "\t"));
+//   } else {
+//     console.log("NO RESULT");
+//   }
+// }
+// if (typeof window !== "undefined" && window) (<any>window).d = d;
 // debug assertions
 
 export function assertQueryHasResult(r: QueryResults, query?: string) {

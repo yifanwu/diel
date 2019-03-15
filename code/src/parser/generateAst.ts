@@ -2,15 +2,14 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, DerivedRelation, ProgramSpec, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr } from "./dielAstTypes";
+import { ExpressionValue, DerivedRelation, Command, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr, InsertionClause, DropClause, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst, createEmptyDielAst, Relation } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError, ReportDielUserError } from "../lib/messages";
-import { InsertionClause, Drop, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst } from "./sqlAstTypes";
 import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst } from "./exprAstTypes";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
-  private ir: DielAst;
+  private ast: DielAst;
   private templates: Map<string, DielTemplate>;
 
   defaultResult() {
@@ -21,43 +20,38 @@ implements visitor.DIELVisitor<ExpressionValue> {
   // this is useful for compiling partial queries
   setContext(ir: DielAst) {
     LogInfo("setting context");
-    this.ir = ir;
+    this.ast = ir;
   }
 
   visitQueries = (ctx: parser.QueriesContext): DielAst => {
-    this.ir = {
-      udfTypes: [],
-      originalRelations: [],
-      views: [],
-      inserts: [],
-      drops: [],
-      programs: new Map(),
-      crossfilters: [],
-    };
-    this.ir.udfTypes = ctx.registerTypeUdf().map(e => (
+    this.ast = createEmptyDielAst();
+    this.ast.udfTypes = ctx.registerTypeUdf().map(e => (
       this.visit(e) as UdfType
     )).concat(BuiltInUdfTypes);
     // two kinds of specifications
-    this.ir.originalRelations = ctx.originalTableStmt().map(e => (
+    const originalRelations = ctx.originalTableStmt().map(e => (
       this.visitOriginalTableStmt(e)
+    )) as Relation[];
+    const derivedRelations = ctx.viewStmt().map(e => (
+        this.visit(e) as DerivedRelation
     ));
-    this.ir.views = ctx.viewStmt().map(e => (
-      this.visit(e) as DerivedRelation
-    ));
-    this.ir.inserts = ctx.insertQuery().map(e => (
+    this.ast.relations = originalRelations.concat(derivedRelations);
+    // this.ast.views = ;
+    const insert = ctx.insertQuery().map(e => (
       this.visit(e) as InsertionClause
+    )) as Command[];
+    const drops = ctx.dropQuery().map(e => (
+      this.visit(e) as DropClause
     ));
-    this.ir.drops = ctx.dropQuery().map(e => (
-      this.visit(e) as Drop
-    ));
+    this.ast.commands = insert.concat(drops);
     const programs = ctx.programStmt().map(e => (
       this.visit(e) as ProgramsParserIr
     ));
-    programs.map(p => this.ir.programs.set(p.input, p.queries));
-    this.ir.crossfilters = ctx.crossfilterStmt().map(e => (
+    programs.map(p => this.ast.programs.set(p.input, p.queries));
+    this.ast.crossfilters = ctx.crossfilterStmt().map(e => (
       this.visit(e) as CrossFilterIr
     ));
-    return this.ir;
+    return this.ast;
   }
 
   visitRegisterTypeUdf(ctx: parser.RegisterTypeUdfContext): UdfType {
@@ -79,9 +73,10 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitDropQuery(ctx: parser.DropQueryContext): Drop {
+  visitDropQuery(ctx: parser.DropQueryContext): DropClause {
     const relationName = ctx.IDENTIFIER().text;
     return {
+      astType: AstType.RelationSelection,
       relationName
     };
   }
@@ -92,7 +87,9 @@ implements visitor.DIELVisitor<ExpressionValue> {
       ? ctx.EVENT()
         ? RelationType.EventView
         : RelationType.View
-      : RelationType.Output;
+      : ctx.TABLE()
+        ? RelationType.DerivedTable
+        : RelationType.Output;
     const constraints = ctx.constraintClause() ? this.visit(ctx.constraintClause()) as RelationConstraints : null;
     const selection = this.visit(ctx.selectQuery()) as RelationSelection;
     return {
@@ -111,6 +108,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
       throw new Error(`There should be some column values in select, query is ${selectQuery}`);
     }
     let body = null;
+    const isDistinct = ctx.DISTINCT() ? true : false;
     if (ctx.FROM()) {
       const baseRelation = this.visit(ctx.relationReference()) as RelationReference;
       const joinClauses = ctx.joinClause().map(e => this.visit(e) as JoinAst);
@@ -128,6 +126,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
       };
     }
     return {
+      isDistinct,
       columnSelections,
       ...body,
     };
@@ -402,10 +401,12 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitRelationReferenceSimple(ctx: parser.RelationReferenceSimpleContext): RelationReference {
     const relationName = ctx._relation.text;
+    const isLatest = ctx.LASTEST() ? true : false;
     // check if the name is a relation
     const alias = ctx._alias ? ctx._alias.text : null;
     return {
       alias,
+      isLatest,
       relationName
     };
   }
@@ -420,17 +421,17 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  visitStaticTableStmt(ctx: parser.StaticTableStmtContext): DerivedRelation {
-    // it would not be the case of server here.
-    const name = ctx.IDENTIFIER().text;
-    const relationType = RelationType.StaticTable;
-    const selection = this.visit(ctx.selectQuery()) as RelationSelection;
-    return {
-      name,
-      relationType,
-      selection
-    };
-  }
+  // visitStaticTableStmt(ctx: parser.StaticTableStmtContext): DerivedRelation {
+  //   // it would not be the case of server here.
+  //   const name = ctx.IDENTIFIER().text;
+  //   const relationType = RelationType.StaticTable;
+  //   const selection = this.visit(ctx.selectQuery()) as RelationSelection;
+  //   return {
+  //     name,
+  //     relationType,
+  //     selection
+  //   };
+  // }
 
   visitOriginalTableStmt(ctx: parser.OriginalTableStmtContext): OriginalRelation {
     if (ctx.EVENT() && ctx.REGISTER()) {
@@ -562,7 +563,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   // programs
   visitProgramStmtGeneral(ctx: parser.ProgramStmtGeneralContext): ProgramsParserIr {
-    const queries = this.visit(ctx.programBody()) as ProgramSpec[];
+    const queries = this.visit(ctx.programBody()) as Command[];
     return {
       input: null,
       queries
@@ -571,14 +572,14 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitProgramStmtSpecific(ctx: parser.ProgramStmtSpecificContext): ProgramsParserIr {
     const input = ctx.IDENTIFIER().text;
-    const queries = this.visit(ctx.programBody()) as ProgramSpec[];
+    const queries = this.visit(ctx.programBody()) as Command[];
     return {
       input,
       queries
     };
   }
 
-  visitProgramBody(ctx: parser.ProgramBodyContext): ProgramSpec[] {
+  visitProgramBody(ctx: parser.ProgramBodyContext): Command[] {
     const programs = ctx.aProgram().map(e => {
       if (e.insertQuery()) {
         return this.visit(e.insertQuery()) as InsertionClause;
