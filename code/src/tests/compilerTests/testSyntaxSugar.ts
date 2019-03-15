@@ -7,15 +7,18 @@ import { applyLatestToSelectionUnit, applyLatestToAst } from "../../compiler/pas
 
 // LUCIE TODO
 export function assertLatestSyntax() {
-  // let q = `
-  // select arrival from LATEST t1;
-  // `;
-  let q =  `select arrival from (select * from t1 order by timestep desc limit 1);`;
+  let q = `
+  select arrival from LATEST t1;
+  `;
   const logger = GenerateUnitTestErrorLogger("assertBasicOperators", q);
   let ast = getVanillaSelectionUnitAst(q);
   // console.log(ast);
   // applyLatestToAst(ast);
   applyLatestToSelectionUnit(ast);
+
   // do the assertion on the AST ()
+  if (ast.baseRelation.isLatest === true) {
+    logger("transformation failed");
+  }
   return true;
 }
