@@ -26,3 +26,6 @@ code/src/tests/T.g4
 *.html
 *.json
 *.scrap
+server/sample-data/charlottesville.sqlite
+server/sample-data/fires.sqlite
+server/sample-data/pitchfork.sqlite
