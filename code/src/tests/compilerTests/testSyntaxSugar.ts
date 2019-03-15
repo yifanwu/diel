@@ -2,7 +2,7 @@ import { GenerateUnitTestErrorLogger } from "../../lib/messages";
 import { getDielIr, getDielAst } from "../../lib/cli-compiler";
 import { DerivedRelation } from "../../parser/dielAstTypes";
 import { ExprColumnAst } from "../../parser/exprAstTypes";
-import { getSelectionUnitAst, getVanillaSelectionUnitAst, getAst } from "../../compiler/compiler";
+import { getSelectionUnitAst, getVanillaSelectionUnitAst } from "../../compiler/compiler";
 import { applyLatestToSelectionUnit, applyLatestToAst } from "../../compiler/passes/syntaxSugar";
 
 // LUCIE TODO
