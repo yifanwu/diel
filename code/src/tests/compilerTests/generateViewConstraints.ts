@@ -49,10 +49,12 @@ function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
 
   // Handling multiple view statements
   for ( i = 0; i < ast.relations.length; i++) {
-    if (ast.relations[i].relationType !== RelationType.View) {
+    let view = ast.relations[i] as DerivedRelation;
+    if (view.relationType !== RelationType.View
+        && view.relationType !== RelationType.EventView
+        && view.relationType !== RelationType.Output) {
       continue;
     }
-    let view = ast.relations[i] as DerivedRelation;
     let view_constraint = view.constraints;
     var queries = [] as string[][];
 

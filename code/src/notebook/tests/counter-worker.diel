@@ -11,5 +11,4 @@ CREATE EVENT VIEW totalWorkerClickEvents AS
   -- main
   from click
   -- worker
-  join existingClicks
-  constrain check (count < 10);
+  join existingClicks;
