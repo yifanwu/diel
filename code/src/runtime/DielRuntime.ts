@@ -87,7 +87,7 @@ export default class DielRuntime {
     };
     this.boundFns = [];
     this.runOutput = this.runOutput.bind(this);
-    this.tick = this.tick.bind(this);
+    // this.tick = this.tick.bind(this);
     this.BindOutput = this.BindOutput.bind(this);
     this.setup();
   }
@@ -195,34 +195,37 @@ export default class DielRuntime {
     const r = this.simpleGetLocal(b.outputName);
     if (r) {
       b.uiUpdateFunc(r);
+      this.constraintChecking(b.outputName);
+
     }
     return;
   }
 
   // this should only be ran once?
-  tick() {
-    const boundFns = this.boundFns;
-    const runOutput = this.runOutput;
-    const dependencies = this.ir.dependencies.inputDependenciesOutput;
-    return (input: string) => {
-      // note for Lucie: add constraint checking
+  // tick() {
+  //   const boundFns = this.boundFns;
+  //   const runOutput = this.runOutput;
+  //   const dependencies = this.ir.dependencies.inputDependenciesOutput;
+  //   return (input: string) => {
+  //     // note for Lucie: add constraint checking
 
-      console.log(`%c tick ${input}`, "color: blue");
-      const inputDep = dependencies.get(input);
-      boundFns.map(b => {
-        if (inputDep.has(b.outputName)) {
-          this.constraintChecking(b.outputName);
-          runOutput(b);
-        }
-      });
-    };
-  }
+  //     console.log(`%c tick ${input}`, "color: blue");
+  //     const inputDep = dependencies.get(input);
+  //     boundFns.map(b => {
+  //       if (inputDep.has(b.outputName)) {
+  //         this.constraintChecking(b.outputName);
+  //         runOutput(b);
+  //       }
+  //     });
+  //   };
+  // }
 
   constraintChecking(viewName: string) {
     // console.log("constraint check clicked");
     console.log("toggle mode: ", this.checkConstraints);
     // only check if checking mode is turned on
     if (this.checkConstraints) {
+      console.log(this.constraintQueries);
       if (this.constraintQueries.has(viewName)) {
         var queryObject = this.constraintQueries.get(viewName);
         var queries = queryObject.queries;
@@ -349,6 +352,11 @@ export default class DielRuntime {
     // get sql for views constraints
     var tname: string;
     var viewConstraint: ViewConstraintQuery;
+    console.log("CHECKING CONSTRAINTS");
+    console.log(ast);
+    console.log(viewConstraintCheck(ast));
+    console.log("----------------");
+
     viewConstraintCheck(ast).forEach((queries: string[][], viewName: string) => {
       if (queries.length > 0) {
         viewConstraint = new ViewConstraintQuery();
@@ -357,7 +365,7 @@ export default class DielRuntime {
         this.constraintQueries.set(viewName, viewConstraint);
       }
     });
-    console.log(this.constraintQueries);
+    // console.log(this.constraintQueries);
     // test the IR here
   }
 
