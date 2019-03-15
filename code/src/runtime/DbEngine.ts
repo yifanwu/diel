@@ -1,11 +1,9 @@
-import { DbType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemoteReply, DielRemoteMessageId, RemoteOpenDbMessage, RemoteExecuteMessage, RemoteShipRelationMessage, GetRelationToShipFuncType, RemoteUpdateRelationMessage } from "./runtimeTypes";
+import { DbType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemoteReply, RemoteOpenDbMessage, RemoteExecuteMessage, RemoteShipRelationMessage, GetRelationToShipFuncType, RemoteUpdateRelationMessage } from "./runtimeTypes";
 import { SqliteMasterQuery, RelationShippingFuncType, INIT_TIMESTEP } from "./DielRuntime";
 import { LogInternalError, ReportDielUserError, LogInternalWarning, DielInternalErrorType, LogInfo } from "../lib/messages";
 import { DbIdType, LogicalTimestep, RelationIdType, LocalDbId, DielPhysicalExecution } from "../compiler/DielPhysicalExecution";
-import { parseSqlJsWorkerResult } from "./runtimeHelper";
-import { IsSuperset, IsSetIdentical } from "../lib/dielUtils";
+import { IsSuperset } from "../lib/dielUtils";
 import { ConnectionWrapper } from "./ConnectionWrapper";
-// import { WorkerMetaData, processSqliteMasterMetaData } from "./runtimeHelper";
 
 async function connectToSocket(url: string): Promise<WebSocket> {
   return new Promise<WebSocket>(function(resolve, reject) {
@@ -20,7 +18,6 @@ async function connectToSocket(url: string): Promise<WebSocket> {
     };
   });
 }
-
 
 const WebWorkerSqlPath = "./UI-dist/worker.sql.js";
 
@@ -247,7 +244,6 @@ export default class DbEngine {
         return this.connection.send(id, msgToSend, isPromise);
       }
       case DielRemoteAction.ShipRelation: {
-        debugger;
         const shipMsg = msg as RemoteShipRelationMessage;
         const newId = {
           ...id,

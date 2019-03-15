@@ -63,16 +63,21 @@ export function ReportUserRuntimeError(m: string) {
   // console.log(`%c Runtime error from user specification: ${m}`, "color: red");
 }
 
+// both warning and error
+export enum UserErrorType {
+  UndefinedScale = "UndefinedScale",
+}
+
 // TODO: this should also report the line of the code
 // the input should be more structured
-export function ReportDielUserError(m: string, q?: string) {
-  console.log(`Program Erorr: ${FgRed}%s${Reset}`, m);
+export function ReportDielUserError(m: string, q?: string, errorType?: UserErrorType) {
+  console.log(`User Erorr ${errorType ? `[${errorType}]` : ""}: ${FgRed}%s${Reset}`, m);
   if (q) console.log(`\nQuery: ${FgBlue}%s${Reset}\n`, q);
   if (STRICT) throw new Error();
 }
 
 export function ReportDielUserWarning(m: string, q?: string) {
-  console.log(`Program Warning: ${BgGreen}%s${Reset}`, m);
+  console.log(`User Warning: ${BgGreen}%s${Reset}`, m);
   if (q) console.log(`\nQuery: ${FgBlue}%s${Reset}\n`, q);
 }
 

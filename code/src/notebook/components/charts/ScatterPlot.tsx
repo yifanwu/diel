@@ -1,10 +1,9 @@
 import * as d3 from "d3";
 import * as React from "react";
-import { ChartSpec } from "../../../runtime/runtimeTypes";
-import { FilterValueType, BrushBoxTwoDim, DefaultVizLayout, BrushBoxType, ChartPropShared } from "../../vizSpec/vizSpec";
+import { FilterValueType, BrushBoxTwoDim, DefaultVizLayout, BrushBoxType, ChartPropShared, ChartSpec2DWithData } from "../../vizSpec/vizSpec";
 
 interface ScatterplotProps extends ChartPropShared {
-  spec: ChartSpec;
+  spec: ChartSpec2DWithData;
   selectedDataRange?: {
     minX: FilterValueType; maxX: FilterValueType,
     minY: FilterValueType; maxY: FilterValueType

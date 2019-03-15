@@ -2,7 +2,7 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, DerivedRelation, Commands, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr, InsertionClause, DropClause, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst, createEmptyDielAst, Relation } from "./dielAstTypes";
+import { ExpressionValue, DerivedRelation, Command, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr, InsertionClause, DropClause, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst, createEmptyDielAst, Relation } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError, ReportDielUserError } from "../lib/messages";
 import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst } from "./exprAstTypes";
@@ -39,7 +39,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     // this.ast.views = ;
     const insert = ctx.insertQuery().map(e => (
       this.visit(e) as InsertionClause
-    )) as Commands[];
+    )) as Command[];
     const drops = ctx.dropQuery().map(e => (
       this.visit(e) as DropClause
     ));
@@ -563,7 +563,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   // programs
   visitProgramStmtGeneral(ctx: parser.ProgramStmtGeneralContext): ProgramsParserIr {
-    const queries = this.visit(ctx.programBody()) as Commands[];
+    const queries = this.visit(ctx.programBody()) as Command[];
     return {
       input: null,
       queries
@@ -572,14 +572,14 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitProgramStmtSpecific(ctx: parser.ProgramStmtSpecificContext): ProgramsParserIr {
     const input = ctx.IDENTIFIER().text;
-    const queries = this.visit(ctx.programBody()) as Commands[];
+    const queries = this.visit(ctx.programBody()) as Command[];
     return {
       input,
       queries
     };
   }
 
-  visitProgramBody(ctx: parser.ProgramBodyContext): Commands[] {
+  visitProgramBody(ctx: parser.ProgramBodyContext): Command[] {
     const programs = ctx.aProgram().map(e => {
       if (e.insertQuery()) {
         return this.visit(e.insertQuery()) as InsertionClause;

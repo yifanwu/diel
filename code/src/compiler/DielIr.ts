@@ -44,6 +44,12 @@ export function columnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[] {
     }
   });
 }
+
+export function GetAllDerivedViews(ast: DielAst): DerivedRelation[] {
+  return ast.relations.filter(r => isRelationTypeDerived(r.relationType)) as DerivedRelation[];
+}
+
+
 export class DielIr {
 
   ast: DielAst;

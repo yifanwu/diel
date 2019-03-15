@@ -6,17 +6,17 @@ import { loadPage } from "../notebook/index";
 import { Database, Statement } from "sql.js";
 import { RuntimeCell, DielRemoteAction, RelationObject, DielRuntimeConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, } from "./runtimeTypes";
 import { OriginalRelation, DerivedRelation, RelationType, SelectionUnit } from "../parser/dielAstTypes";
-import { generateSelectionUnit, generateSqlFromDielAst } from "../compiler/codegen/codeGenSql";
+import { generateSelectionUnit, generateSqlFromDielAst, generateSqlViews } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
 import { CompileDiel } from "../compiler/DielCompiler";
 import { log } from "../lib/dielUdfs";
 import { downloadHelper } from "../lib/dielUtils";
-import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, QueryConsoleColorSpec, ReportUserRuntimeWarning, DielInternalErrorType } from "../lib/messages";
+import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, QueryConsoleColorSpec, ReportUserRuntimeWarning, DielInternalErrorType, ReportDielUserError, UserErrorType } from "../lib/messages";
 import { DielIr } from "../compiler/DielIr";
-import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject } from "./runtimeHelper";
+import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult } from "./runtimeHelper";
 import { DielPhysicalExecution, DbIdType, LocalDbId, LogicalTimestep, RelationIdType } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
-import { simpleMaterializeAst } from "../compiler/passes/materialization";
+import { CreateDerivedSelectionSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
 
 const StaticSqlFile = "./src/compiler/codegen/static.sql";
 export const INIT_TIMESTEP = 1;
@@ -53,6 +53,7 @@ export default class DielRuntime {
   runtimeConfig: DielRuntimeConfig;
   cells: RuntimeCell[];
   db: Database;
+  scales: RelationObject;
   visitor: Visitor;
   protected boundFns: TickBind[];
   protected runtimeOutputs: Map<string, Statement>;
@@ -105,6 +106,7 @@ export default class DielRuntime {
     }
   }
 
+
   /**
    * GetView need to know if it's dependent on an event table
    *   in which case it will go and fetch the depdent events which are NOT depent on inputs
@@ -119,13 +121,11 @@ export default class DielRuntime {
 
   // verbose just to make sure that the exported type is kept in sync
   public NewInputMany: RelationShippingFuncType = (view: string, o: any, lineage?: number) => {
-    debugger;
     lineage = lineage ? lineage : this.timestep;
     this.newInputHelper(view, o, lineage);
   }
 
   public NewInput(i: string, o: any, lineage?: number) {
-    debugger;
     lineage = lineage ? lineage : this.timestep;
     this.newInputHelper(i, [o], lineage);
   }
@@ -234,12 +234,10 @@ export default class DielRuntime {
     await this.setupRemotes();
     await this.initialCompile();
     this.setupUDFs();
-    const materialization = simpleMaterializeAst(this.ir);
-    console.log(JSON.stringify(materialization, null, 2));
     this.physicalExecution = new DielPhysicalExecution(this.ir, this.physicalMetaData, this.getEventByTimestep.bind(this));
-    // this.updateRemotesBasedOnPhysicalExecution();
     await this.executeToDBs();
     this.ir.GetOutputs().map(o => this.setupNewOutput(o));
+    this.scales = ParseSqlJsWorkerResult(this.db.exec("select * from __scales"));
     loadPage();
   }
 
@@ -279,6 +277,9 @@ export default class DielRuntime {
         }
       });
     });
+
+    // get the static ones
+    code += await (await fetch(StaticSqlFile)).text();
     for (let i = 0; i < this.runtimeConfig.dielFiles.length; i ++) {
       const f = this.runtimeConfig.dielFiles[i];
       code += await (await fetch(f)).text();
@@ -398,16 +399,13 @@ export default class DielRuntime {
       (<any>window).mainDb = this.db;
       // FIXME: might have some weird issues with types of DIEL tables?
     }
-    // this.dbEngines.set(LocalDbId, this.db);
-    // and run the static file that we need
-    const staticQuery = await (await fetch(StaticSqlFile)).text();
-    this.db.run(staticQuery);
     return;
   }
   /**
    * output tables HAVE to be local tables
    *   since they are synchronous --- if they are over other tables
    *   it would be handled via some trigger programs
+   * FIXME: just pass in what it needs, the name str
    */
   private setupNewOutput(r: DerivedRelation) {
     const q = `select * from ${r.name}`;
@@ -437,25 +435,6 @@ export default class DielRuntime {
     let r: RelationObject = [];
     this.db.each(q, (row) => { r.push(row as RecordObject); }, () => {});
     return r;
-  }
-
-  // TODO low pri
-  // ChangeQueryVersion(qId: QueryId, ) {
-  // }
-
-  AddQuery() {
-    throw new Error(`not implemnted`);
-    // const cId = this.generateQId();
-    // const name = this.createCellName(cId);
-  }
-
-  ChangeQuery() {
-    throw new Error(`not implemnted`);
-    // const q = this.getQueryById(qId);
-    // q.versions.push(query);
-    // q.currentVersionIdx += 1;
-    // bookkeeping the views?
-    // refresh the annotation
   }
 
   // takes in teh SqlIrs in different environments and sticks them into the databases
@@ -501,7 +480,48 @@ export default class DielRuntime {
     return;
   }
 
-  // used for debugging
+  // ------------------------ for notebook related -----------------------------
+  ChangeQuery() {
+    throw new Error(`not implemnted`);
+    // const q = this.getQueryById(qId);
+    // q.versions.push(query);
+    // q.currentVersionIdx += 1;
+    // bookkeeping the views?
+    // refresh the annotation
+  }
+
+  public GetScales(output: string, component?: string) {
+    let result;
+    if (component) {
+      result = this.scales.filter(s => s.component === component && s.output === output);
+    }
+    result = this.scales.filter(s => s.outputName === output);
+    if (!result || result.length === 0) {
+      ReportDielUserError(`Scale not defined for ${output} ${component ? `for compoenetn ${component}` : ""}`, UserErrorType.UndefinedScale);
+    } else if (result.length > 1) {
+      ReportUserRuntimeWarning(`Output ${output} used for multiple ${component ? `for compoenetn ${component}` : ""}`);
+    }
+    return result;
+  }
+  /**
+   * AddView will take in a derived relation (the view)
+   * FIXME/TODO:
+   * - assume this is local (so it does not need to be processed by distributed query)
+   * - also assume that it's compiled (i.e., typed & normalized etc)
+   * and we can just add it to the output list
+   */
+  public AddView(q: DerivedRelation) {
+    const queryStr = generateSqlViews(CreateDerivedSelectionSqlAstFromDielAst(q));
+    this.addViewToLocal(queryStr);
+    this.setupNewOutput(q);
+  }
+
+  private addViewToLocal(query: string): void {
+    // exec to loca!
+    this.db.run(query);
+  }
+
+  // ------------------------ debugging related ---------------------------
   inspectQueryResult(query: string) {
     let r = this.db.exec(query)[0];
     if (r) {

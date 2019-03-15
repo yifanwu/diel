@@ -1,9 +1,15 @@
 -- basic distribution of scores
 
 -- OK let's add some interaction
--- 
+-- people are intersted in individuals
+-- let's add some singers (ordered by popularity)
 
--- ah, thing about static event views... damn too many kinds
+create event view allGenresEvent AS
+  select DISTINCT genre
+  from genres;
+
+create output allGenres AS
+  select * from allGenresEvent;
 
 create output pitchForkScoreDistribution as
   select *
@@ -12,6 +18,7 @@ create output pitchForkScoreDistribution as
       select max(timestep) from pitchForkScoreDistributionEvent
     );
 
+insert into __scales (component, outputName, x, y) values ('pitchfork', 'pitchForkScoreDistribution', 'scoreBin', 'count');
 create event view pitchForkScoreDistributionEvent as
   select
     round(score * 10 / 10) as scoreBin,
@@ -19,6 +26,8 @@ create event view pitchForkScoreDistributionEvent as
   from reviews
   group by scoreBin;
 
+
+insert into __scales (component, outputName, x, y) values ('pitchfork', 'pitchForkYearDistribution', 'scoreBin', 'count');
 create output pitchForkYearDistribution as
   select *
   from pitchForkYearDistributionEvent
