@@ -9,6 +9,12 @@ import { DielIr } from "../compiler/DielIr";
 
 
 export function getDielIr(code: string) {
+  const ast = getDielAst(code);
+  // apply the templates
+  return CompileDiel(new DielIr(ast));
+}
+
+export function getDielAst(code: string) {
   LogInfo(`Starting compilation of ${code}`);
   const inputStream = new ANTLRInputStream(code);
   const l = new lexer.DIELLexer(inputStream);
@@ -17,6 +23,5 @@ export function getDielIr(code: string) {
   const tree = p.queries();
   let visitor = new Visitor();
   let ast = visitor.visitQueries(tree);
-  // apply the templates
-  return CompileDiel(new DielIr(ast));
+  return ast;
 }
