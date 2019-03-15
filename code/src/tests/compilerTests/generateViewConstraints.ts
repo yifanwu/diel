@@ -1,4 +1,4 @@
-import { DataType } from "../../parser/dielAstTypes";
+import { DataType, RelationType, DerivedRelation } from "../../parser/dielAstTypes";
 
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as lexer from "../../parser/grammar/DIELLexer";
@@ -34,7 +34,8 @@ function checkValidView(query: string): DielAst {
   const tree = p.queries();
   let visitor = new Visitor();
   let ast = visitor.visitQueries(tree);
-  if (ast.views.length > 0) {
+  // console.log(ast);
+  if (ast.relations.length > 0) {
     return ast;
   }
   return null;
@@ -47,8 +48,11 @@ function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
   var ret = new Map<string, string[][]>();
 
   // Handling multiple view statements
-  for ( i = 0; i < ast.views.length; i++) {
-    let view = ast.views[i];
+  for ( i = 0; i < ast.relations.length; i++) {
+    if (ast.relations[i].relationType !== RelationType.View) {
+      continue;
+    }
+    let view = ast.relations[i] as DerivedRelation;
     let view_constraint = view.constraints;
     var queries = [] as string[][];
 
@@ -56,7 +60,7 @@ function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
 
     // Only when there is a constraint on view
     if (view_constraint != null) {
-      var composite_selections = view.selection.compositeSelections;
+      var composite_selections = view.selection.compositeSelections as CompositeSelection;
 
       // 1. handle null constraint
       selClause = getSelectClauseAST(composite_selections);
@@ -74,8 +78,6 @@ function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
       queries = queries.concat(checkQueries);
     }
     ret.set(view.name, queries);
-    // queries.push(view.name);
-    // ret.push(queries);
   }
   return ret;
 }
@@ -263,7 +265,7 @@ function getUniqueQuery (view_constraints: RelationConstraints, selUnit: Selecti
       selUnit.groupByClause = groupByClause;
 
       // change selUnit select clause
-      var selectColumns = [];
+      var selectColumns = [] as ColumnSelection[];
       groupbySelections.map(expr => {
         selectColumns.push({expr});
       });
@@ -278,7 +280,7 @@ function getUniqueQuery (view_constraints: RelationConstraints, selUnit: Selecti
               exprType: ExprType.Column,
               dataType: DataType.TBD,
               hasStar: true
-            }]}});
+            }]}} as ColumnSelection);
 
       selUnit.columnSelections = selectColumns as ColumnSelection[];
 
