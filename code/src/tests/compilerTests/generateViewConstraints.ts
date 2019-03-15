@@ -9,7 +9,7 @@ import {generateViewConstraintSelection, generateExpr} from "../../compiler/code
 import { DielAst, RelationConstraints } from "../../parser/dielAstTypes";
 import Visitor from "../../parser/generateAst";
 import {ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst} from "../../parser/exprAstTypes";
-import {GroupByAst, SelectionUnit, RelationReference, RelationSelection, ColumnSelection, CompositeSelection} from "../../parser/sqlAstTypes";
+import {GroupByAst, SelectionUnit, RelationReference, RelationSelection, ColumnSelection, CompositeSelection} from "../../../dist/parser/sqlAstTypes";
 import { select } from "d3";
 
 export function generateViewConstraintCheckQuery(query: string): Map<string, string[][]> {

@@ -1,4 +1,4 @@
-import { STRICT } from "../compiler/config";
+import { STRICT, DEBUG } from "../compiler/config";
 
 export const FgRed = "\x1b[31m";
 export const FgBlue = "\x1b[34m";
@@ -9,12 +9,25 @@ export const BgYellow = "\x1b[43m";
 
 export const QueryConsoleColorSpec = "color: green";
 
-export function LogInternalError(m: string) {
-  console.log(`${FgRed}%s${Reset}`, m);
+export enum DielInternalErrorType {
+  RelationNotFound = "RelationNotFound",
+  NotImplemented = "NotImplemented",
+  Untitled = "Untitled",
+  UnionTypeNotAllHandled = "UnionTypeNotAllHandled",
+  MalFormedAst = "MalFormedAst"
+}
+
+export function LogInternalError(m: string, errorType = DielInternalErrorType.Untitled) {
+  if (typeof window === "undefined") {
+    console.log(`${FgRed}%s${Reset}`, m);
+  } else {
+    if (DEBUG) debugger;
+    console.log(`%cError[${errorType}]: ${m}`, "color: red");
+  }
   if (STRICT) throw new Error();
 }
 
-export function LogWarning(m: string) {
+export function LogInternalWarning(m: string) {
   if (typeof window === "undefined") {
     console.log(`${FgRed}%s${Reset}`, m);
   } else {
@@ -22,8 +35,8 @@ export function LogWarning(m: string) {
   }
 }
 
-export function LogInfo(m: string) {
-  console.log(`${BgGreen}%s${Reset}`, m);
+export function LogInfo(m: string, obj?: any) {
+  console.log(`${FgBlue}%s${Reset}`, m, obj);
 }
 
 export function LogTmp(m: string) {
@@ -35,25 +48,36 @@ export function LogStandout(m: string) {
 }
 
 export function ReportDielBasicParsingError(m: string) {
-  console.log(`${FgRed}Parsing Error:\n%s${Reset}`, m);
+  console.log(`${FgRed}Parsing error from user provided code:\n%s${Reset}`, m);
   if (STRICT) throw new Error();
+}
+
+export function ReportUserRuntimeWarning(m: string) {
+  console.log(`%cUser runtime warning: ${m}`, "color: orange");
 }
 
 // note that this is in browser
 export function ReportUserRuntimeError(m: string) {
-  console.log(`%c Parsing Error: ${m}`, "color: red");
+  if (DEBUG) debugger;
+  if (STRICT) throw new Error(m);
+  // console.log(`%c Runtime error from user specification: ${m}`, "color: red");
+}
+
+// both warning and error
+export enum UserErrorType {
+  UndefinedScale = "UndefinedScale",
 }
 
 // TODO: this should also report the line of the code
 // the input should be more structured
-export function ReportDielUserError(m: string, q?: string) {
-  console.log(`Program Erorr: ${FgRed}%s${Reset}`, m);
+export function ReportDielUserError(m: string, q?: string, errorType?: UserErrorType) {
+  console.log(`User Erorr ${errorType ? `[${errorType}]` : ""}: ${FgRed}%s${Reset}`, m);
   if (q) console.log(`\nQuery: ${FgBlue}%s${Reset}\n`, q);
   if (STRICT) throw new Error();
 }
 
 export function ReportDielUserWarning(m: string, q?: string) {
-  console.log(`Program Warning: ${BgGreen}%s${Reset}`, m);
+  console.log(`User Warning: ${BgGreen}%s${Reset}`, m);
   if (q) console.log(`\nQuery: ${FgBlue}%s${Reset}\n`, q);
 }
 

@@ -1,5 +1,6 @@
-import { SelectionUnit } from "../parser/sqlAstTypes";
-import { SimpleColumn } from "../compiler/DielIr";
+import { SelectionUnit } from "../parser/dielAstTypes";
+import { DbIdType, RelationIdType, LogicalTimestep } from "../compiler/DielPhysicalExecution";
+import { ChartSpecBase2D } from "../notebook/vizSpec/vizSpec";
 
 export type QueryId = number;
 
@@ -7,41 +8,37 @@ export interface DielRuntimeConfig {
   dielFiles: string[];
   mainDbPath?: string;
   workerDbPaths?: string[];
+  socketConnections?: {url: string, dbName: string}[];
 }
 
-export type SimpleObject = {[index: string]: number | string};
-interface ChartSpecBase {
-  chartType: ChartType;
-  data?: SimpleObject[];
-  // dimension: number;
-}
+export type GetRelationToShipFuncType = (dbId: DbIdType, relation: string, step: LogicalTimestep) => Set<string>;
 
-export type ChartSpec = TwoDimCartesianCoordSpec;
+export type RecordObject = {[index: string]: string | number | Uint8Array};
+export type RelationObject = RecordObject[];
 
-export interface TwoDimCartesianCoordSpec extends ChartSpecBase {
-  xAttribute: string;
-  yAttribute: string;
-}
+
+// type K = "1" | "2";
+
+// export interface Logger<K> {
+//   /**
+//    * Attach logging to the Vega view.
+//    */
+//   attach(name: K, view: string): void;
+// }
 
 /**
  * stores information about what relations live in what sources
  * as well as how large a table is
  * should be table oriented...
- *
  */
-
-export enum TableLocation {
+export enum DbType {
   Local = "Local",
   Worker = "Worker",
-  Remote = "Remote"
+  Socket = "Socket"
 }
 
-// assume that all the access are via some index in array for now
-// a bit brittle...
 export interface TableMetaData {
-  location: TableLocation;
-  accessInfo: number;
-  rowNumber?: number;
+  dbId: DbIdType;
 }
 
 export enum ChartType {
@@ -58,7 +55,7 @@ export enum CellStatus {
  * keeping it as an independent object in case we want to keep track of user interactions?
  * -- though we should probably use DIEL to do that; thinka bout later..
  */
-export interface AnnotationSpec extends TwoDimCartesianCoordSpec {
+export interface AnnotationSpec extends ChartSpecBase2D {
   semanticId: string;
   ast: SelectionUnit;
 }
@@ -98,3 +95,60 @@ export interface RuntimeCell {
   currentVersionIdx: number;
   currentAnnotions: AnnotedSelectionUnit;
 }
+
+
+export enum DielRemoteAction {
+  ConnectToDb = "ConnectToDb",
+  GetResultsByPromise = "GetResultsByPromise",
+  DefineRelations = "DefineRelations",
+  UpdateRelation = "UpdateRelation",
+  ShipRelation = "ShipRelation",
+}
+
+export interface DielRemoteMessageId {
+  remoteAction: DielRemoteAction;
+  relationName?: RelationIdType;
+  msgId?: number; // currently only used for fullfilling promises.
+  lineage?: number;
+}
+export interface DielRemoteReply {
+  id: DielRemoteMessageId;
+  results: RelationObject;
+  err: any;
+}
+
+// this will be what's encoded in the id
+interface DielRemoteMessageBase {
+  remoteAction: DielRemoteAction;
+  lineage: LogicalTimestep;
+  msgId?: number;
+}
+
+
+export interface RemoteGetResultsByPromiseMessage extends RemoteExecuteMessage {
+  msgId: number;
+}
+
+export interface RemoteShipRelationMessage extends DielRemoteMessageBase {
+  relationName: RelationIdType;
+  dbId: DbIdType;
+}
+
+export interface RemoteOpenDbMessage extends DielRemoteMessageBase {
+  dbName?: string;     // for socket
+  buffer?: Uint8Array; // for worker
+}
+
+export interface RemoteUpdateRelationMessage extends RemoteExecuteMessage {
+  relationName: RelationIdType; // redundancy
+}
+
+export interface RemoteExecuteMessage extends DielRemoteMessageBase {
+  sql: string;
+}
+
+export type DielRemoteMessage = RemoteGetResultsByPromiseMessage
+                                | RemoteShipRelationMessage
+                                | RemoteUpdateRelationMessage
+                                | RemoteOpenDbMessage
+                                ;

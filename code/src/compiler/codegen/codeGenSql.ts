@@ -1,35 +1,54 @@
-import { DataType, DielAst, ProgramSpec } from "../../parser/dielAstTypes";
-import { Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst } from "../../parser/sqlAstTypes";
-import { RelationSpec, RelationQuery, SqlIr, createSqlAstFromDielAst } from "./createSqlIr";
-import { ReportDielUserError, LogInternalError } from "../../lib/messages";
+import { DataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause } from "../../parser/dielAstTypes";
+import { RelationSpec, RelationQuery, SqlAst, createSqlAstFromDielAst } from "./createSqlIr";
+import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
 import { Nullable } from "antlr4ts/Decorators";
 
-export function generateSqlFromDielAst(ast: DielAst) {
+export function generateSqlFromDielAst(ast: DielAst, replace = false) {
   const sqlAst = createSqlAstFromDielAst(ast);
-  return generateStringFromSqlIr(sqlAst);
+  return generateStringFromSqlIr(sqlAst, replace);
 }
 
-export function generateStringFromSqlIr(ir: SqlIr) {
-  const tables = ir.tables.map(t => generateTableSpec(t));
-  const views = ir.views.map(v => generateSqlViews(v));
+export function generateStringFromSqlIr(sqlAst: SqlAst, replace = false): string[] {
+  // if remoteType is server, then we need to drop the old ones if we want to make a new one
+  // we need to architect this properly to scale, but a quick fix for now
+  const tables = sqlAst.tables.map(t => generateTableSpec(t, replace));
+  const views = sqlAst.views.map(v => generateSqlViews(v, replace));
   let triggers: string[] = [];
-  ir.triggers.forEach((v, k) => {
-    triggers = triggers.concat(generateTrigger(v, k));
+  sqlAst.triggers.forEach((v, k) => {
+    triggers = triggers.concat(generateTrigger(v, k, replace));
   });
-  return tables.concat(views).concat(triggers);
+  let commands = sqlAst.commands.map(c => generateCommand(c));
+  return tables.concat(views).concat(triggers).concat(commands);
+}
+
+function generateCommand(command: Command) {
+  switch (command.astType) {
+    case AstType.Insert:
+      return generateInserts(command as InsertionClause);
+    case AstType.Drop:
+      // allCmdStrs.push(generateDr(command as DropClause));
+      LogInternalError(`Not implemented`, DielInternalErrorType.NotImplemented);
+    break;
+    case AstType.RelationSelection:
+      return generateSelect((command as RelationSelection).compositeSelections);
+  }
 }
 
 // FIXME note that we should probably not use the if not exist as a crutch
 // to fix later
-function generateTableSpec(t: RelationSpec): string {
-  return `create table ${t.name} (
+function generateTableSpec(t: RelationSpec, replace = false): string {
+  const replaceQuery = replace ? `DROP TABLE IF EXISTS ${t.name};` : "";
+  return `${replaceQuery}
+  CREATE TABLE ${t.name} (
     ${t.columns.map(c => generateColumnDefinition(c)).join(",\n")}
   )`;
 }
 
-export function generateSqlViews(v: RelationQuery): string {
-  return `create view ${v.name} as
+export function generateSqlViews(v: RelationQuery, replace = false): string {
+  const replaceQuery = replace ? `DROP VIEW IF EXISTS ${v.name};` : "";
+  return `${replaceQuery}
+  CREATE VIEW ${v.name} AS
   ${generateSelect(v.query)}
   `;
 }
@@ -59,7 +78,7 @@ export function generateSelectionUnit(v: SelectionUnit): string {
   //   ? generateColumnSelection(v.columnSelections)
     // : generateColumnSelection(v.derivedColumnSelections)
     // ;
-  return `SELECT ${selection}
+  return `SELECT ${v.isDistinct ? "DISTINCT" : ""} ${selection}
     ${generateSelectionUnitBody(v)}
   `;
 }
@@ -222,12 +241,15 @@ function generateLimit(e: ExprAst): string {
   return `LIMIT ${generateExpr(e)}`;
 }
 
-function generateTrigger(queries: ProgramSpec[], input: string): string {
+function generateTrigger(queries: Command[], input: string, replace = false): string {
   if (!input) {
     // this is the general one
     return "";
   }
-  let program = `CREATE TRIGGER ${input}DielProgram AFTER INSERT ON ${input}\nBEGIN\n`;
+  const triggerName = `${input}DielProgram`;
+  const replaceQuery = replace ? `DROP TRIGGER IF EXISTS ${triggerName};` : "";
+  let program = `${replaceQuery}
+  CREATE TRIGGER ${triggerName} AFTER INSERT ON ${input}\nBEGIN\n`;
   program += queries.map(p => {
     if (p.astType === AstType.RelationSelection) {
       const r = p as RelationSelection;

@@ -1,11 +1,11 @@
 import * as React from "react";
-import { ChartSpec } from "../../runtime/runtimeTypes";
 import {BarChart} from "./charts/BarChart";
+import { ChartSpecWithQuery } from "../vizSpec/vizSpec";
 
 export interface ToolTipProps {
   xPos: number;
   yPos: number;
-  spec: ChartSpec;
+  spec: ChartSpecWithQuery;
 }
 
 /**
@@ -16,8 +16,8 @@ export interface ToolTipProps {
 export const ToolTip: React.StatelessComponent<ToolTipProps> = (p) => {
   // TODO: make the tool tip dynamic
   return <div style={{position: "absolute", left: p.xPos, top: p.yPos}}>
-    <BarChart
+    {/* <BarChart
       spec={p.spec}
-    />
+    /> */}
   </div>;
 };

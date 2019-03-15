@@ -1,38 +1,101 @@
-import { DielAst, DerivedRelation, DataType, OriginalRelation, RelationType } from "../parser/dielAstTypes";
-import { SelectionUnit, CompositeSelection } from "../parser/sqlAstTypes";
+import { DielAst, DerivedRelation, DataType, OriginalRelation, RelationType, SelectionUnit, CompositeSelection, Relation } from "../parser/dielAstTypes";
 import { DependencyInfo } from "./passes/passesHelper";
-import { LogWarning } from "../lib/messages";
-import { ExprType, ExprColumnAst } from "../parser/exprAstTypes";
+import { LogInternalWarning, LogInternalError, DielInternalErrorType } from "../lib/messages";
+import { ExprType, ExprColumnAst, ExprFunAst } from "../parser/exprAstTypes";
+import { RelationIdType } from "./DielPhysicalExecution";
 
 type CompositeSelectionFunction<T> = (s: CompositeSelection, relationName?: string) => T;
 export type SelectionUnitVisitorFunctionOptions = {relationName?: string, ir?: DielIr};
 export type SimpleColumn = {columnName: string, type: DataType};
 type SelectionUnitFunction<T> = (s: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions) => T;
-/**
- * instead of exposing the IR internals whenever something accesses it
- * we will abstract it away in a class (doesn't have to be OO,
- *   just easier to reason about for now)
- */
+
+export enum BuiltInColumn {
+  TIMESTEP = "TIMESTEP",
+  TIMESTAMP = "TIMESTAMP"
+}
+
+const DerivedRelationTypes = new Set([RelationType.View, RelationType.EventView, , RelationType.Output, RelationType.DerivedTable]);
+const OriginalRelationTypes = new Set([RelationType.Table, RelationType.EventTable, RelationType.ExistingAndImmutable]);
+
+export function isRelationTypeDerived(rType: RelationType) {
+  if (DerivedRelationTypes.has(rType)) {
+    return true;
+  } else if (OriginalRelationTypes.has(rType)) {
+    return false;
+  } else {
+    LogInternalError(`RelationType ${rType} is not defined to be derived or not`);
+  }
+}
+
+export function columnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[] {
+  return su.derivedColumnSelections.map(cs => {
+    if (cs.expr.exprType === ExprType.Column) {
+      const columnExpr = cs.expr as ExprColumnAst;
+      return {
+        columnName: cs.alias ? cs.alias : columnExpr.columnName,
+        type: columnExpr.dataType
+      };
+    } else {
+      const functionExpr = cs.expr as ExprFunAst;
+      return {
+        columnName: cs.alias,
+        type: functionExpr.dataType
+      };
+    }
+  });
+}
+
+export function GetAllDerivedViews(ast: DielAst): DerivedRelation[] {
+  return ast.relations.filter(r => isRelationTypeDerived(r.relationType)) as DerivedRelation[];
+}
+
+
 export class DielIr {
 
   ast: DielAst;
   dependencies: DependencyInfo;
-  // we want to access the derived relations by name and be iterables
-  // FIXME: a bit weird that we are accessing the selection directly for derived but not for the dynamic one...
-  allDerivedRelations: Map<string, DerivedRelation>;
-  allCompositeSelections: Map<string, CompositeSelection>;
-  allOriginalRelations: Map<string, OriginalRelation>;
-  // viewTypes: Map<string, Map<string, DataType>>;
+  private allDerivedRelations: Map<string, DerivedRelation>;
+  private allCompositeSelections: Map<string, CompositeSelection>;
+  private allOriginalRelations: Map<string, OriginalRelation>;
   constructor(ast: DielAst) {
     this.ast = ast;
-    this.buildIndicesToIr();
+    // this.buildIndicesToIr();
+    const allCompositeSelections = new Map();
+    this.applyToAllCompositeSelection<void>((r, name) => {
+      allCompositeSelections.set(name, r);
+    });
+    this.allCompositeSelections = allCompositeSelections;
+    this.allOriginalRelations = new Map();
+    this.GetOriginalRelations().map((r) => {
+      this.allOriginalRelations.set(r.name, r);
+    });
+    this.allDerivedRelations = new Map();
+    this.GetAllDerivedViews().map((r) => {
+      this.allDerivedRelations.set(r.name, r);
+    });
   }
-  /**
-   * Public helper functions
-   */
-  public GetRelationColumnType(relationName: string, columnName: string) {
-    // return the type
-    // first search the derived, then the source relations
+
+  GetRelationDef(rName: string): Relation {
+    // first search in original, then serach in derived, compalin otherwise
+    const result = this.ast.relations.find(r => r.name === rName);
+    if (result) {
+      return result;
+    } else {
+      LogInternalError(`Relation ${rName} not defined`);
+    }
+    // const original = this.allOriginalRelations.get(rName);
+    // if (original) {
+    //   return original;
+    // } else {
+    //   const derived = this.allDerivedRelations.get(rName);
+    //   if (derived) {
+    //     return derived;
+    //   } else {
+    //   }
+    // }
+  }
+
+  public GetRelationColumnType(relationName: string, columnName: string): DataType | null {
     const derived = this.allCompositeSelections.get(relationName);
     if (derived) {
       return this.GetTypeFromDerivedRelationColumn(derived[0].relation, columnName);
@@ -51,37 +114,59 @@ export class DielIr {
     }
   }
 
-  public GetTypeFromDerivedRelationColumn(unit: SelectionUnit, columnName: string): DataType {
-    const column = unit.derivedColumnSelections.filter(s => {
-      if (s.expr.exprType === ExprType.Column) {
-        return (s.expr as ExprColumnAst).columnName === columnName;
-      } else if (s.expr.exprType === ExprType.Func) {
-        return (s.alias === columnName);
+  public GetTypeFromDerivedRelationColumn(unit: SelectionUnit, columnName: string): DataType | null {
+    const selections = unit.derivedColumnSelections;
+    if (selections) {
+      const column = selections.filter(s => {
+        if (s.expr.exprType === ExprType.Column) {
+          return (s.expr as ExprColumnAst).columnName === columnName;
+        } else if (s.expr.exprType === ExprType.Func) {
+          return (s.alias === columnName);
+        }
+      });
+      if (column.length > 0) {
+        return column[0].expr.dataType;
+      } else {
+        return null;
       }
-    });
-    if (column.length > 0) {
-      return column[0].expr.dataType;
     } else {
-      return null;
+      LogInternalError(`Relation ${unit} does not have derivedColumnSelections`);
+    }
+  }
+  public GetColumnsFromRelationName(relationName: string): SimpleColumn[] {
+    const relationDef = this.GetRelationDefinition(relationName);
+    if (relationDef) {
+      if (isRelationTypeDerived(relationDef.relationType)) {
+        return columnsFromSelectionUnit((relationDef as DerivedRelation).selection.compositeSelections[0].relation);
+      } else {
+        return (relationDef as OriginalRelation).columns.map(c => ({columnName: c.name, type: c.type}));
+      }
+    } else {
+      LogInternalError(`Cannot find relation ${relationName}`, DielInternalErrorType.RelationNotFound);
     }
   }
 
-  public GetViews() {
-    return this.ast.views;
+  public GetRelationDefinition(relationName: RelationIdType) {
+    return this.ast.relations.find(r => r.name === relationName);
   }
 
-  public GetOutputs() {
-    return this.ast.views
-      .filter(r => r.relationType === RelationType.Output);
+  public GetAllDerivedViews(): DerivedRelation[] {
+    return this.ast.relations.filter(r => isRelationTypeDerived(r.relationType)) as DerivedRelation[];
   }
 
-  public GetAllViews() {
-    return this.ast.views
-      .filter(r => r.relationType !== RelationType.StaticTable);
+  public GetOutputs(): DerivedRelation[] {
+    return this.ast.relations.filter(r => r.relationType === RelationType.Output) as DerivedRelation[];
+  }
+
+  public GetOriginalRelations(): OriginalRelation[] {
+    return this.ast.relations.filter(r => !isRelationTypeDerived(r.relationType)) as OriginalRelation[];
+  }
+
+  public GetDielDefinedOriginalRelation() {
+    return this.GetOriginalRelations().filter(r => r.relationType !== RelationType.ExistingAndImmutable);
   }
 
   public GetEventByName(n: string) {
-    // could be either a table or a view
     const o = this.allOriginalRelations.get(n);
     if (o) {
       return o;
@@ -90,52 +175,17 @@ export class DielIr {
     if (d && (d.relationType === RelationType.EventView)) {
       return d;
     }
-    LogWarning(`GetEventByName for ${n} failed`);
+    LogInternalWarning(`GetEventByName for ${n} failed`);
   }
 
   /**
    * returns all the event relations by name
    */
   public GetEventRelationNames() {
-    const originals = this.ast.originalRelations
-      .filter(r => r.relationType === RelationType.EventTable)
+    return this.ast.relations
+      .filter(r => ((r.relationType === RelationType.EventTable) || (r.relationType === RelationType.EventView)))
       .map(i => i.name);
-    const derived = this.ast.views
-      .filter(r => r.relationType === RelationType.EventView)
-      .map(d => d.name);
-    return originals.concat(derived);
   }
-
-  public GetOriginalRelations() {
-    return this.ast.originalRelations;
-  }
-
-  public GetDielDefinedOriginalRelation() {
-    return this.ast.originalRelations
-      .filter(r => r.relationType !== RelationType.ExistingAndImmutable);
-  }
-  // <T>(fun: DerivedRelationFunction<T>): T[] {
-  //     .map(r => fun(r, r.name));
-  // }
-
-  // public IterateOverOutputs<T>(fun: DerivedRelationFunction<T>): T[] {
-  //   return this.ast.views
-  //     .filter(r => r.relationType === DerivedRelationType.View)
-  //     .map(r => fun(r, r.name));
-  // }
-
-  // public IterateOverInputs<T>(fun: ExistingRelationFunction<T>): T[] {
-  //   return this.ast.originalRelations
-  //     .filter(r => r.relationType === OriginalRelationType.Input)
-  //     .map(r => fun(r, r.name));
-  // }
-
-  // public IterateOverDielDefinedOriginalRelation<T>(fun: ExistingRelationFunction<T>): T[] {
-  //   // so there are the inputs, the static tables
-  //   return this.ast.originalRelations
-  //     .filter(r => r.relationType !== OriginalRelationType.ExistingAndImmutable)
-  //     .map(r => fun(r, r.name));
-  // }
 
   /**
    * Warning: this method does not actually visit all the selection units
@@ -153,49 +203,21 @@ export class DielIr {
     if (byDependency) {
       // check if the dependency graph has been built, if not, build it now
       ir.dependencies.topologicalOrder.reduce(
-        (acc, r) => acc.concat(ir.allCompositeSelections.get(r).map(c => fun(c.relation, {ir, relationName: r}))), initial);
+        (acc: T[], r) => {
+          const compositeSelection = ir.allCompositeSelections.get(r);
+          if (compositeSelection) {
+            return acc.concat(compositeSelection.map(c => fun(c.relation, {ir, relationName: r})));
+          } else {
+            // this is an input, it's normal
+            // LogInternalError(`Composition Selection ${r} was not found`);
+            return [];
+          }
+        }, initial);
     } else {
       // this step flattens
-      ir.ast.views.reduce((acc, r) => acc.concat(applyToDerivedRelation(r, fun)), initial);
-      return initial;
+      ir.GetAllDerivedViews().reduce((acc, r) => acc.concat(applyToDerivedRelation(r, fun)), initial);
     }
-  }
-
-  // TODO: some broken logic here...
-  // public VisitSelections(visitSelection: (r: RelationSelection) => void) {
-  //   const ast = this.ast;
-  //   ast.views.map(v => visitSelection(v.selection));
-  //   this.IterateOverOutputs<void>(v => visitSelection(v.selection));
-  //   ast.programs.map(p => {
-  //     p.queries.map(q => {
-  //       if (q.astType === AstType.RelationSelection) {
-  //         visitSelection(q as RelationSelection);
-  //       } else {
-  //         sanityAssert((q.astType === AstType.Insert), "did not expect anything other than insert or selects");
-  //         const i = q as InsertionClause;
-  //         if (i.selection) {
-  //           visitSelection(i.selection);
-  //         }
-  //       }
-  //     });
-  //   });
-  // }
-
-
-  buildIndicesToIr() {
-    const allCompositeSelections = new Map();
-    this.applyToAllCompositeSelection<void>((r, name) => {
-      allCompositeSelections.set(name, r);
-    });
-    this.allCompositeSelections = allCompositeSelections;
-    this.allOriginalRelations = new Map();
-    this.GetOriginalRelations().map((r) => {
-      this.allOriginalRelations.set(r.name, r);
-    });
-    this.allDerivedRelations = new Map();
-    this.GetAllViews().map((r) => {
-      this.allDerivedRelations.set(r.name, r);
-    });
+    return initial;
   }
 
   applyToAllCompositeSelection<T>(fun: CompositeSelectionFunction<T>, byDependency = false): T[] {
@@ -203,11 +225,19 @@ export class DielIr {
       let initial: T[] = [];
       // check if the dependency graph has been built, if not, build it now
       this.dependencies.topologicalOrder.reduce(
-        (acc, r) => acc.concat(fun(this.allCompositeSelections.get(r), r))
-        , initial);
+        (acc, r) => {
+          const compositeSelection = this.allCompositeSelections.get(r);
+          if (compositeSelection) {
+            return acc.concat(fun(compositeSelection, r));
+          } else {
+            LogInternalError(`Composition Selection ${r} was not found`);
+            return [];
+          }
+        }, initial);
+      return initial;
     } else {
       // this step flattens
-      return this.ast.views.map(r => fun(r.selection.compositeSelections, r.name));
+      return this.GetAllDerivedViews().map(r => fun(r.selection.compositeSelections, r.name));
     }
   }
 

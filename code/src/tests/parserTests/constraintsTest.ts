@@ -1,6 +1,7 @@
 import { getDielIr } from "../../lib/cli-compiler";
 import { GenerateUnitTestErrorLogger } from "../../lib/messages";
 import { ExprFunAst, ExprType, ExprParen } from "../../parser/exprAstTypes";
+import { OriginalRelation } from "../../parser/dielAstTypes";
 
 export function assertBasicConstraints() {
   const q = `
@@ -20,7 +21,7 @@ export function assertBasicConstraints() {
   );`;
   let ir = getDielIr(q);
   const logger = GenerateUnitTestErrorLogger("assertBasicConstraints", q);
-  const ordersTable = ir.allOriginalRelations.get("Orders");
+  const ordersTable = ir.GetRelationDef("Orders") as OriginalRelation;
   if (!ordersTable) {
     logger(`Did not even parse Orders table`);
   }
@@ -59,7 +60,7 @@ export function assertBasicConstraints() {
     logger(`Primary key not created or is wrong, ${pk}`);
   }
   // check
-  const personsTable = ir.allOriginalRelations.get("Persons");
+  const personsTable = ir.GetRelationDef("Persons") as OriginalRelation;
   const checks = personsTable.constraints.exprChecks;
   if (!checks) {
     logger(`check not created, ${JSON.stringify(checks)}`);

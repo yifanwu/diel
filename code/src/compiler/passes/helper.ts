@@ -1,20 +1,19 @@
-import { ColumnSelection } from "../../parser/sqlAstTypes";
-
+import { DataType, ColumnSelection } from "../../parser/dielAstTypes";
+import { SimpleColumn } from "../DielIr";
 import { ExprType, ExprColumnAst } from "../../parser/exprAstTypes";
 
-import { DataType } from "../../parser/dielAstTypes";
-import { SimpleColumn } from "../DielIr";
 
 export function copyColumnSelection(s: ColumnSelection) {
-  return  {
+  const columnName = (s.expr as ExprColumnAst).columnName;
+  return {
     expr: {
       exprType: ExprType.Column,
       dataType: DataType.TBD,
-      columnName: (s.expr as ExprColumnAst).columnName,
+      columnName,
       hasStar: false,
       relationName: (s.expr  as ExprColumnAst).relationName,
     },
-    alias: s.alias,
+    alias: s.alias ? s.alias : columnName,
   };
 }
 
@@ -27,6 +26,6 @@ export function createColumnSectionFromRelationReference(original: ColumnSelecti
       hasStar: false,
       relationName,
     },
-    alias: original.alias,
+    alias: original.alias ? original.alias : simpleColomn.columnName,
   };
 }

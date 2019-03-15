@@ -6,6 +6,7 @@ export function parseColumnType(str: string) {
     case "number":
     case "integer":
     case "int":
+    case "real":
       return DataType.Number;
     case "string":
     case "text":

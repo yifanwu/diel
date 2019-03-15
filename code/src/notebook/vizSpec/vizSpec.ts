@@ -1,6 +1,6 @@
 import { DerivedRelation } from "../../parser/dielAstTypes";
 import DielRuntime from "../../runtime/DielRuntime";
-import { ChartType } from "../../runtime/runtimeTypes";
+import { ChartType, RelationObject } from "../../runtime/runtimeTypes";
 
 export interface VizLayout {
   chartHeight: number;
@@ -9,6 +9,35 @@ export interface VizLayout {
   marginRight: number;
   marginTop: number;
   marginLeft: number;
+}
+
+export interface ChartPropShared {
+  layout?: VizLayout;
+  svgClickHandler?: () => void;
+  colorSpec?: {
+    selected?: string,
+    default: string
+  };
+}
+
+interface ChartSpecBase {
+  chartType: ChartType;
+  relationName: string;
+}
+
+export type ChartSpecWithQuery = ChartSpec2DWithQuery;
+
+export interface ChartSpecBase2D extends ChartSpecBase {
+  xAttribute: string;
+  yAttribute: string;
+}
+
+export interface ChartSpec2DWithQuery extends ChartSpecBase2D {
+  modifiedQuery: DerivedRelation;
+}
+
+export interface ChartSpec2DWithData extends ChartSpecBase2D {
+  data: RelationObject;
 }
 
 export type BrushBox = BrushBoxOneDim | BrushBoxTwoDim;

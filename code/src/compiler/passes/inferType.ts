@@ -1,8 +1,7 @@
 import { DielIr, SelectionUnitVisitorFunctionOptions } from "../DielIr";
 import { LogInternalError } from "../../lib/messages";
-import { DataType, BuiltInColumns } from "../../parser/dielAstTypes";
+import { DataType, BuiltInColumns, SelectionUnit } from "../../parser/dielAstTypes";
 import { ExprType, ExprFunAst, ExprColumnAst, ExprAst, BuiltInFunc } from "../../parser/exprAstTypes";
-import { SelectionUnit } from "../../parser/sqlAstTypes";
 
 export function InferType(ir: DielIr) {
   ir.ApplyToImmediateSelectionUnits(inferTypeForSelection, true);
@@ -10,7 +9,7 @@ export function InferType(ir: DielIr) {
 
 // recurively invoked
 // FIXME: the optional is kinda weird
-function inferTypeForSelection(r: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions) {
+export function inferTypeForSelection(r: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions) {
   r.derivedColumnSelections.map(cs => {
     if (!cs.expr) {
       LogInternalError(`the selection must have been parsed`);

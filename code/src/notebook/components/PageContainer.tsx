@@ -4,7 +4,9 @@ import ExistingRelationsPad from "./ExistingRelationsPad";
 import {BrowserRouter as Router, Link, Route, Switch} from "react-router-dom";
 import Counter from "./examples/Counter";
 import ScoreZoomBarChart from "./examples/ScoreZoomBarChart";
-import LinkedBarCharts from "./examples/LinkedBarCharts";
+import PitchFork from "./examples/PitchFork";
+import Flights from "./examples/Flights";
+import VizSpecDemo from "./examples/VizSpecDemo";
 
 const Notebook = () => (<div>
     <ExistingRelationsPad/>
@@ -18,6 +20,10 @@ export const PageContainer = () => (<Router>
         Notebook
       </Link>
       &nbsp;
+      <Link to="inferViz">
+        Infer Visualization
+      </Link>
+      &nbsp;
       <Link to="counter">
         Counter
       </Link>
@@ -26,8 +32,11 @@ export const PageContainer = () => (<Router>
         Zoomable Bar Chart
       </Link>
       &nbsp;
-      <Link to="linkedCharts">
-        Linked Bar Chart
+      <Link to="pitchfork">
+        Pitch Fork (Remote)
+      </Link>
+      <Link to="flights">
+        Flights (Remote)
       </Link>
     </div>
     <div id="main">
@@ -35,7 +44,9 @@ export const PageContainer = () => (<Router>
         <Route exact path="/counter" component={Counter}/>
         <Route path="/notebook" component={Notebook}/>
         <Route path="/scoreZoom" component={ScoreZoomBarChart}/>
-        <Route path="/" component={LinkedBarCharts}/>
+        <Route path="/pitchfork" component={PitchFork} />
+        <Route path="/" component={Flights} />
+        <Route path="/inferViz" component={VizSpecDemo}/>
       </Switch>
     </div>
   </div>

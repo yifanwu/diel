@@ -1,20 +1,13 @@
 import * as React from "react";
 import * as d3 from "d3";
-import { ChartSpec } from "../../../runtime/runtimeTypes";
-import { VizLayout, DefaultVizLayout, BrushBoxOneDim, BrushBoxType, FilterValueType } from "../../vizSpec/vizSpec";
+import { DefaultVizLayout, BrushBoxOneDim, BrushBoxType, FilterValueType, ChartPropShared, ChartSpec2DWithData } from "../../vizSpec/vizSpec";
 
 // we are going to over load categorical data with some order metrics
 // note: might change if we ned to accept multiple selections in the future.
-interface BarChartProp {
-  spec: ChartSpec;
+interface BarChartProp extends ChartPropShared {
+  spec: ChartSpec2DWithData;
   selectedDataRange?: {min: FilterValueType; max: FilterValueType};
-  layout?: VizLayout;
-  colorSpec?: {
-    selected?: string,
-    default: string
-  };
   brushHandler?: (box: BrushBoxOneDim) => void;
-  svgClickHandler?: () => void;
 }
 
 /**
@@ -64,7 +57,7 @@ export const BarChart: React.StatelessComponent<BarChartProp> = (p) => {
   };
   // not sure why we need to subtract 1 but we do...
   let xAxis = d3.axisBottom(x).tickValues(data.map((_, i) => i)).tickFormat(xFormatter as any);
-  let yAxis = d3.axisLeft(y).ticks(yDomain[1], "d").tickSizeOuter(0);
+  let yAxis = d3.axisLeft(y).ticks(Math.min(yDomain[1], 20)).tickSizeOuter(0);
   let brushDiv = null;
   if (p.brushHandler) {
     const brush = d3.brushX()
@@ -81,8 +74,8 @@ export const BarChart: React.StatelessComponent<BarChartProp> = (p) => {
       if (s !== null) {
         const box = {
           brushBoxType: BrushBoxType.OneDim,
-          min: data[Math.floor(x.invert(Math.min(s[0], s[1])))][p.spec.xAttribute],
-          max: data[Math.floor(x.invert(Math.max(s[0], s[1])))][p.spec.xAttribute]
+          min: data[Math.floor(x.invert(Math.min(s[0], s[1])))][p.spec.xAttribute] as number,
+          max: data[Math.floor(x.invert(Math.max(s[0], s[1])))][p.spec.xAttribute] as number
         };
         p.brushHandler(box);
       }

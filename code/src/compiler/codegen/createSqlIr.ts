@@ -1,8 +1,6 @@
-import { DielAst, ProgramsIr, DataType, RelationType, ForeignKey } from "../../parser/dielAstTypes";
-import { Column, CompositeSelectionUnit, InsertionClause, AstType } from "../../parser/sqlAstTypes";
-
-// in this pass, we will create the Ir needed to create the SQL we need
-
+import { DielAst, ProgramsIr, DataType, RelationType, Column, CompositeSelectionUnit, InsertionClause, OriginalRelation, DerivedRelation, Command, Relation } from "../../parser/dielAstTypes";
+import { RelationIdType } from "../DielPhysicalExecution";
+import { LogInternalError, DielInternalErrorType } from "../../lib/messages";
 
 export interface RelationSpec {
   name: string;
@@ -24,12 +22,35 @@ export interface RelationQuery {
  * Note
  * - Recycling the programsIr from DIEL AST
  */
-export interface SqlIr {
+export interface SqlAst {
   // tablespec
   tables: RelationSpec[];
   views: RelationQuery[];
   triggers: ProgramsIr;
-  inserts: InsertionClause[];
+  commands: Command[];
+}
+
+const inputColumns: Column[] = [
+  {
+    name: "timestep",
+    type: DataType.Number,
+    // constraints: {
+    //   primaryKey: true
+    // }
+  },
+  {
+    name: "lineage",
+    type: DataType.Number,
+  }
+];
+
+export function CreateDerivedSelectionSqlAstFromDielAst(ast: Relation) {
+  const v = ast as DerivedRelation;
+  return {
+    name: v.name,
+    sqlRelationType: (v.relationType === RelationType.View) ? SqlRelationType.View : SqlRelationType.Table,
+    query: v.selection.compositeSelections
+  };
 }
 
 /**
@@ -37,46 +58,51 @@ export interface SqlIr {
  * - staticTables do not need to be created since they already exist
  * @param ast
  */
-export function createSqlAstFromDielAst(ast: DielAst, isMain = true): SqlIr {
-  const inputColumns: Column[] = [
-    {
-      name: "timestep",
-      type: DataType.Number,
-      constraints: {
-        primaryKey: true
+export function createSqlAstFromDielAst(ast: DielAst): SqlAst {
+  const tables: {
+    name: RelationIdType,
+    columns: Column[]
+  }[] = [];
+  const views: {
+    name: RelationIdType,
+    sqlRelationType: SqlRelationType,
+    query: CompositeSelectionUnit[]
+  }[] = [];
+  ast.relations
+    .map(iUnionType => {
+      switch (iUnionType.relationType) {
+        case RelationType.EventTable: {
+          const i = iUnionType as OriginalRelation;
+          tables.push({
+            name: i.name,
+            columns: i.columns.concat(inputColumns)
+          });
+          break;
+        }
+        // case RelationType.IntermediateEventTable:
+        case RelationType.Table: {
+          const i = iUnionType as OriginalRelation;
+          tables.push({
+            name: i.name,
+            columns: i.columns
+          });
+          break;
+        }
+        case RelationType.Output:
+        case RelationType.EventView:
+        case RelationType.DerivedTable:
+        case RelationType.View: {
+          const genAst = CreateDerivedSelectionSqlAstFromDielAst(iUnionType);
+          views.push(genAst);
+          break;
+        }
+        case RelationType.ExistingAndImmutable:
+          // pass
+          break;
+        default:
+          LogInternalError(`Should all be handled, but ${iUnionType.relationType} was not`, DielInternalErrorType.UnionTypeNotAllHandled);
       }
-    },
-    {
-      name: "lineage",
-      type: DataType.Number,
-    }
-  ];
-  // TODO
-  // const lineageFk: ForeignKey
-  const tables = ast.originalRelations
-    .filter(i => i.relationType !== RelationType.ExistingAndImmutable)
-    .map(i => {
-      if (i.relationType === RelationType.EventTable) {
-        return {
-          name: i.name,
-          columns: i.columns.concat(inputColumns)
-        };
-      } else if (i.relationType === RelationType.Table) {
-        return {
-          name: i.name,
-          columns: i.columns
-        };
-      }
-      throw new Error(`SQL IR creation error`);
     });
-
-    const views = ast.views
-    .map(v => ({
-      name: v.name,
-      sqlRelationType: v.relationType === RelationType.View ? SqlRelationType.View : SqlRelationType.Table,
-      query: v.selection.compositeSelections
-    }));
-
     const programsToAddRaw = ast.programs.get("");
     const programsToAdd = programsToAddRaw ? programsToAddRaw : [];
 
@@ -95,11 +121,11 @@ export function createSqlAstFromDielAst(ast: DielAst, isMain = true): SqlIr {
       triggers.set(input, [...programsToAdd, ...v ]);
   });
 
-  const inserts = ast.inserts;
+  const commands = ast.commands;
   return {
     tables,
     views,
     triggers,
-    inserts
+    commands
   };
 }
