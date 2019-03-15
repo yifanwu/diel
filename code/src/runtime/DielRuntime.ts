@@ -164,7 +164,10 @@ export default class DielRuntime {
           if ((raw === null) || (raw === undefined)) {
             ReportUserRuntimeError(`We expected the input ${cName}, but it was not defined in the object.`);
           }
-          return (typeof raw === "string") ? `'${raw}'` : raw;
+          const valueStr = raw
+            ? (typeof raw === "string") ? `'${raw}'` : raw
+            : "null";
+          return valueStr;
         });
       });
       const finalQuery = `
@@ -201,22 +204,14 @@ export default class DielRuntime {
     return;
   }
 
-  // this should only be ran once?
   // tick() {
   //   const boundFns = this.boundFns;
   //   const runOutput = this.runOutput;
   //   const dependencies = this.ir.dependencies.inputDependenciesOutput;
-  //   return (input: string) => {
+  //   const shipWorkerInput = this.shipWorkerInput;
+  //   return (input: string, step: LogicalTimestep) => {
   //     // note for Lucie: add constraint checking
-
   //     console.log(`%c tick ${input}`, "color: blue");
-  //     const inputDep = dependencies.get(input);
-  //     boundFns.map(b => {
-  //       if (inputDep.has(b.outputName)) {
-  //         this.constraintChecking(b.outputName);
-  //         runOutput(b);
-  //       }
-  //     });
   //   };
   // }
 
@@ -237,21 +232,6 @@ export default class DielRuntime {
       }
     }
   }
-
-  // downloadDB() {
-  //   let dRaw = this.db.export();
-  //   let blob = new Blob([dRaw]);
-  //   downloadHelper(blob,  "session");
-  // tick() {
-  //   const boundFns = this.boundFns;
-  //   const runOutput = this.runOutput;
-  //   const dependencies = this.ir.dependencies.inputDependenciesOutput;
-  //   const shipWorkerInput = this.shipWorkerInput;
-  //   return (input: string, step: LogicalTimestep) => {
-  //     // note for Lucie: add constraint checking
-  //     console.log(`%c tick ${input}`, "color: blue");
-  //   };
-  // }
 
   downloadDB(dbId?: DbIdType) {
     if ((!dbId) || (dbId === LocalDbId)) {

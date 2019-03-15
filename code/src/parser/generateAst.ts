@@ -401,8 +401,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitRelationReferenceSimple(ctx: parser.RelationReferenceSimpleContext): RelationReference {
     const relationName = ctx._relation.text;
-    // const isLatest = ctx.LATEST() ? true : false;
-    const isLatest = false;
+    const isLatest = ctx.LATEST() ? true : false;
     // check if the name is a relation
     const alias = ctx._alias ? ctx._alias.text : null;
     return {

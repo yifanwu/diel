@@ -2,6 +2,7 @@ import * as React from "react";
 
 import { ChartType } from "../../../runtime/runtimeTypes";
 import DielComponent from "../diel/DielComponent";
+import { diel } from "../../setup";
 
 enum ComponentRelations {
   pitchForkScoreDistribution = "pitchForkScoreDistribution",
@@ -24,7 +25,8 @@ export default class PitchFork extends DielComponent<{}> {
       </p></div>;
 
     const options = this.state[ComponentRelations.allGenres]
-      ? this.state[ComponentRelations.allGenres].map(() => <p>i.genre</p>)
+      ? this.state[ComponentRelations.allGenres]
+            .map((i) => <p onClick={() => diel.NewInput("genreSelectionUserEvent", {genre: i.genre})}>{i.genre}</p>)
       : <p>loading...</p>;
 
     const vis = <>
