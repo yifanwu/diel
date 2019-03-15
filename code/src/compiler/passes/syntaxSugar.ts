@@ -40,56 +40,56 @@ export function applyLatestToSelectionUnit(relation: SelectionUnit): void {
             return ReportDielUserError("Latest should be used with a simple named relation");
         }
         var relationName = relation.baseRelation.relationName;
-        // console.log("true");
 
-    var selection = {
-        op: SetOperator.NA,
-        relation : {
-            isDistinct: false,
+        var selection = {
+            op: SetOperator.NA,
+            relation : {
+                isDistinct: false,
 
-            columnSelections : [{
-                alias: null,
-                expr: {
-                    exprType: ExprType.Column,
-                    dataType: DataType.TBD,
-                    hasStar: true
+                columnSelections : [{
+                    alias: null,
+                    expr: {
+                        exprType: ExprType.Column,
+                        dataType: DataType.TBD,
+                        hasStar: true
+                    } as ExprAst
+                }] as ColumnSelection[],
+
+                baseRelation: {
+                    alias: null,
+                    isLatest: false,
+                    relationName: relationName
+                } as RelationReference,
+
+                orderByClause : [{
+                    selection: {
+                        exprType: ExprType.Column,
+                        dataType: DataType.TBD,
+                        hasStar: false,
+                        columnName:  "timestep"
+                    } as ExprAst,
+                    order: Order.DESC
+                } as OrderByAst] as OrderByAst[],
+
+                limitClause : {
+                    exprType: ExprType.Val,
+                    dataType: DataType.Number,
+                    value: 1
                 } as ExprAst
-            }] as ColumnSelection[],
+            } as SelectionUnit
+        } as CompositeSelectionUnit;
 
-            baseRelation: {
-                alias: null,
-                isLatest: false,
-                relationName: relationName
-            } as RelationReference,
+        // changing base relation in-place
+        relation.baseRelation.isLatest = false;
+        relation.baseRelation.relationName = undefined;
+        relation.baseRelation.subquery = {
+            astType: AstType.RelationSelection,
+            compositeSelections: [selection]
+        } as RelationSelection;
 
-            orderByClause : [{
-                selection: {
-                    exprType: ExprType.Column,
-                    dataType: DataType.TBD,
-                    hasStar: false,
-                    columnName:  "timestep"
-                } as ExprAst,
-                order: Order.DESC
-            } as OrderByAst] as OrderByAst[],
-
-            limitClause : {
-                exprType: ExprType.Val,
-                dataType: DataType.Number,
-                value: 1
-            } as ExprAst
-        } as SelectionUnit
-    } as CompositeSelectionUnit;
-
-    // changing base relation in-place
-    relation.baseRelation.isLatest = false;
-    relation.baseRelation.subquery = {
-        astType: AstType.RelationSelection,
-        compositeSelections: [selection]
-    } as RelationSelection;
+        var q = generateSelectionUnit(relation);
+        console.log(q);
     }
-
-    var q = generateSelectionUnit(relation);
-    console.log(q);
 
 }
 

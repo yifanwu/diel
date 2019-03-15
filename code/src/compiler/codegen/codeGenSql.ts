@@ -109,7 +109,7 @@ export function generateSelectionUnitBody(v: SelectionUnit) {
   ${generateLimit(v.limitClause)}`;
 }
 
-function generateRelationReference(r: RelationReference): string {
+export function generateRelationReference(r: RelationReference): string {
   // here there will be no stars..
   let query = "";
   if (r.relationName) {
