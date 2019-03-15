@@ -1,6 +1,6 @@
 import { DbType, DielRemoteAction, DielRemoteReply, DielRemoteMessageId } from "./runtimeTypes";
 import { DbIdType, LogicalTimestep } from "../compiler/DielPhysicalExecution";
-import { parseSqlJsWorkerResult } from "./runtimeHelper";
+import { ParseSqlJsWorkerResult } from "./runtimeHelper";
 import { downloadHelper } from "../lib/dielUtils";
 import { LogInfo, LogInternalError } from "../lib/messages";
 
@@ -115,7 +115,7 @@ export class ConnectionWrapper {
           }
           msg = {
             id: event.data.id as DielRemoteMessageId,
-            results: parseSqlJsWorkerResult(event.data.results),
+            results: ParseSqlJsWorkerResult(event.data.results),
             err: event.data.err
           };
         } else {

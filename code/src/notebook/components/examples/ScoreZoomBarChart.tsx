@@ -26,6 +26,7 @@ export default class ScoreZoomBarChart extends React.Component<{}, ScoreZoomBarC
   render() {
     const spec = {
       chartType: ChartType.BarChart,
+      relationName: "scoreDistribution",
       data: this.state.data,
       xAttribute: "scoreBin",
       yAttribute: "count"

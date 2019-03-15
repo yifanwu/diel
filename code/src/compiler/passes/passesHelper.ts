@@ -1,7 +1,7 @@
 import { ExprType, ExprRelationAst } from "../../parser/exprAstTypes";
 import { SelectionUnit, RelationReference, RelationType } from "../../parser/dielAstTypes";
 import { LogInternalError } from "../../lib/messages";
-import { DbIdType } from "../DielPhysicalExecution";
+import { DbIdType, RelationIdType } from "../DielPhysicalExecution";
 
 export interface NodeDependencyAugmented extends NodeDependency {
   relationName: string;
@@ -10,11 +10,11 @@ export interface NodeDependencyAugmented extends NodeDependency {
 }
 
 export type NodeDependency = {
-  dependsOn: string[],
-  isDependedBy: string[]
+  dependsOn: RelationIdType[],
+  isDependedBy: RelationIdType[]
 };
 
-export type DependencyTree = Map<string, NodeDependency>;
+export type DependencyTree = Map<RelationIdType, NodeDependency>;
 
 export interface DependencyInfo {
   // both ways for easy access
@@ -71,6 +71,11 @@ export function getTopologicalOrder(depTree: DependencyTree) {
     }
   }
   function topoVisit(relation: string) {
+    loopCount += 1;
+    if (loopCount > 1000) { // this is brittle, and temporarily for debugging #FIXME
+      debugger;
+      LogInternalError(`Too many loops in toplogical sort`);
+    }
     if (!visitedStringToNumber.has(relation)) {
       // this should be the case where a static relation is referred
       // in which case we can just skip; enhance later #FIXMELATER
