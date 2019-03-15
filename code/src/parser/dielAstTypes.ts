@@ -345,6 +345,8 @@ export interface SelectionUnit {
   limitClause?: ExprAst;
 }
 
+// NOTE for LUCIE: here is where latest is being marked
+//   (the parsing logic is done in `generateAst.ts` already)
 export interface RelationReference {
   relationName?: string;
   isLatest?: boolean;
