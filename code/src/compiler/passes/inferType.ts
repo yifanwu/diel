@@ -9,7 +9,7 @@ export function InferType(ir: DielIr) {
 
 // recurively invoked
 // FIXME: the optional is kinda weird
-function inferTypeForSelection(r: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions) {
+export function inferTypeForSelection(r: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions) {
   r.derivedColumnSelections.map(cs => {
     if (!cs.expr) {
       LogInternalError(`the selection must have been parsed`);

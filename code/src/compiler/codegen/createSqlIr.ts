@@ -1,4 +1,4 @@
-import { DielAst, ProgramsIr, DataType, RelationType, Column, CompositeSelectionUnit, InsertionClause, OriginalRelation, DerivedRelation, Commands } from "../../parser/dielAstTypes";
+import { DielAst, ProgramsIr, DataType, RelationType, Column, CompositeSelectionUnit, InsertionClause, OriginalRelation, DerivedRelation, Command, Relation } from "../../parser/dielAstTypes";
 import { RelationIdType } from "../DielPhysicalExecution";
 import { LogInternalError, DielInternalErrorType } from "../../lib/messages";
 
@@ -22,12 +22,12 @@ export interface RelationQuery {
  * Note
  * - Recycling the programsIr from DIEL AST
  */
-export interface SqlIr {
+export interface SqlAst {
   // tablespec
   tables: RelationSpec[];
   views: RelationQuery[];
   triggers: ProgramsIr;
-  commands: Commands[];
+  commands: Command[];
 }
 
 const inputColumns: Column[] = [
@@ -44,12 +44,21 @@ const inputColumns: Column[] = [
   }
 ];
 
+export function CreateDerivedSelectionSqlAstFromDielAst(ast: Relation) {
+  const v = ast as DerivedRelation;
+  return {
+    name: v.name,
+    sqlRelationType: (v.relationType === RelationType.View) ? SqlRelationType.View : SqlRelationType.Table,
+    query: v.selection.compositeSelections
+  };
+}
+
 /**
  * Notes:
  * - staticTables do not need to be created since they already exist
  * @param ast
  */
-export function createSqlAstFromDielAst(ast: DielAst): SqlIr {
+export function createSqlAstFromDielAst(ast: DielAst): SqlAst {
   const tables: {
     name: RelationIdType,
     columns: Column[]
@@ -83,12 +92,8 @@ export function createSqlAstFromDielAst(ast: DielAst): SqlIr {
         case RelationType.EventView:
         case RelationType.DerivedTable:
         case RelationType.View: {
-          const v = iUnionType as DerivedRelation;
-          views.push({
-            name: v.name,
-            sqlRelationType: (v.relationType === RelationType.View) ? SqlRelationType.View : SqlRelationType.Table,
-            query: v.selection.compositeSelections
-          });
+          const genAst = CreateDerivedSelectionSqlAstFromDielAst(iUnionType);
+          views.push(genAst);
           break;
         }
         case RelationType.ExistingAndImmutable:

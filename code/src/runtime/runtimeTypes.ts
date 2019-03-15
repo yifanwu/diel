@@ -1,5 +1,6 @@
 import { SelectionUnit } from "../parser/dielAstTypes";
 import { DbIdType, RelationIdType, LogicalTimestep } from "../compiler/DielPhysicalExecution";
+import { ChartSpecBase2D } from "../notebook/vizSpec/vizSpec";
 
 export type QueryId = number;
 
@@ -15,17 +16,15 @@ export type GetRelationToShipFuncType = (dbId: DbIdType, relation: string, step:
 export type RecordObject = {[index: string]: string | number | Uint8Array};
 export type RelationObject = RecordObject[];
 
-interface ChartSpecBase {
-  chartType: ChartType;
-  data?: RelationObject;
-}
 
-export type ChartSpec = TwoDimCartesianCoordSpec;
+// type K = "1" | "2";
 
-export interface TwoDimCartesianCoordSpec extends ChartSpecBase {
-  xAttribute: string;
-  yAttribute: string;
-}
+// export interface Logger<K> {
+//   /**
+//    * Attach logging to the Vega view.
+//    */
+//   attach(name: K, view: string): void;
+// }
 
 /**
  * stores information about what relations live in what sources
@@ -56,7 +55,7 @@ export enum CellStatus {
  * keeping it as an independent object in case we want to keep track of user interactions?
  * -- though we should probably use DIEL to do that; thinka bout later..
  */
-export interface AnnotationSpec extends TwoDimCartesianCoordSpec {
+export interface AnnotationSpec extends ChartSpecBase2D {
   semanticId: string;
   ast: SelectionUnit;
 }

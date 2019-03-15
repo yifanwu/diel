@@ -8,8 +8,8 @@ const dielFiles = [
   // the following are local
   // fixme: make simple and counter-worker have different names...
   // `${dielPrefix}simple.diel`,
-  `${dielPrefix}linked-bar-charts.diel`,
-  // `${dielPrefix}single-bar-chart-zoom.diel`,
+  // `${dielPrefix}linked-bar-charts.diel`,
+  `${dielPrefix}single-bar-chart-zoom.diel`,
   // the following are remotes
   `${dielPrefix}pitchfork.diel`,
   `${dielPrefix}flights-worker.diel`,

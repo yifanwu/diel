@@ -130,7 +130,6 @@ interface RelationBase {
 }
 
 export interface DerivedRelation extends RelationBase {
-  relationType: RelationType;
   selection: RelationSelection;
 }
 
@@ -140,7 +139,7 @@ export interface OriginalRelation extends RelationBase {
 }
 
 export type Relation = DerivedRelation | OriginalRelation;
-export type Commands = RelationSelection | InsertionClause | DropClause;
+export type Command = RelationSelection | InsertionClause | DropClause;
 
 export type ForeignKey = {
   sourceColumn: string, targetRelation: string, targetColumn: string
@@ -161,7 +160,7 @@ export interface RelationConstraints {
 /**
  * If input is not specified, i.e. "", it's over all inputs.
  */
-export type ProgramsIr = Map<string, Commands[]>;
+export type ProgramsIr = Map<string, Command[]>;
 
 export interface DielConfig {
   name?: string;
@@ -180,7 +179,7 @@ export interface DielContext {
 
 export interface DielAst {
   relations: Relation[];
-  commands: Commands[];
+  commands: Command[];
   // inputs: OriginalRelation[];
   // originalRelations: OriginalRelation[];
   // outputs: DerivedRelation[];
@@ -220,7 +219,7 @@ export interface CrossFilterIr {
   charts: CrossFilterChartIr[];
 }
 
-export type ProgramsParserIr = {input: string, queries: Commands[]};
+export type ProgramsParserIr = {input: string, queries: Command[]};
 
 export type ExpressionValue = DielAst
   | OriginalRelation
@@ -234,7 +233,7 @@ export type ExpressionValue = DielAst
   | CompositeSelectionUnit
   | RelationSelection
   | RelationConstraints
-  | Commands[]
+  | Command[]
   | string
   | string[]
   | RawValues

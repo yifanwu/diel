@@ -1,12 +1,36 @@
 import { DielIr } from "../../lib";
 import { getSelectionUnitDep, getTopologicalOrder, DependencyTree } from "./passesHelper";
-import { DielAst, RelationType } from "../../parser/dielAstTypes";
+import { DielAst, RelationType, DerivedRelation, SelectionUnit } from "../../parser/dielAstTypes";
 import { SetIntersection } from "../../lib/dielUtils";
+import { SelectionUnitVisitorFunctionOptions } from "../DielIr";
 
-export function ApplyDependencies(ir: DielIr) {
-  // first build the tree
-  let depTree: DependencyTree = new Map<string, {dependsOn: string[], isDependedBy: string[]}>();
-  ir.ApplyToImmediateSelectionUnits<void>((s, optional) => {
+export function GetDependenciesFromViewList(views: DerivedRelation[]) {
+  const depTree: DependencyTree = new Map<string, {dependsOn: string[], isDependedBy: string[]}>();
+  views.map(v => {
+    let dependsOn: string[] = [];
+    v.selection.compositeSelections.map(c => {
+      const deps = getSelectionUnitDep(c.relation);
+      dependsOn = deps.concat(dependsOn);
+    });
+    depTree.set(v.name, {
+      dependsOn,
+      isDependedBy: []
+    });
+  });
+  depTree.forEach((value, key) => {
+    value.dependsOn.map(dO => {
+      // it's possible that these don't exist, if they are the leaves
+      if (!depTree.has(dO)) {
+        depTree.set(dO, {dependsOn: [], isDependedBy: []});
+      }
+      depTree.get(dO).isDependedBy.push(key);
+    });
+  });
+  return depTree;
+}
+
+function depTreeHelper(depTree: DependencyTree) {
+  return (s: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions) => {
     const rName = optional.relationName;
     if (!rName) {
       throw new Error(`relation name must be defined`);
@@ -23,7 +47,15 @@ export function ApplyDependencies(ir: DielIr) {
       dependsOn,
       isDependedBy: []
     });
-  });
+  };
+}
+
+// FIXME: replace this shitty implementation with the above and test
+export function ApplyDependencies(ir: DielIr) {
+  // first build the tree
+  let depTree: DependencyTree = new Map<string, {dependsOn: string[], isDependedBy: string[]}>();
+  const fun = depTreeHelper(depTree);
+  ir.ApplyToImmediateSelectionUnits<void>(fun);
   // TODO: make the depends on a set as opposed to a string, easier to search.
 
   // another pass to set the isDependentOn

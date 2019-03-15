@@ -50,7 +50,7 @@ export function processSqlMetaDataFromRelationObject(rO: RelationObject): string
   return rO.map(definition => definition["sql"].toString().replace(/create table/ig, "register table") + ";").join("\n");
 }
 
-export function parseSqlJsWorkerResult(data: QueryResults[]): RelationObject {
+export function ParseSqlJsWorkerResult(data: QueryResults[]): RelationObject {
   if (data && (data.length > 0) && data[0].values) {
     const o: RelationObject = data[0].values.map((v: any[]) => {
       let oi: any = {};

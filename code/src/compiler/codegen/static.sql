@@ -1,5 +1,14 @@
 -- this file contains the static parts of DIEL queries
 
+-- __ are internal tables that developers can access?
+create table __scales (
+  component text not null,
+  outputName text not null,
+  x text,
+  y text
+);
+
+
 create table allInputs (
   timestep integer primary key,
   -- DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))

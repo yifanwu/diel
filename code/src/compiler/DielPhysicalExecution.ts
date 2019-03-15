@@ -8,6 +8,7 @@ import { DependencyTree, NodeDependencyAugmented } from "./passes/passesHelper";
 import { SetIntersection } from "../lib/dielUtils";
 import { isRelationTypeDerived } from "./DielIr";
 import { access } from "fs";
+import { TransformAstForMaterialization } from "./passes/materialization";
 
 /**
  * currently include
@@ -89,11 +90,13 @@ export class DielPhysicalExecution {
         relationDef.push(newDef);
       }
     }
+    const setofRelationsDistributed = new Set<RelationIdType>();
     distributions.map(distribution => {
       // if (distribution.from !== distribution.to) {
       // there are quite a few repetitions because the list is denormalized (fanout by outputs)
       const astToSpec = setIfNotExist(distribution.to);
       const astFromSpec = setIfNotExist(distribution.from);
+      setofRelationsDistributed.add(distribution.relationName);
       const rDef = this.ir.GetRelationDef(distribution.relationName);
       if (isRelationTypeDerived(rDef.relationType)) {
         if (distribution.from !== distribution.to) {
@@ -113,6 +116,20 @@ export class DielPhysicalExecution {
         astSepcLocal.relations.push(this.ir.GetRelationDef(distribution.finalOutputName));
       }
     });
+    // need to add the static tables that are not directly referenced to main
+    // find any static table that was not used by outputs...
+    this.ir.GetOriginalRelations().map(r => {
+      if ((r.relationType === RelationType.Table)
+      || (r.relationType === RelationType.DerivedTable)) {
+        if (!setofRelationsDistributed.has(r.name)) {
+          // we need to add this to the local one
+          // fixme: might be relevant for workers as well
+          astSpecPerDb.get(LocalDbId).relations.push(r);
+        }
+      }}
+    );
+    // as well as the commands
+    astSpecPerDb.get(LocalDbId).commands = this.ir.ast.commands;
     // sanity check: only localDB is allowed to have EventTables!
     astSpecPerDb.forEach((ast, dbId) => {
       if (dbId !== LocalDbId) {
@@ -122,6 +139,11 @@ export class DielPhysicalExecution {
           }
         });
       }
+      // aldo do materialization
+      // TODO: angela
+      // commenting out for now for performance
+      // const materialization = TransformAstForMaterialization(ast);
+      // console.log(JSON.stringify(materialization, null, 2));
     });
     // then get the out
     return astSpecPerDb;

@@ -1,55 +1,45 @@
 import * as React from "react";
 
-import { RelationObject, ChartType } from "../../../runtime/runtimeTypes";
-import { diel } from "../../setup";
-import { BarChart } from "../charts/BarChart";
+import { ChartType } from "../../../runtime/runtimeTypes";
+import DielComponent from "../diel/DielComponent";
 
-interface PitchForkState {
-  scoreData: RelationObject;
-  yearData: RelationObject;
+enum ComponentRelations {
+  pitchForkScoreDistribution = "pitchForkScoreDistribution",
+  pitchForkYearDistribution = "pitchForkYearDistribution",
+  allGenres = "allGenres"
 }
 
-// FIXME: if we set get view on outputs we might not set it when we initially need to
-//  diel.GetView("")
-export default class PitchFork extends React.Component<{}, PitchForkState> {
+export default class PitchFork extends DielComponent<{}> {
   constructor(props: {}) {
     super(props);
-    diel.BindOutput("pitchForkScoreDistribution", this.setScoreData.bind(this));
-    diel.BindOutput("pitchForkYearDistribution", this.setYearData.bind(this));
-    this.state = {
-      scoreData: null,
-      yearData: null,
-    };
-  }
-  setYearData(r: RelationObject) {
-    this.setState({yearData: r});
-  }
-  setScoreData(r: RelationObject) {
-    this.setState({scoreData: r});
+    this.state = {};
+    super.BindDielOutputs(Object.keys(ComponentRelations));
   }
   render() {
-    const scoreSpec = {
-      chartType: ChartType.BarChart,
-      data: this.state.scoreData,
-      xAttribute: "scoreBin",
-      yAttribute: "count"
-    };
-    const yearSpec = {
-      chartType: ChartType.BarChart,
-      data: this.state.yearData,
-      xAttribute: "yearBin",
-      yAttribute: "count"
-    };
+    const scoreChart = this.Generate2DChart(ChartType.BarChart, ComponentRelations.pitchForkScoreDistribution);
+    const yearChart = this.Generate2DChart(ChartType.BarChart, ComponentRelations.pitchForkYearDistribution);
+    const explaination = <div><p>
+        In this chart, selecting the genre would filter the two charts.
+        Further selecting on the charts would filter the other.
+      </p></div>;
+
+    const options = this.state[ComponentRelations.allGenres]
+      ? this.state[ComponentRelations.allGenres].map(() => <p>i.genre</p>)
+      : <p>loading...</p>;
+
+    const vis = <>
+    <p>A barchart of score distribution</p>
+      {scoreChart}
+    <p>A barchart of year distribution</p>
+      {yearChart}
+    </>;
     return <>
+      <div className="top-nave">
+        {options}
+      </div>
+      {vis}
       <h2>This is a demo of 1.88 million pitch fork review data</h2>
-      <p>A barchart of score distribution</p>
-      <BarChart
-        spec={scoreSpec}
-      />
-      <p>A barchart of year distribution</p>
-      <BarChart
-        spec={yearSpec}
-      />
+      {explaination}
     </>;
   }
 }

@@ -41,6 +41,7 @@ export function getSelectionUnitAnnotation(ast: SelectionUnit): AnnotedSelection
     const semanticId = `column-tool-tip-${columnName}-${relationName}`;
     return {
       ast,
+      relationName: "hack",
       chartType: ChartType.BarChart,
       xAttribute: "x",
       yAttribute: "y",
