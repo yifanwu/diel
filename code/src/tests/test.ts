@@ -9,7 +9,7 @@ import { assertAllStar } from "./compilerTests/testStarExpantion";
 import { assertBasicConstraints } from "./parserTests/constraintsTest";
 import { getDielIr } from "../lib/cli-compiler";
 import { assertFunctionParsing } from "./parserTests/functionTest";
-import { assertLatestSyntax } from "./compilerTests/testSyntaxSugar";
+// import { assertLatestSyntax } from "./compilerTests/testSyntaxSugar";
 
 // TODO: refactor tests to share more compiling and save some time...
 
@@ -29,7 +29,7 @@ create view v3 as select a from t1 where b in (select b from t2 where c = 'hello
 `;
 
 // testDistributionLogc();
-assertLatestSyntax(); // LUCIE TODO
+// assertLatestSyntax(); // LUCIE TODO
 
 // testTopologicalSort();
 
