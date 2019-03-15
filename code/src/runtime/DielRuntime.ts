@@ -87,7 +87,7 @@ export default class DielRuntime {
     };
     this.boundFns = [];
     this.runOutput = this.runOutput.bind(this);
-    // this.tick = this.tick.bind(this);
+    this.tick = this.tick.bind(this);
     this.BindOutput = this.BindOutput.bind(this);
     this.setup();
   }
