@@ -6,10 +6,19 @@
 
 create event view allGenresEvent AS
   select DISTINCT genre
-  from genres;
+  from genres
+  where genre NOT NULL;
 
 create output allGenres AS
   select * from allGenresEvent;
+
+create event table userGenreSelectionEvent (
+  genre text;
+);
+
+create view currentUserGenreSelection AS
+  select * from userGenreSelectionEvent
+  where timestep = (select max(timestep) from userGenreSelectionEvent);
 
 create output pitchForkScoreDistribution as
   select *
@@ -24,6 +33,10 @@ create event view pitchForkScoreDistributionEvent as
     round(score * 10 / 10) as scoreBin,
     count(*) as count
   from reviews
+  join genres on genres.reviewid = reviews.reviewid
+  join currentUserGenreSelection e
+    on e.genre = genres.genre
+    or e.genre IS NULL
   group by scoreBin;
 
 
@@ -40,4 +53,5 @@ create event view pitchForkYearDistributionEvent AS
     pub_year as yearBin,
     count(*) as count
   from reviews
+  join genres on genres.reviewid = reviews.reviewid
   group by yearBin;

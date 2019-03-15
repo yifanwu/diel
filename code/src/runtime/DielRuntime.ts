@@ -150,7 +150,10 @@ export default class DielRuntime {
           if ((raw === null) || (raw === undefined)) {
             ReportUserRuntimeError(`We expected the input ${cName}, but it was not defined in the object.`);
           }
-          return (typeof raw === "string") ? `'${raw}'` : raw;
+          const valueStr = raw
+            ? (typeof raw === "string") ? `'${raw}'` : raw
+            : "null";
+          return valueStr;
         });
       });
       const finalQuery = `

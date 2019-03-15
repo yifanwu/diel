@@ -2,3 +2,9 @@
 export const STRICT = false;
 export const VERBOSE = true;
 export const DEBUG = false;
+
+// the following are demo configs
+export const DEMO_WITH_SOCKET = false;
+export const DEMO_WITH_LARGE_WEBWORKER = false;
+export const DEMO_WITH_SMALL_WEBWORKER = true;
+export const DEMO_WITH_WEBWORKER = DEMO_WITH_SMALL_WEBWORKER || DEMO_WITH_LARGE_WEBWORKER;
