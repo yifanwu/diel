@@ -3,8 +3,9 @@ import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateAst";
-import { inferTypeForSelection } from "./passes/inferType";
-import { diel } from "../notebook/setup";
+// import { inferTypeForSelection } from "./passes/inferType";
+// import { diel } from "../notebook/setup";
+import { DielAst } from "../parser/dielAstTypes";
 
 export function parse(code: string) {
   const inputStream = new ANTLRInputStream(code);
@@ -27,9 +28,8 @@ export function getVanillaSelectionUnitAst(code: string) {
 export function getSelectionUnitAst(code: string) {
   // FIXME: limitation: do not use stars
   // normalizeColumnSelection
-  const selectionUnitAst = getVanillaSelectionUnitAst(code);
-  inferTypeForSelection(selectionUnitAst, {ir: diel.ir});
+  // const selectionUnitAst = getVanillaSelectionUnitAst(code);
+  // inferTypeForSelection(selectionUnitAst, {ir: diel.ir});
   // inferType
-  return selectionUnitAst;
+  // return selectionUnitAst;
 }
-
