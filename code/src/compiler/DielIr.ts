@@ -1,4 +1,4 @@
-import { DielAst, DerivedRelation, DataType, OriginalRelation, RelationType, SelectionUnit, CompositeSelection, Relation } from "../parser/dielAstTypes";
+import { DielAst, DerivedRelation, DataType, OriginalRelation, RelationType, SelectionUnit, CompositeSelection, Relation, Command } from "../parser/dielAstTypes";
 import { DependencyInfo } from "./passes/passesHelper";
 import { LogInternalWarning, LogInternalError, DielInternalErrorType } from "../lib/messages";
 import { ExprType, ExprColumnAst, ExprFunAst } from "../parser/exprAstTypes";
@@ -45,10 +45,20 @@ export function columnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[] {
   });
 }
 
+// --------------- Gettter functions for AST BEGIN --------------------
 export function GetAllDerivedViews(ast: DielAst): DerivedRelation[] {
   return ast.relations.filter(r => isRelationTypeDerived(r.relationType)) as DerivedRelation[];
 }
 
+export function GetAllPrograms(ast: DielAst) {
+  let allCommands: Command[]  = [];
+  ast.programs.forEach((commands, _) => {
+    allCommands = allCommands.concat(commands);
+  });
+  return allCommands;
+}
+
+// --------------- Gettter functions for AST END --------------------
 
 export class DielIr {
 
