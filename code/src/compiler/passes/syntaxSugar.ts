@@ -1,4 +1,5 @@
-import { DerivedRelation, SelectionUnit, DielAst } from "../../parser/dielAstTypes";
+import { DerivedRelation, SelectionUnit, DielAst, AstType, RelationSelection } from "../../parser/dielAstTypes";
+import { GetAllDerivedViews, GetAllPrograms } from "../DielIr";
 
 // implements the transformation for LATEST
 
@@ -11,7 +12,20 @@ import { DerivedRelation, SelectionUnit, DielAst } from "../../parser/dielAstTyp
  * @param ast
  */
 export function applyLatestToAst(ast: DielAst): void {
-
+  // first go through the derivedrelations
+  const derived = GetAllDerivedViews(ast);
+  derived.map(d => {d.selection.compositeSelections.map(c => {
+      applyLatestToSelectionUnit(c.relation);
+    });
+  });
+  // also need to check programs and commands
+  GetAllPrograms(ast).map(c => {
+    if (c.astType === AstType.RelationSelection) {
+      (c as RelationSelection).compositeSelections.map(c => {
+        applyLatestToSelectionUnit(c.relation);
+      });
+    }
+  });
 }
 
 /**
