@@ -1,21 +1,25 @@
 import * as React from "react";
 import { FilterValueType, BrushBoxTwoDim, ChartPropShared, ChartSpec2DWithData } from "../../vizSpec/vizSpec";
 import { TwoDimCoord } from "./TwoDimCoord";
+import * as d3 from "d3";
+import { RecordObject } from "../../../runtime/runtimeTypes";
 
-interface ScatterplotProps extends ChartPropShared {
+interface LineChartProps extends ChartPropShared {
   spec: ChartSpec2DWithData;
   selectedDataRange?: {
     minX: FilterValueType; maxX: FilterValueType,
-    minY: FilterValueType; maxY: FilterValueType
   };
   brushHandler?: (box: BrushBoxTwoDim) => void;
 }
 
-export const Scatterplot: React.StatelessComponent<ScatterplotProps> = (p) => {
+export const LineChart: React.StatelessComponent<LineChartProps> = (p) => {
   const color = p.colorSpec ? p.colorSpec.default : "steelblue";
   const {data, xAttribute, yAttribute} = p.spec;
+
   const shapeGen = (x: any, y: any) => {
-    data.map((d, _) => <circle r="3" cx={x(d[xAttribute] as number)} cy={y(d[yAttribute] as number)} fill={color} fillOpacity={0.5}></circle>);
+    let lineMapping = d3.line<RecordObject>().x((d) => x(d[xAttribute])).y((d) => y(d[yAttribute]));
+    let line = lineMapping(data);
+    return <path stroke={color} fill="none" stroke-wdith="1.5" d={line}></path>;
   };
   return <TwoDimCoord
     shapeGen={shapeGen}

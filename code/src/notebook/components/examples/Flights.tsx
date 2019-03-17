@@ -12,7 +12,7 @@ enum ComponentRelations {
 }
 
 export default class Flights extends DielComponent<{}> {
-  constructor(props: {test: string}) {
+  constructor(props: {}) {
     super(props);
     console.log("Flight state is being set");
     this.BindDielOutputs(Object.keys(ComponentRelations));

@@ -4,6 +4,7 @@
       "module": "commonjs",
       "outDir": "./dist/server",
       "strict": true,
+      "resolveJsonModule": true,
       "sourceMap": true,
       "typeRoots": [
           "node_modules/@types"
