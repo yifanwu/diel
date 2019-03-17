@@ -1,0 +1,14 @@
+-- statically render all the fires first
+-- we are going to use their rowid's for now since I forgot to create ids...
+
+insert into __scales (component, outputName, x, y) values ('fires', 'fireSpots', 'LATITUDE', 'LONGITUDE');
+create output fireSpots AS
+  select * from fireSpotsEvent where timestep = (select max(timestep) from fireSpotsEvent);
+
+create event view fireSpotsEvent AS
+select
+  LATITUDE,
+  LONGITUDE
+from
+  fires
+limit 100;

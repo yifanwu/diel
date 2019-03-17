@@ -20,6 +20,11 @@ export default class DielComponent<P> extends React.Component<P, DielComponentSt
   // setData(r: string[]) {
   //   this.setState({hi: "hi"});
   // }
+  constructor(props: P) {
+    super(props);
+    this.Generate2DChart = this.Generate2DChart.bind(this);
+    this.state = {};
+  }
   BindDielOutputs(relationNames: string[]) {
     const self = this;
     relationNames.map(relationName => {

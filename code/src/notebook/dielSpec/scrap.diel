@@ -1,0 +1,27 @@
+-- CREATE view   AS
+--   select sum(click.a * 2) as count
+--   from click;
+-- --   constrain count < 10;
+-- create in main
+-- create input totalWorkerClickEvents (
+--   count integer
+-- );
+
+CREATE INPUT participantSelection (sId number);
+
+create view seletedScore as
+  select *
+  from scores
+    join (
+      select * from participantSelection where timestep = (select max(timestep) from participantSelection)
+      ) s on s.sId = scores.sId;
+
+CREATE TABLE clickSp (aPrime number);
+
+-- CREATE PROGRAM AFTER click
+--   BEGIN
+--     INSERT INTO clickSp (aPrime) select a * 2 as derivedA from click;
+--     -- select log("new value! " || new.a);
+--   END;
+
+-- select shipWorkerInput('click');

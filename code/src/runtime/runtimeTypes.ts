@@ -44,6 +44,8 @@ export interface TableMetaData {
 export enum ChartType {
   BarChart = "BarChart",
   Scatter = "Scatter",
+  Map = "Map",
+  // todo
   LineChart = "LineChart"
 }
 export enum CellStatus {

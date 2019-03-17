@@ -46,8 +46,8 @@ export function getExistingTableDefinitions(isWorker: boolean, db?: Database): s
 //   };
 // }
 
-export function processSqlMetaDataFromRelationObject(rO: RelationObject): string {
-  return rO.map(definition => definition["sql"].toString().replace(/create table/ig, "register table") + ";").join("\n");
+export function processSqlMetaDataFromRelationObject(rO: RelationObject, sourceName: string): string {
+  return rO.map(definition => definition["sql"].toString().replace(/create table/ig, `\n--${sourceName}\nregister table`) + ";").join("\n");
 }
 
 export function ParseSqlJsWorkerResult(data: QueryResults[]): RelationObject {
