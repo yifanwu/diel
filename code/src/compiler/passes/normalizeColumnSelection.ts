@@ -142,6 +142,15 @@ function normalizeColumnForSelectionUnit(s: SelectionUnit, optional: SelectionUn
     });
     s.derivedColumnSelections = [].concat(...derivedColumnSelections);
     // TODO: in addition to just expanding this query we might be interested in systematically expanding all other subqueries in the future...
+    if (s.baseRelation.subquery) {
+      normalizeColumnForSelectionUnit(s.baseRelation.subquery.compositeSelections[0].relation, optional);
+    }
+    // loop through the joins and find the subqueries
+    s.joinClauses.map(j => {
+      if (j.relation.subquery) {
+        normalizeColumnForSelectionUnit(j.relation.subquery.compositeSelections[0].relation, optional);
+      }
+    });
     return;
   }
 

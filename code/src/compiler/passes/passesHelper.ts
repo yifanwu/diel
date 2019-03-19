@@ -1,6 +1,6 @@
-import { ExprType, ExprRelationAst } from "../../parser/exprAstTypes";
+import { ExprType, ExprRelationAst, ExprFunAst, ExprAst, ExprColumnAst, ExprParen } from "../../parser/exprAstTypes";
 import { SelectionUnit, RelationReference, RelationType } from "../../parser/dielAstTypes";
-import { LogInternalError } from "../../lib/messages";
+import { LogInternalError, LogInternalWarning } from "../../lib/messages";
 import { DbIdType, RelationIdType } from "../DielPhysicalExecution";
 
 export interface NodeDependencyAugmented extends NodeDependency {
@@ -33,6 +33,32 @@ function getRelationReferenceDep(r: RelationReference): string[] {
   }
 }
 
+function getExprDep(depAcc: string[], e: ExprAst): void {
+  if (!e) {
+    debugger;
+  }
+  switch (e.exprType) {
+    case ExprType.Relation:
+      const relationExpr = e as ExprRelationAst;
+      relationExpr.selection.compositeSelections.map(newE => {
+        depAcc.push(...getSelectionUnitDep(newE.relation));
+      });
+      break;
+    case ExprType.Func:
+      const whereFuncExpr = (e as ExprFunAst);
+      whereFuncExpr.args.map(newE => {
+        getExprDep(depAcc, newE);
+      });
+      break;
+    case ExprType.Parenthesis:
+      getExprDep(depAcc, (e as ExprParen).content);
+      break;
+    default:
+      return;
+      // do nothing for now
+  }
+}
+
 // recursive!
 export function getSelectionUnitDep(s: SelectionUnit): string[] {
   let deps = getRelationReferenceDep(s.baseRelation);
@@ -40,9 +66,8 @@ export function getSelectionUnitDep(s: SelectionUnit): string[] {
   s.joinClauses.map(j => {
     deps = deps.concat(getRelationReferenceDep(j.relation));
   });
-  if (s.whereClause && s.whereClause.exprType === ExprType.Relation) {
-    const relationExpr = s.whereClause as ExprRelationAst;
-    deps = deps.concat(relationExpr.selection.compositeSelections.reduce((acc: string[], c) => acc.concat(getSelectionUnitDep(c.relation)), []));
+  if (s.whereClause) {
+    getExprDep(deps, s.whereClause);
   }
   return deps;
 }

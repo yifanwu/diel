@@ -13,20 +13,22 @@ const workerDbPaths = [
     `${dbPathPrefix}fires.sqlite`,
     `${dbPathPrefix}pitchfork.large.sqlite`,
   ].concat(flightWorkerDbPaths);
+const mainDbPath = `${dbPathPrefix}score.sqlite`;
+
 const dielPrefix = "./src/notebook/dielSpec/";
 
 const dielFiles = [
   // the following are local
-  `${dielPrefix}simple.diel`,
-  `${dielPrefix}single-bar-chart-zoom.diel`,
+  // `${dielPrefix}simple.diel`,
+  // `${dielPrefix}single-bar-chart-zoom.diel`,
+  `${dielPrefix}undo.diel`,
   // following are webworkers
-  ...(DEMO_WITH_WEBWORKER ? [`${dielPrefix}flights-worker.diel`] : []),
+  // ...(DEMO_WITH_WEBWORKER ? [`${dielPrefix}flights-worker.diel`] : []),
 
   // the following are socket based remotes (requires running `server.ts`)
-  ...(DEMO_WITH_SOCKET ? [`${dielPrefix}pitchfork.diel`] : []),
+  // ...(DEMO_WITH_SOCKET ? [`${dielPrefix}pitchfork.diel`] : []),
 ];
 
-const mainDbPath = `${dielPrefix}score.sqlite`;
 // const mainDbPath: string = null;
 
 const socketConnections = DEMO_WITH_SOCKET
