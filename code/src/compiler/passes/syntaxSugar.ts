@@ -56,51 +56,18 @@ export function applyLatestToSelectionUnit(relation: SelectionUnit): void {
         }
         var relationName = relation.baseRelation.relationName;
 
-        var selection = {
-            op: SetOperator.NA,
-            relation : {
-                isDistinct: false,
-
-                columnSelections : [{
-                    alias: null,
-                    expr: {
-                        exprType: ExprType.Column,
-                        dataType: DataType.TBD,
-                        hasStar: true
-                    } as ExprAst
-                }] as ColumnSelection[],
-
-                baseRelation: {
-                    alias: null,
-                    isLatest: false,
-                    relationName: relationName
-                } as RelationReference,
-
-                orderByClause : [{
-                    selection: {
-                        exprType: ExprType.Column,
-                        dataType: DataType.TBD,
-                        hasStar: false,
-                        columnName:  "timestep"
-                    } as ExprAst,
-                    order: Order.DESC
-                } as OrderByAst] as OrderByAst[],
-
-                limitClause : {
-                    exprType: ExprType.Val,
-                    dataType: DataType.Number,
-                    value: 1
-                } as ExprAst
-            } as SelectionUnit
-        } as CompositeSelectionUnit;
 
         // changing base relation in-place
         relation.baseRelation.isLatest = false;
-        relation.baseRelation.relationName = undefined;
         relation.baseRelation.subquery = {
             astType: AstType.RelationSelection,
             compositeSelections: [selection]
         } as RelationSelection;
+
+
+        // modify the where clause.
+        // the latest where clause should be appended to the existing where clause
+        // all other relations remain intact (orderby, limit, constraint, groupby)
 
         var q = generateSelectionUnit(relation);
         console.log(q);
