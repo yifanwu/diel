@@ -130,6 +130,11 @@ export class DielPhysicalExecution {
     );
     // as well as the commands
     astSpecPerDb.get(LocalDbId).commands = this.ir.ast.commands;
+    // add user defined programs to main db
+    if (astSpecPerDb.get(LocalDbId).programs.size > 0) {
+      LogInternalError("FIXME: need to merge instead of reset");
+    }
+    astSpecPerDb.get(LocalDbId).programs = this.ir.ast.programs;
     // sanity check: only localDB is allowed to have EventTables!
     astSpecPerDb.forEach((ast, dbId) => {
       if (dbId !== LocalDbId) {
@@ -145,6 +150,7 @@ export class DielPhysicalExecution {
       // const materialization = TransformAstForMaterialization(ast);
       // console.log(JSON.stringify(materialization, null, 2));
     });
+    
     // then get the out
     return astSpecPerDb;
   }

@@ -1,5 +1,6 @@
 import { ExprAst, ExprValAst } from "./exprAstTypes";
 import { LogInternalError } from "../lib/messages";
+import { RelationIdType } from "../compiler/DielPhysicalExecution";
 
 export interface DielTemplate {
   variables: string[];
@@ -219,7 +220,7 @@ export interface CrossFilterIr {
   charts: CrossFilterChartIr[];
 }
 
-export type ProgramsParserIr = {input: string, queries: Command[]};
+export type ProgramsParserIr = {events: RelationIdType[], queries: Command[]};
 
 export type ExpressionValue = DielAst
   | OriginalRelation
@@ -274,9 +275,10 @@ export interface Column {
 
 // currently a bit lazy about the default representation...
 export interface ColumnConstraints {
-  notNull?: boolean;
-  unique?: boolean;
-  primaryKey?: boolean;
+  notNull: boolean;
+  autoincrement: boolean;
+  unique: boolean;
+  primaryKey: boolean;
 }
 
 export enum JoinType {

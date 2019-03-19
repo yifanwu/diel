@@ -160,13 +160,19 @@ export default class DielRuntime {
           return valueStr;
         });
       });
-      const finalQuery = `
-      insert into ${eventName} (timestep, lineage, ${columnNames.join(", ")}) values
-        ${values.map(v => `(${this.timestep}, ${lineage}, ${v.join(", ")})`)};
+      let finalQuery: string;
+      const allInputQuery = `
       insert into allInputs (timestep, inputRelation, timestamp, lineage) values
         (${this.timestep}, '${eventName}', ${Date.now()}, ${lineage});`;
-      console.log(`%c Tick Executing\n${finalQuery}`, QueryConsoleColorSpec);
-      this.db.exec(finalQuery);
+      if (columnNames && (columnNames.length > 0)) {
+        finalQuery = `insert into ${eventName} (timestep, lineage, ${columnNames.join(", ")}) values
+          ${values.map(v => `(${this.timestep}, ${lineage}, ${v.join(", ")})`)};`;
+      } else {
+        finalQuery = `insert into ${eventName} (timestep, lineage) values (${this.timestep}, ${lineage});`;
+      }
+      console.log(`%c Tick Executing\n${finalQuery + allInputQuery}`, QueryConsoleColorSpec);
+      this.db.exec(finalQuery + allInputQuery);
+
       const inputDep = this.ir.dependencies.inputDependenciesOutput.get(eventName);
       this.boundFns.map(b => {
         if (inputDep.has(b.outputName)) {
