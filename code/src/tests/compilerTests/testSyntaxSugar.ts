@@ -2,23 +2,36 @@ import { GenerateUnitTestErrorLogger } from "../../lib/messages";
 import { getDielIr, getDielAst } from "../../lib/cli-compiler";
 import { DerivedRelation } from "../../parser/dielAstTypes";
 import { ExprColumnAst } from "../../parser/exprAstTypes";
-import { getSelectionUnitAst, getVanillaSelectionUnitAst } from "../../compiler/compiler";
+import {  getSelectionUnitAst, getVanillaSelectionUnitAst } from "../../compiler/compiler";
 import { applyLatestToSelectionUnit, applyLatestToAst } from "../../compiler/passes/syntaxSugar";
+
+
+
+let q1 = `
+  create table filtered as select arrival from LATEST t1;
+  `;
+
+let q2 = `
+select arrival
+from t1
+where timestep =
+(select max(timestep) from t1);`;
 
 // LUCIE TODO
 export function assertLatestSyntax() {
-  let q = `
-  select arrival from LATEST t1;
-  `;
-  const logger = GenerateUnitTestErrorLogger("assertBasicOperators", q);
-  let ast = getVanillaSelectionUnitAst(q);
-  // console.log(ast);
+
+  const logger = GenerateUnitTestErrorLogger("assertBasicOperators", q2);
+  let selUnit = getVanillaSelectionUnitAst(q2);
+  console.log(selUnit);
+
+    // let ast = getDielAst(q2);
   // applyLatestToAst(ast);
-  applyLatestToSelectionUnit(ast);
+  // applyLatestToSelectionUnit(selUnit);
 
   // do the assertion on the AST ()
-  if (ast.baseRelation.isLatest === true) {
-    logger("transformation failed");
-  }
+  // if (selUnit.baseRelation.isLatest === true) {
+  //   logger("transformation failed");
+  // }
   return true;
 }
+

@@ -1,11 +1,13 @@
-import { DerivedRelation, SelectionUnit, DielAst, AstType } from "../../parser/dielAstTypes";
 import {ReportDielUserError} from "../../lib/messages";
 import { RelationReference } from "../../../dist/parser/sqlAstTypes";
-import { RelationSelection, CompositeSelectionUnit, SetOperator, OrderByAst, ColumnSelection, Order, DataType } from "../../../src/parser/dielAstTypes";
+import { CompositeSelectionUnit, SetOperator, OrderByAst, ColumnSelection, Order, DataType } from "../../../src/parser/dielAstTypes";
 import {ExprAst, ExprType} from "../../../src/parser/exprAstTypes";
 import {generateSelectionUnit} from "../../../src/compiler/codegen/codeGenSql";
 import { basename } from "path";
 import { CompositeSelection } from "../../../dist/parser/dielAstTypes";
+import { DerivedRelation, SelectionUnit, DielAst, AstType, RelationSelection } from "../../parser/dielAstTypes";
+import { GetAllDerivedViews, GetAllPrograms } from "../DielIr";
+
 // implements the transformation for LATEST
 
 // should reference the implementation for `applyTemplates` in `applyTemplate.ts`.
@@ -17,7 +19,20 @@ import { CompositeSelection } from "../../../dist/parser/dielAstTypes";
  * @param ast
  */
 export function applyLatestToAst(ast: DielAst): void {
-
+  // first go through the derivedrelations
+  const derived = GetAllDerivedViews(ast);
+  derived.map(d => {d.selection.compositeSelections.map(c => {
+      applyLatestToSelectionUnit(c.relation);
+    });
+  });
+  // also need to check programs and commands
+  GetAllPrograms(ast).map(c => {
+    if (c.astType === AstType.RelationSelection) {
+      (c as RelationSelection).compositeSelections.map(c => {
+        applyLatestToSelectionUnit(c.relation);
+      });
+    }
+  });
 }
 
 /**
@@ -106,15 +121,16 @@ export function applyLatestToSelectionUnit(relation: SelectionUnit): void {
 //     limitClause: { exprType: 'Val', dataType: 'Number', value: 1 } }
 
 
-
 // { isDistinct: false,
 //     columnSelections: [ { alias: null, expr: [Object] } ],
-//     baseRelation:
-//      { alias: null,
-//        subquery:
-//         { astType: 'RelationSelection', compositeSelections: [Array] } },
+//     baseRelation: { alias: null, isLatest: false, relationName: 't1' },
 //     joinClauses: [],
-//     whereClause: null,
+//     whereClause:
+//      { exprType: 'Func',
+//        functionType: 'Logic',
+//        functionReference: '=',
+//        dataType: 'Boolean',
+//        args: [ [Object], [Object] ] },
 //     groupByClause: null,
 //     orderByClause: null,
 //     limitClause: null }

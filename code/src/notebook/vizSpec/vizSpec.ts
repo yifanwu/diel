@@ -36,8 +36,15 @@ export interface ChartSpec2DWithQuery extends ChartSpecBase2D {
   modifiedQuery: DerivedRelation;
 }
 
+/**
+ * overloading map data with this, since lat/long is also just x and y, after some projection
+ */
 export interface ChartSpec2DWithData extends ChartSpecBase2D {
   data: RelationObject;
+}
+
+export interface ChartSpec3DWithData extends ChartSpec2DWithData {
+  zAttribute: string;
 }
 
 export type BrushBox = BrushBoxOneDim | BrushBoxTwoDim;

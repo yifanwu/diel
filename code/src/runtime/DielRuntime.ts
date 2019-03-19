@@ -26,7 +26,11 @@ const StaticSqlFile = "./src/compiler/codegen/static.sql";
 export const INIT_TIMESTEP = 1;
 
 export const SqliteMasterQuery = `
-  SELECT sql, name FROM sqlite_master WHERE type='table' and sql not null`;
+  SELECT sql, name
+  FROM sqlite_master
+  WHERE type='table'
+    AND sql not null
+    AND name != 'sqlite_sequence'`;
 
 type ReactFunc = (v: any) => void;
 
@@ -292,7 +296,7 @@ export default class DielRuntime {
       }
     });
     this.physicalMetaData.dbs.set(LocalDbId, {dbType: DbType.Local});
-    let code = processSqlMetaDataFromRelationObject(tableDefinitions);
+    let code = processSqlMetaDataFromRelationObject(tableDefinitions, "main");
     // for (let i = 0; i < this.dbEngines.length; i ++) {
     const promises: Promise<{id: DbIdType, data: RecordObject[]}>[] = [];
     this.dbEngines.forEach((db) => {
@@ -301,7 +305,7 @@ export default class DielRuntime {
     });
     const metadatas = await Promise.all(promises);
     metadatas.map(mD => {
-      code += processSqlMetaDataFromRelationObject(mD.data);
+      code += processSqlMetaDataFromRelationObject(mD.data, mD.id.toString());
       // .map(m => m["sql"] + ";").join("\n");
       mD.data.map(m => {
         const name = m["name"].toString();
