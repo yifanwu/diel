@@ -1,0 +1,14 @@
+CREATE EVENT TABLE click (delta number);
+
+create output currentClick AS
+  select count from totalWorkerClickEvents order by timestep desc limit 1;
+
+-- totalWorkerClickEvents table created in main --> augmented with timesteps
+-- totalWorkerClickEvents evaluated in worker
+
+CREATE EVENT VIEW totalWorkerClickEvents AS
+  select sum(click.delta) + sum(existingClicks.a) as count
+  -- main
+  from click
+  -- worker
+  join existingClicks;

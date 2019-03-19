@@ -1,26 +1,33 @@
 import DielRuntime from "../runtime/DielRuntime";
 import { DEMO_WITH_SOCKET, DEMO_WITH_SMALL_WEBWORKER, DEMO_WITH_LARGE_WEBWORKER, DEMO_WITH_WEBWORKER } from "../compiler/config";
 
-const workerDbPaths = DEMO_WITH_SMALL_WEBWORKER
-  ? ["./UI-dist/flightsSmall.sqlite"]
+const dbPathPrefix = "./UI-dist/data/";
+
+const flightWorkerDbPaths = DEMO_WITH_SMALL_WEBWORKER
+  ? [`${dbPathPrefix}flights.small.sqlite`]
   : DEMO_WITH_LARGE_WEBWORKER
-    ? ["./UI-dist/flights.sqlite"]
+    ? [`${dbPathPrefix}flights.large.sqlite`]
     : null;
 
-const dielPrefix = "./src/notebook/tests/";
+const workerDbPaths = [
+    `${dbPathPrefix}fires.sqlite`,
+    `${dbPathPrefix}pitchfork.large.sqlite`,
+  ].concat(flightWorkerDbPaths);
+const dielPrefix = "./src/notebook/dielSpec/";
 
 const dielFiles = [
   // the following are local
   `${dielPrefix}simple.diel`,
   `${dielPrefix}single-bar-chart-zoom.diel`,
-
   // following are webworkers
   ...(DEMO_WITH_WEBWORKER ? [`${dielPrefix}flights-worker.diel`] : []),
 
   // the following are socket based remotes (requires running `server.ts`)
   ...(DEMO_WITH_SOCKET ? [`${dielPrefix}pitchfork.diel`] : []),
 ];
-const mainDbPath = "./UI-dist/test.db";
+
+const mainDbPath = `${dielPrefix}score.sqlite`;
+// const mainDbPath: string = null;
 
 const socketConnections = DEMO_WITH_SOCKET
   ? [{url: "ws://localhost:8999", dbName: "pitchfork"}]

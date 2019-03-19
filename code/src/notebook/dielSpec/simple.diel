@@ -1,0 +1,5 @@
+CREATE EVENT TABLE click (delta number);
+
+
+create output currentClick as select sum(delta * 2) as count from click
+constrain check (count < 10);

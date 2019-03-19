@@ -8,6 +8,7 @@ import PitchFork from "./examples/PitchFork";
 import Flights from "./examples/Flights";
 import VizSpecDemo from "./examples/VizSpecDemo";
 import { DEMO_WITH_SOCKET, DEMO_WITH_SMALL_WEBWORKER, DEMO_WITH_LARGE_WEBWORKER, DEMO_WITH_WEBWORKER } from "../../compiler/config";
+import Fires from "./examples/Fires";
 
 const Notebook = () => (<div>
     <ExistingRelationsPad/>
@@ -38,19 +39,29 @@ export const PageContainer = () => (<Router>
           Pitch Fork (Remote)
         </Link>
       : null}
-      {DEMO_WITH_SMALL_WEBWORKER || DEMO_WITH_LARGE_WEBWORKER
-      ? <Link to="flights">
-        Flights (Remote)
-      </Link>
-      : null}
+      {DEMO_WITH_WEBWORKER
+        ? <><Link to="flights">
+            Flights
+          </Link>
+          <Link to="fires">
+            Fires
+          </Link></>
+        : null}
     </div>
     <div id="main">
       <Switch>
         <Route exact path="/counter" component={Counter}/>
         <Route path="/notebook" component={Notebook}/>
         <Route path="/scoreZoom" component={ScoreZoomBarChart}/>
-        {DEMO_WITH_SOCKET ? <Route path="/pitchfork" component={PitchFork} /> : null}
-        {DEMO_WITH_WEBWORKER ? <Route path="/" component={Flights} /> : null}
+        {DEMO_WITH_SOCKET
+          ? <Route path="/pitchfork" component={PitchFork} />
+          : null}
+        {DEMO_WITH_WEBWORKER
+          ? <>
+              <Route path="/flights" component={Flights} />
+              <Route path="/" component={Fires} />
+            </>
+          : null}
         <Route path="/inferViz" component={VizSpecDemo}/>
       </Switch>
     </div>
