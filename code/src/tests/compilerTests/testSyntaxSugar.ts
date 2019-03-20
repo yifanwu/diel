@@ -1,70 +1,137 @@
-import { GenerateUnitTestErrorLogger } from "../../lib/messages";
+import { GenerateUnitTestErrorLogger, LogInfo } from "../../lib/messages";
 import { getDielIr, getDielAst } from "../../lib/cli-compiler";
-import { DerivedRelation } from "../../parser/dielAstTypes";
+import { DerivedRelation, DielAst } from "../../parser/dielAstTypes";
 import { ExprColumnAst } from "../../parser/exprAstTypes";
 import {  getSelectionUnitAst, getVanillaSelectionUnitAst } from "../../compiler/compiler";
 import { applyLatestToSelectionUnit, applyLatestToAst } from "../../compiler/passes/syntaxSugar";
+import {generateSqlFromDielAst, generateSelectionUnit} from "../../../src/compiler/codegen/codeGenSql";
+import { ConsoleErrorListener } from "antlr4ts";
 
-
-
-
-
-let q2 = `
-select arrival
-from t1
-where timestep =
-(select max(timestep) from t1);`;
+var jsonDiff = require("json-diff");
 
 // LUCIE TODO
 export function assertLatestSyntax() {
 
-  const logger = GenerateUnitTestErrorLogger("assertBasicOperators", q3);
-
-  compareAST(q3, a3);
-  // let selUnit = getVanillaSelectionUnitAst(q2);
-  // let ast = getDielAst(q3);
-  // console.log(selUnit.whereClause);
-
-  // applyLatestToAst(ast);
-  // applyLatestToSelectionUnit(selUnit);
-
-  // do the assertion on the AST ()
-  // if (selUnit.baseRelation.isLatest === true) {
-  //   logger("transformation failed");
-  // }
+  const logger = GenerateUnitTestErrorLogger("assertBasicOperators", q6);
+  let ast = getDielAst(q6);
+  applyLatestToAst(ast);
+  // compareAST(a6, q6, ast, logger);
   return true;
 }
 
+function compareAST(q1: string, q2: string, ast2: DielAst, logger: any) {
+  let ast1 = getDielAst(q1);
+  let pretty1 = JSON.stringify(ast1, null, 2);
+  let pretty2 = JSON.stringify(ast2, null, 2);
+  let diff = jsonDiff.diff(pretty1, pretty2);
+
+  console.log("============ Query ==============");
+  console.log("Original:\n\n", q2, "\n");
+  var sqls = generateSqlFromDielAst(ast2);
+  console.log("Converted:\n\n", sqls[0], "\n");
+
+  if (diff !== undefined) {
+    // console.log(diff);
+    logger("AST NOT THE SAME");
+    console.log("=================================");
+  } else {
+    console.log("\x1b[31m PASSED \x1b[0m");
+    console.log("=================================");
+
+  }
+}
 
 // 1. basic
-let q1 = `create table filtered as select arrival from LATEST t1;`;
-let a1 = `create table filtered as select arrival from t1 where t1.timestep = (select max(timestep) from t1)`;
+let q1 = `create view filtered as select arrival from LATEST t1;`;
+
+let a1 = `create view filtered as
+select arrival
+from t1
+where t1.timestep = (select max(timestep) from t1);`;
 
 
 // 2. where clause should be preserved
-let q3 = `create table filtered as
-select arrival from LATEST t1 where arrival > 10 and arrival < 20;`;
-let a3 = `create table filtered as
-select arrival from t1 where arrival > 10 and t1.timestep = (select max(timestep) from t1);`;
+let q2 = `create view filtered as
+select arrival
+from LATEST t1
+where arrival > 10
+and arrival < 20;`;
+
+let a2 = `create view filtered as
+select arrival
+from t1
+where arrival > 10
+and arrival < 20
+and t1.timestep = (select max(timestep) from t1);`;
 
 // 3. constraints, group by, order by, limit should also be preservered
+let q3 = `create view filtered as
+select count(*), arrival from LATEST t1
+where arrival > 10
+group by arrival
+order by count DESC
+limit 10
+constrain check (arrival > 10)`;
+
+let a3 = `create view filtered as
+select count(*), arrival from t1
+where arrival > 10
+and t1.timestep = (select max(timestep) from t1)
+group by arrival
+order by count DESC
+limit 10
+constrain check (arrival > 10)`;
 
 
-let q4 = `select a
+// 4. in case of joins, latest should be applied to immediate relations
+let q4 = `create view filtered as
+select a
 from latest t1
 join t2 on t1.b = t2.b;`;
 
-let a4 = `select a
+let a4 = `create view filtered as
+select a
 from t1
 join t2 on t1.b = t2.b
 where t1.timestep = (select max(timestep) from t1);`;
 
 
+// 5. check multiple latest for explicit join
+let q5 = `create view filtered as
+select a
+from latest t1
+join latest t2 on t1.b = t2.b;`;
 
-const assert = require("assert");
+let a5 = `create view filtered as
+select a
+from t1 join t2 on t1.b = t2.b
+where t1.timestep = (select max(timestep) from t1)
+and t2.timestep = (select max(timestep) from t2);`;
 
-function compareAST(q1: string, q2: string) {
-  let ast1 = getDielAst(q1);
-  let ast2 = getDielAst(q2);
-  assert.deepEqual(ast1, ast2);
-}
+
+// 6. check multiple latest for implicit join
+let q6 = `create view filtered as
+select a
+from latest t1, latest t2
+where t1.b = t2.b;`;
+
+let a6 = `create view filtered as
+select a
+from t1, t2
+where t1.b = t2.b
+and t1.timestep = (select max(timestep) from t1)
+and t2.timestep = (select max(timestep) from t2);`;
+
+
+// 7. check multiple tables
+let q7 =  `create view filtered as
+select a
+from latest t1, t2
+where t1.b = t2.b ;`;
+
+let a7 = `create view filtered as
+select a
+from t1, t2
+where t1.b = t2.b
+and t1.timestep = (select max(timestep) from t1);`;
+
