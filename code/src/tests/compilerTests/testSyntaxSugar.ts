@@ -12,27 +12,32 @@ var jsonDiff = require("json-diff");
 // LUCIE TODO
 export function assertLatestSyntax() {
 
-  const logger = GenerateUnitTestErrorLogger("assertBasicOperators", q6);
-  let ast = getDielAst(q6);
-  applyLatestToAst(ast);
-  // compareAST(a6, q6, ast, logger);
-  return true;
+  for (let test of tests) {
+    var query = test[0];
+    var answer = test[1];
+    const logger = GenerateUnitTestErrorLogger("assertBasicOperators", query);
+    let ast = getDielAst(query);
+    applyLatestToAst(ast);
+    compareAST(answer, ast, logger);
+  }
+
 }
 
-function compareAST(q1: string, q2: string, ast2: DielAst, logger: any) {
+function compareAST(q1: string, ast2: DielAst, logger: any) {
   let ast1 = getDielAst(q1);
   let pretty1 = JSON.stringify(ast1, null, 2);
   let pretty2 = JSON.stringify(ast2, null, 2);
   let diff = jsonDiff.diff(pretty1, pretty2);
 
   console.log("============ Query ==============");
-  console.log("Original:\n\n", q2, "\n");
   var sqls = generateSqlFromDielAst(ast2);
   console.log("Converted:\n\n", sqls[0], "\n");
 
   if (diff !== undefined) {
-    // console.log(diff);
-    logger("AST NOT THE SAME");
+    console.log(diff);
+    console.log("\x1b[34m Failed \x1b[0m");
+
+    // logger("AST NOT THE SAME");
     console.log("=================================");
   } else {
     console.log("\x1b[31m PASSED \x1b[0m");
@@ -71,7 +76,7 @@ where arrival > 10
 group by arrival
 order by count DESC
 limit 10
-constrain check (arrival > 10)`;
+constrain check (arrival > 10);`;
 
 let a3 = `create view filtered as
 select count(*), arrival from t1
@@ -80,7 +85,7 @@ and t1.timestep = (select max(timestep) from t1)
 group by arrival
 order by count DESC
 limit 10
-constrain check (arrival > 10)`;
+constrain check (arrival > 10);`;
 
 
 // 4. in case of joins, latest should be applied to immediate relations
@@ -135,3 +140,4 @@ from t1, t2
 where t1.b = t2.b
 and t1.timestep = (select max(timestep) from t1);`;
 
+let tests = [[q1, a1], [q2, a2], [q3, a3], [q4, a4], [q5, a5], [q6, a6], [q7, a7]];
