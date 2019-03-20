@@ -5,7 +5,7 @@ import { ChartType, RelationObject } from "../../runtime/runtimeTypes";
 =======
 import { DerivedRelation, DataType, CompositeSelectionUnit, SelectionUnit, ColumnSelection, SetOperator } from "../../parser/dielAstTypes";
 import DielRuntime from "../../runtime/DielRuntime";
-import { ChartType } from "../../runtime/runtimeTypes";
+import { ChartType, RelationObject } from "../../runtime/runtimeTypes";
 import { ExprType, ExprFunAst, FunctionType } from "../../parser/exprAstTypes";
 import { generateSelectionUnit, generateSqlViews } from "../../compiler/codegen/codeGenSql";
 import { RelationQuery, SqlRelationType } from "../../compiler/codegen/createSqlIr";
