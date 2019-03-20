@@ -1,12 +1,13 @@
 import {ReportDielUserError} from "../../lib/messages";
 import { RelationReference } from "../../../dist/parser/sqlAstTypes";
 import { CompositeSelectionUnit, SetOperator, OrderByAst, ColumnSelection, Order, DataType } from "../../../src/parser/dielAstTypes";
-import {ExprAst, ExprType} from "../../../src/parser/exprAstTypes";
-import {generateSelectionUnit} from "../../../src/compiler/codegen/codeGenSql";
+import {ExprAst, ExprType, ExprColumnAst, ExprRelationAst, FunctionType} from "../../../src/parser/exprAstTypes";
+import {generateSqlFromDielAst, generateSelectionUnit} from "../../../src/compiler/codegen/codeGenSql";
 import { basename } from "path";
 import { CompositeSelection } from "../../../dist/parser/dielAstTypes";
 import { DerivedRelation, SelectionUnit, DielAst, AstType, RelationSelection } from "../../parser/dielAstTypes";
 import { GetAllDerivedViews, GetAllPrograms } from "../DielIr";
+import { ExprFunAst } from "../../../dist/parser/exprAstTypes";
 
 // implements the transformation for LATEST
 
@@ -33,6 +34,7 @@ export function applyLatestToAst(ast: DielAst): void {
       });
     }
   });
+
 }
 
 /**
@@ -47,7 +49,8 @@ export function applyLatestToAst(ast: DielAst): void {
  * @param relation
  */
 export function applyLatestToSelectionUnit(relation: SelectionUnit): void {
-    // console.log(relation.baseRelation.subquery.compositeSelections[0].relation.orderByClause);
+    let pretty = JSON.stringify(relation, null, 2);
+    console.log(pretty);
 
     if (relation.baseRelation.isLatest) {
         if (relation.baseRelation.subquery !== undefined) {
@@ -55,49 +58,109 @@ export function applyLatestToSelectionUnit(relation: SelectionUnit): void {
             return ReportDielUserError("Latest should be used with a simple named relation");
         }
         var relationName = relation.baseRelation.relationName;
-
-
-        // changing base relation in-place
+        // 1. set isLastest to false
         relation.baseRelation.isLatest = false;
-        relation.baseRelation.subquery = {
-            astType: AstType.RelationSelection,
-            compositeSelections: [selection]
-        } as RelationSelection;
 
+        // 2. change where clause
+        // 2-0. save existing where clause
+        var originalWhere = relation.whereClause;
+        // 2-1. create exprast for relation.timestep
+        var lhsExpr = {
+            exprType: ExprType.Column,
+            dataType: DataType.TBD,
+            hasStar: false,
+            columnName: "timestep",
+            relationName: relationName
+        } as ExprAst;
 
-        // modify the where clause.
-        // the latest where clause should be appended to the existing where clause
-        // all other relations remain intact (orderby, limit, constraint, groupby)
+        // 2-2. create exprast for subquery (select max(timestep) from relation)
+        var rhsExpr = createSubquery(relationName);
 
-        var q = generateSelectionUnit(relation);
-        console.log(q);
+        // 2-3. Merge into a where query
+        var whereAST = {
+            exprType: ExprType.Func,
+            functionType: FunctionType.Logic,
+            functionReference: "=",
+            dataType: DataType.Boolean,
+            args: [lhsExpr, rhsExpr]
+        } as ExprFunAst;
+
+        // 3. set the where clause in place
+        if (originalWhere === null || originalWhere === undefined) {
+            whereAST.args = [lhsExpr, rhsExpr];
+            relation.whereClause = whereAST;
+        } else {
+            lhsExpr = modifyWhere(originalWhere, lhsExpr);
+            whereAST.args = [lhsExpr, rhsExpr];
+            relation.whereClause = whereAST;
+        }
     }
 
 }
 
+/**
+ * Modify existing whereClause and return it so that a new ExprAst can be appended
+*/
+ function modifyWhere(originalAST: ExprAst, lhs: ExprAst): ExprAst {
+    var andAst = {
+        exprType: ExprType.Func,
+        functionType: FunctionType.Logic,
+        functionReference: "and",
+        dataType: DataType.Boolean,
+        args: [originalAST, lhs]
+    } as ExprAst;
 
+    return andAst;
+}
 
+/**
+ * Create ExprAst for the clause (select max(relationName) from relationName).
+*/
+function createSubquery(relationName: string): ExprAst {
+    var relationAST = {
+        exprType: ExprType.Relation,
+        dataType: DataType.Relation,
+        selection: {
+            astType: AstType.RelationSelection,
+            compositeSelections: [
+                {
+                    op: SetOperator.NA,
+                    relation: {
+                        isDistinct: false,
+                        columnSelections: [
+                            {
+                                alias: null,
+                                expr: {
+                                    exprType: ExprType.Func,
+                                    dataType: DataType.TBD,
+                                    functionType: FunctionType.Custom,
+                                    functionReference: "max",
+                                    args: [
+                                        {
+                                            exprType: ExprType.Column,
+                                            dataType: DataType.TBD,
+                                            hasStar: false,
+                                            columnName: "timestep"
+                                        }
+                                    ]
+                                }
+                            }
+                        ],
+                        baseRelation: {
+                            alias: null,
+                            isLatest: false,
+                            relationName: relationName
+                        },
+                        joinClauses: [],
+                        whereClause: null,
+                        groupByClause: null,
+                        orderByClause: null,
+                        limitClause: null
+                    }
+                }
+            ]
+        }
+    } as ExprRelationAst;
 
-// { isDistinct: false,
-//     columnSelections: [ { alias: null, expr: [Object] } ],
-//     baseRelation: { alias: null, isLatest: false, relationName: 't1' },
-//     joinClauses: [],
-//     whereClause: null,
-//     groupByClause: null,
-//     orderByClause: [ { selection: [Object], order: 'DESC' } ],
-//     limitClause: { exprType: 'Val', dataType: 'Number', value: 1 } }
-
-
-// { isDistinct: false,
-//     columnSelections: [ { alias: null, expr: [Object] } ],
-//     baseRelation: { alias: null, isLatest: false, relationName: 't1' },
-//     joinClauses: [],
-//     whereClause:
-//      { exprType: 'Func',
-//        functionType: 'Logic',
-//        functionReference: '=',
-//        dataType: 'Boolean',
-//        args: [ [Object], [Object] ] },
-//     groupByClause: null,
-//     orderByClause: null,
-//     limitClause: null }
+    return relationAST;
+}
