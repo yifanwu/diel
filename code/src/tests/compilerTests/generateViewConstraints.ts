@@ -1,10 +1,7 @@
 import { DataType, RelationType, DerivedRelation } from "../../parser/dielAstTypes";
-
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as lexer from "../../parser/grammar/DIELLexer";
 import * as parser from "../../parser/grammar/DIELParser";
-
-// import DielCompiler from "../../compiler/DielCompiler";
 import {generateViewConstraintSelection, generateExpr} from "../../compiler/codegen/codeGenSql";
 import { DielAst, RelationConstraints } from "../../parser/dielAstTypes";
 import Visitor from "../../parser/generateAst";
@@ -14,7 +11,7 @@ import { select } from "d3";
 
 export function generateViewConstraintCheckQuery(query: string): Map<string, string[][]> {
   let ast = checkValidView(query);
-  if ( ast != null) {
+  if (ast) {
     // valid view
     return checkViewConstraint(ast);
   }
@@ -34,7 +31,6 @@ function checkValidView(query: string): DielAst {
   const tree = p.queries();
   let visitor = new Visitor();
   let ast = visitor.visitQueries(tree);
-  // console.log(ast);
   if (ast.relations.length > 0) {
     return ast;
   }
@@ -61,7 +57,7 @@ function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
     var selClause;
 
     // Only when there is a constraint on view
-    if (view_constraint != null) {
+    if (view_constraint) {
       var composite_selections = view.selection.compositeSelections as CompositeSelection;
 
       // 1. handle null constraint
@@ -115,7 +111,7 @@ function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionU
   var exprAsts = view_constraint.exprChecks;
   var ret = [] as string[][];
   var whichConstraint: string;
-  if (exprAsts != null && exprAsts.length > 0) {
+  if (exprAsts && exprAsts.length > 0) {
     var i, exprAst, whereClause;
     // iterate over check constraints
     for (i = 0; i < exprAsts.length; i++) {
@@ -147,7 +143,7 @@ function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionU
 function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUnit): string[][] {
   // console.log(JSON.stringify(view_constraint, null, 2));
   var ret = [] as string[][];
-  if (view_constraint.notNull != null && view_constraint.notNull.length > 0) {
+  if (view_constraint.notNull && view_constraint.notNull.length > 0) {
 
     var notNullColumns = view_constraint.notNull;
     var i;
@@ -207,7 +203,7 @@ function getUniqueQuery (view_constraints: RelationConstraints, selUnit: Selecti
   let uniques = view_constraints.uniques;
 
   // check if unique constraint exists
-  if (uniques !== null && uniques.length > 0) {
+  if (uniques && uniques.length > 0) {
     var str, i, j, groupbyArgs, groupbyColName, groupByClause, groupbySel, predicateSel;
     // uniques = [ [ 'a1', 'a2' ], [ 'a3' ] ]
 

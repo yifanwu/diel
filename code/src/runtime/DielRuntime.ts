@@ -209,7 +209,6 @@ export default class DielRuntime {
     if (r) {
       b.uiUpdateFunc(r);
       this.constraintChecking(b.outputName);
-
     }
     return;
   }
@@ -225,8 +224,10 @@ export default class DielRuntime {
   //   };
   // }
 
+  /**
+   * Check view constraints afresh and report if broken
+   */
   constraintChecking(viewName: string) {
-    // console.log("constraint check clicked");
     console.log("toggle mode: ", this.checkConstraints);
     // only check if checking mode is turned on
     if (this.checkConstraints) {
@@ -234,7 +235,6 @@ export default class DielRuntime {
       if (this.constraintQueries.has(viewName)) {
         var queryObject = this.constraintQueries.get(viewName);
         var queries = queryObject.queries;
-
         // run the entire constraint quries for that view
         queries.map(ls => {
           this.reportConstraintQueryResult(ls[0], viewName, ls[1]);
@@ -342,11 +342,6 @@ export default class DielRuntime {
     // get sql for views constraints
     var tname: string;
     var viewConstraint: ViewConstraintQuery;
-    console.log("CHECKING CONSTRAINTS");
-    console.log(ast);
-    console.log(viewConstraintCheck(ast));
-    console.log("----------------");
-
     viewConstraintCheck(ast).forEach((queries: string[][], viewName: string) => {
       if (queries.length > 0) {
         viewConstraint = new ViewConstraintQuery();
@@ -355,7 +350,6 @@ export default class DielRuntime {
         this.constraintQueries.set(viewName, viewConstraint);
       }
     });
-    // console.log(this.constraintQueries);
     // test the IR here
   }
 

@@ -1,8 +1,8 @@
 import {ReportDielUserError} from "../../lib/messages";
 import { RelationReference } from "../../../dist/parser/sqlAstTypes";
 import { CompositeSelectionUnit, SetOperator, OrderByAst, ColumnSelection, Order, DataType } from "../../../src/parser/dielAstTypes";
-import {ExprAst, ExprType, ExprColumnAst, ExprRelationAst, FunctionType} from "../../../src/parser/exprAstTypes";
-import {generateSqlFromDielAst, generateSelectionUnit} from "../../../src/compiler/codegen/codeGenSql";
+import { ExprAst, ExprType, ExprColumnAst, ExprRelationAst, FunctionType } from "../../../src/parser/exprAstTypes";
+import { generateSqlFromDielAst, generateSelectionUnit } from "../../../src/compiler/codegen/codeGenSql";
 import { basename } from "path";
 import { CompositeSelection } from "../../../dist/parser/dielAstTypes";
 import { DerivedRelation, SelectionUnit, DielAst, AstType, RelationSelection } from "../../parser/dielAstTypes";

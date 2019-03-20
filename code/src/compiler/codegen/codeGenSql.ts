@@ -129,8 +129,8 @@ export function generateRelationReference(r: RelationReference): string {
  */
 function generateColumnSelection(s: ColumnSelection[]): string {
 
-  if (s === null || s === undefined || s.length === 0) {
-    return ``;
+  if (!s || s.length === 0) {
+    return "";
   }
   return `${s.map(c => {
     const alias = c.alias ? ` AS ${c.alias}` : "";
@@ -145,7 +145,7 @@ const joinOpToString = new Map([
 ]);
 
 function generateJoin(j: JoinAst): string {
-  if (j == null) return ``;
+  if (!j) return "";
   const op = joinOpToString.get(j.joinType);
   const pred = j.predicate
     ? `ON ${generateExpr(j.predicate)}`
@@ -161,7 +161,7 @@ function generateWhere(e: ExprAst): string {
 
 // recursive fun...
 export function generateExpr(e: ExprAst): string {
-  if (e == null) return ``;
+  if (!e) return "";
   if (e.exprType === ExprType.Val) {
     const v = e as ExprValAst;
     const str = v.value.toString();
