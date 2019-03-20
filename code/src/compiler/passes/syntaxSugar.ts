@@ -55,7 +55,7 @@ export function applyLatestToSelectionUnit(relation: SelectionUnit): void {
             // report error
             return ReportDielUserError("Latest should be used with a simple named relation");
         }
-        var relationName = relation.baseRelation.relationName;
+        let relationName = relation.baseRelation.relationName;
         // 1. set base relation's isLastest to false
         relation.baseRelation.isLatest = false;
 
@@ -65,13 +65,13 @@ export function applyLatestToSelectionUnit(relation: SelectionUnit): void {
 
      // check for joins, and apply the above for latest joint tables
      // since latest may apply to non baserelations
-    for (var i = 0; i < relation.joinClauses.length; i++) {
+    for (let i = 0; i < relation.joinClauses.length; i++) {
         if (relation.joinClauses[i].relation.isLatest) {
-            relationName = relation.joinClauses[i].relation.relationName;
+            let joinRelationName = relation.joinClauses[i].relation.relationName;
             // 4-1. set isLatest to false
             relation.joinClauses[i].relation.isLatest = false;
             // 4-2. change where clause for base relation
-            modifyWhereComplete(relation, relationName);
+            modifyWhereComplete(relation, joinRelationName);
         }
     }
 
@@ -87,9 +87,9 @@ export function applyLatestToSelectionUnit(relation: SelectionUnit): void {
  * @param relationName
  */
 function modifyWhereComplete(relation: SelectionUnit, relationName: string): void {
-    var originalWhere = relation.whereClause;
+    let originalWhere = relation.whereClause;
     // 2-1. create exprast for relation.timestep
-    var lhsExpr = {
+    let lhsExpr = {
         exprType: ExprType.Column,
         dataType: DataType.TBD,
         hasStar: false,
@@ -98,10 +98,10 @@ function modifyWhereComplete(relation: SelectionUnit, relationName: string): voi
     } as ExprAst;
 
     // 2-2. create exprast for subquery (select max(timestep) from relation)
-    var rhsExpr = createSubquery(relationName);
+    let rhsExpr = createSubquery(relationName);
 
     // 2-3. Merge into a where query
-    var whereAST = {
+    let whereAST = {
         exprType: ExprType.Func,
         functionType: FunctionType.Logic,
         functionReference: "=",
@@ -124,7 +124,7 @@ function modifyWhereComplete(relation: SelectionUnit, relationName: string): voi
  * Modify existing whereClause and return it so that a new ExprAst can be appended
 */
  function modifyExistingWhere(originalAST: ExprAst, lhs: ExprAst): ExprAst {
-    var andAst = {
+    let andAst = {
         exprType: ExprType.Func,
         functionType: FunctionType.Logic,
         functionReference: "and",
@@ -139,7 +139,7 @@ function modifyWhereComplete(relation: SelectionUnit, relationName: string): voi
  * Create ExprAst for the clause (select max(relationName) from relationName).
 */
 function createSubquery(relationName: string): ExprAst {
-    var relationAST = {
+    let relationAST = {
         exprType: ExprType.Relation,
         dataType: DataType.Relation,
         selection: {

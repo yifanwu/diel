@@ -233,8 +233,8 @@ export default class DielRuntime {
     if (this.checkConstraints) {
       console.log(this.constraintQueries);
       if (this.constraintQueries.has(viewName)) {
-        var queryObject = this.constraintQueries.get(viewName);
-        var queries = queryObject.queries;
+        let queryObject = this.constraintQueries.get(viewName);
+        let queries = queryObject.queries;
         // run the entire constraint quries for that view
         queries.map(ls => {
           this.reportConstraintQueryResult(ls[0], viewName, ls[1]);
@@ -340,11 +340,9 @@ export default class DielRuntime {
     this.ir = CompileDiel(new DielIr(ast));
 
     // get sql for views constraints
-    var tname: string;
-    var viewConstraint: ViewConstraintQuery;
     viewConstraintCheck(ast).forEach((queries: string[][], viewName: string) => {
       if (queries.length > 0) {
-        viewConstraint = new ViewConstraintQuery();
+        let viewConstraint = new ViewConstraintQuery();
         viewConstraint.viewName = viewName;
         viewConstraint.queries = queries;
         this.constraintQueries.set(viewName, viewConstraint);
