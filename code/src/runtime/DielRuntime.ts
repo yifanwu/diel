@@ -75,7 +75,7 @@ export default class DielRuntime {
   protected runtimeOutputs: Map<string, Statement>;
 
   constructor(runtimeConfig: DielRuntimeConfig) {
-    // (<any>window).diel = this; // for debugging
+    (<any>window).diel = this; // for debugging
     this.timestep = INIT_TIMESTEP;
     this.runtimeConfig = runtimeConfig;
     this.eventByTimestep = new Map();
