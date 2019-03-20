@@ -84,7 +84,7 @@ export function generateSelectionUnit(v: SelectionUnit): string {
 
 /** For view constraint composite selection */
 export function generateViewConstraintSelection(v: SelectionUnit): string {
-  var ret = `SELECT ${generateColumnSelection(v.columnSelections)}
+  let ret = `SELECT ${generateColumnSelection(v.columnSelections)}
   FROM
   (
     ${generateSelectionUnit(v.baseRelation.subquery.compositeSelections[0].relation)}
