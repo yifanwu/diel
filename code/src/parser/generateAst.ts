@@ -2,7 +2,7 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, DerivedRelation, Command, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr, InsertionClause, DropClause, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst, createEmptyDielAst, Relation } from "./dielAstTypes";
+import { ExpressionValue, DerivedRelation, Command, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr, InsertionClause, DropClause, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst, createEmptyDielAst, Relation, ColumnConstraints } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError, ReportDielUserError } from "../lib/messages";
 import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst } from "./exprAstTypes";
@@ -47,7 +47,15 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const programs = ctx.programStmt().map(e => (
       this.visit(e) as ProgramsParserIr
     ));
-    programs.map(p => this.ast.programs.set(p.input, p.queries));
+    programs.map(p => {
+      p.events.map(e => {
+        if (this.ast.programs.has(e)) {
+          this.ast.programs.get(e).push(...p.queries);
+        } else {
+          this.ast.programs.set(e, p.queries);
+        }
+      });
+    });
     this.ast.crossfilters = ctx.crossfilterStmt().map(e => (
       this.visit(e) as CrossFilterIr
     ));
@@ -199,6 +207,16 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
+  visitValueBoolean(ctx: parser.ValueBooleanContext): ExprValAst {
+    const value = (ctx.BOOLEANVAL().text === "true")
+      ? true
+      : false;
+    return {
+      exprType: ExprType.Val,
+      dataType: DataType.String,
+      value
+    };
+  }
   // begin paren
   visitExprParenthesis(ctx: parser.ExprParenthesisContext): ExprParen {
     return {
@@ -465,7 +483,9 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   visitRelationDefintionDirect(ctx: parser.RelationDefintionDirectContext): OriginalRelation {
-    const columns = ctx.columnDefinition().map(e => this.visit(e) as Column);
+    const columns = ctx.columnDefinition()
+      ? ctx.columnDefinition().map(e => this.visit(e) as Column)
+      : [];
     const constraints = this._processConstraintDefinitionHelper(ctx.constraintDefinition());
     // name and relationType are dummy to avoid having to add more to the union type...
     return {
@@ -521,18 +541,24 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   visitColumnDefinition(ctx: parser.ColumnDefinitionContext): Column {
-    let constraints = {
+    let constraints: ColumnConstraints = {
+      autoincrement: false,
       notNull: false,
       unique: false,
-      key: false
+      primaryKey: false
     };
     ctx.columnConstraints().map(e => {
       if (e.UNIQUE()) {
         constraints.unique = true;
-      } else if (e.KEY()) {
-        constraints.key = true;
-      } else if (e.NULL()) {
+      }
+      if (e.KEY()) {
+        constraints.primaryKey = true;
+      }
+      if (e.NULL()) {
         constraints.notNull = true;
+      }
+      if (e.AUTOINCREMENT()) {
+        constraints.autoincrement = true;
       }
     });
     let defaultValue: any = null;
@@ -562,22 +588,30 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   // programs
-  visitProgramStmtGeneral(ctx: parser.ProgramStmtGeneralContext): ProgramsParserIr {
+  visitProgramStmt(ctx: parser.ProgramStmtContext): ProgramsParserIr {
+    const events = ctx.IDENTIFIER().map(n => n.text);
     const queries = this.visit(ctx.programBody()) as Command[];
     return {
-      input: null,
+      events,
       queries
     };
   }
+  // visitProgramStmtGeneral(ctx: parser.ProgramStmtGeneralContext): ProgramsParserIr {
+  //   const queries = this.visit(ctx.programBody()) as Command[];
+  //   return {
+  //     input: null,
+  //     queries
+  //   };
+  // }
 
-  visitProgramStmtSpecific(ctx: parser.ProgramStmtSpecificContext): ProgramsParserIr {
-    const input = ctx.IDENTIFIER().text;
-    const queries = this.visit(ctx.programBody()) as Command[];
-    return {
-      input,
-      queries
-    };
-  }
+  // visitProgramStmtSpecific(ctx: parser.ProgramStmtSpecificContext): ProgramsParserIr {
+  //   const input = ctx.IDENTIFIER().text;
+  //   const queries = this.visit(ctx.programBody()) as Command[];
+  //   return {
+  //     input,
+  //     queries
+  //   };
+  // }
 
   visitProgramBody(ctx: parser.ProgramBodyContext): Command[] {
     const programs = ctx.aProgram().map(e => {
@@ -593,6 +627,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitInsertQuery(ctx: parser.InsertQueryContext): InsertionClause {
     const identifiers = ctx.IDENTIFIER().map(e => e.text);
     const relation = identifiers[0];
+    // note that columsn might not be specified
     const columns = identifiers.slice(1);
     // just look ahead now
     const v = this.visit(ctx.insertBody()) as RawValues | RelationSelection;

@@ -1,7 +1,7 @@
 // if there are any errors, it will throw an exception
-export const STRICT = false;
+export const STRICT = true;
 export const VERBOSE = true;
-export const DEBUG = false;
+export const DEBUG = true;
 
 // the following are demo configs
 export const DEMO_WITH_SOCKET = false;

@@ -24,16 +24,18 @@ export interface ExprBase {
 /**
  * note that the string names here are used directly to generate the SQL queries
  *   so change the names carefully..
+ * must be all caps for some laziness reasons
  */
 export enum BuiltInFunc {
   In = "IN",
+  Coalesce = "COALESCE",
   ValueIsNull = "IS NULL",
   ValueIsNotNull = "NOT NULL",
   SetEmpty = "NOT EXIST",
   SetNotEmpty = "EXIST",
   // specially parsed when SQL gen
-  IfThisThen = "IfThisThen",
-  ConcatStrings = "ConcatStrings"
+  IfThisThen = "IFTHISTHEN",
+  ConcatStrings = "CONCATSTRINGS"
 }
 
 export enum FunctionType {
