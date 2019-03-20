@@ -33,9 +33,3 @@ export function getSelectionUnitAst(code: string) {
   // inferType
   return selectionUnitAst;
 }
-
-export function getDielAst(code: string) {
-  const p = parse(code);
-  let visitor = new Visitor();
-  return visitor.visit(p.queries());
-}
