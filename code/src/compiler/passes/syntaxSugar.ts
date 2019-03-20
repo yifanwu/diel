@@ -49,8 +49,6 @@ export function applyLatestToAst(ast: DielAst): void {
  * @param relation
  */
 export function applyLatestToSelectionUnit(relation: SelectionUnit): void {
-    let pretty = JSON.stringify(relation, null, 2);
-    console.log(pretty);
 
     if (relation.baseRelation.isLatest) {
         if (relation.baseRelation.subquery !== undefined) {
@@ -58,50 +56,74 @@ export function applyLatestToSelectionUnit(relation: SelectionUnit): void {
             return ReportDielUserError("Latest should be used with a simple named relation");
         }
         var relationName = relation.baseRelation.relationName;
-        // 1. set isLastest to false
+        // 1. set base relation's isLastest to false
         relation.baseRelation.isLatest = false;
 
-        // 2. change where clause
-        // 2-0. save existing where clause
-        var originalWhere = relation.whereClause;
-        // 2-1. create exprast for relation.timestep
-        var lhsExpr = {
-            exprType: ExprType.Column,
-            dataType: DataType.TBD,
-            hasStar: false,
-            columnName: "timestep",
-            relationName: relationName
-        } as ExprAst;
+        // 2. change where clause for base relation
+        modifyWhereComplete(relation, relationName);
+    }
 
-        // 2-2. create exprast for subquery (select max(timestep) from relation)
-        var rhsExpr = createSubquery(relationName);
-
-        // 2-3. Merge into a where query
-        var whereAST = {
-            exprType: ExprType.Func,
-            functionType: FunctionType.Logic,
-            functionReference: "=",
-            dataType: DataType.Boolean,
-            args: [lhsExpr, rhsExpr]
-        } as ExprFunAst;
-
-        // 3. set the where clause in place
-        if (originalWhere === null || originalWhere === undefined) {
-            whereAST.args = [lhsExpr, rhsExpr];
-            relation.whereClause = whereAST;
-        } else {
-            lhsExpr = modifyWhere(originalWhere, lhsExpr);
-            whereAST.args = [lhsExpr, rhsExpr];
-            relation.whereClause = whereAST;
+     // check for joins, and apply the above for latest joint tables
+     // since latest may apply to non baserelations
+    for (var i = 0; i < relation.joinClauses.length; i++) {
+        if (relation.joinClauses[i].relation.isLatest) {
+            relationName = relation.joinClauses[i].relation.relationName;
+            // 4-1. set isLatest to false
+            relation.joinClauses[i].relation.isLatest = false;
+            // 4-2. change where clause for base relation
+            modifyWhereComplete(relation, relationName);
         }
     }
 
 }
 
 /**
+ * Modify WhereClause in relation in place, appending timestep clause for the relationName.
+ *
+ * In other words, append the following to the ast whereclause:
+ * relationName.timestep = (select max(relationName) from relationName).
+ *
+ * @param relation
+ * @param relationName
+ */
+function modifyWhereComplete(relation: SelectionUnit, relationName: string): void {
+    var originalWhere = relation.whereClause;
+    // 2-1. create exprast for relation.timestep
+    var lhsExpr = {
+        exprType: ExprType.Column,
+        dataType: DataType.TBD,
+        hasStar: false,
+        columnName: "timestep",
+        relationName: relationName
+    } as ExprAst;
+
+    // 2-2. create exprast for subquery (select max(timestep) from relation)
+    var rhsExpr = createSubquery(relationName);
+
+    // 2-3. Merge into a where query
+    var whereAST = {
+        exprType: ExprType.Func,
+        functionType: FunctionType.Logic,
+        functionReference: "=",
+        dataType: DataType.Boolean,
+        args: []
+    } as ExprFunAst;
+
+    // 2-4. set the where clause in place
+    if (originalWhere === null || originalWhere === undefined) {
+        whereAST.args = [lhsExpr, rhsExpr];
+        relation.whereClause = whereAST;
+    } else {
+        lhsExpr = modifyExistingWhere(originalWhere, lhsExpr);
+        whereAST.args = [lhsExpr, rhsExpr];
+        relation.whereClause = whereAST;
+    }
+}
+
+/**
  * Modify existing whereClause and return it so that a new ExprAst can be appended
 */
- function modifyWhere(originalAST: ExprAst, lhs: ExprAst): ExprAst {
+ function modifyExistingWhere(originalAST: ExprAst, lhs: ExprAst): ExprAst {
     var andAst = {
         exprType: ExprType.Func,
         functionType: FunctionType.Logic,
