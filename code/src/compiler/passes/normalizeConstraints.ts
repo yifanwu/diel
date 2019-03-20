@@ -35,12 +35,13 @@ export function NormalizeConstraints(ir: DielIr) {
           }
         }
         if (c.constraints.primaryKey) {
-          if (r.constraints.primaryKey) {
+          if (r.constraints.primaryKey && (r.constraints.primaryKey.length > 0)) {
             dielIrComplain(`Cannot have more than one primary key! You already have ${r.constraints.primaryKey} but we are adding ${c.name}`);
           } else {
             r.constraints.primaryKey = [c.name];
           }
         }
+        // not including autoincrement here since it's not really a constraint... sigh semantics
       }
     });
   });

@@ -60,18 +60,19 @@ originalTableStmt
   ;
 
 relationDefintion
-  :  '(' columnDefinition (',' columnDefinition)* (',' constraintDefinition)* ')' # relationDefintionDirect
+  :  '(' (columnDefinition (',' columnDefinition)* (',' constraintDefinition)*)? ')' # relationDefintionDirect
   | AS IDENTIFIER # relationDefintionCopy
   ;
 
 constraintClause
-  :  CONSTRAIN  constraintDefinition (',' constraintDefinition)*
+  :  CONSTRAIN constraintDefinition (',' constraintDefinition)*
   ;
 
 columnConstraints
   : UNIQUE
-  | PRIMARY KEY (AUTOINCREMENT)?
+  | PRIMARY KEY
   | NOT NULL
+  | AUTOINCREMENT
   ;
 
 viewStmt
@@ -81,8 +82,9 @@ viewStmt
   ;
 
 programStmt
-  : CREATE PROGRAM programBody ';'                  # programStmtGeneral
-  | CREATE PROGRAM AFTER IDENTIFIER programBody ';' # programStmtSpecific
+  // : CREATE PROGRAM programBody ';'                  # programStmtGeneral
+  : CREATE PROGRAM AFTER '(' IDENTIFIER (',' IDENTIFIER) ')' programBody ';' 
+  // # programStmtSpecific
   ;
 
 // defining aProgram so that we can retrieve the order of the specification
@@ -159,7 +161,7 @@ orderSpec
 
 insertQuery
   : INSERT INTO relation=IDENTIFIER
-    '(' column=IDENTIFIER (',' column=IDENTIFIER)* ')' 
+    ('(' column=IDENTIFIER (',' column=IDENTIFIER)* ')')?
     insertBody
     DELIM
   ;
@@ -214,6 +216,12 @@ selectColumnClause
 value
   : NUMBER # valueNumber
   | STRING # valueString
+  | BOOLEANVAL # valueBoolean
+  ;
+
+BOOLEANVAL
+  : TRUE
+  | FALSE
   ;
 
 mathOp
@@ -310,6 +318,8 @@ DESC: D E S C;
 AUTOINCREMENT: A U T O I N C R E M E N T;
 DATETIME: D A T E T I M E;
 DISTINCT: D I S T I N C T;
+TRUE: T R U E;
+FALSE: F A L S E;
 
 INT: N U M B E R  | I N T E G E R | I N T | R E A L;
 TEXT: S T R I N G | T E X T;

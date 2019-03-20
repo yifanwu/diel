@@ -243,7 +243,7 @@ function generateLimit(e: ExprAst): string {
 function generateTrigger(queries: Command[], input: string, replace = false): string {
   if (!input) {
     // this is the general one
-    return "";
+    LogInternalError(`trigger even must be specified`);
   }
   const triggerName = `${input}DielProgram`;
   const replaceQuery = replace ? `DROP TRIGGER IF EXISTS ${triggerName};` : "";
@@ -264,7 +264,9 @@ function generateTrigger(queries: Command[], input: string, replace = false): st
 
 function generateInserts(i: InsertionClause): string {
   if (!i) return "";
-  const columns = `(${i.columns.map(c => c).join(", ")})`;
+  const columns = i.columns && i.columns.length > 0
+    ? `(${i.columns.map(c => c).join(", ")})`
+    : "";
   const values = i.values
     ? `VALUES (${i.values.map(v => v.toString()).join(", ")})`
     : generateSelect(i.selection.compositeSelections);
@@ -291,6 +293,7 @@ function generateColumnDefinition(c: Column): string {
   const notNull = c.constraints.notNull ? "NOT NULL" : "";
   const unique = c.constraints.unique ? "UNIQUE" : "";
   const primary = c.constraints.primaryKey ? "PRIMARY KEY" : "";
+  const autoincrement = c.constraints.autoincrement ? "AUTOINCREMENT" : "";
   const defaultVal = c.defaultValue ? `DEFAULT ${generateExpr(c.defaultValue)}` : "";
-  return `${plainQuery} ${notNull} ${unique} ${primary} ${defaultVal}`;
+  return `${plainQuery} ${notNull} ${unique} ${primary} ${autoincrement} ${defaultVal}`;
 }

@@ -9,6 +9,7 @@ import Flights from "./examples/Flights";
 import VizSpecDemo from "./examples/VizSpecDemo";
 import { DEMO_WITH_SOCKET, DEMO_WITH_SMALL_WEBWORKER, DEMO_WITH_LARGE_WEBWORKER, DEMO_WITH_WEBWORKER } from "../../compiler/config";
 import Fires from "./examples/Fires";
+import ExampleUndo from "./examples/ExampleUndo";
 
 const Notebook = () => (<div>
     <ExistingRelationsPad/>
@@ -28,6 +29,10 @@ export const PageContainer = () => (<Router>
       &nbsp;
       <Link to="counter">
         Counter
+      </Link>
+      &nbsp;
+      <Link to="undo">
+        Undo
       </Link>
       &nbsp;
       <Link to="scoreZoom">
@@ -53,6 +58,7 @@ export const PageContainer = () => (<Router>
         <Route exact path="/counter" component={Counter}/>
         <Route path="/notebook" component={Notebook}/>
         <Route path="/scoreZoom" component={ScoreZoomBarChart}/>
+        <Route path="/undo" component={ExampleUndo}/>
         {DEMO_WITH_SOCKET
           ? <Route path="/pitchfork" component={PitchFork} />
           : null}

@@ -52,6 +52,10 @@ btn {
   cursor: pointer;
 }
 
+.selected {
+  color: red;
+}
+
 btn:disabled {
   color: lightgray;
   cursor: default;
