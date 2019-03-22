@@ -1,4 +1,5 @@
 import { DerivedRelation } from "../../parser/dielAstTypes";
+import * as d3ScaleChromatic from "d3-scale-chromatic";
 import DielRuntime from "../../runtime/DielRuntime";
 import { ChartType, RelationObject } from "../../runtime/runtimeTypes";
 
@@ -16,16 +17,27 @@ export interface ChartPropShared {
   svgClickHandler?: () => void;
   colorSpec?: {
     selected?: string,
-    default: string
+    default?: string,
+    // the following is to support multiple series
+    defaultMultiple?: string[];
   };
 }
 
+export const DefaultColorSpec = {
+  selected: "orange",
+  default: "steelblue",
+  // max out at 10, in whcih case we complain
+  defaultMultiple: d3ScaleChromatic.schemeCategory10
+};
+
 interface ChartSpecBase {
   chartType: ChartType;
+  dimension: number;
   relationName: string;
 }
 
 export type ChartSpecWithQuery = ChartSpec2DWithQuery;
+
 
 export interface ChartSpecBase2D extends ChartSpecBase {
   xAttribute: string;
@@ -46,6 +58,8 @@ export interface ChartSpec2DWithData extends ChartSpecBase2D {
 export interface ChartSpec3DWithData extends ChartSpec2DWithData {
   zAttribute: string;
 }
+
+export type ChartSpecWithData = ChartSpec2DWithData | ChartSpec3DWithData;
 
 export type DielSelection = OneDimSelection | TwoDimSelection;
 

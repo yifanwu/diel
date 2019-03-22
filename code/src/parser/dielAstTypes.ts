@@ -47,7 +47,8 @@ export enum StaticRelationType {
 
 export enum ProgramType {
   Udf = "Udf",
-  Insert = "Insert"
+  Insert = "Insert",
+  // YIFAN TODO TODAY implement drop/delete
 }
 
 export enum LoggingLevels {
@@ -307,9 +308,9 @@ export interface CompositeSelectionUnit {
 export enum SetOperator {
   NA = "NA",
   UNION = "UNION",
-  UNIONALL = "UNIONALL",
+  // UNIONALL = "UNIONALL",
   INTERSECT = "INTERSECT",
-  EXCEPT = "EXCEPT"
+  // EXCEPT = "EXCEPT"
 }
 
 export enum AstType {

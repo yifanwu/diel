@@ -1,21 +1,3 @@
--- user events
-CREATE EVENT TABLE originSelectionEvent (origin text);
-
-create output currentOriginSelection AS
-  select origin, timestep from originSelectionEvent
-    where timestep = (select max(timestep) from originSelectionEvent);
-
-create output allPastSelections AS
-  select distinct origin from originSelectionEvent order by timestep;
-
--- this makes it easier to keep things in sync!
-insert into __scales (component, outputName, x, y) values ('flight', 'delayDistanceByOrigin', 'delay', 'distance');
-create output delayDistanceByOrigin AS
-  select *
-  from delayDistanceByOriginEvent e
--- FIXME: something wrong with the lineage of events...
-  join currentOriginSelection s on e.lineage = s.timestep;
-
 -- sampling 200
 -- if we change this into a view, then this actually just a random sampling upon every interaction
 create table sampledFlights AS
@@ -23,27 +5,32 @@ create table sampledFlights AS
   from flights
   order by random() limit 200;
 
--- sampled scatterplot implementation
-create event view delayDistanceByOriginEvent AS
-  select
-    f.delay,
-    f.distance
-  from sampledFlights f
-  join currentOriginSelection s on f.origin = s.origin;
+----------------------------------------------------------------------------------
 
+CREATE EVENT TABLE originSelectionEvent (
+  origin text
+);
 
-insert into __scales (component, outputName, x, y, z) values ('flight', 'delayDistanceHeatOut', 'delayBin', 'distanceBin', 'count');
-create output delayDistanceHeatOut AS
-  select * from delayDistanceHeatEvent;
+create output currentOriginSelection AS
+  select origin, timestep from originSelectionEvent
+    where timestep = (select max(timestep) from originSelectionEvent);
 
--- heatmap implementation, capped at 2000 for distance,  and -100 to 500 for delay
-create event view delayDistanceHeatEvent AS
-  select
-    max(min(round(f.delay / 10) * 10, 500), -100) as delayBin,
-    min(round(f.distance / 100) * 100, 2000) as distanceBin,
-    count(*) as count
-  from flights f
-  group by delayBin, distanceBin;
+create event table panZoomEvent (
+  minDelay number,
+  maxDelay number
+);
+
+create view currentPanZoom as 
+  select minDelay, maxDelay
+  from panZoomEvent
+  where timestep = (
+      select max(timestep) from panZoomEvent
+    );
+
+create output allPastSelections AS
+  select distinct origin from originSelectionEvent order by timestep;
+
+----------------------------------------------------------------------------------
 
 -- note: this is a bit annoying...
 create output allOriginAirports AS
@@ -58,27 +45,37 @@ create event view allOriginAirportsEvent AS
   order by c
   limit 10;
 
-  -- implementing zoom for bar chart means switching the level of granularity
--- this is more than just selecting the where, hm
--- currently, we can have the interface bind to different views based on the granularity
--- the only thing wrong with this is that the views might be computed unecessarily
+----------------------------------------------------------------------------------
 
-create event table panZoomEvent (
-  minDelay number,
-  maxDelay number
-);
+create event view delayDistanceByOriginEvent AS
+  select
+    f.delay,
+    f.distance
+  from sampledFlights f
+  join currentOriginSelection s on f.origin = s.origin;
 
-create view currentPanZoom as 
-  select minDelay, maxDelay
-  from panZoomEvent
-  where timestep = (
-      select max(timestep) from panZoomEvent
-    );
+insert into __scales (component, dimension, outputName, x, y) values ('flight', 2, 'delayDistanceByOrigin', 'delay', 'distance');
+create output delayDistanceByOrigin AS
+  select *
+  from delayDistanceByOriginEvent e
+  join currentOriginSelection s on e.lineage = s.timestep;
 
--- create event view  AS
--- select delayBin, count
--- from flightDistributionEvent
--- where 
+----------------------------------------------------------------------------------
+
+insert into __scales (component, dimension, outputName, x, y, z) values ('flight', 3, 'delayDistanceHeatOut', 'delayBin', 'distanceBin', 'count');
+create output delayDistanceHeatOut AS
+  select * from delayDistanceHeatEvent;
+
+-- heatmap implementation, capped at 2000 for distance,  and -100 to 500 for delay
+create event view delayDistanceHeatEvent AS
+  select
+    max(min(round(f.delay / 10) * 10, 500), -100) as delayBin,
+    min(round(f.distance / 100) * 100, 2000) as distanceBin,
+    count(*) as count
+  from flights f
+  group by delayBin, distanceBin;
+
+----------------------------------------------------------------------------------
 
 create template flightDistributionT(sourceRelation)
  select
@@ -105,23 +102,30 @@ create template flightDistributionT(sourceRelation)
       z.minDelay IS NULL
     );
 
-create output flightDistributionByAirport AS
-  select * from flightDistributionByAirportEvent
-  where timestep = (select max(timestep) from flightDistributionByAirportEvent);
-
-create event view flightDistributionByAirportEvent AS
-  use template flightDistributionT(sourceRelation='filteredFlights');
-
 create view filteredFlights AS
   select *
   from flights f
   join currentOriginSelection s
     on f.origin = s.origin;
 
+create event view flightDistributionByAirportEvent AS
+  use template flightDistributionT(sourceRelation='filteredFlights');
+
 create event view flightDistributionEvent AS
   use template flightDistributionT(sourceRelation='flights');
 
-insert into __scales (component, outputName, x, y) values ('flights', 'flightDistribution', 'delayBin', 'count');
+insert into __scales (component, dimension, outputName, x, y, z) values ('flights', 3, 'flightDistribution', 'delayBin', 'count', 'series');
 create output flightDistribution AS
-  select * from flightDistributionEvent
-  where timestep = (select max(timestep) from flightDistributionEvent);
+  select
+    delayBin,
+    count,
+    'all' as series
+  from flightDistributionEvent
+  where timestep = (select max(timestep) from flightDistributionEvent)
+  UNION
+  select
+    delayBin,
+    count,
+    'flight'
+  from flightDistributionByAirportEvent
+  where timestep = (select max(timestep) from flightDistributionByAirportEvent);

@@ -22,6 +22,6 @@ on (
   )
 limit 100;
 
-insert into __scales (component, outputName, x, y) values ('fires', 'fireSpots', 'LATITUDE', 'LONGITUDE');
+insert into __scales (component, dimension, outputName, x, y) values ('fires', 2, 'fireSpots', 'LATITUDE', 'LONGITUDE');
 create output fireSpots AS
   select * from fireSpotsEvent where timestep = (select max(timestep) from fireSpotsEvent);

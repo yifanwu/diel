@@ -1,4 +1,4 @@
-import { DielAst, DerivedRelation, RelationType, createEmptyDielAst, Relation } from "../parser/dielAstTypes";
+import { DielAst, DerivedRelation, RelationType, createEmptyDielAst, Relation, OriginalRelation } from "../parser/dielAstTypes";
 import { DbType } from "../runtime/runtimeTypes";
 import { DielIr } from "../lib";
 import { PhysicalMetaData } from "../runtime/DielRuntime";
@@ -7,44 +7,19 @@ import { LogInternalError } from "../lib/messages";
 import { DependencyTree, NodeDependencyAugmented } from "./passes/passesHelper";
 import { SetIntersection } from "../lib/dielUtils";
 import { isRelationTypeDerived } from "./DielIr";
-import { access } from "fs";
-import { TransformAstForMaterialization } from "./passes/materialization";
 
-/**
- * currently include
- * - views for local/workers/remotes
- * - programs for shipping data
- *
- * ASSUMPTIONs:
- * - this is done before caching and materialization
- * - only distributed to one remote
- *
- * future:
- * - indices
- * - caching
- */
+export type RelationShippingInfo = {
+  destinations: Set<DbIdType>;
+  dependencies: Set<RelationIdType>;
+};
 
 export type DbIdType = number;
 export type RelationIdType = string;
 export type LogicalTimestep = number;
 
-// export type RelationDependency = Map<RelationIdType Set<RelationIdType>>;
-// export type RelationDestinations =
-
-// export type JobPerInput = {
-//   viewToShip: RelationIdType,
-//   viewsToGet: Set<RelationIdType>,
-//   dependentOutput: Set<RelationIdType>,
-//   destinations: Set<DbIdType>
-// };
-
-// HARDCODED
 export const LocalDbId = 1;
 export const NoEventLineage = -1;
-/**
- * Note that ir and metaData are read only
- *   putting the reference in the class for easier access.
- */
+
 export class DielPhysicalExecution {
   ir: DielIr; // read only
   metaData: PhysicalMetaData; // read only
@@ -66,13 +41,7 @@ export class DielPhysicalExecution {
     this.astSpecPerDb = this.getExecutionSpecsFromDistribution(this.distributions);
   }
 
-  /**
-   * This one finalizes the outputs so that it knows what static inputs to ship over initially.
-   * TODO: Add output
-   */
   public AddRuntimeOutput(outputName: string) {
-    // check if this is static
-    // actually add to the views to ship
     this.runtimeOutputNames.add(outputName);
   }
 
@@ -101,6 +70,15 @@ export class DielPhysicalExecution {
       if (isRelationTypeDerived(rDef.relationType)) {
         if (distribution.from !== distribution.to) {
           const eventTableDef = getEventTableFromDerived(rDef as DerivedRelation);
+          // we need to reason about what type of table this should be
+          // if it's from local to else, they just need to be tables?
+          // if it's else where to local, it has to be Event Table
+          // we do not really need the async
+          // if (distribution.to !== LocalDbId) {
+          //   eventTableDef.relationType = RelationType.Table;
+          // } else if (distribution.to === LocalDbId) {
+          //   eventTableDef.relationType = RelationType.EventTable;
+          // }
           addRelationIfOnlyNotExist(astToSpec.relations, eventTableDef);
           addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
         } else {
@@ -108,6 +86,14 @@ export class DielPhysicalExecution {
           addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
         }
       } else {
+        // if we are shipping over, we should remove the event and just keep it vanilla table
+        // if ((distribution.to !== LocalDbId) && rDef.relationType === RelationType.EventTable) {
+        //   const newRDef = JSON.parse(JSON.stringify(rDef)) as OriginalRelation;
+        //   newRDef.relationType = RelationType.Table;
+        //   addRelationIfOnlyNotExist(astToSpec.relations, newRDef);
+        // } else {
+        //   addRelationIfOnlyNotExist(astToSpec.relations, rDef);
+        // }
         addRelationIfOnlyNotExist(astToSpec.relations, rDef);
       }
       // these are outputs
@@ -136,21 +122,19 @@ export class DielPhysicalExecution {
     }
     astSpecPerDb.get(LocalDbId).programs = this.ir.ast.programs;
     // sanity check: only localDB is allowed to have EventTables!
-    astSpecPerDb.forEach((ast, dbId) => {
-      if (dbId !== LocalDbId) {
-        ast.relations.map(r => {
-          if (r.relationType === RelationType.EventTable) {
-            LogInternalError(`only local DB instance  (${LocalDbId}) is allowed to have ${RelationType.EventTable}, but ${dbId} has it too, for ${r.name}`);
-          }
-        });
-      }
-      // aldo do materialization
-      // TODO: angela
+    // astSpecPerDb.forEach((ast, dbId) => {
+    //   if (dbId !== LocalDbId) {
+    //     ast.relations.map(r => {
+    //       if (r.relationType === RelationType.EventTable) {
+    //         LogInternalError(`only local DB instance  (${LocalDbId}) is allowed to have ${RelationType.EventTable}, but ${dbId} has it too, for ${r.name}`);
+    //       }
+    //     });
+    //   }
+      // TODO: materialization
       // commenting out for now for performance
       // const materialization = TransformAstForMaterialization(ast);
       // console.log(JSON.stringify(materialization, null, 2));
-    });
-    
+    // });
     // then get the out
     return astSpecPerDb;
   }
@@ -229,45 +213,45 @@ export class DielPhysicalExecution {
     }
   }
 
-  // FIXME: there is probably a faster way to do this as part of the recursion...
-  getRelationDependenciesForDb(dbId: DbIdType, lineage: LogicalTimestep) {
-    // a list of the views and their dependencies
-    // if input is specified, we will filter dependencies by those relations that depend on the input
-    const relationsToShip = this.distributions.filter(d => (d.from === dbId)).map(d => d.relationName);
-    // return (dbId: DbIdType, lineage: LogicalTimestep) => {
-    const relationDependency: Map<RelationIdType, Set<RelationIdType>> = new Map();
-    // const relationDestinations: Map<RelationIdType, Set<RelationIdType>> = new Map();
-    relationsToShip.map(r => {
-      const singleDependency = this.distributions.filter(d => (d.forRelationName === r) && (d.to === dbId)).map(d => d.relationName);
-      // const destinations = this.distributions.filter(d => (d.from === dbId) && (d.relationName === r)).map(d => d.to);
-      let deps;
-      if (lineage === NoEventLineage ) {
-        deps = new Set(singleDependency);
-      } else {
-        const inputEvent = this.getEventByTimestep(lineage);
-        deps = SetIntersection(new Set(singleDependency), this.ir.dependencies.inputDependenciesAll.get(inputEvent));
-      }
-      if (deps && deps.size > 0) {
-        relationDependency.set(r, deps);
-      }
-    });
-    return relationDependency;
-  }
+  // TODO: we then need to fix to actually include event tables, as opposed to projecting them into tables
+  // get the dependencies for the relationName, based on the input that has changed
+  getRelationEventTableDependencies(dbId: DbIdType, relationName: RelationIdType, inputName: RelationIdType) {
 
-  getRelationsToShipForDb(dbId: DbIdType, lineage: LogicalTimestep) {
+  }
+  /**
+   * The goal of this function is to figure out for a specific engine, for a specific interaction
+   *   what we need to ship.
+   * PERF FIXME: this can be materialized
+   * @param dbId
+   * @param lineage
+   */
+  getRelationsToShipForDb(dbId: DbIdType, lineage: LogicalTimestep): {
+    deps: Set<RelationIdType>,
+    relationsToShip: Map<RelationIdType, Set<DbIdType>>} {
     // a list of the views and their dependencies
     // if input is specified, we will filter dependencies by those relations that depend on the input
+    const inputEvent = this.getEventByTimestep(lineage);
+    const allInputDeps = this.ir.dependencies.inputDependenciesAll.get(inputEvent);
+    const ast = this.astSpecPerDb.get(dbId);
+    const allEvents = new Set(ast.relations.filter(r => r.relationType === RelationType.EventTable).map(r => r.name));
+    // PERF FIXME: this is corase grained
+    const deps = SetIntersection(allEvents, allInputDeps);
     const relationsToShip = new Map<RelationIdType, Set<DbIdType>>();
     this.distributions
         .filter(d => (d.from === dbId) && (d.from !== d.to))
         .map(d => {
-          if (!relationsToShip.has(d.relationName)) {
-            relationsToShip.set(d.relationName, new Set([d.to]));
-          } else {
-            relationsToShip.get(d.relationName).add(d.to);
+          if (allInputDeps.has(d.relationName)) {
+            if (!relationsToShip.has(d.relationName)) {
+              relationsToShip.set(d.relationName, new Set([d.to]));
+            } else {
+              relationsToShip.get(d.relationName).add(d.to);
+            }
           }
         });
-    return relationsToShip;
+    return {
+      deps,
+      relationsToShip
+    };
   }
 
   // this also needs to be recursive, because even if the inputs are not immediately shipped,

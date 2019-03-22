@@ -1,18 +1,20 @@
 import * as React from "react";
 import * as d3 from "d3";
-import { DefaultVizLayout, OneDimSelection, SelectionType, FilterValueType, ChartPropShared, ChartSpec2DWithData } from "../../vizSpec/vizSpec";
+import { DefaultVizLayout, OneDimSelection, SelectionType, FilterValueType, ChartPropShared, ChartSpecWithData, ChartSpec3DWithData, DefaultColorSpec } from "../../vizSpec/vizSpec";
 
 // we are going to over load categorical data with some order metrics
 // note: might change if we ned to accept multiple selections in the future.
 interface BarChartProp extends ChartPropShared {
-  spec: ChartSpec2DWithData;
+  // barchart can supper 2D and 3D data
+  spec: ChartSpecWithData;
   brushHandler?: (box: OneDimSelection) => void;
   selectedDataRange?: {min: FilterValueType; max: FilterValueType};
-  // handlers: BarChartHandler;
 }
 
 /**
  * going to hardcode this to categorical for now (cast numbers to strings)
+ *
+ * assume that data is ordered by x!
  * @param p props
  */
 export const BarChart: React.StatelessComponent<BarChartProp> = (p) => {
@@ -21,6 +23,18 @@ export const BarChart: React.StatelessComponent<BarChartProp> = (p) => {
     return <p>no result</p>;
   }
   console.log("props", p);
+  function getZScale() {
+    if (p.spec.dimension === 3) {
+      const spec3D = p.spec as ChartSpec3DWithData;
+      const zScale = Array.from(new Set(p.spec.data.map(d => d[spec3D.zAttribute] as string))).sort();
+      const colors = (p.colorSpec && p.colorSpec.defaultMultiple)
+        ? p.colorSpec.defaultMultiple
+        : DefaultColorSpec.defaultMultiple;
+      return (z: string) => colors[zScale.findIndex(zS => zS === z)];
+    }
+    return () => color;
+  }
+  const zColorsScale = getZScale();
   const color = p.colorSpec ? p.colorSpec.default : "steelblue";
   const selectedColor = (p.colorSpec && p.colorSpec.selected) ? p.colorSpec.selected : "orange";
   const layout = p.layout ? p.layout : DefaultVizLayout;
@@ -33,16 +47,20 @@ export const BarChart: React.StatelessComponent<BarChartProp> = (p) => {
   // const xDomain = p.spec.data.map(d => d[p.spec.xAttribute].toString());
   // const x = d3.scaleBand().rangeRound([0, layout.chartWidth]).padding(0.4).domain(xDomain);
   // const xDomain = p.spec.data.map((_, i) => i);
+  // this is really brittle...
   const x = d3.scaleLinear().rangeRound([0, chartWidth]).domain([0, p.spec.data.length]);
   // const barWidth = x.bandwidth();
   const barWidth = Math.round(chartWidth * 0.8 / data.length);
   const bars =  data.map((d, idx) => {
     const yPos = y(d[p.spec.yAttribute] as number);
+    const c = p.spec.dimension === 3
+      ? zColorsScale(d[(p.spec as ChartSpec3DWithData).zAttribute] as string)
+      : color;
     const barColor = p.selectedDataRange
       ? ((d[p.spec.xAttribute] <= p.selectedDataRange.max) && (d[p.spec.xAttribute] >= p.selectedDataRange.min))
         ? selectedColor
-        : color
-      : color;
+        : c
+      : c;
     return <rect
       className={"select-bars"}
       x={x(idx)}

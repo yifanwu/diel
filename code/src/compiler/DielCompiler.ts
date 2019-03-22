@@ -15,7 +15,6 @@ export function CompileDiel(ir: DielIr) {
   applyTemplates(ir);
   ApplyDependencies(ir);
   applyCrossfilter(ir.ast);
-  // modifies in place...
   NormalizeConstraints(ir);
   NormalizeColumnSelection(ir);
   InferType(ir);

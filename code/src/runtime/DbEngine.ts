@@ -2,7 +2,7 @@ import { DbType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemote
 import { SqliteMasterQuery, RelationShippingFuncType, INIT_TIMESTEP } from "./DielRuntime";
 import { LogInternalError, ReportDielUserError, LogInternalWarning, DielInternalErrorType, LogInfo } from "../lib/messages";
 import { DbIdType, LogicalTimestep, RelationIdType, LocalDbId, DielPhysicalExecution } from "../compiler/DielPhysicalExecution";
-import { IsSuperset } from "../lib/dielUtils";
+import { IsSuperset, IsSetIdentical } from "../lib/dielUtils";
 import { ConnectionWrapper } from "./ConnectionWrapper";
 
 async function connectToSocket(url: string): Promise<WebSocket> {
@@ -29,12 +29,13 @@ export default class DbEngine {
   currentQueueHead: LogicalTimestep;
   physicalExeuctionRef: DielPhysicalExecution;
   queueMap: Map<LogicalTimestep, {
+    deps: Set<RelationIdType>;
     received: Set<RelationIdType>;
     receivedValues: RemoteUpdateRelationMessage[];
     // I might have more than one views, each need their dependency
-    relationsToShipDeps: Map<RelationIdType, Set<RelationIdType>>;
-    relationsToShipDestinations: Map<RelationIdType, Set<DbIdType>>;
-    shipped: Set<RelationIdType>;
+    relationsToShip: Map<RelationIdType, Set<DbIdType>>;
+    // relationsToShipDestinations: Map<RelationIdType, Set<DbIdType>>;
+    // shipped: Set<RelationIdType>;
   }>;
   remoteType: DbType;
   id: DbIdType;
@@ -112,6 +113,28 @@ export default class DbEngine {
     }
   }
 
+  private nextQueue() {
+    this.queueMap.delete(this.currentQueueHead);
+    this.currentQueueHead = null;
+    // if there is more in the queue to address, deal with them
+    if (this.queueMap.size > 0) {
+      this.currentQueueHead = Math.min(...this.queueMap.keys());
+      // also load the next queue's results in
+      this.queueMap.get(this.currentQueueHead).receivedValues.map(updateMsg => {
+        const id = {
+          remoteAction: updateMsg.remoteAction,
+          msgId: updateMsg.msgId,
+          lineage: updateMsg.lineage,
+        };
+        const msgToSend = {
+          sql: updateMsg.sql
+        };
+        this.connection.send(id, msgToSend, false);
+      });
+      this.evaluateQueueOnUpdateHandler();
+    }
+  }
+
   // RECURSIVE
   private evaluateQueueOnUpdateHandler() {
     if (!this.currentQueueHead) {
@@ -122,53 +145,22 @@ export default class DbEngine {
     if (!currentItem) {
       LogInternalError(`Queue should contain current head ${this.currentQueueHead}, but it contains ${this.queueMap.keys()}!`);
     }
-    currentItem.relationsToShipDeps.forEach((deps, relationName) => {
-      if (!currentItem.shipped.has(relationName)) {
-        if (IsSuperset(currentItem.received, deps)) {
-          // then ship, and set
-          const destinations = currentItem.relationsToShipDestinations.get(relationName);
-          if (destinations) {
-            destinations.forEach(dbId => {
-              const shipMsg: RemoteShipRelationMessage = {
-                remoteAction: DielRemoteAction.ShipRelation,
-                lineage: this.currentQueueHead,
-                relationName,
-                dbId
-              };
-              this.SendMsg(shipMsg);
-            });
-            currentItem.shipped.add(relationName);
-          } else {
-            LogInternalWarning(`Might be an error here trying to find what was not defined`);
-          }
-        }
-      }
-    });
-    // if all has shipped, let's delete
-    if (currentItem.shipped.size === currentItem.relationsToShipDeps.size) {
-      // now let's delete
-      this.queueMap.delete(this.currentQueueHead);
-      this.currentQueueHead = null;
-      // if there is more in the queue to address, deal with them
-      if (this.queueMap.size > 0) {
-        this.currentQueueHead = Math.min(...this.queueMap.keys());
-        // also load the next queue's results in
-        this.queueMap.get(this.currentQueueHead).receivedValues.map(updateMsg => {
-          const id = {
-            remoteAction: updateMsg.remoteAction,
-            msgId: updateMsg.msgId,
-            lineage: updateMsg.lineage,
+    // coarse grained
+    if (IsSetIdentical(currentItem.received, currentItem.deps)) {
+      currentItem.relationsToShip.forEach((destinations, relationName) => {
+        destinations.forEach(dbId => {
+          const shipMsg: RemoteShipRelationMessage = {
+            remoteAction: DielRemoteAction.ShipRelation,
+            lineage: this.currentQueueHead,
+            relationName,
+            dbId
           };
-          const msgToSend = {
-            sql: updateMsg.sql
-          };
-          this.connection.send(id, msgToSend, false);
+          this.SendMsg(shipMsg);
         });
-        this.evaluateQueueOnUpdateHandler();
-      }
-    } else {
-      return;
+      });
+      this.nextQueue();
     }
+    // need to keep on waiting
   }
 
   public SendMsg(msg: DielRemoteMessage, isPromise = false): Promise<DielRemoteReply> | null {
@@ -205,33 +197,27 @@ export default class DbEngine {
       }
       case DielRemoteAction.UpdateRelation: {
         const updateMsg = msg as RemoteUpdateRelationMessage;
-        // we need to see if previous has been processed
-        // if so actually execute
-        // else, put on an event queue
-        // now is the case where msg.lineage is larger
+        // push this on to the message queue
         if (this.queueMap.has(updateMsg.lineage)) {
           this.queueMap.get(updateMsg.lineage).received.add(updateMsg.relationName);
         } else {
+          const {deps, relationsToShip} = this.physicalExeuctionRef.getRelationsToShipForDb(this.id, msg.lineage);
           this.queueMap.set(msg.lineage, {
             receivedValues: [],
             received: new Set([updateMsg.relationName]),
-            relationsToShipDeps: this.physicalExeuctionRef.getRelationDependenciesForDb(this.id, msg.lineage),
-            shipped: new Set(),
-            relationsToShipDestinations: this.physicalExeuctionRef.getRelationsToShipForDb(this.id, msg.lineage)
+            relationsToShip,
+            deps
           });
         }
-        // push this on to the message queue
+        // then process
         if ((!this.currentQueueHead) || (msg.lineage === this.currentQueueHead)) {
-          // then execute
+          // can actually execute execute
           const msgToSend = {
             sql: updateMsg.sql
           };
-          // if (isPromise) {
-          //   LogInternalError(`Cannot wait on Promise ${DielRemoteAction.UpdateRelation}`);
-          // }
           return this.connection.send(id, msgToSend, isPromise);
-          // this.queueMap.get(updateMsg.lineage).receivedValues.set(updateMsg.relationName, updateMsg);
         } else {
+          // otherwise push on the queue
           this.queueMap.get(msg.lineage).receivedValues.push(updateMsg);
         }
       }

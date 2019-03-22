@@ -10,7 +10,7 @@ import { Scatterplot } from "../charts/ScatterPlot";
 import { Map, MapRegion } from "../charts/Map";
 import { RelationIdType } from "../../../compiler/DielPhysicalExecution";
 import { LogInternalError, DielInternalErrorType } from "../../../lib/messages";
-import { DielSelection } from "../../vizSpec/vizSpec";
+import { DielSelection, ChartSpec3DWithData, ChartSpec2DWithData } from "../../vizSpec/vizSpec";
 
 export interface DielHanders {
   selectionHandler?: (box: DielSelection) => void;
@@ -29,7 +29,7 @@ export default class DielComponent<P> extends React.Component<P, DielComponentSt
   // }
   constructor(props: P) {
     super(props);
-    this.Generate2DChart = this.Generate2DChart.bind(this);
+    this.GenerateChart = this.GenerateChart.bind(this);
     this.state = {};
 
   }
@@ -42,16 +42,31 @@ export default class DielComponent<P> extends React.Component<P, DielComponentSt
       diel.BindOutput(relationName, fn);
     });
   }
-  Generate2DChart (chartType: ChartType, relationName: RelationIdType, handlers?: DielHanders) {
+  GenerateChart (chartType: ChartType, relationName: RelationIdType, handlers?: DielHanders) {
     if (this.state[relationName]) {
       const scales = diel.GetScales(relationName)[0];
-      const spec = {
+      const dimension = scales.dimension as number;
+      const data = this.state[relationName];
+      const xAttribute = scales.x as string;
+      const yAttribute = scales.y as string;
+      let spec = (dimension === 2)
+        ? {
+          chartType,
+          dimension,
+          relationName,
+          data,
+          xAttribute,
+          yAttribute
+        } as ChartSpec2DWithData
+      : {
         chartType,
+        dimension,
         relationName,
-        data: this.state[relationName],
-        xAttribute: scales.x as string,
-        yAttribute: scales.y as string
-      };
+        data,
+        xAttribute,
+        yAttribute,
+        zAttribute: scales.z as string
+      } as ChartSpec3DWithData;
       if (chartType === ChartType.BarChart) {
         return <BarChart
           spec={spec}

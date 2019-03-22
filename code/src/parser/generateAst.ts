@@ -105,6 +105,23 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
+  visitCompositeSelect(ctx: parser.CompositeSelectContext): CompositeSelectionUnit {
+    const relation = this.visit(ctx.selectUnitQuery()) as SelectionUnit;
+    const rawOp = ctx.setOp().text.toLocaleUpperCase();
+    const op = (rawOp === "UNION")
+      ? SetOperator.UNION
+      : (rawOp === "INTERSECT")
+        ? SetOperator.INTERSECT
+        : null;
+    if (!op) {
+      LogInternalError(`Shouldn't Happen!`);
+    }
+    return {
+      op,
+      relation
+    };
+  }
+
   visitDropQuery(ctx: parser.DropQueryContext): DropClause {
     const relationName = ctx.IDENTIFIER().text;
     return {
