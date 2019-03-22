@@ -87,11 +87,19 @@ export const BuiltInColumns: BuiltInColumnType[] = [
 
 export const BuiltInUdfTypes: UdfType[] = [
   {
-    udf: "count",
+    udf: "COUNT",
     type: DataType.Number
   },
   {
-    udf: "sum",
+    udf: "MIN",
+    type: DataType.Number
+  },
+  {
+    udf: "MAX",
+    type: DataType.Number
+  },
+  {
+    udf: "SUM",
     type: DataType.Number
   },
   {
@@ -111,15 +119,15 @@ export const BuiltInUdfTypes: UdfType[] = [
     type: DataType.Number
   },
   {
-    udf: "round",
+    udf: "ROUND",
     type: DataType.Number
   },
   {
-    udf: "avg",
+    udf: "AVG",
     type: DataType.Number
   },
   {
-    udf: "group_concat",
+    udf: "GROUP_CONCAT",
     type: DataType.String
   },
 ];

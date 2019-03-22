@@ -12,9 +12,8 @@ import { InferType } from "./passes/inferType";
  * @param ir the IR that will be manipulated
  */
 export function CompileDiel(ir: DielIr) {
-  // check names
-  ApplyDependencies(ir);
   applyTemplates(ir);
+  ApplyDependencies(ir);
   applyCrossfilter(ir.ast);
   // modifies in place...
   NormalizeConstraints(ir);

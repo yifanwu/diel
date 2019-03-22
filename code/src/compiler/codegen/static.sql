@@ -5,7 +5,8 @@ create table __scales (
   component text not null,
   outputName text not null,
   x text,
-  y text
+  y text,
+  z text
 );
 
 

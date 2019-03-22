@@ -17,6 +17,7 @@ create output delayDistanceByOrigin AS
   join currentOriginSelection s on e.lineage = s.timestep;
 
 -- sampling 200
+-- if we change this into a view, then this actually just a random sampling upon every interaction
 create table sampledFlights AS
   select *
   from flights
@@ -30,17 +31,19 @@ create event view delayDistanceByOriginEvent AS
   from sampledFlights f
   join currentOriginSelection s on f.origin = s.origin;
 
--- heatmap implementation
--- capped at 2000 for distance
--- and -100 to 500 for delay
--- create event view delayDistanceByOriginEvent AS
---   select
---     max(min(round(f.delay / 10) * 10, 500), -100) as delay_bin,
---     min(round(f.distance / 100) * 100, 2000) as distance_bin,
---     count(*) as count
---   from flights f
---   join currentOriginSelection s on f.origin = s.origin
---   group by delay_bin, distance_bin;
+
+insert into __scales (component, outputName, x, y, z) values ('flight', 'delayDistanceHeatOut', 'delayBin', 'distanceBin', 'count');
+create output delayDistanceHeatOut AS
+  select * from delayDistanceHeatEvent;
+
+-- heatmap implementation, capped at 2000 for distance,  and -100 to 500 for delay
+create event view delayDistanceHeatEvent AS
+  select
+    max(min(round(f.delay / 10) * 10, 500), -100) as delayBin,
+    min(round(f.distance / 100) * 100, 2000) as distanceBin,
+    count(*) as count
+  from flights f
+  group by delayBin, distanceBin;
 
 -- note: this is a bit annoying...
 create output allOriginAirports AS
@@ -54,3 +57,71 @@ create event view allOriginAirportsEvent AS
     group by origin
   order by c
   limit 10;
+
+  -- implementing zoom for bar chart means switching the level of granularity
+-- this is more than just selecting the where, hm
+-- currently, we can have the interface bind to different views based on the granularity
+-- the only thing wrong with this is that the views might be computed unecessarily
+
+create event table panZoomEvent (
+  minDelay number,
+  maxDelay number
+);
+
+create view currentPanZoom as 
+  select minDelay, maxDelay
+  from panZoomEvent
+  where timestep = (
+      select max(timestep) from panZoomEvent
+    );
+
+-- create event view  AS
+-- select delayBin, count
+-- from flightDistributionEvent
+-- where 
+
+create template flightDistributionT(sourceRelation)
+ select
+    case when (z.maxDelay IS NULL)
+    then
+      round(delay / 10) * 10
+    else
+      round(delay / (max(round((z.maxDelay - z.minDelay) / 10), 5))) * (max(round((z.maxDelay - z.minDelay) / 10), 5))
+    end as delayBin,
+    -- case when (z.maxDelay - z.minDelay) > 50
+    --     then round(delay / 50) * 50
+    --     else round(delay / 10) * 10
+    --   end as delayBin,
+    count(*) as count
+  from {sourceRelation}
+  left outer join currentPanZoom z
+  group by delayBin
+  having (
+    delayBin <= z.maxDelay
+      and delayBin >= z.minDelay
+    ) OR (
+      z.maxDelay IS NULL
+    ) OR (
+      z.minDelay IS NULL
+    );
+
+create output flightDistributionByAirport AS
+  select * from flightDistributionByAirportEvent
+  where timestep = (select max(timestep) from flightDistributionByAirportEvent);
+
+create event view flightDistributionByAirportEvent AS
+  use template flightDistributionT(sourceRelation='filteredFlights');
+
+create view filteredFlights AS
+  select *
+  from flights f
+  join currentOriginSelection s
+    on f.origin = s.origin;
+
+create event view flightDistributionEvent AS
+  use template flightDistributionT(sourceRelation='flights');
+
+insert into __scales (component, outputName, x, y) values ('flights', 'flightDistribution', 'delayBin', 'count');
+create output flightDistribution AS
+  select * from flightDistributionEvent
+  where timestep = (select max(timestep) from flightDistributionEvent);
