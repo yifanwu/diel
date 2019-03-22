@@ -1,6 +1,6 @@
 import { DataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause } from "../../parser/dielAstTypes";
 import { RelationSpec, RelationQuery, SqlAst, createSqlAstFromDielAst } from "./createSqlIr";
-import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../lib/messages";
+import { ReportDielUserError, LogInternalError, DielInternalErrorType, LogInternalWarning, ReportUserRuntimeError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
 
 export function generateSqlFromDielAst(ast: DielAst, replace = false) {
@@ -143,52 +143,66 @@ function generateWhere(e: ExprAst): string {
 
 // recursive fun...
 function generateExpr(e: ExprAst): string {
-  if (e.exprType === ExprType.Val) {
-    const v = e as ExprValAst;
-    const str = v.value.toString();
-    if ((e.dataType === DataType.String) || (e.dataType === DataType.TimeStamp)) {
-      return `'${str}'`;
-    }
-    return str;
-  } else if (e.exprType === ExprType.Column) {
-    const c = e as ExprColumnAst;
-    const prefix = c.relationName ? `${c.relationName}.` : "";
-    if (c.hasStar) {
-      return `${prefix}*`;
-    }
-    return `${prefix}${c.columnName}`;
-  } else if (e.exprType === ExprType.Relation) {
-    const r = e as ExprRelationAst;
-    return `(${generateSelect(r.selection.compositeSelections)})`;
-  } else if (e.exprType === ExprType.Parenthesis) {
-    const p = e as ExprParen;
-    return `(${generateExpr(p.content)})`;
-  } else if (e.exprType === ExprType.Func) {
-    const f = e as ExprFunAst;
-    // this is functions
-    if (f.functionType === FunctionType.Math || f.functionType === FunctionType.Compare || f.functionType === FunctionType.Logic) {
-      // assert that there are two args
-      if (f.args.length !== 2) {
-        ReportDielUserError(`Function ${f.functionReference} should have 2 arguemnts`);
+  switch (e.exprType) {
+    case ExprType.Val:
+      const v = e as ExprValAst;
+      const str = v.value.toString();
+      if ((e.dataType === DataType.String) || (e.dataType === DataType.TimeStamp)) {
+        return `'${str}'`;
       }
-      return `${generateExpr(f.args[0])} ${f.functionReference} ${generateExpr(f.args[1])}`;
-    } else if (f.functionType === FunctionType.BuiltIn) {
-      if (f.functionReference === BuiltInFunc.ConcatStrings) {
-        return f.args.map(a => generateExpr(a)).join(" || ");
-      } else if (f.functionReference === BuiltInFunc.IfThisThen) {
-        const whenCond = generateExpr(f.args[0]);
-        const thenExpr = generateExpr(f.args[1]);
-        const elseExpr = generateExpr(f.args[2]);
-        return `CASE WHEN ${whenCond} THEN ${thenExpr} ELSE ${elseExpr} END`;
+      return str;
+    case ExprType.Column:
+      const c = e as ExprColumnAst;
+      const prefix = c.relationName ? `${c.relationName}.` : "";
+      if (c.hasStar) {
+        return `${prefix}*`;
       }
-      // the rest should work with their references
-      return `${f.functionReference} (${f.args.map(a => generateExpr(a)).join(", ")})`;
-    } else {
-      // custom
-      return `${f.functionReference} (${f.args.map(a => generateExpr(a)).join(", ")})`;
-    }
-  } else {
-    throw new Error("Expr type not handled");
+      return `${prefix}${c.columnName}`;
+    case ExprType.Relation:
+      const r = e as ExprRelationAst;
+      return `(${generateSelect(r.selection.compositeSelections)})`;
+    case ExprType.Parenthesis:
+      const p = e as ExprParen;
+      return `(${generateExpr(p.content)})`;
+    case ExprType.Func:
+      const f = e as ExprFunAst;
+      // this is functions
+      switch (f.functionType) {
+        case FunctionType.Math:
+        case FunctionType.Compare:
+        case FunctionType.Logic:
+          // assert that there are two args
+          if (f.args.length !== 2) {
+            ReportDielUserError(`Function ${f.functionReference} should have 2 arguemnts`);
+          }
+          return `${generateExpr(f.args[0])} ${f.functionReference} ${generateExpr(f.args[1])}`;
+        case FunctionType.BuiltIn:
+          switch (f.functionReference) {
+            case BuiltInFunc.ConcatStrings:
+              return f.args.map(a => generateExpr(a)).join(" || ");
+            case BuiltInFunc.IfThisThen:
+              const whenCond = generateExpr(f.args[0]);
+              const thenExpr = generateExpr(f.args[1]);
+              const elseExpr = generateExpr(f.args[2]);
+              return `CASE WHEN ${whenCond} THEN ${thenExpr} ELSE ${elseExpr} END`;
+            case BuiltInFunc.ValueIsNotNull:
+            case BuiltInFunc.ValueIsNull:
+              // should only have one
+              if (f.args.length !== 1) {
+                LogInternalError(`Is or Not Null filters should only have one argument`);
+              }
+              return `${generateExpr(f.args[0])} ${f.functionReference}`;
+            default:
+              // the rest should work with their references
+              return `${f.functionReference} (${f.args.map(a => generateExpr(a)).join(", ")})`;
+          }
+        case FunctionType.Custom:
+          return `${f.functionReference} (${f.args.map(a => generateExpr(a)).join(", ")})`;
+        default:
+          LogInternalError(`FunctionType type ${f.functionType} not handled`, DielInternalErrorType.UnionTypeNotAllHandled);
+      }
+    default:
+      LogInternalError(`Expr type ${e.exprType} not handled`, DielInternalErrorType.UnionTypeNotAllHandled);
   }
 }
 
@@ -242,13 +256,25 @@ function generateTrigger(queries: Command[], input: string, replace = false): st
   return program;
 }
 
+export function generateInsertClauseStringForValue(raw: any): string {
+  // it can be explicitly set to null, but not undefined
+  if (raw === undefined) {
+    LogInternalError(`Insertion should be defined.`);
+  }
+  // need to avoid the case when 0 is entered, which is valid!
+  return (raw === null)
+    ? "null"
+    : (typeof raw === "string") ? `'${raw}'` : raw
+    ;
+}
+
 function generateInserts(i: InsertionClause): string {
   if (!i) return "";
   const columns = i.columns && i.columns.length > 0
     ? `(${i.columns.map(c => c).join(", ")})`
     : "";
   const values = i.values
-    ? `VALUES (${i.values.map(v => v.toString()).join(", ")})`
+    ? `VALUES (${i.values.map(v => generateInsertClauseStringForValue(v)).join(", ")})`
     : generateSelect(i.selection.compositeSelections);
   return `INSERT INTO ${i.relation} ${columns} ${values}`;
 }

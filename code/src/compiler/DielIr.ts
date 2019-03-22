@@ -152,6 +152,7 @@ export class DielIr {
         return (relationDef as OriginalRelation).columns.map(c => ({columnName: c.name, type: c.type}));
       }
     } else {
+      // note for LUCIE: this is a good place to add the fuzzy search for correct relation name suggestion
       LogInternalError(`Cannot find relation ${relationName}`, DielInternalErrorType.RelationNotFound);
     }
   }

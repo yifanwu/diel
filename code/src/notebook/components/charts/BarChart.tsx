@@ -1,13 +1,14 @@
 import * as React from "react";
 import * as d3 from "d3";
-import { DefaultVizLayout, BrushBoxOneDim, BrushBoxType, FilterValueType, ChartPropShared, ChartSpec2DWithData } from "../../vizSpec/vizSpec";
+import { DefaultVizLayout, OneDimSelection, SelectionType, FilterValueType, ChartPropShared, ChartSpec2DWithData } from "../../vizSpec/vizSpec";
 
 // we are going to over load categorical data with some order metrics
 // note: might change if we ned to accept multiple selections in the future.
 interface BarChartProp extends ChartPropShared {
   spec: ChartSpec2DWithData;
+  brushHandler?: (box: OneDimSelection) => void;
   selectedDataRange?: {min: FilterValueType; max: FilterValueType};
-  brushHandler?: (box: BrushBoxOneDim) => void;
+  // handlers: BarChartHandler;
 }
 
 /**
@@ -24,7 +25,10 @@ export const BarChart: React.StatelessComponent<BarChartProp> = (p) => {
   const selectedColor = (p.colorSpec && p.colorSpec.selected) ? p.colorSpec.selected : "orange";
   const layout = p.layout ? p.layout : DefaultVizLayout;
   const {chartWidth, chartHeight} = layout;
-  const yDomain = d3.extent(p.spec.data.map(d => d[p.spec.yAttribute] as number));
+  // CORNER CASE of a single bar
+  const yDomain = (p.spec.data.length === 1)
+    ? [0, p.spec.data[0][p.spec.yAttribute] as number]
+    : d3.extent(p.spec.data.map(d => d[p.spec.yAttribute] as number));
   let y = d3.scaleLinear().rangeRound([layout.chartHeight, 0]).domain(yDomain);
   // const xDomain = p.spec.data.map(d => d[p.spec.xAttribute].toString());
   // const x = d3.scaleBand().rangeRound([0, layout.chartWidth]).padding(0.4).domain(xDomain);
@@ -73,7 +77,7 @@ export const BarChart: React.StatelessComponent<BarChartProp> = (p) => {
       const s = d3.brushSelection(this) as [number, number];
       if (s !== null) {
         const box = {
-          brushBoxType: BrushBoxType.OneDim,
+          brushBoxType: SelectionType.OneDim,
           min: data[Math.floor(x.invert(Math.min(s[0], s[1])))][p.spec.xAttribute] as number,
           max: data[Math.floor(x.invert(Math.max(s[0], s[1])))][p.spec.xAttribute] as number
         };

@@ -6,7 +6,7 @@ import { loadPage } from "../notebook/index";
 import { Database, Statement } from "sql.js";
 import { RuntimeCell, DielRemoteAction, RelationObject, DielRuntimeConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, } from "./runtimeTypes";
 import { OriginalRelation, DerivedRelation, RelationType, SelectionUnit } from "../parser/dielAstTypes";
-import { generateSelectionUnit, generateSqlFromDielAst, generateSqlViews } from "../compiler/codegen/codeGenSql";
+import { generateSelectionUnit, generateSqlFromDielAst, generateSqlViews, generateInsertClauseStringForValue } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
 import { CompileDiel } from "../compiler/DielCompiler";
 import { log } from "../lib/dielUdfs";
@@ -151,13 +151,11 @@ export default class DielRuntime {
       const values = objs.map(o => {
         return columnNames.map(cName => {
           const raw = o[cName];
-          if ((raw === null) || (raw === undefined)) {
+          // it can be explicitly set to null, but not undefined
+          if (raw === undefined) {
             ReportUserRuntimeError(`We expected the input ${cName}, but it was not defined in the object.`);
           }
-          const valueStr = raw
-            ? (typeof raw === "string") ? `'${raw}'` : raw
-            : "null";
-          return valueStr;
+          return generateInsertClauseStringForValue(raw);
         });
       });
       let finalQuery: string;
@@ -345,6 +343,17 @@ export default class DielRuntime {
     // this.db.create_function("shipWorkerInput", this.shipWorkerInput.bind(this));
   }
 
+  /**
+   * Note for Ryan
+   * add caching logic here
+   * - get all cacheable outputs dependent on this input
+   * - for each cacheable output
+   *   - check if its depenent state is the same
+   *   - only ship to the remotes that need to do a reevaluation
+   *   - for the outputs that are cached, do newInput to the events, with the cached dataId
+   * @param inputName
+   * @param timestep
+   */
   shipWorkerInput(inputName: string, timestep: number) {
     // const remotesToShipTo = this.physicalExecution.getShippingInfoForDbByEvent(inputName, LocalDbId);
     const remotesToShipTo = this.physicalExecution.getBubbledUpRelationToShip(LocalDbId, inputName);
@@ -521,7 +530,8 @@ export default class DielRuntime {
    * FIXME/TODO:
    * - assume this is local (so it does not need to be processed by distributed query)
    * - also assume that it's compiled (i.e., typed & normalized etc)
-   * and we can just add it to the output list
+   * and we can just add it to the output lx
+   * ist
    */
   public AddView(q: DerivedRelation) {
     const queryStr = generateSqlViews(CreateDerivedSelectionSqlAstFromDielAst(q));

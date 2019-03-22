@@ -1,9 +1,9 @@
--- statically render all the fires first
--- we are going to use their rowid's for now since I forgot to create ids...
-
-insert into __scales (component, outputName, x, y) values ('fires', 'fireSpots', 'LATITUDE', 'LONGITUDE');
-create output fireSpots AS
-  select * from fireSpotsEvent where timestep = (select max(timestep) from fireSpotsEvent);
+create event table panFireItx (
+  latMin real,
+  latMax real,
+  longMin real,
+  longMax real
+);
 
 create event view fireSpotsEvent AS
 select
@@ -11,4 +11,17 @@ select
   LONGITUDE
 from
   fires
+  join panFireItx
+on (
+    LATITUDE < latMax and LATITUDE > latMin
+    and LONGITUDE < longMin and LONGITUDE > longMax
+  ) OR (
+    LATITUDE IS NULL
+  ) OR (
+    LONGITUDE IS NULL
+  )
 limit 100;
+
+insert into __scales (component, outputName, x, y) values ('fires', 'fireSpots', 'LATITUDE', 'LONGITUDE');
+create output fireSpots AS
+  select * from fireSpotsEvent where timestep = (select max(timestep) from fireSpotsEvent);

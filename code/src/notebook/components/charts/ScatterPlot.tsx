@@ -1,5 +1,5 @@
 import * as React from "react";
-import { FilterValueType, BrushBoxTwoDim, ChartPropShared, ChartSpec2DWithData } from "../../vizSpec/vizSpec";
+import { FilterValueType, TwoDimSelection, ChartPropShared, ChartSpec2DWithData } from "../../vizSpec/vizSpec";
 import { TwoDimCoord } from "./TwoDimCoord";
 
 interface ScatterplotProps extends ChartPropShared {
@@ -8,14 +8,14 @@ interface ScatterplotProps extends ChartPropShared {
     minX: FilterValueType; maxX: FilterValueType,
     minY: FilterValueType; maxY: FilterValueType
   };
-  brushHandler?: (box: BrushBoxTwoDim) => void;
+  brushHandler?: (box: TwoDimSelection) => void;
 }
 
 export const Scatterplot: React.StatelessComponent<ScatterplotProps> = (p) => {
   const color = p.colorSpec ? p.colorSpec.default : "steelblue";
   const {data, xAttribute, yAttribute} = p.spec;
   const shapeGen = (x: any, y: any) => {
-    data.map((d, _) => <circle r="3" cx={x(d[xAttribute] as number)} cy={y(d[yAttribute] as number)} fill={color} fillOpacity={0.5}></circle>);
+    return data.map((d, _) => <circle r="3" cx={x(d[xAttribute] as number)} cy={y(d[yAttribute] as number)} fill={color} fillOpacity={0.5}></circle>);
   };
   return <TwoDimCoord
     shapeGen={shapeGen}
