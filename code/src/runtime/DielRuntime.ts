@@ -482,7 +482,8 @@ export default class DielRuntime {
         const remoteInstance = this.findRemoteDbEngine(id);
         remoteInstance.setPhysicalExecutionReference(this.physicalExecution);
         const replace = remoteInstance.remoteType === DbType.Socket;
-        const queries = generateSqlFromDielAst(ast, replace);
+        const isRemote = true;
+        const queries = generateSqlFromDielAst(ast, {replace, isRemote});
         if (remoteInstance) {
           if (queries && queries.length > 0) {
             const sql = queries.map(q => q + ";").join("\n");

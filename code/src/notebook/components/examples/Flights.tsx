@@ -6,11 +6,11 @@ import DielComponent from "../diel/DielComponent";
 import { OneDimSelection } from "../../vizSpec/vizSpec";
 
 enum ComponentRelations {
-  delayDistanceByOrigin = "delayDistanceByOrigin",
   allOriginAirports = "allOriginAirports",
   allPastSelections = "allPastSelections",
   currentOriginSelection = "currentOriginSelection",
-  flightDistribution = "flightDistribution"
+  delayDistanceByOrigin = "delayDistanceByOrigin",
+  flightDistribution = "flightDistribution",
 }
 
 export default class Flights extends DielComponent<{}> {
@@ -31,8 +31,8 @@ export default class Flights extends DielComponent<{}> {
     const titleDiv = this.state[ComponentRelations.currentOriginSelection] && this.state[ComponentRelations.currentOriginSelection].length > 0
       ? <h3>Delay by Distance: {this.state[ComponentRelations.currentOriginSelection][0].origin}</h3>
       : null;
-    const chartDiv = this.Generate2DChart(ChartType.Scatter, ComponentRelations.delayDistanceByOrigin);
-    const delayDistChartDiv = this.Generate2DChart(ChartType.BarChart, ComponentRelations.flightDistribution, {
+    const chartDiv = this.GenerateChart(ChartType.Scatter, ComponentRelations.delayDistanceByOrigin);
+    const delayDistChartDiv = this.GenerateChart(ChartType.BarChart, ComponentRelations.flightDistribution, {
       selectionHandler: zoomBrushHandler,
       deSelectHandler: zoomSvgClickHandler
     });

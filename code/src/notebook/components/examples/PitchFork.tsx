@@ -17,8 +17,8 @@ export default class PitchFork extends DielComponent<{}> {
     super.BindDielOutputs(Object.keys(ComponentRelations));
   }
   render() {
-    const scoreChart = this.Generate2DChart(ChartType.BarChart, ComponentRelations.pitchForkScoreDistribution);
-    const yearChart = this.Generate2DChart(ChartType.BarChart, ComponentRelations.pitchForkYearDistribution);
+    const scoreChart = this.GenerateChart(ChartType.BarChart, ComponentRelations.pitchForkScoreDistribution);
+    const yearChart = this.GenerateChart(ChartType.BarChart, ComponentRelations.pitchForkYearDistribution);
     const explaination = <div><p>
         In this chart, selecting the genre would filter the two charts.
         Further selecting on the charts would filter the other.

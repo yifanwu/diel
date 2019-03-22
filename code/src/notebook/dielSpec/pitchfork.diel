@@ -1,8 +1,4 @@
--- basic distribution of scores
-
--- OK let's add some interaction
--- people are intersted in individuals
--- let's add some singers (ordered by popularity)
+-- let's add some singers to do the filtering (ordered by popularity)
 
 create event view allGenresEvent AS
   select DISTINCT genre
@@ -20,14 +16,7 @@ create view currentUserGenreSelection AS
   select * from userGenreSelectionEvent
   where timestep = (select max(timestep) from userGenreSelectionEvent);
 
-create output pitchForkScoreDistribution as
-  select *
-  from pitchForkScoreDistributionEvent
-  where timestep = (
-      select max(timestep) from pitchForkScoreDistributionEvent
-    );
 
-insert into __scales (component, outputName, x, y) values ('pitchfork', 'pitchForkScoreDistribution', 'scoreBin', 'count');
 create event view pitchForkScoreDistributionEvent as
   select
     round(score * 10 / 10) as scoreBin,
@@ -39,13 +28,12 @@ create event view pitchForkScoreDistributionEvent as
     or e.genre IS NULL
   group by scoreBin;
 
-
-insert into __scales (component, outputName, x, y) values ('pitchfork', 'pitchForkYearDistribution', 'scoreBin', 'count');
-create output pitchForkYearDistribution as
+insert into __scales (component, outputName, x, y) values ('pitchfork', 'pitchForkScoreDistribution', 'scoreBin', 'count');
+create output pitchForkScoreDistribution as
   select *
-  from pitchForkYearDistributionEvent
+  from pitchForkScoreDistributionEvent
   where timestep = (
-      select max(timestep) from pitchForkYearDistributionEvent
+      select max(timestep) from pitchForkScoreDistributionEvent
     );
 
 create event view pitchForkYearDistributionEvent AS
@@ -55,3 +43,11 @@ create event view pitchForkYearDistributionEvent AS
   from reviews
   join genres on genres.reviewid = reviews.reviewid
   group by yearBin;
+
+insert into __scales (component, outputName, x, y) values ('pitchfork', 'pitchForkYearDistribution', 'scoreBin', 'count');
+create output pitchForkYearDistribution as
+  select *
+  from pitchForkYearDistributionEvent
+  where timestep = (
+      select max(timestep) from pitchForkYearDistributionEvent
+    );

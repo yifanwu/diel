@@ -3,8 +3,10 @@ import { RelationSpec, RelationQuery, SqlAst, createSqlAstFromDielAst } from "./
 import { ReportDielUserError, LogInternalError, DielInternalErrorType, LogInternalWarning, ReportUserRuntimeError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
 
-export function generateSqlFromDielAst(ast: DielAst, replace = false) {
-  const sqlAst = createSqlAstFromDielAst(ast);
+export function generateSqlFromDielAst(ast: DielAst, options?: { replace: boolean; isRemote: boolean}) {
+  const isRemote = options ? options.isRemote ? options.isRemote : false : false;
+  const sqlAst = createSqlAstFromDielAst(ast, isRemote);
+  const replace = options ? options.replace ? options.replace : false : false;
   return generateStringFromSqlIr(sqlAst, replace);
 }
 
@@ -59,8 +61,8 @@ function generateSelect(v: CompositeSelectionUnit[]): string {
 const setOperatorToString = new Map([
   [SetOperator.NA, ""],
   [SetOperator.UNION, "UNION"],
-  [SetOperator.EXCEPT, "EXCEPT"],
-  [SetOperator.UNIONALL, "UNION ALL"],
+  // [SetOperator.EXCEPT, "EXCEPT"],
+  // [SetOperator.UNIONALL, "UNION ALL"],
   [SetOperator.INTERSECT, "INTERSECT"],
 ]);
 

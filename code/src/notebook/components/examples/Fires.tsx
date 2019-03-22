@@ -24,7 +24,7 @@ export default class Fires extends DielComponent<{}> {
         });
       }
     };
-    const chartDiv = this.Generate2DChart(ChartType.Map, ComponentRelations.fireSpots, handlers);
+    const chartDiv = this.GenerateChart(ChartType.Map, ComponentRelations.fireSpots, handlers);
     return <>
       {chartDiv}
     </>;
