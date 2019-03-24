@@ -1,3 +1,5 @@
+
+
 import { assertSimpleType, assertMultiplyType } from "./compilerTests/assertTypes";
 import { testTopologicalSort, testDistributionLogc } from "./unitTest";
 import { assertBasicNormalizationOfRelation } from "./compilerTests/assertNormalization";

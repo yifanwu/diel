@@ -5,6 +5,7 @@ import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateAst";
 import { inferTypeForSelection } from "./passes/inferType";
 import { diel } from "../notebook/setup";
+import { DielAst } from "../parser/dielAstTypes";
 
 export function parse(code: string) {
   const inputStream = new ANTLRInputStream(code);
@@ -32,4 +33,3 @@ export function getSelectionUnitAst(code: string) {
   // inferType
   return selectionUnitAst;
 }
-
