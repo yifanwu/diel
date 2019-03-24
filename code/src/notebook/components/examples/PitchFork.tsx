@@ -26,21 +26,25 @@ export default class PitchFork extends DielComponent<{}> {
 
     const options = this.state[ComponentRelations.allGenres]
       ? this.state[ComponentRelations.allGenres]
-            .map((i) => <p onClick={() => diel.NewInput("genreSelectionUserEvent", {genre: i.genre})}>{i.genre}</p>)
+            .map((i) => <a
+              className="selection-options"
+              onClick={() => diel.NewInput("userGenreSelectionEvent", {genre: i.genre})}>{i.genre}
+            </a>)
       : <p>loading...</p>;
 
     const vis = <>
-    <p>A barchart of score distribution</p>
-      {scoreChart}
-    <p>A barchart of year distribution</p>
-      {yearChart}
+      <p>A barchart of score distribution</p>
+        {scoreChart}
+      <p>A barchart of year distribution</p>
+        {yearChart}
     </>;
-    return <>
+
+   return <>
+      <h2>This is a demo of Pitchfork review data</h2>
       <div className="top-nave">
         {options}
       </div>
       {vis}
-      <h2>This is a demo of 1.88 million pitch fork review data</h2>
       {explaination}
     </>;
   }

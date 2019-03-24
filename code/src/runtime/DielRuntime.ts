@@ -10,7 +10,7 @@ import { generateSelectionUnit, generateSqlFromDielAst, generateSqlViews, genera
 import Visitor from "../parser/generateAst";
 import { CompileDiel } from "../compiler/DielCompiler";
 import { log } from "../lib/dielUdfs";
-import { downloadHelper } from "../lib/dielUtils";
+import { downloadHelper, SetIntersection, SetDifference } from "../lib/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, QueryConsoleColorSpec, ReportUserRuntimeWarning, DielInternalErrorType, ReportDielUserError, UserErrorType } from "../lib/messages";
 import { DielIr } from "../compiler/DielIr";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult } from "./runtimeHelper";
@@ -56,6 +56,7 @@ export default class DielRuntime {
   physicalMetaData: PhysicalMetaData;
   runtimeConfig: DielRuntimeConfig;
   cells: RuntimeCell[];
+  staticRelationsSent: Set<RelationIdType>;
   db: Database;
   scales: RelationObject;
   visitor: Visitor;
@@ -75,9 +76,9 @@ export default class DielRuntime {
       dbs: new Map(),
       relationLocation: new Map()
     };
+    this.staticRelationsSent = new Set();
     this.boundFns = [];
     this.runOutput = this.runOutput.bind(this);
-    // this.tick = this.tick.bind(this);
     this.BindOutput = this.BindOutput.bind(this);
     this.setup();
   }
@@ -85,19 +86,23 @@ export default class DielRuntime {
   getEventByTimestep(timestep: LogicalTimestep) {
     return this.eventByTimestep.get(timestep);
   }
+
   public BindOutput(outputName: string, reactFn: ReactFunc) {
     if (!this.runtimeOutputs.has(outputName)) {
       ReportUserRuntimeError(`output not defined ${outputName}, from current outputs of: [${Array.from(this.runtimeOutputs.keys()).join(", ")}]`);
     }
-    // immtable
-    // const outputConfig = Object.assign({}, defaultOuptConfig);
     this.boundFns.push({outputName: outputName, uiUpdateFunc: reactFn });
-    // this is used for views that do not have inputs
+    // the goal here is to tug on all the events so that the event views that outputs depend on will be shared
+    // without any initial interactions
     const staticTriggers = this.physicalExecution.getStaticAsyncViewTrigger(outputName);
-    if (staticTriggers && staticTriggers.length > 0) {
+    // const staticTriggers = SetDifference(new Set(staticTriggersRaw.map(t => t.relation)), );
+    // static triggers should be done just once...
+    if (staticTriggers && (staticTriggers.length > 0)) {
       console.log(`Sending triggers for async static output: ${outputName}`, staticTriggers);
-      if (staticTriggers) {
         staticTriggers.map(t => {
+          if (this.staticRelationsSent.has(t.relation)) {
+            return; // skip
+          }
           const msg: RemoteShipRelationMessage = {
             remoteAction: DielRemoteAction.ShipRelation,
             relationName: t.relation,
@@ -105,8 +110,8 @@ export default class DielRuntime {
             lineage: INIT_TIMESTEP
           };
           this.findRemoteDbEngine(t.dbId).SendMsg(msg);
+          this.staticRelationsSent.add(t.relation);
       });
-      }
     }
   }
 
@@ -360,7 +365,14 @@ export default class DielRuntime {
     // FIXME: we can improve performance by grouping by the views to ship so that they are not evaluated multiple times.
     if (remotesToShipTo && remotesToShipTo.length > 0) {
       remotesToShipTo.map(t => {
-        const shareQuery = `select * from ${t.relation}`;
+        // select * is problematic for event relations since the corresponding one does not have the additional timestep
+        // get the columsn...
+        // const rDef = this.ir.GetRelationDef(t.relation) as OriginalRelation;
+        // if (!rDef.columns) {
+        //   LogInternalError(`Columns for ${t.relation} not defined, it looks like ${JSON.stringify(rDef, null, 2)}`);
+        // }
+        const columns = this.ir.GetColumnsFromRelationName(t.relation);
+        const shareQuery = `select ${columns.map(c => c.columnName).join(", ")} from ${t.relation}`;
         let tableRes = this.db.exec(shareQuery)[0];
         if ((!tableRes) || (!tableRes.values)) {
           LogInternalWarning(`Query ${shareQuery} has NO result`);

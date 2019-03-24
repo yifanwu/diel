@@ -7,7 +7,6 @@ import { diel } from "../../setup";
 import { RelationObject, ChartType } from "../../../runtime/runtimeTypes";
 import { BarChart } from "../charts/BarChart";
 import { Scatterplot } from "../charts/ScatterPlot";
-import { Map, MapRegion } from "../charts/Map";
 import { RelationIdType } from "../../../compiler/DielPhysicalExecution";
 import { LogInternalError, DielInternalErrorType } from "../../../lib/messages";
 import { DielSelection, ChartSpec3DWithData, ChartSpec2DWithData } from "../../vizSpec/vizSpec";
@@ -42,6 +41,7 @@ export default class DielComponent<P> extends React.Component<P, DielComponentSt
       diel.BindOutput(relationName, fn);
     });
   }
+
   GenerateChart (chartType: ChartType, relationName: RelationIdType, handlers?: DielHanders) {
     if (this.state[relationName]) {
       const scales = diel.GetScales(relationName)[0];
@@ -70,20 +70,13 @@ export default class DielComponent<P> extends React.Component<P, DielComponentSt
       if (chartType === ChartType.BarChart) {
         return <BarChart
           spec={spec}
-          brushHandler={handlers.selectionHandler}
-          svgClickHandler={handlers.deSelectHandler}
+          brushHandler={handlers ? handlers.selectionHandler : null}
+          svgClickHandler={handlers ? handlers.deSelectHandler : null}
         />;
       } else if (chartType === ChartType.Scatter) {
         return <Scatterplot
           spec={spec}
         />;
-      } else if (chartType === ChartType.Map) {
-        return <Map
-          spec={spec}
-          // hard code for now..
-          mapRegion={MapRegion.US}
-        />;
-        // LogInternalError(`The API for the Map ChartType is not complete yet`);
       } else {
         LogInternalError(`Only supports barcharts and scatter plots for now`, DielInternalErrorType.NotImplemented);
       }
@@ -93,3 +86,12 @@ export default class DielComponent<P> extends React.Component<P, DielComponentSt
     }
   }
 }
+
+// else if (chartType === ChartType.Map) {
+//   return <MapChart
+//     spec={spec}
+//     // hard code for now..
+//     mapRegion={MapRegion.US}
+//   />;
+//   // LogInternalError(`The API for the Map ChartType is not complete yet`);
+// }

@@ -18,14 +18,14 @@ const dielPrefix = "./src/notebook/dielSpec/";
 
 const dielFiles = [
   // the following are local
-  `${dielPrefix}simple.diel`,
+  // `${dielPrefix}simple.diel`,
   `${dielPrefix}undo.diel`,
   // following are webworkers, and they all have smaller equivalents with sockets
   ...((DEMO_WITH_WEBWORKER || DEMO_WITH_SOCKET)
     ? [
         `${dielPrefix}flights-worker.diel`,
-        // `${dielPrefix}fires-worker.diel`,
-        // `${dielPrefix}pitchfork.diel`
+        `${dielPrefix}fires-worker.diel`,
+        `${dielPrefix}pitchfork.diel`
       ]
     : []),
 ];

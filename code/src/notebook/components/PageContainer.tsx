@@ -18,19 +18,10 @@ const Notebook = () => (<div>
 
 export const PageContainer = () => (<Router>
   <div>
-    <div className="top-nav">
-      <Link to="notebook">
-        Notebook
-      </Link>
-      &nbsp;
-      <Link to="inferViz">
-        Infer Visualization
-      </Link>
-      &nbsp;
+    <div className="nav-bar">
       <Link to="counter">
         Counter
       </Link>
-      &nbsp;
       &nbsp;
       {(DEMO_WITH_WEBWORKER || DEMO_WITH_SOCKET)
         ? <>
@@ -43,14 +34,14 @@ export const PageContainer = () => (<Router>
             </Link>
             &nbsp;
             <Link to="pitchfork">
-              Pitch Fork (Remote)
+              PitchFork
             </Link>
             &nbsp;
           </>
         : null}
     </div>
-    <div className="top-nav">
-      <p>More advanced DIEL uses</p>
+    <p>History Features</p>
+    <div className="nav-bar">
       <Link to="undo">
           Undo
         </Link>
@@ -62,15 +53,12 @@ export const PageContainer = () => (<Router>
         <Route path="/undo" component={ExampleUndo}/>
         {(DEMO_WITH_WEBWORKER || DEMO_WITH_SOCKET)
           ? <>
-              <Route path="/" component={Flights} />
+              <Route path="/flights" component={Flights} />
               <Route path="/fires" component={Fires} />
               <Route path="/pitchfork" component={PitchFork} />
             </>
           : null}
-        {/* <Route path="/inferViz" component={VizSpecDemo}/> */}
-        {/* <Route path="/notebook" component={Notebook}/> */}
       </Switch>
     </div>
   </div>
 </Router>);
-
