@@ -54,7 +54,7 @@ export function generateSqlViews(v: RelationQuery, replace = false): string {
   `;
 }
 
-function generateSelect(v: CompositeSelectionUnit[]): string {
+export function generateSelect(v: CompositeSelectionUnit[]): string {
   return v.map(c => generateCompositeSelectionUnit(c)).join("\n");
 }
 
@@ -66,7 +66,7 @@ const setOperatorToString = new Map([
   [SetOperator.INTERSECT, "INTERSECT"],
 ]);
 
-function generateCompositeSelectionUnit(c: CompositeSelectionUnit): string {
+export function generateCompositeSelectionUnit(c: CompositeSelectionUnit): string {
   const op = setOperatorToString.get(c.op);
   const query = generateSelectionUnit(c.relation);
   // the replace is a temporay patch to make the results look better
@@ -84,6 +84,19 @@ export function generateSelectionUnit(v: SelectionUnit): string {
   `;
 }
 
+/** For view constraint composite selection */
+export function generateViewConstraintSelection(v: SelectionUnit): string {
+  let ret = `SELECT ${generateColumnSelection(v.columnSelections)}
+  FROM
+  (
+    ${generateSelectionUnit(v.baseRelation.subquery.compositeSelections[0].relation)}
+  )
+  ${generateWhere(v.whereClause)}
+  ${generateGroupBy(v.groupByClause)}`;
+  return ret;
+}
+
+
 /**
  * this is exported so that the codeDiv can use it
  * need to be cleaner for the future
@@ -98,7 +111,7 @@ export function generateSelectionUnitBody(v: SelectionUnit) {
   ${generateLimit(v.limitClause)}`;
 }
 
-function generateRelationReference(r: RelationReference): string {
+export function generateRelationReference(r: RelationReference): string {
   // here there will be no stars..
   let query = "";
   if (r.relationName) {
@@ -117,6 +130,10 @@ function generateRelationReference(r: RelationReference): string {
  * @param s
  */
 function generateColumnSelection(s: ColumnSelection[]): string {
+
+  if (!s || s.length === 0) {
+    return "";
+  }
   return `${s.map(c => {
     const alias = c.alias ? ` AS ${c.alias}` : "";
     return generateExpr(c.expr) + alias;
@@ -130,6 +147,7 @@ const joinOpToString = new Map([
 ]);
 
 function generateJoin(j: JoinAst): string {
+  if (!j) return "";
   const op = joinOpToString.get(j.joinType);
   const pred = j.predicate
     ? `ON ${generateExpr(j.predicate)}`
@@ -144,7 +162,7 @@ function generateWhere(e: ExprAst): string {
 }
 
 // recursive fun...
-function generateExpr(e: ExprAst): string {
+export function generateExpr(e: ExprAst): string {
   switch (e.exprType) {
     case ExprType.Val:
       const v = e as ExprValAst;

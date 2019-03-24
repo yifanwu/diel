@@ -1,6 +1,6 @@
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import { DIELLexer } from "../parser/grammar/DIELLexer";
-import { DIELParser } from "../parser/grammar/DIELParser";
+import { DIELParser, QueriesContext } from "../parser/grammar/DIELParser";
 
 import { loadPage } from "../notebook/index";
 import { Database, Statement } from "sql.js";
@@ -18,6 +18,10 @@ import { DielPhysicalExecution, DbIdType, LocalDbId, LogicalTimestep, RelationId
 import DbEngine from "./DbEngine";
 import { CreateDerivedSelectionSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
 
+import {viewConstraintCheck} from "../tests/compilerTests/generateViewConstraints";
+
+// hm watch out for import path
+//  also sort of like an odd location...
 const StaticSqlFile = "./src/compiler/codegen/static.sql";
 export const INIT_TIMESTEP = 1;
 
@@ -35,6 +39,12 @@ type TickBind = {
   uiUpdateFunc: ReactFunc,
 };
 
+class ViewConstraintQuery {
+  viewName: string;
+  queries: string[][];
+}
+
+export type MetaDataPhysical = Map<string, TableMetaData>;
 type DbMetaData = {
   dbType: DbType;
 };
@@ -60,6 +70,8 @@ export default class DielRuntime {
   db: Database;
   scales: RelationObject;
   visitor: Visitor;
+  constraintQueries: Map<string, ViewConstraintQuery>;
+  checkConstraints: boolean;
   protected boundFns: TickBind[];
   protected runtimeOutputs: Map<string, Statement>;
 
@@ -70,6 +82,8 @@ export default class DielRuntime {
     this.eventByTimestep = new Map();
     this.cells = [];
     this.visitor = new Visitor();
+    this.constraintQueries = new Map();
+    this.checkConstraints = true;
     this.dbEngines = new Map();
     this.runtimeOutputs = new Map();
     this.physicalMetaData = {
@@ -197,6 +211,7 @@ export default class DielRuntime {
     const r = this.simpleGetLocal(b.outputName);
     if (r) {
       b.uiUpdateFunc(r);
+      this.constraintChecking(b.outputName);
     }
     return;
   }
@@ -211,6 +226,25 @@ export default class DielRuntime {
   //     console.log(`%c tick ${input}`, "color: blue");
   //   };
   // }
+
+  /**
+   * Check view constraints afresh and report if broken
+   */
+  constraintChecking(viewName: string) {
+    console.log("toggle mode: ", this.checkConstraints);
+    // only check if checking mode is turned on
+    if (this.checkConstraints) {
+      console.log(this.constraintQueries);
+      if (this.constraintQueries.has(viewName)) {
+        let queryObject = this.constraintQueries.get(viewName);
+        let queries = queryObject.queries;
+        // run the entire constraint quries for that view
+        queries.map(ls => {
+          this.reportConstraintQueryResult(ls[0], viewName, ls[1]);
+        });
+      }
+    }
+  }
 
   downloadDB(dbId?: DbIdType) {
     if ((!dbId) || (dbId === LocalDbId)) {
@@ -307,6 +341,16 @@ export default class DielRuntime {
     const tree = p.queries();
     let ast = this.visitor.visitQueries(tree);
     this.ir = CompileDiel(new DielIr(ast));
+
+    // get sql for views constraints
+    viewConstraintCheck(ast).forEach((queries: string[][], viewName: string) => {
+      if (queries.length > 0) {
+        let viewConstraint = new ViewConstraintQuery();
+        viewConstraint.viewName = viewName;
+        viewConstraint.queries = queries;
+        this.constraintQueries.set(viewName, viewConstraint);
+      }
+    });
     // test the IR here
   }
 
@@ -567,6 +611,21 @@ export default class DielRuntime {
       // console.table(r.values);
     } else {
       console.log("No results");
+    }
+  }
+  // used for debugging
+  reportConstraintQueryResult(query: string, viewName: string, constraint: string): boolean {
+    let r = this.db.exec(query)[0];
+    if (r) {
+      console.log(`%cConstraint Broken!\nview: ${viewName}\nconstraint: ${constraint}`, "background:red; color: white");
+      console.log(r.columns.join("\t"));
+      console.log(JSON.stringify(r.values).replace(/\],\[/g, "\n").replace("[[", "").replace("]]", "").replace(/,/g, "\t"));
+      // console.table(r.columns);
+      // console.table(r.values);
+      return true;
+    } else {
+      // console.log("No results");
+      return false;
     }
   }
 }
