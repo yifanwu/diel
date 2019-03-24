@@ -1,25 +1,35 @@
--- basic distribution of scores
-
--- OK let's add some interaction
--- people are intersted in individuals
--- let's add some singers (ordered by popularity)
+-- TODO: add some singers to do the filtering, maybe free text? (ordered by popularity)
 
 create event view allGenresEvent AS
   select DISTINCT genre
   from genres
   where genre NOT NULL;
 
+-- FIX ME: the initial staticTriggers might trigger the initial things to shared multiple times
 create output allGenres AS
-  select * from allGenresEvent;
+  select genre from allGenresEvent;
 
 create event table userGenreSelectionEvent (
-  genre text;
+  genre text
 );
 
 create view currentUserGenreSelection AS
   select * from userGenreSelectionEvent
   where timestep = (select max(timestep) from userGenreSelectionEvent);
 
+
+create event view pitchForkScoreDistributionEvent as
+  select
+    round(score * 10 / 10) as scoreBin,
+    count(*) as count
+  from reviews
+    join genres on genres.reviewid = reviews.reviewid
+    join currentUserGenreSelection e
+      on e.genre = genres.genre
+      or e.genre IS NULL
+  group by scoreBin;
+
+insert into __scales (component, dimension, outputName, x, y) values ('pitchfork', 2, 'pitchForkScoreDistribution', 'scoreBin', 'count');
 create output pitchForkScoreDistribution as
   select *
   from pitchForkScoreDistributionEvent
@@ -27,31 +37,21 @@ create output pitchForkScoreDistribution as
       select max(timestep) from pitchForkScoreDistributionEvent
     );
 
-insert into __scales (component, outputName, x, y) values ('pitchfork', 'pitchForkScoreDistribution', 'scoreBin', 'count');
-create event view pitchForkScoreDistributionEvent as
+create event view pitchForkYearDistributionEvent AS
   select
-    round(score * 10 / 10) as scoreBin,
+    pub_year as yearBin,
     count(*) as count
   from reviews
-  join genres on genres.reviewid = reviews.reviewid
-  join currentUserGenreSelection e
-    on e.genre = genres.genre
-    or e.genre IS NULL
-  group by scoreBin;
+    join genres on genres.reviewid = reviews.reviewid
+    join currentUserGenreSelection e
+      on e.genre = genres.genre
+      or e.genre IS NULL
+  group by yearBin;
 
-
-insert into __scales (component, outputName, x, y) values ('pitchfork', 'pitchForkYearDistribution', 'scoreBin', 'count');
+insert into __scales (component, dimension, outputName, x, y) values ('pitchfork', 2, 'pitchForkYearDistribution', 'scoreBin', 'count');
 create output pitchForkYearDistribution as
   select *
   from pitchForkYearDistributionEvent
   where timestep = (
       select max(timestep) from pitchForkYearDistributionEvent
     );
-
-create event view pitchForkYearDistributionEvent AS
-  select
-    pub_year as yearBin,
-    count(*) as count
-  from reviews
-  join genres on genres.reviewid = reviews.reviewid
-  group by yearBin;

@@ -8,48 +8,48 @@ import { SelectionUnit, DataType } from "../parser/dielAstTypes";
  * @param ast
  */
 export function getSelectionUnitAnnotation(ast: SelectionUnit): AnnotedSelectionUnit {
-  const columnSelections: AnnotationSpec[] = ast.derivedColumnSelections.map(s => {
-    // just gonna do the group by for now
-    // and just gonna do derived directy
-    // a shallow copy is enough, but a little brittle since the object might become deep...
-    const cExpr = s.expr as ExprColumnAst;
-    const relationName = cExpr.relationName;
-    const columnName = cExpr.columnName;
-    const ast: SelectionUnit = {
-      derivedColumnSelections: [{
-        expr: Object.assign({}, s.expr),
-        alias: "x"
-      },
-      {
-        expr: {
-          exprType: ExprType.Func,
-          dataType: DataType.Number,
-          functionType: FunctionType.BuiltIn,
-          functionReference: "count",
-          args: [Object.assign({}, s.expr)]
-        },
-        alias: "y"
-      }],
-      columnSelections: null,
-      baseRelation: {
-        relationName
-      },
-      groupByClause: {
-        selections: [Object.assign({}, s.expr)],
-      }
-    };
-    const semanticId = `column-tool-tip-${columnName}-${relationName}`;
-    return {
-      ast,
-      relationName: "hack",
-      chartType: ChartType.BarChart,
-      xAttribute: "x",
-      yAttribute: "y",
-      semanticId
-    };
-  });
+  // const columnSelections: AnnotationSpec[] = ast.derivedColumnSelections.map(s => {
+  //   // just gonna do the group by for now
+  //   // and just gonna do derived directy
+  //   // a shallow copy is enough, but a little brittle since the object might become deep...
+  //   const cExpr = s.expr as ExprColumnAst;
+  //   const relationName = cExpr.relationName;
+  //   const columnName = cExpr.columnName;
+  //   const ast: SelectionUnit = {
+  //     derivedColumnSelections: [{
+  //       expr: Object.assign({}, s.expr),
+  //       alias: "x"
+  //     },
+  //     {
+  //       expr: {
+  //         exprType: ExprType.Func,
+  //         dataType: DataType.Number,
+  //         functionType: FunctionType.BuiltIn,
+  //         functionReference: "count",
+  //         args: [Object.assign({}, s.expr)]
+  //       },
+  //       alias: "y"
+  //     }],
+  //     columnSelections: null,
+  //     baseRelation: {
+  //       relationName
+  //     },
+  //     groupByClause: {
+  //       selections: [Object.assign({}, s.expr)],
+  //     }
+  //   };
+  //   const semanticId = `column-tool-tip-${columnName}-${relationName}`;
+  //   return {
+  //     ast,
+  //     relationName: "hack",
+  //     chartType: ChartType.BarChart,
+  //     xAttribute: "x",
+  //     yAttribute: "y",
+  //     semanticId
+  //   };
+  // });
   return {
-    columnSelections,
+    columnSelections: null,
     ast
   };
 }

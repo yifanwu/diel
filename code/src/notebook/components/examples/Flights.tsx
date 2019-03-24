@@ -3,12 +3,14 @@ import * as React from "react";
 import { ChartType } from "../../../runtime/runtimeTypes";
 import { diel } from "../../setup";
 import DielComponent from "../diel/DielComponent";
+import { OneDimSelection } from "../../vizSpec/vizSpec";
 
 enum ComponentRelations {
-  delayDistanceByOrigin = "delayDistanceByOrigin",
   allOriginAirports = "allOriginAirports",
   allPastSelections = "allPastSelections",
   currentOriginSelection = "currentOriginSelection",
+  delayDistanceByOrigin = "delayDistanceByOrigin",
+  flightDistribution = "flightDistribution",
 }
 
 export default class Flights extends DielComponent<{}> {
@@ -20,10 +22,20 @@ export default class Flights extends DielComponent<{}> {
   }
 
   render() {
+
+    const zoomBrushHandler = (box: OneDimSelection) => {
+      diel.NewInput("panZoomEvent", {minDelay: box.min, maxDelay: box.max});
+    };
+    const zoomSvgClickHandler = () => diel.NewInput("panZoomEvent", {minDelay: null, maxDelay: null});
+
     const titleDiv = this.state[ComponentRelations.currentOriginSelection] && this.state[ComponentRelations.currentOriginSelection].length > 0
       ? <h3>Delay by Distance: {this.state[ComponentRelations.currentOriginSelection][0].origin}</h3>
       : null;
-    const chartDiv = this.Generate2DChart(ChartType.Scatter, ComponentRelations.delayDistanceByOrigin);
+    const chartDiv = this.GenerateChart(ChartType.Scatter, ComponentRelations.delayDistanceByOrigin);
+    const delayDistChartDiv = this.GenerateChart(ChartType.BarChart, ComponentRelations.flightDistribution, {
+      selectionHandler: zoomBrushHandler,
+      deSelectHandler: zoomSvgClickHandler
+    });
     const pastDiv = this.state[ComponentRelations.allPastSelections]
       ? <div>Your past selections: {this.state[ComponentRelations.allPastSelections].map(p => <span>{p.origin},</span>)}</div>
       : null;
@@ -40,6 +52,7 @@ export default class Flights extends DielComponent<{}> {
       <div>
         {titleDiv}
         {chartDiv}
+        {delayDistChartDiv}
       </div>
       <div style={{clear: "both"}}></div>
       {pastDiv}

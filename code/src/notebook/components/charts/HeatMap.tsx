@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as d3 from "d3";
 
-import { FilterValueType, BrushBoxTwoDim, ChartPropShared, ChartSpec3DWithData } from "../../vizSpec/vizSpec";
+import { FilterValueType, TwoDimSelection, ChartPropShared, ChartSpec3DWithData } from "../../vizSpec/vizSpec";
 import { TwoDimCoord } from "./TwoDimCoord";
 
 interface HeatMapProps extends ChartPropShared {
@@ -14,7 +14,7 @@ interface HeatMapProps extends ChartPropShared {
     minX: FilterValueType; maxX: FilterValueType,
     minY: FilterValueType; maxY: FilterValueType
   };
-  brushHandler?: (box: BrushBoxTwoDim) => void;
+  brushHandler?: (box: TwoDimSelection) => void;
   // add panHandlers...
   // panHandler
 }

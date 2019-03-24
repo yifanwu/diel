@@ -1,5 +1,5 @@
 import * as React from "react";
-import { FilterValueType, BrushBoxTwoDim, ChartPropShared, ChartSpec2DWithData } from "../../vizSpec/vizSpec";
+import { FilterValueType, TwoDimSelection, ChartPropShared, ChartSpec2DWithData } from "../../vizSpec/vizSpec";
 import { TwoDimCoord } from "./TwoDimCoord";
 import * as d3 from "d3";
 import { RecordObject } from "../../../runtime/runtimeTypes";
@@ -9,7 +9,7 @@ interface LineChartProps extends ChartPropShared {
   selectedDataRange?: {
     minX: FilterValueType; maxX: FilterValueType,
   };
-  brushHandler?: (box: BrushBoxTwoDim) => void;
+  brushHandler?: (box: TwoDimSelection) => void;
 }
 
 export const LineChart: React.StatelessComponent<LineChartProps> = (p) => {

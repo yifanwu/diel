@@ -3,9 +3,11 @@
 -- __ are internal tables that developers can access?
 create table __scales (
   component text not null,
+  dimension integer not null,
   outputName text not null,
   x text,
-  y text
+  y text,
+  z text
 );
 
 

@@ -7,6 +7,9 @@ import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError, ReportDielUserError } from "../lib/messages";
 import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst } from "./exprAstTypes";
 
+// helper function to shallow copy the template!
+
+// function 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
   private ast: DielAst;
@@ -17,6 +20,25 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return "";
   }
 
+  getAndCopyTemplateAst(templateName: string): JoinAst | RelationSelection {
+    const tDef = this.templates.get(templateName);
+    if (tDef) {
+      let newAst = null;
+      switch (tDef.ast.astType) {
+        case AstType.Join:
+          newAst = JSON.parse(JSON.stringify(tDef.ast)) as JoinAst;
+          break;
+        case AstType.RelationSelection:
+          newAst = JSON.parse(JSON.stringify(tDef.ast)) as RelationSelection;
+          break;
+        default:
+          LogInternalError(`Other AstTypes are not supported for template`);
+      }
+      return newAst;
+    } else {
+      LogInternalError(`Template ${templateName} not defined`);
+    }
+  }
   // this is useful for compiling partial queries
   setContext(ir: DielAst) {
     LogInfo("setting context");
@@ -25,6 +47,8 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitQueries = (ctx: parser.QueriesContext): DielAst => {
     this.ast = createEmptyDielAst();
+    this.templates = new Map();
+    ctx.templateStmt().map(e => this.visitTemplateStmt(e));
     this.ast.udfTypes = ctx.registerTypeUdf().map(e => (
       this.visit(e) as UdfType
     )).concat(BuiltInUdfTypes);
@@ -78,6 +102,23 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return {
       astType: AstType.RelationSelection,
       compositeSelections: [{op: SetOperator.NA, relation: firstQuery}, ...compositeSelections]
+    };
+  }
+
+  visitCompositeSelect(ctx: parser.CompositeSelectContext): CompositeSelectionUnit {
+    const relation = this.visit(ctx.selectUnitQuery()) as SelectionUnit;
+    const rawOp = ctx.setOp().text.toLocaleUpperCase();
+    const op = (rawOp === "UNION")
+      ? SetOperator.UNION
+      : (rawOp === "INTERSECT")
+        ? SetOperator.INTERSECT
+        : null;
+    if (!op) {
+      LogInternalError(`Shouldn't Happen!`);
+    }
+    return {
+      op,
+      relation
     };
   }
 
@@ -200,10 +241,12 @@ implements visitor.DIELVisitor<ExpressionValue> {
   }
 
   visitValueString(ctx: parser.ValueStringContext): ExprValAst {
+    // because string contains the ', we need to strip it
+    const raw = ctx.STRING().text;
     return {
       exprType: ExprType.Val,
       dataType: DataType.String,
-      value: ctx.STRING().text
+      value: raw.slice(1, raw.length - 1)
     };
   }
 
@@ -276,15 +319,27 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
-  // begin
-  visitExprNull(ctx: parser.ExprNullContext): ExprFunAst {
-    const functionReference = ctx.NOT() ? BuiltInFunc.ValueIsNotNull : BuiltInFunc.ValueIsNull;
+  visitExprNotNull(ctx: parser.ExprNotNullContext): ExprFunAst {
+    // const functionReference = ctx.NOT() ?  : BuiltInFunc.ValueIsNull;
     const arg = this.visit(ctx.expr()) as ExprAst;
     return {
       exprType: ExprType.Func,
       dataType: DataType.Boolean,
       functionType: FunctionType.BuiltIn,
-      functionReference,
+      functionReference: BuiltInFunc.ValueIsNotNull,
+      args: [arg]
+    };
+  }
+
+  // begin
+  visitExprNull(ctx: parser.ExprNullContext): ExprFunAst {
+    // const functionReference = ctx.NOT() ? BuiltInFunc.ValueIsNotNull : ;
+    const arg = this.visit(ctx.expr()) as ExprAst;
+    return {
+      exprType: ExprType.Func,
+      dataType: DataType.Boolean,
+      functionType: FunctionType.BuiltIn,
+      functionReference: BuiltInFunc.ValueIsNull,
       args: [arg]
     };
   }
@@ -412,9 +467,14 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitTemplateQuery(ctx: parser.TemplateQueryContext): JoinAst | RelationSelection {
     const templateName = ctx._templateName.text;
     const templateSpec = new Map(ctx.variableAssignment().map(v => this.visit(v) as [string, string]));
-    const template = this.templates.get(templateName);
-    template.ast.templateSpec = templateSpec;
-    return template.ast;
+    const templateAst = this.getAndCopyTemplateAst(templateName);
+    templateAst.templateSpec = templateSpec;
+    return templateAst;
+    // if (template) {
+    //   template.ast
+    //   return template.ast;
+    // } else {
+    // }
   }
 
   visitRelationReferenceSimple(ctx: parser.RelationReferenceSimpleContext): RelationReference {

@@ -1,4 +1,4 @@
-import { ReportDielUserError } from "../../lib/messages";
+import { ReportDielUserError, LogInternalWarning, LogInternalError, DielInternalErrorType } from "../../lib/messages";
 import { ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprRelationAst } from "../../parser/exprAstTypes";
 import { OriginalRelation, JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType  } from "../../parser/dielAstTypes";
 import { DielIr } from "../DielIr";
@@ -68,7 +68,7 @@ function tryToApplyATemplate(ast: RelationSelection | JoinAst): void {
     if (!inStr) {
       return;
     }
-    if ((inStr[0] !== "{") && (inStr[inStr.length - 1] !== "}")) {
+    if ((inStr[0] === "{") && (inStr[inStr.length - 1] === "}")) {
       const varName = inStr.slice(1, inStr.length - 1);
       return ast.templateSpec.get(varName);
     } else {
@@ -87,24 +87,28 @@ function tryToApplyATemplate(ast: RelationSelection | JoinAst): void {
   }
 
   function _visitExprAst(e: ExprAst) {
-    if (e.exprType === ExprType.Column) {
-      const c = e as ExprColumnAst;
-      c.columnName = _changeString(c.columnName);
-      c.relationName = _changeString(c.relationName);
-    } else if (e.exprType === ExprType.Func) {
-      const f = e as ExprFunAst;
-      // recursive!
-      f.args.map(a => _visitExprAst(a));
-    } else if (e.exprType === ExprType.Relation) {
-      const r = e as ExprRelationAst;
-      // recursive!!
-      _visitSelection(r.selection);
+    if (e) {
+      if (e.exprType === ExprType.Column) {
+        const c = e as ExprColumnAst;
+        c.columnName = _changeString(c.columnName);
+        c.relationName = _changeString(c.relationName);
+      } else if (e.exprType === ExprType.Func) {
+        const f = e as ExprFunAst;
+        // recursive!
+        f.args.map(a => _visitExprAst(a));
+      } else if (e.exprType === ExprType.Relation) {
+        const r = e as ExprRelationAst;
+        // recursive!!
+        _visitSelection(r.selection);
+      }
+    } else {
+      LogInternalError(`Visiting null`, DielInternalErrorType.ArgNull);
     }
   }
 
   function _visitRelationReference(r: RelationReference): void {
     r.relationName = _changeString(r.relationName);
-    _visitSelection(r.subquery);
+    if (r.subquery) _visitSelection(r.subquery);
   }
 
   function _visitJoinAst(j: JoinAst): void {
@@ -113,23 +117,27 @@ function tryToApplyATemplate(ast: RelationSelection | JoinAst): void {
       ReportDielUserError(`No nested templates allowed`);
     }
     _visitRelationReference(j.relation);
-    _visitExprAst(j.predicate);
+    if (j.predicate) _visitExprAst(j.predicate);
   }
 
   function _visitCompositeSelectionUnit(ast: CompositeSelectionUnit): void {
     ast.relation.columnSelections.map(c => _visitColumnSelection(c));
     _visitRelationReference(ast.relation.baseRelation);
     ast.relation.joinClauses.map(j => _visitJoinAst(j));
-    _visitExprAst(ast.relation.whereClause);
+    if (ast.relation.whereClause) _visitExprAst(ast.relation.whereClause);
     ast.relation.groupByClause.selections.map(c => _visitExprAst(c));
     if (ast.relation.groupByClause.predicate) {
       _visitExprAst(ast.relation.groupByClause.predicate);
     }
-    ast.relation.orderByClause.map(c => _visitOrderByAst(c));
-    _visitExprAst(ast.relation.limitClause);
+    if (ast.relation.orderByClause) ast.relation.orderByClause.map(c => _visitOrderByAst(c));
+    if (ast.relation.limitClause) _visitExprAst(ast.relation.limitClause);
   }
 
   function _visitSelection(subAst: RelationSelection) {
-    subAst.compositeSelections.map(s => _visitCompositeSelectionUnit(s));
+    if (subAst) {
+      subAst.compositeSelections.map(s => _visitCompositeSelectionUnit(s));
+    } else {
+      LogInternalWarning(`Attempted to call __visitSelection on null`);
+    }
   }
 }

@@ -1,0 +1,23 @@
+-- create an index on the delay
+create index flightDelay on flights(delay);
+
+-- make this delay based
+-- each scroll adds to the current by some number
+create event table flightScrollItx (
+  minDelay: int
+);
+
+insert into flightScroll select max(delay) from flights;
+
+create view currentFlightScrollItx AS
+  SELECT minDelay
+  from flightScrollItx
+  where timestep = (select max(timestep) flightScrollItx);
+
+create event view flightScrollResult AS
+  select *
+  from flights f
+  join currentFlightScrollItx i
+  where f.delay > i.minDelay
+  ORDER BY f.delay
+  LIMIT 100;

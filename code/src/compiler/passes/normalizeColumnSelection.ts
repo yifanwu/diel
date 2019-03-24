@@ -98,7 +98,8 @@ function starCase(ir: DielIr, s: SelectionUnit, currentColumnExpr: ExprColumnAst
 
 function normalizeColumnForSelectionUnit(s: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions): void {
     const derivedColumnSelections: ColumnSelection[][] = s.columnSelections.map(c => {
-      if (c.expr.exprType === ExprType.Column) {
+      switch (c.expr.exprType) {
+        case ExprType.Column:
         const currentColumnExpr = c.expr as ExprColumnAst;
         if (currentColumnExpr.hasStar) {
           return starCase(optional.ir, s, currentColumnExpr);
@@ -131,13 +132,10 @@ function normalizeColumnForSelectionUnit(s: SelectionUnit, optional: SelectionUn
             ReportDielUserError(`Column ${currentColumnExpr.columnName} is not found in ${s.baseRelation.relationName}. If it's specified in the join clause, please specify which relation the column is from.`, generateSelectionUnitBody(s));
           }
         }
-      } else {
-        // this as to be a function
-        if (c.expr.exprType !== ExprType.Func) {
-          ReportDielUserError(`selections must be columns or functions`);
-        }
-        // now add it to derived; copy by rendrence for now... #FIXME
-        return [c];
+        break;
+      default:
+        // might be slow? #FIXME
+        return [JSON.parse(JSON.stringify(c))];
       }
     });
     s.derivedColumnSelections = [].concat(...derivedColumnSelections);

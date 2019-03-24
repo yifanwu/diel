@@ -16,6 +16,9 @@ export function GetDependenciesFromViewList(views: DerivedRelation[]) {
     if (!v.name) {
       LogInternalError(`Relation should be named`);
     }
+    if (v.name === "{sourceRelation}") {
+      debugger;
+    }
     depTree.set(v.name, {
       dependsOn,
       isDependedBy: []
@@ -26,6 +29,9 @@ export function GetDependenciesFromViewList(views: DerivedRelation[]) {
       if (dO) { // avoid the case when its null
         // it's possible that these don't exist, if they are the leaves
         if (!depTree.has(dO)) {
+          if (dO === "{sourceRelation}") {
+            debugger;
+          }
           depTree.set(dO, {dependsOn: [], isDependedBy: []});
         }
         depTree.get(dO).isDependedBy.push(key);
@@ -81,7 +87,7 @@ export function ApplyDependencies(ir: DielIr) {
   ir.dependencies = {
     depTree,
     topologicalOrder,
-    inputDependenciesOutput,
+    inputDependenciesOutput, // RYAN & CACHING
     inputDependenciesAll
      // -> inputDependenciesOutput
     // inpiutDependenciesAll (which includes views)
