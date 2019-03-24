@@ -1,12 +1,13 @@
--- let's add some singers to do the filtering (ordered by popularity)
+-- TODO: add some singers to do the filtering, maybe free text? (ordered by popularity)
 
 create event view allGenresEvent AS
   select DISTINCT genre
   from genres
   where genre NOT NULL;
 
+-- FIX ME: the initial staticTriggers might trigger the initial things to shared multiple times
 create output allGenres AS
-  select * from allGenresEvent;
+  select genre from allGenresEvent;
 
 create event table userGenreSelectionEvent (
   genre text
@@ -22,13 +23,13 @@ create event view pitchForkScoreDistributionEvent as
     round(score * 10 / 10) as scoreBin,
     count(*) as count
   from reviews
-  join genres on genres.reviewid = reviews.reviewid
-  join currentUserGenreSelection e
-    on e.genre = genres.genre
-    or e.genre IS NULL
+    join genres on genres.reviewid = reviews.reviewid
+    join currentUserGenreSelection e
+      on e.genre = genres.genre
+      or e.genre IS NULL
   group by scoreBin;
 
-insert into __scales (component, outputName, x, y) values ('pitchfork', 'pitchForkScoreDistribution', 'scoreBin', 'count');
+insert into __scales (component, dimension, outputName, x, y) values ('pitchfork', 2, 'pitchForkScoreDistribution', 'scoreBin', 'count');
 create output pitchForkScoreDistribution as
   select *
   from pitchForkScoreDistributionEvent
@@ -41,10 +42,13 @@ create event view pitchForkYearDistributionEvent AS
     pub_year as yearBin,
     count(*) as count
   from reviews
-  join genres on genres.reviewid = reviews.reviewid
+    join genres on genres.reviewid = reviews.reviewid
+    join currentUserGenreSelection e
+      on e.genre = genres.genre
+      or e.genre IS NULL
   group by yearBin;
 
-insert into __scales (component, outputName, x, y) values ('pitchfork', 'pitchForkYearDistribution', 'scoreBin', 'count');
+insert into __scales (component, dimension, outputName, x, y) values ('pitchfork', 2, 'pitchForkYearDistribution', 'scoreBin', 'count');
 create output pitchForkYearDistribution as
   select *
   from pitchForkYearDistributionEvent

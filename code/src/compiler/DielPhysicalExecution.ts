@@ -193,24 +193,25 @@ export class DielPhysicalExecution {
     // also need to make sure that there are no input dependnecies at all
     const remoteSources = this.distributions
                         .filter(d => ((d.finalOutputName === outputName)
+                          && (d.from !== LocalDbId)
                           && (d.to === d.from)));
-    const hasInput = remoteSources.reduce((acc, v) => acc || (v.from === LocalDbId), false);
-    if (hasInput) {
-      return null;
-    } else {
-      const dedupeRelations = new Set<string>();
-      const result: {dbId: DbIdType, relation: RelationIdType}[] = [];
-      remoteSources.map(d => {
-        if (!dedupeRelations.has(d.relationName)) {
-          dedupeRelations.add(d.relationName);
-          result.push({
-            dbId: d.from,
-            relation: d.relationName
-          });
-        }
-      });
-      return result;
-    }
+    // const hasInput = remoteSources.reduce((acc, v) => acc || (v.from === LocalDbId), false);
+    // if (hasInput) {
+      // return null;
+    // } else {
+    const dedupeRelations = new Set<string>();
+    const result: {dbId: DbIdType, relation: RelationIdType}[] = [];
+    remoteSources.map(d => {
+      if (!dedupeRelations.has(d.relationName)) {
+        dedupeRelations.add(d.relationName);
+        result.push({
+          dbId: d.from,
+          relation: d.relationName
+        });
+      }
+    });
+    return result;
+    // }
   }
 
   // TODO: we then need to fix to actually include event tables, as opposed to projecting them into tables
