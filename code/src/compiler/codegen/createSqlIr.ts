@@ -58,7 +58,7 @@ export function CreateDerivedSelectionSqlAstFromDielAst(ast: Relation) {
  * - staticTables do not need to be created since they already exist
  * @param ast
  */
-export function createSqlAstFromDielAst(ast: DielAst): SqlAst {
+export function createSqlAstFromDielAst(ast: DielAst, isRemote: boolean): SqlAst {
   const tables: {
     name: RelationIdType,
     columns: Column[]
@@ -75,7 +75,7 @@ export function createSqlAstFromDielAst(ast: DielAst): SqlAst {
           const i = iUnionType as OriginalRelation;
           tables.push({
             name: i.name,
-            columns: i.columns.concat(inputColumns)
+            columns: isRemote ? i.columns : i.columns.concat(inputColumns)
           });
           break;
         }

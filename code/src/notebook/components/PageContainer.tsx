@@ -3,7 +3,7 @@ import WorkPad from "./WorkPad";
 import ExistingRelationsPad from "./ExistingRelationsPad";
 import {BrowserRouter as Router, Link, Route, Switch} from "react-router-dom";
 import Counter from "./examples/Counter";
-import ScoreZoomBarChart from "./examples/ScoreZoomBarChart";
+// import ScoreZoomBarChart from "./examples/ScoreZoomBarChart";
 import PitchFork from "./examples/PitchFork";
 import Flights from "./examples/Flights";
 import VizSpecDemo from "./examples/VizSpecDemo";
@@ -18,59 +18,47 @@ const Notebook = () => (<div>
 
 export const PageContainer = () => (<Router>
   <div>
-    <div id="nav-bar">
-      <Link to="notebook">
-        Notebook
-      </Link>
-      &nbsp;
-      <Link to="inferViz">
-        Infer Visualization
-      </Link>
-      &nbsp;
+    <div className="nav-bar">
       <Link to="counter">
         Counter
       </Link>
       &nbsp;
-      <Link to="undo">
-        Undo
-      </Link>
-      &nbsp;
-      <Link to="scoreZoom">
-        Zoomable Bar Chart
-      </Link>
-      &nbsp;
-      {DEMO_WITH_SOCKET
-        ? <Link to="pitchfork">
-          Pitch Fork (Remote)
-        </Link>
-      : null}
-      {DEMO_WITH_WEBWORKER
-        ? <><Link to="flights">
-            Flights
-          </Link>
-          <Link to="fires">
-            Fires
-          </Link></>
+      {(DEMO_WITH_WEBWORKER || DEMO_WITH_SOCKET)
+        ? <>
+            <Link to="flights">
+              Flights
+            </Link>
+            &nbsp;
+            <Link to="fires">
+              Fires
+            </Link>
+            &nbsp;
+            <Link to="pitchfork">
+              PitchFork
+            </Link>
+            &nbsp;
+          </>
         : null}
+    </div>
+    <p>History Features</p>
+    <div className="nav-bar">
+      <Link to="undo">
+          Undo
+        </Link>
+        &nbsp;
     </div>
     <div id="main">
       <Switch>
         <Route exact path="/counter" component={Counter}/>
-        <Route path="/notebook" component={Notebook}/>
-        <Route path="/scoreZoom" component={ScoreZoomBarChart}/>
         <Route path="/undo" component={ExampleUndo}/>
-        {DEMO_WITH_SOCKET
-          ? <Route path="/pitchfork" component={PitchFork} />
-          : null}
-        {DEMO_WITH_WEBWORKER
+        {(DEMO_WITH_WEBWORKER || DEMO_WITH_SOCKET)
           ? <>
               <Route path="/flights" component={Flights} />
-              <Route path="/" component={Fires} />
+              <Route path="/fires" component={Fires} />
+              <Route path="/pitchfork" component={PitchFork} />
             </>
           : null}
-        <Route path="/inferViz" component={VizSpecDemo}/>
       </Switch>
     </div>
   </div>
 </Router>);
-

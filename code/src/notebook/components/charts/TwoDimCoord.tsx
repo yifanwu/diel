@@ -1,6 +1,6 @@
 import * as d3 from "d3";
 import * as React from "react";
-import { FilterValueType, BrushBoxTwoDim, DefaultVizLayout, BrushBoxType, ChartPropShared, ChartSpec2DWithData } from "../../vizSpec/vizSpec";
+import { FilterValueType, TwoDimSelection, DefaultVizLayout, SelectionType, ChartPropShared, ChartSpec2DWithData } from "../../vizSpec/vizSpec";
 import { RelationObject } from "../../../runtime/runtimeTypes";
 
 interface TwoDimCoordProps extends ChartPropShared {
@@ -15,7 +15,7 @@ interface TwoDimCoordProps extends ChartPropShared {
     minX: FilterValueType; maxX: FilterValueType,
     minY?: FilterValueType; maxY?: FilterValueType
   };
-  brushHandler?: (box: BrushBoxTwoDim) => void;
+  brushHandler?: (box: TwoDimSelection) => void;
 }
 
 export const TwoDimCoord: React.StatelessComponent<TwoDimCoordProps> = (p) => {
@@ -55,7 +55,7 @@ export const TwoDimCoord: React.StatelessComponent<TwoDimCoordProps> = (p) => {
         const minY = Math.min(y.invert(s[1][1]), y.invert(s[0][1]));
         const maxY = Math.max(y.invert(s[1][1]), y.invert(s[0][1]));
         p.brushHandler({
-          brushBoxType: BrushBoxType.TwoDim,
+          brushBoxType: SelectionType.TwoDim,
           minX,
           maxX,
           minY,

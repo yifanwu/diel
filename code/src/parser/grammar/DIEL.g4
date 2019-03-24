@@ -76,7 +76,7 @@ columnConstraints
   ;
 
 viewStmt
-  : CREATE (((EVENT)? VIEW) | OUTPUT | TABLE) IDENTIFIER AS selectQuery
+  : CREATE (((EVENT)? VIEW) | OUTPUT (CACHED)? | TABLE) IDENTIFIER AS selectQuery
     (constraintClause)?
     DELIM
   ;
@@ -121,8 +121,8 @@ compositeSelect
 setOp
   : UNION
   | INTERSECT
-  | UNION ALL 
-  | EXCEPT
+  // | UNION ALL 
+  // | EXCEPT
   ;
 
 selectUnitQuery
@@ -192,7 +192,8 @@ expr
   | '(' expr ')'                             # exprParenthesis
   | function=IDENTIFIER '(' (expr (COMMA expr)*)? ')' # exprFunction
   | lhs=expr (mathOp | compareOp | logicOp) rhs=expr  # exprBinOp
-  | expr IS (NOT)? NULL                      # exprNull
+  | expr IS NULL                      # exprNull
+  | expr NOT NULL                     # exprNotNull
   | (NOT)? EXIST '(' expr ')'                # exprExist
   | CASE WHEN cond=expr THEN thenValue=expr ELSE elseValue=expr END   # exprWhen
   | expr IN expr   # exprIn
@@ -320,6 +321,7 @@ DATETIME: D A T E T I M E;
 DISTINCT: D I S T I N C T;
 TRUE: T R U E;
 FALSE: F A L S E;
+CACHED: C A C H E D;
 
 INT: N U M B E R  | I N T E G E R | I N T | R E A L;
 TEXT: S T R I N G | T E X T;

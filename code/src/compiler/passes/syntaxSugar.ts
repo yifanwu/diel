@@ -1,17 +1,10 @@
 import {ReportDielUserError} from "../../lib/messages";
-import { RelationReference } from "../../../dist/parser/sqlAstTypes";
-import { CompositeSelectionUnit, SetOperator, OrderByAst, ColumnSelection, Order, DataType } from "../../../src/parser/dielAstTypes";
-import { ExprAst, ExprType, ExprColumnAst, ExprRelationAst, FunctionType } from "../../../src/parser/exprAstTypes";
-import { generateSqlFromDielAst, generateSelectionUnit } from "../../../src/compiler/codegen/codeGenSql";
-import { basename } from "path";
-import { CompositeSelection } from "../../../dist/parser/dielAstTypes";
-import { DerivedRelation, SelectionUnit, DielAst, AstType, RelationSelection } from "../../parser/dielAstTypes";
+import { SetOperator, DataType } from "../../../src/parser/dielAstTypes";
+import { ExprAst, ExprType, ExprRelationAst, FunctionType, ExprFunAst } from "../../../src/parser/exprAstTypes";
+import { SelectionUnit, DielAst, AstType, RelationSelection } from "../../parser/dielAstTypes";
 import { GetAllDerivedViews, GetAllPrograms } from "../DielIr";
-import { ExprFunAst } from "../../../dist/parser/exprAstTypes";
 
 // implements the transformation for LATEST
-
-// should reference the implementation for `applyTemplates` in `applyTemplate.ts`.
 
 /**
  * This function traverses the places where `RelationReference` might be called

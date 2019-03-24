@@ -47,7 +47,8 @@ export enum StaticRelationType {
 
 export enum ProgramType {
   Udf = "Udf",
-  Insert = "Insert"
+  Insert = "Insert",
+  // YIFAN TODO TODAY implement drop/delete
 }
 
 export enum LoggingLevels {
@@ -87,11 +88,19 @@ export const BuiltInColumns: BuiltInColumnType[] = [
 
 export const BuiltInUdfTypes: UdfType[] = [
   {
-    udf: "count",
+    udf: "COUNT",
     type: DataType.Number
   },
   {
-    udf: "sum",
+    udf: "MIN",
+    type: DataType.Number
+  },
+  {
+    udf: "MAX",
+    type: DataType.Number
+  },
+  {
+    udf: "SUM",
     type: DataType.Number
   },
   {
@@ -111,15 +120,15 @@ export const BuiltInUdfTypes: UdfType[] = [
     type: DataType.Number
   },
   {
-    udf: "round",
+    udf: "ROUND",
     type: DataType.Number
   },
   {
-    udf: "avg",
+    udf: "AVG",
     type: DataType.Number
   },
   {
-    udf: "group_concat",
+    udf: "GROUP_CONCAT",
     type: DataType.String
   },
 ];
@@ -299,9 +308,9 @@ export interface CompositeSelectionUnit {
 export enum SetOperator {
   NA = "NA",
   UNION = "UNION",
-  UNIONALL = "UNIONALL",
+  // UNIONALL = "UNIONALL",
   INTERSECT = "INTERSECT",
-  EXCEPT = "EXCEPT"
+  // EXCEPT = "EXCEPT"
 }
 
 export enum AstType {

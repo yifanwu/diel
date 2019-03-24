@@ -10,12 +10,18 @@ export const BgYellow = "\x1b[43m";
 export const QueryConsoleColorSpec = "color: green";
 
 export enum DielInternalErrorType {
+  Untitled = "Untitled",
+  ArgNull = "ArgNull",
   TypeError = "TypeError",
   RelationNotFound = "RelationNotFound",
   NotImplemented = "NotImplemented",
-  Untitled = "Untitled",
   UnionTypeNotAllHandled = "UnionTypeNotAllHandled",
   MalFormedAst = "MalFormedAst"
+}
+
+export enum DielInternalWarningType {
+  Untitled = "Untitled",
+  ArgNull = "ArgNull"
 }
 
 export function LogInternalError(m: string, errorType = DielInternalErrorType.Untitled) {
@@ -28,11 +34,11 @@ export function LogInternalError(m: string, errorType = DielInternalErrorType.Un
   if (STRICT) throw new Error();
 }
 
-export function LogInternalWarning(m: string) {
+export function LogInternalWarning(m: string, wariningType = DielInternalWarningType.Untitled) {
   if (typeof window === "undefined") {
     console.log(`${FgRed}%s${Reset}`, m);
   } else {
-    console.log(`%c${m}`, "color: red");
+    console.log(`%cWarning[${wariningType}]: ${m}`, "color: orange");
   }
 }
 
@@ -72,9 +78,15 @@ export enum UserErrorType {
 // TODO: this should also report the line of the code
 // the input should be more structured
 export function ReportDielUserError(m: string, q?: string, errorType?: UserErrorType) {
-  console.log(`User Erorr ${errorType ? `[${errorType}]` : ""}: ${FgRed}%s${Reset}`, m);
-  if (q) console.log(`\nQuery: ${FgBlue}%s${Reset}\n`, q);
-  if (STRICT) throw new Error();
+  if (typeof window === "undefined") {
+    console.log(`${FgRed}%s${Reset}`, m);
+  } else {
+    debugger;
+    console.log(`%cUser Error[${errorType}]: ${m}${q ? `\nFor query ${q}` : ""}`, "color: red");
+  }
+  if (STRICT) {
+    throw new Error();
+  }
 }
 
 export function ReportDielUserWarning(m: string, q?: string) {
