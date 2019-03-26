@@ -18,23 +18,28 @@ const dielPrefix = "./src/notebook/dielSpec/";
 
 const dielFiles = [
   // the following are local
-  // `${dielPrefix}simple.diel`,
+  `${dielPrefix}counter.diel`,
   `${dielPrefix}undo.diel`,
   // following are webworkers, and they all have smaller equivalents with sockets
-  ...((DEMO_WITH_WEBWORKER || DEMO_WITH_SOCKET)
+  ...(DEMO_WITH_WEBWORKER
     ? [
-        `${dielPrefix}flights-worker.diel`,
-        `${dielPrefix}fires-worker.diel`,
-        `${dielPrefix}pitchfork.diel`
+        `${dielPrefix}flights-remote.diel`,
+        `${dielPrefix}fires-remote.diel`,
+        `${dielPrefix}pitchfork-remote.diel`
       ]
     : []),
+    ...(DEMO_WITH_SOCKET
+      ? [
+          `${dielPrefix}flights-remote.diel`
+        ]
+      : []),
 ];
 
 const mainDbPath = `${dbPathPrefix}score.sqlite`;
 // const mainDbPath: string = null;
 
 const socketConnections = DEMO_WITH_SOCKET
-  ? [{url: "ws://localhost:8999", dbName: "pitchfork"}]
+  ? [{url: "ws://localhost:8999", dbName: "flights"}]
   : null;
 
 export const diel = new DielRuntime({

@@ -85,10 +85,6 @@ create template flightDistributionT(sourceRelation)
     else
       round(delay / (max(round((z.maxDelay - z.minDelay) / 10), 5))) * (max(round((z.maxDelay - z.minDelay) / 10), 5))
     end as delayBin,
-    -- case when (z.maxDelay - z.minDelay) > 50
-    --     then round(delay / 50) * 50
-    --     else round(delay / 10) * 10
-    --   end as delayBin,
     count(*) as count
   from {sourceRelation}
   left outer join currentPanZoom z
