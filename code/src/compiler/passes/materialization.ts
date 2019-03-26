@@ -1,4 +1,4 @@
-import { Relation, RelationType, DielAst } from "../../parser/dielAstTypes";
+import { DerivedRelation, Relation, RelationType, DielAst } from "../../parser/dielAstTypes";
 import { DependencyTree, getTopologicalOrder } from "./passesHelper";
 import { RelationIdType } from "../DielPhysicalExecution";
 import { GetDependenciesFromViewList } from "./dependnecy";
@@ -6,9 +6,15 @@ import { GetAllDerivedViews } from "../DielIr";
 
 export function TransformAstForMaterialization(ast: DielAst) {
   const views = GetAllDerivedViews(ast);
+  console.log("\nderived views\n", views);
+
   const deps = GetDependenciesFromViewList(views);
+  console.log("\ndependency\n", deps);
+
   // get topo order
   const topoOrder = getTopologicalOrder(deps);
+  console.log("\ntopological order\n", topoOrder);
+
   function getRelationDef(rName: string) {
     return views.find(v => v.name === rName);
   }
@@ -16,10 +22,21 @@ export function TransformAstForMaterialization(ast: DielAst) {
   // now we need to figure out what EventTables toMaterialize depends on
   // this needs to recurse down the depTree.
   // order toMaterialize by topoOrder
-  console.log(`To materialize`, toMaterialize);
+  console.log(`\nTo materialize\n`, toMaterialize);
+
+  // Materialize by topological order
+  topoOrder.forEach(relation => {
+    if (toMaterialize.indexOf(relation) !== -1) {
+      changeASTMaterialize(getRelationDef(relation));
+    }
+  });
   // TODO: materialization
   // change the ASTs --> change view to table
   // add programs (look at DielAstTypes for reference)
+}
+
+function changeASTMaterialize(view: DerivedRelation) {
+  console.log(view.selection.compositeSelections);
 }
 
 /**
@@ -53,10 +70,10 @@ function getRelationsToMateralize(
     // look up current relationName
     const rDef = getRelationDef(relationName);
     // if the node is a view
-    if ((rDef.relationType === RelationType.EventView)
+    if (rDef && ((rDef.relationType === RelationType.EventView)
      || (rDef.relationType === RelationType.View)
     //  || (rDef.relationType === RelationType.Output)
-     ) {
+     )) {
        // and if the view is dependent on by at least two views/outputs, mark it as to materialize
        if (nodeDep.isDependedBy.length > 1) {
         toMAterialize.push(relationName);
