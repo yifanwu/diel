@@ -76,6 +76,8 @@ export async function loadDbHelper(db: Database, file: string, tick: () => () =>
   // db.create_function("timeNow", timeNow);
   db.create_function("log", log);
   db.create_function("tick", tick());
+
+  // db.create_function("tick", this.db);
   LogInfo(`DIEL Loaded DB Successfully`);
 }
 

@@ -1,14 +1,7 @@
--- we are going to create a name space here of UE for "undo example"
+CREATE EVENT TABLE ueClickEvent(id INT);
+CREATE EVENT TABLE ueUndoEvent();
 
-create event table ueClickEvent(
-  id integer
-);
-
-CREATE EVENT TABLE ueUndoEvent(); -- undo interaction, with no parameters
-
-CREATE TABLE ueAllSelections(
-  id int
-);
+CREATE TABLE ueAllSelections(id INT);
 
 CREATE PROGRAM AFTER (ueClickEvent, ueUndoEvent)-- record the items at every timestep into state
   BEGIN

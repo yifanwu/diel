@@ -12,15 +12,9 @@
   "types": "lang-dist/lib/index.d.ts",
   "scripts": {
     "start": "./node_modules/.bin/webpack-dev-server --port 8080 --output-public-path=/UI-dist/",
-    "build": "tsc && cp src/compiler/static.sql dist/compiler",
-    "testCli": "ts-node --no-cache src/lib/compile.ts",
-    "testCliOnline": "node --inspect-brk -r ts-node/register src/lib/compile.ts",
+    "build": "./node_modules/.bin/webpack -p && cp ./UI-dist/bundle.js ../docs && cp ./UI-dist/bundle.js.map ../docs && cp ./style/style.css ../docs/style",
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
     "test": "ts-node --no-cache src/tests/test.ts",
-    "viewTest": "ts-node --no-cache src/tests/testViewConstraints.ts",
-    "searchTest": "ts-node --no-cache src/tests/searchNames.ts",
-    "probe": "ts-node --no-cache src/tests/debugTool/probeTest.ts",
-    "debug": "node --inspect-brk -r ts-node/register src/tests/test.ts",
     "token": "cp src/parser/grammar/DIEL.g4 src/debug/ && cd src/debug && echo ./antlr4-tester.sh DIEL.g4 \"<your query>\" queries"
   },
   "repository": {
