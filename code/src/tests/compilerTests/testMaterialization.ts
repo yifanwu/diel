@@ -21,7 +21,7 @@ export function testMaterialization() {
 }
 
 
-// 1. simple
+// 1. simple. Materialize v1
 let q1 =
 `
 create table t1 (a integer);
@@ -33,7 +33,7 @@ create output o2 as select aPrime from v1 join t3 where aPrime = a;
 `;
 
 
-// 2. multiple views to materialize horizontally
+// 2. multiple views to materialize horizontally. Materialize v1, v2
 let q2 =
 `
 create table t1 (a integer);
@@ -46,7 +46,7 @@ create output o1 as select aPrime from v1 join v2 where aPrime = a;
 create output o2 as select aPrime from v2 join v1 where aPrime = a;
 `;
 
-// 3. only views that have more than 1 dependency
+// 3. only views that have more than 1 dependency. Materialize v2
 let q3 =
 `
 create table t1 (a integer);
@@ -61,7 +61,7 @@ create output o1 as select aPrime from v1 join v2 where aPrime = a;
 create output o2 as select aPrime from v2 join v3 where aPrime = a;
 `;
 
-// 4. nested views (should materialize v1 and then v2.)
+// 4. nested views. Materialize v2
 let q4 =
 `
 create table t1 (a integer);
