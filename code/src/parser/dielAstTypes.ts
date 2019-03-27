@@ -149,7 +149,7 @@ export interface OriginalRelation extends RelationBase {
 }
 
 export type Relation = DerivedRelation | OriginalRelation;
-export type Command = RelationSelection | InsertionClause | DropClause;
+export type Command = RelationSelection | InsertionClause | DropClause | DeleteClause;
 
 export type ForeignKey = {
   sourceColumn: string, targetRelation: string, targetColumn: string
@@ -188,15 +188,9 @@ export interface DielContext {
 }
 
 export interface DielAst {
-  relations: Relation[];
-  commands: Command[];
-  // inputs: OriginalRelation[];
-  // originalRelations: OriginalRelation[];
-  // outputs: DerivedRelation[];
-  // views: DerivedRelation[];
+  relations: Relation[]; // contains all relations, including table definitions, events, ouputs and views
+  commands: Command[]; // contains select, insert, drop, and delete
   programs: ProgramsIr;
-  // inserts: InsertionClause[];
-    // drops: DropClause[];
   crossfilters: CrossFilterIr[];
   udfTypes: UdfType[];
 }
@@ -315,6 +309,7 @@ export enum SetOperator {
 
 export enum AstType {
   Drop = "Drop",
+  Delete = "Delete",
   Insert = "Insert",
   Join = "Join",
   RelationSelection = "RelationSelection"
@@ -415,4 +410,10 @@ export interface OrderByAst {
 
 export interface DropClause extends AstBase {
   relationName: string;
+}
+
+// LUCIE TODO: need to create this for the corresponding codeGenSQL file!
+export interface DeleteClause extends AstBase {
+  relationName: string;
+  predicate?: ExprAst; // could be no predicate
 }

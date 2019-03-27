@@ -17,6 +17,9 @@ export default class Fires extends DielComponent<{}> {
   }
 
   render() {
+    const explainDiv = <>
+    
+    </>;
     const handler = (box: TwoDimSelection) => {
       diel.NewInput("panFireItx", {
         latMin: box.minY,

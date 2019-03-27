@@ -10,6 +10,7 @@ queries : (
            | originalTableStmt
            | registerTypeUdf
            | dropQuery
+           | deleteStmt
           )+;
 
 registerTypeUdf
@@ -95,6 +96,7 @@ programBody
 aProgram
   : insertQuery 
   | selectQuery
+  | deleteStmt
   ;
 
 selectQuery
@@ -109,6 +111,9 @@ templateQuery
 dropQuery
   : DROP TABLE IDENTIFIER
   ;
+
+deleteStmt
+  : DELETE FROM IDENTIFIER (WHERE expr)? ';';
 
 variableAssignment
   : variable=IDENTIFIER '=' assignment=STRING
@@ -322,6 +327,7 @@ DISTINCT: D I S T I N C T;
 TRUE: T R U E;
 FALSE: F A L S E;
 CACHED: C A C H E D;
+DELETE: D E L E T E;
 
 INT: N U M B E R  | I N T E G E R | I N T | R E A L;
 TEXT: S T R I N G | T E X T;
@@ -360,9 +366,6 @@ IDENTIFIER
   : (LETTER | DIGIT | '_')+
   | '{' (LETTER | DIGIT | '_')+ '}'
   ;
-
-// TEMPLATE_VARIABLE
-//   : ;
 
 WS
   : (' ' | '\t' | '\r'| '\n' | EOF ) -> channel(HIDDEN)

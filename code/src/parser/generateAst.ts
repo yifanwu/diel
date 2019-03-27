@@ -2,14 +2,11 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, DerivedRelation, Command, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr, InsertionClause, DropClause, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst, createEmptyDielAst, Relation, ColumnConstraints } from "./dielAstTypes";
+import { ExpressionValue, DerivedRelation, Command, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr, InsertionClause, DropClause, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst, createEmptyDielAst, Relation, ColumnConstraints, DeleteClause } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError, ReportDielUserError } from "../lib/messages";
 import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst } from "./exprAstTypes";
 
-// helper function to shallow copy the template!
-
-// function 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
   private ast: DielAst;
@@ -67,7 +64,10 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const drops = ctx.dropQuery().map(e => (
       this.visit(e) as DropClause
     ));
-    this.ast.commands = insert.concat(drops);
+    const deletes = ctx.deleteStmt().map(e => (
+      this.visit(e) as DeleteClause
+    ));
+    this.ast.commands = insert.concat(drops).concat(deletes);
     const programs = ctx.programStmt().map(e => (
       this.visit(e) as ProgramsParserIr
     ));
@@ -127,6 +127,18 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return {
       astType: AstType.RelationSelection,
       relationName
+    };
+  }
+
+  visitDeleteStmt(ctx: parser.DeleteStmtContext): DeleteClause {
+    const relationName = ctx.IDENTIFIER().text;
+    const predicate = ctx.WHERE()
+      ? this.visit(ctx.expr()) as ExprAst
+      : null;
+    return {
+      astType: AstType.Delete,
+      relationName,
+      predicate
     };
   }
 
@@ -677,8 +689,10 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const programs = ctx.aProgram().map(e => {
       if (e.insertQuery()) {
         return this.visit(e.insertQuery()) as InsertionClause;
-      } else {
+      } else if (e.selectQuery()) {
         return this.visit(e.selectQuery()) as RelationSelection;
+      } else {
+        return this.visit(e.deleteStmt()) as DeleteClause;
       }
     });
     return programs;

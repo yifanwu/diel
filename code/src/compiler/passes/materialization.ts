@@ -1,4 +1,4 @@
-import { DerivedRelation, Relation, RelationType, DielAst } from "../../parser/dielAstTypes";
+import { RelationConstraints, DerivedRelation, Relation, RelationType, DielAst, OriginalRelation, Command, ProgramsIr, BuiltInUdfTypes } from "../../parser/dielAstTypes";
 import { DependencyTree, getTopologicalOrder } from "./passesHelper";
 import { RelationIdType } from "../DielPhysicalExecution";
 import { GetDependenciesFromViewList } from "./dependnecy";
@@ -27,7 +27,7 @@ export function TransformAstForMaterialization(ast: DielAst) {
   // Materialize by topological order
   topoOrder.forEach(relation => {
     if (toMaterialize.indexOf(relation) !== -1) {
-      changeASTMaterialize(getRelationDef(relation));
+      changeASTMaterialize(getRelationDef(relation), ast);
     }
   });
   // TODO: materialization
@@ -35,8 +35,49 @@ export function TransformAstForMaterialization(ast: DielAst) {
   // add programs (look at DielAstTypes for reference)
 }
 
-function changeASTMaterialize(view: DerivedRelation) {
-  console.log(view.selection.compositeSelections);
+function changeASTMaterialize(view: DerivedRelation, oldast: DielAst): DielAst {
+  console.log(view);
+  // 1. make a view into a table
+  let table = {
+    relationType: RelationType.Table,
+    name: view.name,
+    columns: [null],
+    constraints: null, // constraint is null for this table??
+    copyFrom: undefined
+  } as OriginalRelation;
+
+
+  // 1-1. resolve column name for table.
+  resolveColumnTable(table, view);
+
+  let tables = [table];
+
+  // 2. make a program
+  let program: Command[];
+
+  // 3. map programs
+  let programs: ProgramsIr;
+
+  // 4. build asts
+  let ast: DielAst;
+  ast = {
+    relations: [] as Relation[], // contains all relations, including table definitions, events, ouputs and views
+    commands: [] as Command[], // contains select, insert, drop, and delete
+    programs: programs,
+    crossfilters: [], // don't worry about cross filters...?
+    udfTypes: BuiltInUdfTypes // is this correct
+  };
+
+  return ast;
+}
+
+/**
+ * Resolve columns(name, data type) that go inside tables, given views.
+ * If there is no given column name (AS columnname), assign arbitrary.
+ * @param table
+ */
+function resolveColumnTable(table: OriginalRelation, view: DerivedRelation) {
+
 }
 
 /**
