@@ -15,7 +15,7 @@ export function testMaterialization() {
       let ast = getDielAst(a1);
       console.log(ast.relations[0]);
       console.log(ast.programs.forEach(value => {
-            console.log(value);
+            console.log(value[1]);
       }));
       let ast2 = getDielAst(q1);
       let transformedAST = TransformAstForMaterialization(ast2);

@@ -1,4 +1,4 @@
-import { RelationConstraints, DerivedRelation, Relation, RelationType, DielAst, OriginalRelation, Command, ProgramsIr, BuiltInUdfTypes } from "../../parser/dielAstTypes";
+import { RelationConstraints, DerivedRelation, Relation, RelationType, DielAst, OriginalRelation, Command, ProgramsIr, BuiltInUdfTypes, DeleteClause, AstType, InsertionClause, RelationSelection } from "../../parser/dielAstTypes";
 import { DependencyTree, getTopologicalOrder } from "./passesHelper";
 import { RelationIdType } from "../DielPhysicalExecution";
 import { GetDependenciesFromViewList } from "./dependnecy";
@@ -36,7 +36,8 @@ export function TransformAstForMaterialization(ast: DielAst) {
 }
 
 function changeASTMaterialize(view: DerivedRelation, oldast: DielAst): DielAst {
-  console.log(view);
+  // console.log(view);
+
   // 1. make a view into a table
   let table = {
     relationType: RelationType.Table,
@@ -46,28 +47,29 @@ function changeASTMaterialize(view: DerivedRelation, oldast: DielAst): DielAst {
     copyFrom: undefined
   } as OriginalRelation;
 
-
   // 1-1. resolve column name for table.
   resolveColumnTable(table, view);
 
-  let tables = [table];
-
   // 2. make a program
-  let program: Command[];
+  let deleteCommand = makeDeleteCommand(view);
+  let insertCommand = makeInsertCommand(view);
+  let program = [deleteCommand, insertCommand] as Command[];
 
   // 3. map programs
-  let programs: ProgramsIr;
+  let programs = new Map as ProgramsIr;
+  programs.set(view.name, program);
 
   // 4. build asts
   let ast: DielAst;
   ast = {
-    relations: [] as Relation[], // contains all relations, including table definitions, events, ouputs and views
+    relations: [table] as Relation[], // contains all relations, including table definitions, events, ouputs and views
     commands: [] as Command[], // contains select, insert, drop, and delete
     programs: programs,
     crossfilters: [], // don't worry about cross filters...?
     udfTypes: BuiltInUdfTypes // is this correct
   };
 
+  console.log(ast);
   return ast;
 }
 
@@ -78,6 +80,35 @@ function changeASTMaterialize(view: DerivedRelation, oldast: DielAst): DielAst {
  */
 function resolveColumnTable(table: OriginalRelation, view: DerivedRelation) {
 
+  // columns:
+  //  [ { name: 'aPrime',
+  //      type: 'Number',
+  //      constraints: [Object]
+  //      defaultValue: null } ]
+}
+
+function makeDeleteCommand(view: DerivedRelation): Command {
+  let deleteClause: DeleteClause;
+  deleteClause = {
+    astType: AstType.Delete,
+    relationName: view.name,
+    predicate: null
+  };
+  return deleteClause;
+}
+
+function makeInsertCommand(view: DerivedRelation): Command {
+  let insertClause: InsertionClause;
+  insertClause = {
+    astType: AstType.Insert,
+    relation: view.name,
+    columns: [], // what is this for??
+    selection: {
+      astType: AstType.RelationSelection,
+      compositeSelections: view.selection.compositeSelections
+    } as RelationSelection
+  };
+  return null;
 }
 
 /**
