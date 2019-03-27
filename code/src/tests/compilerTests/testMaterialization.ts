@@ -11,15 +11,23 @@ import { TransformAstForMaterialization } from "../../compiler/passes/materializ
 
 export function testMaterialization() {
 
-      const logger = GenerateUnitTestErrorLogger("assertBasicOperators", q4);
-      let ast = getDielAst(q4);
-      // console.log(ast);
+      const logger = GenerateUnitTestErrorLogger("assertBasicOperators", sample);
+      let ast = getDielAst(sample);
+      console.log(ast);
       // console.log(ast.programs.forEach(value => {
       //       console.log(value[0]);
       // }));
-      let transformedAST = TransformAstForMaterialization(ast);
+      // let transformedAST = TransformAstForMaterialization(ast);
 }
 
+let sample =
+`create table v2 (aPrime integer);
+create program after (t1)
+	begin
+		delete from v2;
+		insert into v2
+		select a+1 as aPrime from v1;
+  end;`;
 
 // 1. simple. Materialize v1
 let q1 =
@@ -65,8 +73,6 @@ create output o2 as select aPrime from v2 join v3 where aPrime = a;
 let q4 =
 `
 create table t1 (a integer);
-create table t2 (a integer);
-create table t3 (a integer);
 
 create view v1 as select a + 1 as aPrime from t1 where a > 2;
 create view v2 as select a + 1 as aPrime from v1 where a > 2;

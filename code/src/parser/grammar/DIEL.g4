@@ -83,7 +83,7 @@ viewStmt
 
 programStmt
   // : CREATE PROGRAM programBody ';'                  # programStmtGeneral
-  : CREATE PROGRAM AFTER '(' IDENTIFIER (',' IDENTIFIER) ')' programBody ';' 
+  : CREATE PROGRAM AFTER '(' IDENTIFIER (',' IDENTIFIER)* ')' programBody ';' 
   // # programStmtSpecific
   ;
 
