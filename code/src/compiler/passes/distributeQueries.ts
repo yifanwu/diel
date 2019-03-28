@@ -1,9 +1,10 @@
 import { DielIr, isRelationTypeDerived } from "../DielIr";
-import { DataType, OriginalRelation, RelationType, RelationSelection, SetOperator, AstType, CompositeSelectionUnit, DerivedRelation, Relation } from "../../parser/dielAstTypes";
+import { DataType, OriginalRelation, RelationType, RelationSelection, SetOperator, AstType, CompositeSelectionUnit, DerivedRelation, Relation, Column, ColumnConstraints } from "../../parser/dielAstTypes";
 import { ExprType, ExprFunAst, FunctionType, ExprValAst, ExprColumnAst } from "../../parser/exprAstTypes";
 import { ReportDielUserError, LogInternalError } from "../../lib/messages";
 import { DbIdType, RelationIdType } from "../DielPhysicalExecution";
 import { NodeDependencyAugmented } from "./passesHelper";
+import { ColumnConstraintsContext } from "../../parser/grammar/DIELParser";
 
 export type SingleDistribution = {
   relationName: RelationIdType,
@@ -105,12 +106,19 @@ export function getEventTableFromDerived(relation: DerivedRelation) {
     return {
       name: columnName,
       type: c.expr.dataType,
-    };
+      constraints: {
+        autoincrement: false,
+        notNull: false,
+        unique: false,
+        primaryKey: false
+      } as ColumnConstraints,
+      defaultValue: null
+    } as Column;
   });
   let createSpec: OriginalRelation = {
-    name: relation.name,
     relationType: RelationType.EventTable,
     //  === RelationType.EventView ? RelationType.EventTable : RelationType.Table,
+    name: relation.name,
     columns
   };
   return createSpec;

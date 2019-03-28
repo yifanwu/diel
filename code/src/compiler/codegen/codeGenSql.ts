@@ -1,4 +1,4 @@
-import { DataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause } from "../../parser/dielAstTypes";
+import { DataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause, DeleteClause } from "../../parser/dielAstTypes";
 import { RelationSpec, RelationQuery, SqlAst, createSqlAstFromDielAst } from "./createSqlIr";
 import { ReportDielUserError, LogInternalError, DielInternalErrorType, LogInternalWarning, ReportUserRuntimeError } from "../../lib/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
@@ -25,6 +25,8 @@ export function generateStringFromSqlIr(sqlAst: SqlAst, replace = false): string
 
 function generateCommand(command: Command) {
   switch (command.astType) {
+    case AstType.Delete:
+      return generateDelete(command as DeleteClause);
     case AstType.Insert:
       return generateInserts(command as InsertionClause);
     case AstType.Drop:
@@ -293,10 +295,17 @@ function generateInserts(i: InsertionClause): string {
   const columns = i.columns && i.columns.length > 0
     ? `(${i.columns.map(c => c).join(", ")})`
     : "";
-  const values = i.values
-    ? `VALUES (${i.values.map(v => generateInsertClauseStringForValue(v)).join(", ")})`
-    : generateSelect(i.selection.compositeSelections);
+  let values;
+  if (i.values) {
+    values = `VALUES (${i.values.map(v => generateInsertClauseStringForValue(v)).join(", ")})`;
+  } else if (i.selection) {
+    values = generateSelect(i.selection.compositeSelections);
+  }
   return `INSERT INTO ${i.relation} ${columns} ${values}`;
+}
+
+function generateDelete(d: DeleteClause): string {
+  return "";
 }
 
 const TypeConversionLookUp = new Map<DataType, string>([

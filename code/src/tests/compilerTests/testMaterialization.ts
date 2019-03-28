@@ -6,19 +6,19 @@ import {  getSelectionUnitAst, getVanillaSelectionUnitAst } from "../../compiler
 import { applyLatestToSelectionUnit, applyLatestToAst } from "../../compiler/passes/syntaxSugar";
 import {generateSqlFromDielAst, generateSelectionUnit} from "../../../src/compiler/codegen/codeGenSql";
 import { ConsoleErrorListener } from "antlr4ts";
-
+import { compareAST} from "./testSyntaxSugar";
 import { TransformAstForMaterialization } from "../../compiler/passes/materialization";
 
 export function testMaterialization() {
 
-      const logger = GenerateUnitTestErrorLogger("assertBasicOperators", a1);
-      // let ast = getDielAst(a1);
-      // console.log(ast);
-      // console.log(ast.programs.forEach(value => {
-      //       console.log(value[1]);
-      // }));
-      let ast2 = getDielAst(q1);
-      let transformedAST = TransformAstForMaterialization(ast2);
+      const logger = GenerateUnitTestErrorLogger("assertBasicOperators", q1);
+      let ast = getDielAst(q1);
+      TransformAstForMaterialization(ast);
+      console.log(JSON.stringify(ast.relations[5], null, 2));
+      // compareAST(a1, ast2, logger, false);
+      let ast2 = getDielAst(a1);
+      console.log(JSON.stringify(ast2.relations[5], null, 2));
+
 }
 
 // 1. simple. Materialize v1
@@ -27,19 +27,28 @@ let q1 =
 create table t1 (a integer);
 create table t2 (a integer);
 create table t3 (a integer);
+
 create view v1 as select a + 1 as aPrime from t1 where a > 2;
+
 create output o1 as select aPrime from v1 join t2 on aPrime = a;
 create output o2 as select aPrime from v1 join t3 on aPrime = a;
 `;
 
 let a1 =
 `
+create table t1 (a integer);
+create table t2 (a integer);
+create table t3 (a integer);
+
 create table v1 (aPrime integer);
-create program after (t1, t2)
+create program after (t1)
 	begin
-		delete from v2;
-		insert into v2 select a + 1 as aPrime from v1;
+		delete from v1;
+		insert into v1 select a + 1 as aPrime from t1 where a > 2;
   end;
+
+create output o1 as select aPrime from v1 join t2 on aPrime = a;
+create output o2 as select aPrime from v1 join t3 on aPrime = a;
 `;
 
 // 2. multiple views to materialize horizontally. Materialize v1, v2

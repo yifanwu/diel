@@ -18,23 +18,26 @@ export function assertLatestSyntax() {
     const logger = GenerateUnitTestErrorLogger("assertBasicOperators", query);
     let ast = getDielAst(query);
     applyLatestToAst(ast);
-    compareAST(answer, ast, logger);
+    compareAST(answer, ast, logger, true);
   }
 
 }
 
-function compareAST(q1: string, ast2: DielAst, logger: any) {
+export function compareAST(q1: string, ast2: DielAst, logger: any, logdiff: boolean) {
   let ast1 = getDielAst(q1);
   let pretty1 = JSON.stringify(ast1, null, 2);
   let pretty2 = JSON.stringify(ast2, null, 2);
   let diff = jsonDiff.diff(pretty1, pretty2);
 
   console.log("============ Query ==============");
-  var sqls = generateSqlFromDielAst(ast2);
-  console.log("Converted:\n\n", sqls[0], "\n");
+  // var sqls = generateSqlFromDielAst(ast2);
+  // console.log("Converted:\n\n", sqls[0], "\n");
 
   if (diff !== undefined) {
-    console.log(diff);
+    if (logdiff) {
+    console.log(JSON.parse(diff.__old));
+    console.log(JSON.parse(diff.__new));
+    }
     console.log("\x1b[34m Failed \x1b[0m");
 
     // logger("AST NOT THE SAME");

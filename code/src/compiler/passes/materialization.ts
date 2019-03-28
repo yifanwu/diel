@@ -6,6 +6,7 @@ import { GetAllDerivedViews } from "../DielIr";
 import { getEventTableFromDerived} from "./distributeQueries";
 import { DielIr } from "../../lib";
 import { NormalizeColumnSelection } from "./normalizeColumnSelection";
+import { ConstraintClauseContext } from "../../parser/grammar/DIELParser";
 
 export function TransformAstForMaterialization(ast: DielAst) {
   const views = GetAllDerivedViews(ast);
@@ -36,12 +37,12 @@ export function TransformAstForMaterialization(ast: DielAst) {
   // Get normalized Diel IR
   let ir = new DielIr(ast);
   NormalizeColumnSelection(ir);
+
+  // Get a list of original relations
   let originalRelations = [] as string[];
   ir.GetOriginalRelations().forEach(value => {
     originalRelations.push(value.name);
   });
-
-  console.log("\nAST!!!\n", ast);
 
   // Materialize by topological order
   let view: DerivedRelation;
@@ -66,7 +67,19 @@ function changeASTMaterialize(view: DerivedRelation, ast: DielAst, ir: DielIr, o
   // 1. make a view into a table
   let table = getEventTableFromDerived(view);
   table.relationType = RelationType.Table;
-  // wouldn't view constraints be lost? idk
+  table.copyFrom = undefined;
+
+  // wouldn't view constraints be lost???
+  table.constraints = {
+    relationNotNull: false,
+    relationHasOneRow: false,
+    primaryKey: [],
+    notNull: [],
+    uniques: [],
+    exprChecks: [],
+    foreignKeys: [],
+  } as RelationConstraints;
+
   console.log("\ntable!!!\n", table);
 
   // 2. make a program ast
@@ -93,10 +106,9 @@ function changeASTMaterialize(view: DerivedRelation, ast: DielAst, ir: DielIr, o
   });
 
 
-  // 4. build the final ast
-  // CHANGE INPLANCE!
+  // 4. build the final ast. change in place with existing order of relations.
   let relationIndex = ast.relations.indexOf(view);
-  ast.relations[relationIndex] = table; // change in place with existing order.
+  ast.relations[relationIndex] = table; 
 
   console.log("\nFINAL!!!\n", ast);
 }
