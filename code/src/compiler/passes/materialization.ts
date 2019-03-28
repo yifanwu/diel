@@ -60,7 +60,7 @@ export function TransformAstForMaterialization(ast: DielAst) {
  * @param oldast
  * @param ir
  */
-function changeASTMaterialize(view: DerivedRelation, oldast: DielAst, ir: DielIr, originalTables: Set<string>): DielAst {
+function changeASTMaterialize(view: DerivedRelation, ast: DielAst, ir: DielIr, originalTables: Set<string>) {
   // console.log(view);
 
   // 1. make a view into a table
@@ -79,34 +79,26 @@ function changeASTMaterialize(view: DerivedRelation, oldast: DielAst, ir: DielIr
   let insertCommand = makeInsertCommand(view);
   let program = [deleteCommand, insertCommand] as Command[];
 
-  // 2-2. push into programs. (this is supposed to preserve topo order)
-  let programs = new Map as ProgramsIr;
+  // 3. push into programs. (this is supposed to preserve topo order)
   let existingProgram: Command[];
   originalTables.forEach(tname => {
-    // 2-3. if the tname already exists in the map, append the program
-    if (programs.has(tname)) {
-      existingProgram = programs.get(tname);
+    // 3-1. if the tname already exists in the map, append the program
+    if (ast.programs.has(tname)) {
+      existingProgram = ast.programs.get(tname);
       existingProgram.push(deleteCommand, insertCommand);
-      programs.set(tname, existingProgram); // replace
+      ast.programs.set(tname, existingProgram); // replace
     } else {
-      programs.set(tname, program);
+      ast.programs.set(tname, program);
     }
   });
 
 
   // 4. build the final ast
   // CHANGE INPLANCE!
-  let ast: DielAst;
-  ast = {
-    relations: [table] as Relation[], // contains all relations, including table definitions, events, ouputs and views
-    commands: [] as Command[], // ...??
-    programs: programs,
-    crossfilters: oldast.crossfilters, // just keep original cross filters???
-    udfTypes: oldast.udfTypes
-  };
+  let relationIndex = ast.relations.indexOf(view);
+  ast.relations[relationIndex] = table; // change in place with existing order.
 
   console.log("\nFINAL!!!\n", ast);
-  return ast;
 }
 
 /**
