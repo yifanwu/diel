@@ -11,20 +11,15 @@ import { ExprColumnAst } from "../../parser/exprAstTypes";
 
 export function TransformAstForMaterialization(ast: DielAst) {
   const views = GetAllDerivedViews(ast);
-  // console.log("\nderived views\n", views);
-
   const deps = GetDependenciesFromViewList(views);
-  console.log("\ndependency\n", deps);
 
   // get topo order
   const topoOrder = getTopologicalOrder(deps);
-  console.log("\ntopological order\n", topoOrder);
 
   function getRelationDef(rName: string) {
     return views.find(v => v.name === rName);
   }
   const toMaterialize = getRelationsToMateralize(deps, getRelationDef);
-  console.log("\nto materialize\n", toMaterialize);
   // now we need to figure out what EventTables toMaterialize depends on
   // this needs to recurse down the depTree.
   // order toMaterialize by topoOrder
@@ -40,15 +35,15 @@ export function TransformAstForMaterialization(ast: DielAst) {
   });
   let numTables = originalRelations.length;
 
-  // console.log("AST!\n", ast);
-
   // Materialize by topological order
   let view: DerivedRelation;
+  let originalTables: Set<string>;
   topoOrder.forEach(relation => {
     if (toMaterialize.indexOf(relation) !== -1) {
       view = getRelationDef(relation);
+      originalTables = getOriginalRelationsDependedOn(view, deps, originalRelations);
       changeASTMaterialize(view, ast, ir,
-              getOriginalRelationsDependedOn(view, deps, originalRelations),
+              originalTables,
               deps.get(view.name).isDependedBy,
               numTables);
       numTables += 1;
@@ -63,13 +58,12 @@ function changeASTMaterialize(view: DerivedRelation,
   ast: DielAst, ir: DielIr, originalTables: Set<string>,
   dependents: string[],
   numTables: number) {
-  // console.log(view);
 
   // 1. make a view into a table
   let table = getEventTableFromDerived(view);
   table.relationType = RelationType.Table;
 
-  // wouldn't view constraints be lost???
+  // wouldn't view constraints be lost??? LATER
   table.constraints = {
     relationNotNull: false,
     relationHasOneRow: false,
@@ -81,13 +75,10 @@ function changeASTMaterialize(view: DerivedRelation,
   } as RelationConstraints;
   table.copyFrom = undefined;
 
-
-  console.log("\ntable!!!\n", table);
-
   // 2. make a program ast
-  console.log("\noriginal Table!\n", originalTables);
 
   // 2-0. optimize getting original tables by changning data structure???
+  // currently, it's done by one pass bfs of deptree
 
   // 2-1. create insert,delete ast
   let deleteCommand = makeDeleteCommand(view);
@@ -117,7 +108,6 @@ function changeASTMaterialize(view: DerivedRelation,
   // 5. delete derived column selection of the depended outputs and views!
   deleteDependentsDerivedColumnSelection(ast, view.name, dependents, ir);
 
-  console.log("\nFINAL!!!\n", ast);
 }
 
 /**
@@ -179,6 +169,12 @@ function makeInsertCommand(view: DerivedRelation): Command {
       compositeSelections: view.selection.compositeSelections
     } as RelationSelection
   };
+  // drop the derived column selection since it's made a table ???
+  insertClause.selection.compositeSelections.forEach(unit => {
+    if (unit.relation.derivedColumnSelections) {
+      delete unit.relation["derivedColumnSelections"];
+    }
+  });
   return insertClause;
 }
 

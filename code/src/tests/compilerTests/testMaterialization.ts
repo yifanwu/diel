@@ -14,14 +14,17 @@ var jsonDiff = require("json-diff");
 
 
 export function testMaterialization() {
-
-      const logger = GenerateUnitTestErrorLogger("assertBasicOperators", q5);
-      let ast = getDielAst(q5);
-      TransformAstForMaterialization(ast);
-      compareAST(a5, ast, logger, false);
-
-
+  for (let test of tests) {
+    var query = test[0];
+    var answer = test[1];
+    const logger = GenerateUnitTestErrorLogger("assertBasicMaterialization", query);
+    let ast = getDielAst(query);
+    TransformAstForMaterialization(ast);
+    compareAST(answer, ast, logger, true);
+  }
 }
+
+
 function compareAST(query: string, ast2: DielAst, logger: any, logdiff: boolean) {
   let ast1 = getDielAst(query);
   let ir1 = new DielIr(ast1);
@@ -30,12 +33,23 @@ function compareAST(query: string, ast2: DielAst, logger: any, logdiff: boolean)
   let pretty1 = JSON.stringify(ast1.relations[6], null, 2);
   let pretty2 = JSON.stringify(ast2.relations[6], null, 2);
 
-  console.log(ast1);
-  // console.log(pretty2);
-
   let diff = jsonDiff.diff(pretty1, pretty2);
 
-  console.log("============ Query ==============");
+  console.log("============ Result ==============");
+
+  // compare the programs!!!!!!!!!
+  let map1 = JSON.stringify(Array.from(ast1.programs));
+  let map2 = JSON.stringify(Array.from(ast2.programs));
+
+  if (map1 !== map2) {
+    console.log(map1);
+    console.log(map2);
+    console.log("\x1b[34m Failed. Programs not the same \x1b[0m");
+    return;
+  }
+
+
+
   if (diff !== undefined) {
     if (logdiff) {
     console.log(JSON.parse(diff.__old));
@@ -186,17 +200,16 @@ create output o2 as select aPrime from v2 where aPrime = a;
 `;
 
 
-// 5. complex view query with Latest and constraints
+// 5. complex view query with Latest
 let q5 = `
 create table t1 (a integer);
 
 create view v1 as
-select a + 1 as aPrime, a+2 aPPrime from LATEST t1
+select a + 1 as aPrime, a+2 as aPPrime from LATEST t1
 where aPrime > 10
 group by aPPrime
 order by count DESC
-limit 10
-constrain check (aPrime > 10);
+limit 10;
 
 create output o1 as select aPrime from v1 where aPrime = a;
 create output o2 as select aPrime from v1 where aPrime = a;
@@ -206,17 +219,16 @@ create output o2 as select aPrime from v1 where aPrime = a;
 let a5 = `
 create table t1 (a integer);
 
-create table v1 (aPrime integer);
+create table v1 (aPrime integer, aPPrime integer);
 create program after (t1)
 	begin
 		delete from v1;
     insert into v1
-        select a + 1 as aPrime, a+2 aPPrime from LATEST t1
+        select a + 1 as aPrime, a+2 as aPPrime from LATEST t1
         where aPrime > 10
         group by aPPrime
         order by count DESC
-        limit 10
-        constrain check (aPrime > 10);
+        limit 10;
   end;
 
 create output o1 as select aPrime from v1 where aPrime = a;
@@ -231,7 +243,7 @@ create table t1 (a integer);
 create table t2 (a integer);
 
 create view v1 as
-select * from t1 join t2 on t1.a = t2.a;
+select a + 1 as aPrime from t1 join t2 on t1.a = t2.a;
 
 create output o1 as select aPrime from v1 where aPrime = a;
 create output o2 as select aPrime from v1 where aPrime = a;
@@ -248,7 +260,7 @@ create program after (t1, t2)
 	begin
 		delete from v1;
     insert into v1
-      select * from t1 join t2 on t1.a = t2.a;
+      select a + 1 as aPrime from t1 join t2 on t1.a = t2.a;
 
   end;
 
@@ -256,3 +268,45 @@ create output o1 as select aPrime from v1 where aPrime = a;
 create output o2 as select aPrime from v1 where aPrime = a;
 
 `;
+
+
+
+// 7. FOR LATER! how do you handle view constraints..?
+
+let q7 = `
+create table t1 (a integer);
+
+create view v1 as
+select a + 1 as aPrime, a+2 as aPPrime from LATEST t1
+where aPrime > 10
+group by aPPrime
+order by count DESC
+limit 10;
+
+create output o1 as select aPrime from v1 where aPrime = a;
+create output o2 as select aPrime from v1 where aPrime = a;
+
+`;
+
+let a7 = `
+create table t1 (a integer);
+
+create table v1 (aPrime integer, aPPrime integer);
+create program after (t1)
+	begin
+		delete from v1;
+    insert into v1
+        select a + 1 as aPrime, a+2 as aPPrime from LATEST t1
+        where aPrime > 10
+        group by aPPrime
+        order by count DESC
+        limit 10
+        constrain check (aPrime > 10);
+  end;
+
+create output o1 as select aPrime from v1 where aPrime = a;
+create output o2 as select aPrime from v1 where aPrime = a;
+
+`;
+
+let tests = [[q1, a1], [q2, a2], [q3, a3], [q4, a4], [q5, a5], [q6, a6]];

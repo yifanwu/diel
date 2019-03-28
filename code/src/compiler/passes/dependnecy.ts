@@ -170,11 +170,16 @@ export function getOriginalRelationsDependedOn(view: DerivedRelation, depTree: D
     let toVisit = dep.dependsOn.slice(); // clone
     let visited = [view.name] as string[];
     let next: string;
+
     while (toVisit.length > 0) {
-      next = toVisit.pop();
+      next = toVisit.shift();
       visited.push(next); // not necessary
+      if (originalRelations.indexOf(next) !== -1) {
+        tables.add(next);
+      }
       let children = depTree.get(next).dependsOn;
       children.forEach(child => {
+
         if (originalRelations.indexOf(child) !== -1) {
           tables.add(child);
         }
