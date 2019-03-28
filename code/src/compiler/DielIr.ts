@@ -211,7 +211,7 @@ export class DielIr {
       return r.selection.compositeSelections.map(c => fun(c.relation, {ir, relationName: r.name}));
     }
     let initial: T[] = [];
-    if (byDependency) {
+    if (byDependency && ir.dependencies) {
       // check if the dependency graph has been built, if not, build it now
       ir.dependencies.topologicalOrder.reduce(
         (acc: T[], r) => {

@@ -1,19 +1,22 @@
 import { RelationConstraints, DerivedRelation, Relation, RelationType, DielAst, OriginalRelation, Command, ProgramsIr, BuiltInUdfTypes, DeleteClause, AstType, InsertionClause, RelationSelection } from "../../parser/dielAstTypes";
 import { DependencyTree, getTopologicalOrder } from "./passesHelper";
 import { RelationIdType } from "../DielPhysicalExecution";
-import { GetDependenciesFromViewList } from "./dependnecy";
+import { GetDependenciesFromViewList, getOriginalRelationsDependedOn } from "./dependnecy";
 import { GetAllDerivedViews } from "../DielIr";
+import { getEventTableFromDerived} from "./distributeQueries";
+import { DielIr } from "../../lib";
+import { NormalizeColumnSelection } from "./normalizeColumnSelection";
 
 export function TransformAstForMaterialization(ast: DielAst) {
   const views = GetAllDerivedViews(ast);
-  console.log("\nderived views\n", views);
+  // console.log("\nderived views\n", views);
 
   const deps = GetDependenciesFromViewList(views);
-  console.log("\ndependency\n", deps);
+  // console.log("\ndependency\n", deps);
 
   // get topo order
   const topoOrder = getTopologicalOrder(deps);
-  console.log("\ntopological order\n", topoOrder);
+  // console.log("\ntopological order\n", topoOrder);
 
   function getRelationDef(rName: string) {
     return views.find(v => v.name === rName);
@@ -22,71 +25,95 @@ export function TransformAstForMaterialization(ast: DielAst) {
   // now we need to figure out what EventTables toMaterialize depends on
   // this needs to recurse down the depTree.
   // order toMaterialize by topoOrder
-  console.log(`\nTo materialize\n`, toMaterialize);
+  // console.log(`\nTo materialize\n`, toMaterialize);
 
-  // Materialize by topological order
-  topoOrder.forEach(relation => {
-    if (toMaterialize.indexOf(relation) !== -1) {
-      changeASTMaterialize(getRelationDef(relation), ast);
-    }
-  });
+
   // TODO: materialization
   // change the ASTs --> change view to table
   // add programs (look at DielAstTypes for reference)
+
+
+  // Get normalized Diel IR
+  let ir = new DielIr(ast);
+  NormalizeColumnSelection(ir);
+  let originalRelations = [] as string[];
+  ir.GetOriginalRelations().forEach(value => {
+    originalRelations.push(value.name);
+  });
+
+  console.log("\nAST!!!\n", ast);
+
+  // Materialize by topological order
+  let view: DerivedRelation;
+  topoOrder.forEach(relation => {
+    if (toMaterialize.indexOf(relation) !== -1) {
+      view = getRelationDef(relation);
+      changeASTMaterialize(view, ast, ir,
+              getOriginalRelationsDependedOn(view, deps, originalRelations));
+    }
+  });
 }
 
-function changeASTMaterialize(view: DerivedRelation, oldast: DielAst): DielAst {
+/**
+ * Change the derived view ast into program ast in place
+ * @param view
+ * @param oldast
+ * @param ir
+ */
+function changeASTMaterialize(view: DerivedRelation, oldast: DielAst, ir: DielIr, originalTables: Set<string>): DielAst {
   // console.log(view);
 
   // 1. make a view into a table
-  let table = {
-    relationType: RelationType.Table,
-    name: view.name,
-    columns: [null],
-    constraints: null, // constraint is null for this table??
-    copyFrom: undefined
-  } as OriginalRelation;
+  let table = getEventTableFromDerived(view);
+  table.relationType = RelationType.Table;
+  // wouldn't view constraints be lost? idk
+  console.log("\ntable!!!\n", table);
 
-  // 1-1. resolve column name for table.
-  resolveColumnTable(table, view);
+  // 2. make a program ast
+  console.log("\noriginal Table!\n", originalTables);
 
-  // 2. make a program
+  // 2-0. optimize getting original tables by changning data structure???
+
+  // 2-1. create insert,delete ast
   let deleteCommand = makeDeleteCommand(view);
   let insertCommand = makeInsertCommand(view);
   let program = [deleteCommand, insertCommand] as Command[];
 
-  // 3. map programs
+  // 2-2. push into programs. (this is supposed to preserve topo order)
   let programs = new Map as ProgramsIr;
-  programs.set(view.name, program);
+  let existingProgram: Command[];
+  originalTables.forEach(tname => {
+    // 2-3. if the tname already exists in the map, append the program
+    if (programs.has(tname)) {
+      existingProgram = programs.get(tname);
+      existingProgram.push(deleteCommand, insertCommand);
+      programs.set(tname, existingProgram); // replace
+    } else {
+      programs.set(tname, program);
+    }
+  });
 
-  // 4. build asts
+
+  // 4. build the final ast
+  // CHANGE INPLANCE!
   let ast: DielAst;
   ast = {
     relations: [table] as Relation[], // contains all relations, including table definitions, events, ouputs and views
-    commands: [] as Command[], // contains select, insert, drop, and delete
+    commands: [] as Command[], // ...??
     programs: programs,
-    crossfilters: [], // don't worry about cross filters...?
-    udfTypes: BuiltInUdfTypes // is this correct
+    crossfilters: oldast.crossfilters, // just keep original cross filters???
+    udfTypes: oldast.udfTypes
   };
 
-  console.log(ast);
+  console.log("\nFINAL!!!\n", ast);
   return ast;
 }
 
 /**
- * Resolve columns(name, data type) that go inside tables, given views.
- * If there is no given column name (AS columnname), assign arbitrary.
- * @param table
+ * Create AST for DeleteClause
+ * e.g) delete from v2;
+ * @param view
  */
-function resolveColumnTable(table: OriginalRelation, view: DerivedRelation) {
-
-  // columns:
-  //  [ { name: 'aPrime',
-  //      type: 'Number',
-  //      constraints: [Object]
-  //      defaultValue: null } ]
-}
-
 function makeDeleteCommand(view: DerivedRelation): Command {
   let deleteClause: DeleteClause;
   deleteClause = {
@@ -97,6 +124,11 @@ function makeDeleteCommand(view: DerivedRelation): Command {
   return deleteClause;
 }
 
+/**
+ * Create AST for InsertClause
+ * e.g) insert into v2 select a + 1 as aPrime from v1;
+ * @param view
+ */
 function makeInsertCommand(view: DerivedRelation): Command {
   let insertClause: InsertionClause;
   insertClause = {
@@ -108,7 +140,7 @@ function makeInsertCommand(view: DerivedRelation): Command {
       compositeSelections: view.selection.compositeSelections
     } as RelationSelection
   };
-  return null;
+  return insertClause;
 }
 
 /**

@@ -12,11 +12,11 @@ import { TransformAstForMaterialization } from "../../compiler/passes/materializ
 export function testMaterialization() {
 
       const logger = GenerateUnitTestErrorLogger("assertBasicOperators", a1);
-      let ast = getDielAst(a1);
-      console.log(ast.relations[0]);
-      console.log(ast.programs.forEach(value => {
-            console.log(value[1]);
-      }));
+      // let ast = getDielAst(a1);
+      // console.log(ast);
+      // console.log(ast.programs.forEach(value => {
+      //       console.log(value[1]);
+      // }));
       let ast2 = getDielAst(q1);
       let transformedAST = TransformAstForMaterialization(ast2);
 }
@@ -28,14 +28,14 @@ create table t1 (a integer);
 create table t2 (a integer);
 create table t3 (a integer);
 create view v1 as select a + 1 as aPrime from t1 where a > 2;
-create output o1 as select aPrime from v1 join t2 where aPrime = a;
-create output o2 as select aPrime from v1 join t3 where aPrime = a;
+create output o1 as select aPrime from v1 join t2 on aPrime = a;
+create output o2 as select aPrime from v1 join t3 on aPrime = a;
 `;
 
 let a1 =
 `
 create table v1 (aPrime integer);
-create program after (t1)
+create program after (t1, t2)
 	begin
 		delete from v2;
 		insert into v2 select a + 1 as aPrime from v1;
@@ -51,8 +51,8 @@ create table t2 (a integer);
 create view v1 as select a + 1 as aPrime from t1 where a > 2;
 create view v2 as select a + 1 as aPrime from t1 where a > 2;
 
-create output o1 as select aPrime from v1 join v2 where aPrime = a;
-create output o2 as select aPrime from v2 join v1 where aPrime = a;
+create output o1 as select aPrime from v1 join v2 on aPrime = a;
+create output o2 as select aPrime from v2 join v1 on aPrime = a;
 `;
 
 // 3. only views that have more than 1 dependency. Materialize v2
@@ -66,8 +66,8 @@ create view v1 as select a + 1 as aPrime from t1 where a > 2;
 create view v2 as select a + 1 as aPrime from t2 where a > 2;
 create view v3 as select a + 1 as aPrime from t3 where a > 2;
 
-create output o1 as select aPrime from v1 join v2 where aPrime = a;
-create output o2 as select aPrime from v2 join v3 where aPrime = a;
+create output o1 as select aPrime from v1 join v2 on aPrime = a;
+create output o2 as select aPrime from v2 join v3 on aPrime = a;
 `;
 
 // 4. nested views. Materialize v2
@@ -83,17 +83,34 @@ create output o2 as select aPrime from v2 where aPrime = a;
 `;
 
 
-// 5. complex view query
+// 5. complex view query with Latest and constraints
 let q5 = `
 create table t1 (a integer);
 
-create view filtered as
+create view v1 as
 select count(*), arrival from LATEST t1
 where arrival > 10
 group by arrival
 order by count DESC
 limit 10
 constrain check (arrival > 10);
+
+create output o1 as select aPrime from v1 where aPrime = a;
+create output o2 as select aPrime from v1 where aPrime = a;
+
+`;
+
+
+// 6.  view join query
+let q6 =
+`
+create table t1 (a integer);
+create table t2 (a integer);
+create table t3 (a integer);
+
+create view v1 as
+select * from t1 JOIN t2 on t1.a = t2.a;
+
 
 create output o1 as select aPrime from v1 where aPrime = a;
 create output o2 as select aPrime from v1 where aPrime = a;
