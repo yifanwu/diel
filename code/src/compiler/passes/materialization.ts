@@ -7,42 +7,40 @@ import { getEventTableFromDerived} from "./distributeQueries";
 import { DielIr } from "../../lib";
 import { NormalizeColumnSelection } from "./normalizeColumnSelection";
 import { ConstraintClauseContext } from "../../parser/grammar/DIELParser";
+import { ExprColumnAst } from "../../parser/exprAstTypes";
 
 export function TransformAstForMaterialization(ast: DielAst) {
   const views = GetAllDerivedViews(ast);
   // console.log("\nderived views\n", views);
 
   const deps = GetDependenciesFromViewList(views);
-  // console.log("\ndependency\n", deps);
+  console.log("\ndependency\n", deps);
 
   // get topo order
   const topoOrder = getTopologicalOrder(deps);
-  // console.log("\ntopological order\n", topoOrder);
+  console.log("\ntopological order\n", topoOrder);
 
   function getRelationDef(rName: string) {
     return views.find(v => v.name === rName);
   }
   const toMaterialize = getRelationsToMateralize(deps, getRelationDef);
+  console.log("\nto materialize\n", toMaterialize);
   // now we need to figure out what EventTables toMaterialize depends on
   // this needs to recurse down the depTree.
   // order toMaterialize by topoOrder
-  // console.log(`\nTo materialize\n`, toMaterialize);
-
-
-  // TODO: materialization
-  // change the ASTs --> change view to table
-  // add programs (look at DielAstTypes for reference)
-
 
   // Get normalized Diel IR
   let ir = new DielIr(ast);
   NormalizeColumnSelection(ir);
 
-  // Get a list of original relations
+  // Get a list of original relations for faster lookup for insert clause
   let originalRelations = [] as string[];
   ir.GetOriginalRelations().forEach(value => {
     originalRelations.push(value.name);
   });
+  let numTables = originalRelations.length;
+
+  // console.log("AST!\n", ast);
 
   // Materialize by topological order
   let view: DerivedRelation;
@@ -50,24 +48,26 @@ export function TransformAstForMaterialization(ast: DielAst) {
     if (toMaterialize.indexOf(relation) !== -1) {
       view = getRelationDef(relation);
       changeASTMaterialize(view, ast, ir,
-              getOriginalRelationsDependedOn(view, deps, originalRelations));
+              getOriginalRelationsDependedOn(view, deps, originalRelations),
+              deps.get(view.name).isDependedBy,
+              numTables);
+      numTables += 1;
     }
   });
 }
 
 /**
  * Change the derived view ast into program ast in place
- * @param view
- * @param oldast
- * @param ir
  */
-function changeASTMaterialize(view: DerivedRelation, ast: DielAst, ir: DielIr, originalTables: Set<string>) {
+function changeASTMaterialize(view: DerivedRelation,
+  ast: DielAst, ir: DielIr, originalTables: Set<string>,
+  dependents: string[],
+  numTables: number) {
   // console.log(view);
 
   // 1. make a view into a table
   let table = getEventTableFromDerived(view);
   table.relationType = RelationType.Table;
-  table.copyFrom = undefined;
 
   // wouldn't view constraints be lost???
   table.constraints = {
@@ -79,6 +79,8 @@ function changeASTMaterialize(view: DerivedRelation, ast: DielAst, ir: DielIr, o
     exprChecks: [],
     foreignKeys: [],
   } as RelationConstraints;
+  table.copyFrom = undefined;
+
 
   console.log("\ntable!!!\n", table);
 
@@ -106,11 +108,44 @@ function changeASTMaterialize(view: DerivedRelation, ast: DielAst, ir: DielIr, o
   });
 
 
-  // 4. build the final ast. change in place with existing order of relations.
+  // 4. build the final ast. The order of relations sometimes changes
+  // since table -> view -> output order.
   let relationIndex = ast.relations.indexOf(view);
-  ast.relations[relationIndex] = table; 
+  ast.relations.splice(relationIndex, 1);
+  ast.relations.splice(numTables, 0, table);
+
+  // 5. delete derived column selection of the depended outputs and views!
+  deleteDependentsDerivedColumnSelection(ast, view.name, dependents, ir);
 
   console.log("\nFINAL!!!\n", ast);
+}
+
+/**
+ * Delete Derived Column Selection in the Dependent view or output ast,
+ * since they changed into tables
+ */
+function deleteDependentsDerivedColumnSelection(ast: DielAst, vname: string, dependents: string[], ir: DielIr) {
+  let dependent: DerivedRelation;
+  // 1. iterate through the dependent that this view is depended by
+  dependents.forEach(dname => {
+    // dependents have to be derived relation
+    dependent = ir.GetRelationDefinition(dname) as DerivedRelation;
+    dependent.selection.compositeSelections.forEach(sel => {
+      // 2. delete derived column selection
+      if (sel.relation.derivedColumnSelections) {
+        sel.relation.derivedColumnSelections.forEach((colsel, index) => {
+          let expr = colsel.expr as ExprColumnAst;
+          if (expr.relationName === vname) {
+            sel.relation.derivedColumnSelections.splice(index, 1);
+          }
+        });
+        // 3. remove the json entry completely
+        if (sel.relation.derivedColumnSelections.length <= 0) {
+          delete sel.relation["derivedColumnSelections"];
+        }
+      }
+    });
+  });
 }
 
 /**

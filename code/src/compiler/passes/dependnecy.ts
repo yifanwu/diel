@@ -172,12 +172,17 @@ export function getOriginalRelationsDependedOn(view: DerivedRelation, depTree: D
     let next: string;
     while (toVisit.length > 0) {
       next = toVisit.pop();
-      if (originalRelations.indexOf(next) !== -1 ) {
-        tables.add(next);
-        visited.push(next); // not necessary
-      } else if (toVisit.indexOf(next) === -1 && visited.indexOf(next) === -1) {
-        toVisit.push(next);
-      }
+      visited.push(next); // not necessary
+      let children = depTree.get(next).dependsOn;
+      children.forEach(child => {
+        if (originalRelations.indexOf(child) !== -1) {
+          tables.add(child);
+        }
+        else if (toVisit.indexOf(next) === -1 && visited.indexOf(next) === -1) {
+          toVisit.push(child);
+        }
+      });
+
     }
   }
   return tables;

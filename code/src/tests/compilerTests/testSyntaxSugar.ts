@@ -6,6 +6,7 @@ import {  getSelectionUnitAst, getVanillaSelectionUnitAst } from "../../compiler
 import { applyLatestToSelectionUnit, applyLatestToAst } from "../../compiler/passes/syntaxSugar";
 import {generateSqlFromDielAst, generateSelectionUnit} from "../../../src/compiler/codegen/codeGenSql";
 import { ConsoleErrorListener } from "antlr4ts";
+import { DielIr } from "../../lib";
 
 var jsonDiff = require("json-diff");
 
@@ -23,7 +24,7 @@ export function assertLatestSyntax() {
 
 }
 
-export function compareAST(q1: string, ast2: DielAst, logger: any, logdiff: boolean) {
+function compareAST(q1: string, ast2: DielAst, logger: any, logdiff: boolean) {
   let ast1 = getDielAst(q1);
   let pretty1 = JSON.stringify(ast1, null, 2);
   let pretty2 = JSON.stringify(ast2, null, 2);
