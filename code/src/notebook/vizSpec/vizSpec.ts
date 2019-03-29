@@ -195,7 +195,7 @@ export function generateVizSpecForSingleQuery(rt: DielRuntime, q: DerivedRelatio
         chartType: ChartType.BarChart,
         modifiedQuery: query_copy,
         xAxisColumn: columnName,
-        yAxisColumn: "quantity"
+        yAxisColumn: "quantity" 
       }
     } else {
       query_copy.allDerivedSelections[0] = {

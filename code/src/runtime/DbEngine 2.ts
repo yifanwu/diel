@@ -2,7 +2,7 @@ import { DbType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemote
 import { SqliteMasterQuery, RelationShippingFuncType, INIT_TIMESTEP } from "./DielRuntime";
 import { LogInternalError, ReportDielUserError, LogInternalWarning, DielInternalErrorType, LogInfo } from "../lib/messages";
 import { DbIdType, LogicalTimestep, RelationIdType, LocalDbId, DielPhysicalExecution } from "../compiler/DielPhysicalExecution";
-import { parseSqlJsWorkerResult } from "./runtimeHelper";
+import { ParseSqlJsWorkerResult } from "./runtimeHelper";
 import { IsSuperset, IsSetIdentical } from "../lib/dielUtils";
 import { ConnectionWrapper } from "./ConnectionWrapper";
 // import { WorkerMetaData, processSqliteMasterMetaData } from "./runtimeHelper";
