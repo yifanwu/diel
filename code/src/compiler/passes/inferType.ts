@@ -9,6 +9,7 @@ export function InferType(ir: DielIr) {
 
 // recurively invoked
 // FIXME: the optional is kinda weird
+//HELP: derivedcolumnsections is an optional
 export function inferTypeForSelection(r: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions) {
   r.derivedColumnSelections.map(cs => {
     if (!cs.expr) {

@@ -1,5 +1,4 @@
 import * as React from "react";
-
 import { diel } from "../../setup";
 import { DerivedRelation, RelationType, SetOperator, AstType } from "../../../parser/dielAstTypes";
 import { RelationObject } from "../../../runtime/runtimeTypes";

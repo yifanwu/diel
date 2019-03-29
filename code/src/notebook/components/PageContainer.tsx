@@ -6,6 +6,7 @@ import Flights from "./examples/Flights";
 import { DEMO_WITH_SOCKET, DEMO_WITH_WEBWORKER } from "../../compiler/config";
 import Fires from "./examples/Fires";
 import ExampleUndo from "./examples/ExampleUndo";
+import VizSpecDemo from "./examples/VizSpecDemo";
 
 
 export const PageContainer = () => {
@@ -24,7 +25,7 @@ export const PageContainer = () => {
   <Router>
     <div>
       <div>
-        The <Link to="counter">Counter</Link> example is the hello-world example.
+        The <Link to="counter">Counter</Link> example is the hello-world example. <Link to ="vizspecdemo">Viz Spec</Link>
       </div>
       <div className="nav-bar">
         &nbsp;
@@ -58,6 +59,7 @@ export const PageContainer = () => {
         <Switch>
           <Route exact path="/counter" component={Counter}/>
           <Route path="/undo" component={ExampleUndo}/>
+          <Route path="/vizspecdemo" component={VizSpecDemo}/>
           {(DEMO_WITH_WEBWORKER || DEMO_WITH_SOCKET)
             ? <>
                 <Route path="/flights" component={Flights} />

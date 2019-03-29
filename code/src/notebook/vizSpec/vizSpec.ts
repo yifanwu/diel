@@ -4,6 +4,7 @@ import { ChartType, RelationObject } from "../../runtime/runtimeTypes";
 import { ExprType, ExprFunAst, FunctionType } from "../../parser/exprAstTypes";
 import { generateSelectionUnit, generateSqlViews } from "../../compiler/codegen/codeGenSql";
 import { RelationQuery, SqlRelationType } from "../../compiler/codegen/createSqlIr";
+import * as d3ScaleChromatic from "d3-scale-chromatic";
 
 export interface VizLayout {
   chartHeight: number;
