@@ -76,6 +76,7 @@ export default class DielComponent<P> extends React.Component<P, DielComponentSt
       } else if (chartType === ChartType.Scatter) {
         return <Scatterplot
           spec={spec}
+          brushHandler={handlers ? handlers.selectionHandler : null}
         />;
       } else {
         LogInternalError(`Only supports barcharts and scatter plots for now`, DielInternalErrorType.NotImplemented);

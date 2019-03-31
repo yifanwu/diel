@@ -81,7 +81,7 @@ create template flightDistributionT(sourceRelation)
  select
     case when (z.maxDelay IS NULL)
     then
-      round(delay / 10) * 10
+      round(delay / 20) * 20
     else
       round(delay / (max(round((z.maxDelay - z.minDelay) / 10), 5))) * (max(round((z.maxDelay - z.minDelay) / 10), 5))
     end as delayBin,
@@ -122,6 +122,29 @@ create output flightDistribution AS
   select
     delayBin,
     count,
-    'flight'
+    'airport'
   from flightDistributionByAirportEvent
   where timestep = (select max(timestep) from flightDistributionByAirportEvent);
+
+-------
+
+CREATE EVENT TABLE zoomScatterItx(
+  minDelay INT, maxDelay INT, minDistance INT, maxDistance INT
+);
+
+create view currentZoomScaterItx AS
+select * from zoomScatterItx
+  where timestep = (select max(timestep) from zoomScatterItx);
+
+insert into __scales (component, dimension, outputName, x, y) values ('flights', 2, 'delayByDistance', 'delay', 'distance');
+CREATE OUTPUT delayByDistance AS
+  select * from delayByDistanceEvent
+  where timestep = (select max(timestep) from delayByDistanceEvent);
+
+CREATE EVENT VIEW delayByDistanceEvent AS
+  SELECT delay, distance
+  FROM flights JOIN currentZoomScaterItx z  ON
+    (delay < z.maxDelay AND delay > z.minDelay
+    AND distance < z.maxDistance AND distance > z.minDistance)
+    -- or (z.maxDelay IS NULL)
+  ORDER BY ORIGIN LIMIT 100;

@@ -83,7 +83,7 @@ export default class DielRuntime {
     this.cells = [];
     this.visitor = new Visitor();
     this.constraintQueries = new Map();
-    this.checkConstraints = true;
+    this.checkConstraints = false;
     this.dbEngines = new Map();
     this.runtimeOutputs = new Map();
     this.physicalMetaData = {

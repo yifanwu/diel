@@ -16,19 +16,18 @@ export default class DielCounter extends React.Component<{}, CounterState> {
     };
 
     diel.BindOutput("currentClick", this.setCountState.bind(this));
-    this.handleClick = this.handleClick.bind(this);
+    // this.handleClick = this.handleClick.bind(this);
   }
   setCountState(r: {count: number}[]) {
     this.setState({count: r[0].count});
   }
 
-  handleClick() {
-    diel.checkConstraints = !this.state.isToggleOn;
-    this.setState(prevState => ({
-      isToggleOn: !prevState.isToggleOn
-    }));
-
-  }
+  // handleClick() {
+  //   diel.checkConstraints = !this.state.isToggleOn;
+  //   this.setState(prevState => ({
+  //     isToggleOn: !prevState.isToggleOn
+  //   }));
+  // }
 
   render() {
     return <>
@@ -40,9 +39,9 @@ export default class DielCounter extends React.Component<{}, CounterState> {
         diel.NewInput("click", {delta: -1});
       }}>sub</button>
 
-      <button onClick={this.handleClick}>
+      {/* <button onClick={this.handleClick}>
         {this.state.isToggleOn ? "ON" : "OFF"}
-      </button>
+      </button> */}
     </>;
   }
 }

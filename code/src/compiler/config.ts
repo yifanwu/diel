@@ -1,7 +1,10 @@
 // if there are any errors, it will throw an exception
 export const STRICT = true;
 export const VERBOSE = true;
-export const DEBUG = true;
+export const DEBUG = false;
+if (!DEBUG) {
+  console.log = () => {};
+}
 
 // the following are demo configs
 export const DEMO_WITH_SOCKET = false;

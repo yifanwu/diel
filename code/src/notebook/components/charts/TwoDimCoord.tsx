@@ -40,13 +40,15 @@ export const TwoDimCoord: React.StatelessComponent<TwoDimCoordProps> = (p) => {
   const axisBottom = d3.axisBottom(x)
                       .ticks(3, "d");
   const axisLeft = d3.axisLeft(y)
-                    .ticks(10);
+                    .ticks(5);
 
   let brushDiv: JSX.Element = null;
   if (p.brushHandler) {
     const brush = d3.brush()
     .extent([[0, 0], [layout.chartWidth, layout.chartHeight]])
     .on("end", function() {
+      if (!d3.event.sourceEvent) return; // Only transition after input.
+      if (!d3.event.selection) return; // Ignore empty selections.
       // [[x0, y0], [x1, y1]],
       const s = d3.brushSelection(this) as [[number, number], [number, number]];
       if (s !== null) {
@@ -62,6 +64,7 @@ export const TwoDimCoord: React.StatelessComponent<TwoDimCoordProps> = (p) => {
           maxY
         });
       }
+      d3.select(this).call(brush.move, null);
     });
     brushDiv = <g ref={ g => d3.select(g).call(brush) }></g>;
   }

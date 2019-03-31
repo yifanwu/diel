@@ -15,7 +15,6 @@ CREATE TEMPLATE categoricalFilter(v)
     select selection from xBrushItx WHERE chart = '{v}'
   ) {v}Itx on instr({v}Itx.selection, flights.{v}) or ({v}Itx.selection IS NULL);
 
--- each chart will have outputs: dayChart.filtered, dayChart.unfiltered
 CREATE CROSSFILTER xFlights on flights
 BEGIN
   create xchart dayChart
@@ -31,3 +30,6 @@ BEGIN
     as use template categoricalChart(v='carrier')
     with predicate use template ordinalFilter(v='carrier');
 END;
+
+
+-- each chart will have outputs: dayChart.filtered, dayChart.unfiltered
