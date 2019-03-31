@@ -79,7 +79,7 @@ export const BarChart: React.StatelessComponent<BarChartProp> = (p) => {
   };
   // not sure why we need to subtract 1 but we do...
   let xAxis = d3.axisBottom(x).tickValues(data.map((_, i) => i)).tickFormat(xFormatter as any);
-  let yAxis = d3.axisLeft(y).ticks(Math.min(yDomain[1], 20)).tickSizeOuter(0);
+  let yAxis = d3.axisLeft(y).ticks(Math.min(yDomain[1], 5)).tickSizeOuter(0);
   let brushDiv = null;
   if (p.brushHandler) {
     const brush = d3.brushX()
@@ -101,7 +101,6 @@ export const BarChart: React.StatelessComponent<BarChartProp> = (p) => {
         };
         p.brushHandler(box);
       }
-      // FIXME: thing
       d3.select(this).call(brush.move, null);
     });
     brushDiv = <g ref={ g => d3.select(g).call(brush as any) }></g>;

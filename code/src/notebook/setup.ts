@@ -11,7 +11,7 @@ const flightWorkerDbPaths = DEMO_WITH_SMALL_WEBWORKER
 
 const workerDbPaths = [
     `${dbPathPrefix}fires.sqlite`,
-    `${dbPathPrefix}pitchfork.large.sqlite`,
+    // `${dbPathPrefix}pitchfork.large.sqlite`,
   ].concat(flightWorkerDbPaths);
 
 const dielPrefix = "./src/notebook/dielSpec/";
@@ -25,7 +25,7 @@ const dielFiles = [
     ? [
         `${dielPrefix}flights-remote.diel`,
         `${dielPrefix}fires-remote.diel`,
-        `${dielPrefix}pitchfork-remote.diel`
+        // `${dielPrefix}pitchfork-remote.diel`
       ]
     : []),
     ...(DEMO_WITH_SOCKET

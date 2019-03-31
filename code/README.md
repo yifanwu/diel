@@ -14,6 +14,6 @@ We present DIEL, a framework that achieves this cross-layer and transparent auto
 
 The run time version/notebook is at `npm run start`.  This is also hosted on the [DIEL project website](http://yifanwu.github.io/diel), but if you want to play around with the server instance, you should follow the instructions [here](#Using-a-Local-Database).  Then in `./src/compiler/config.ts`, change `DEMO_WITH_SOCKET` to true (currently set to false to run on the browser).  We currently just have the flights data setup to work with remotes---not some technical limitations, just hadn't had time to set up the bash scripts to get the other datasets ready yet!
 
-## Using a Local Database
+## Notes
 
-Go to `../server` (on the same level as the current directory), and follow the instructions of the readme.
+We are currently maintaining only the Web Worker version since the API is still in flux --- the architecure is mostly the same!  

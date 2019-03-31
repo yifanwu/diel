@@ -17,9 +17,8 @@ export default class Fires extends DielComponent<{}> {
   }
 
   render() {
-    const explainDiv = <>
-    
-    </>;
+    // const explainDiv = <>
+    // </>;
     const handler = (box: TwoDimSelection) => {
       diel.NewInput("panFireItx", {
         latMin: box.minY,
@@ -76,8 +75,13 @@ export default class Fires extends DielComponent<{}> {
         deselectHandler={deselectHandler}
       />;
     return <>
+      <h2>US WildFires</h2>
+      <p>
+        We sampled the data from <a href="https://www.kaggle.com/rtatman/188-million-us-wildfires/version/1#">a dataset on kaggle</a>
+      </p>
       {chartDiv}
       <br/>
+      <p>Brush on the following chart to control the view above.</p>
       {controlChartDiv}
     </>;
   }

@@ -13,7 +13,7 @@ create event table userGenreSelectionEvent (
   genre text
 );
 
-create view currentUserGenreSelection AS
+create output currentUserGenreSelection AS
   select * from userGenreSelectionEvent
   where timestep = (select max(timestep) from userGenreSelectionEvent);
 

@@ -4,8 +4,8 @@ body {
 
 #wrapper {
   display: grid;
-  grid-auto-rows: minmax(100px, auto);
-  grid-gap: 10px;
+  /* grid-auto-rows: minmax(100px, auto);
+  grid-gap: 10px; */
   padding: 10px;
   width: 1080px;
   margin-left: auto;

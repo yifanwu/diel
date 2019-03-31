@@ -5,6 +5,7 @@ import DielComponent from "../diel/DielComponent";
 import { diel } from "../../setup";
 
 enum ComponentRelations {
+  currentUserGenreSelection = "currentUserGenreSelection",
   pitchForkScoreDistribution = "pitchForkScoreDistribution",
   pitchForkYearDistribution = "pitchForkYearDistribution",
   allGenres = "allGenres"
@@ -32,12 +33,15 @@ export default class PitchFork extends DielComponent<{}> {
             </a>)
       : <p>loading...</p>;
 
-    const vis = <>
-      <p>A barchart of score distribution</p>
-        {scoreChart}
-      <p>A barchart of year distribution</p>
-        {yearChart}
-    </>;
+    const curGenre = this.state[ComponentRelations.currentUserGenreSelection];
+    const vis = (curGenre)
+      ? <>
+        <p>{curGenre} Score Distribution</p>
+          {scoreChart}
+        <p>{curGenre} Year Distribution</p>
+          {yearChart}
+      </>
+      : <p>Please select a genre to get started</p>;
 
    return <>
       <h2>This is a demo of Pitchfork review data</h2>

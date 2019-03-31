@@ -20,5 +20,6 @@ export const Scatterplot: React.StatelessComponent<ScatterplotProps> = (p) => {
   return <TwoDimCoord
     shapeGen={shapeGen}
     {...p}
+    brushHandler={p.brushHandler}
   />;
 };
