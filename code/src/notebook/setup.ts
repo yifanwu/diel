@@ -1,5 +1,5 @@
 import DielRuntime from "../runtime/DielRuntime";
-import { DEMO_WITH_SOCKET, DEMO_WITH_SMALL_WEBWORKER, DEMO_WITH_LARGE_WEBWORKER, DEMO_WITH_WEBWORKER } from "../compiler/config";
+import { DEMO_WITH_SOCKET, DEMO_WITH_SMALL_WEBWORKER, DEMO_WITH_LARGE_WEBWORKER, DEMO_WITH_WEBWORKER, PUBLISH } from "../compiler/config";
 
 const dbPathPrefix = "./UI-dist/data/";
 
@@ -14,7 +14,11 @@ const workerDbPaths = [
     // `${dbPathPrefix}pitchfork.large.sqlite`,
   ].concat(flightWorkerDbPaths);
 
-const dielPrefix = "./src/notebook/dielSpec/";
+// const dielPrefix = PUBLISH
+//   ? "./UI-dist/diel"
+//   : "./src/notebook/dielSpec/";
+
+const dielPrefix = "./UI-dist/diel/";
 
 const dielFiles = [
   // the following are local

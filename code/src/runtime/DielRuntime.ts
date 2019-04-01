@@ -19,10 +19,15 @@ import DbEngine from "./DbEngine";
 import { CreateDerivedSelectionSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
 
 import {viewConstraintCheck} from "../tests/compilerTests/generateViewConstraints";
+import { PUBLISH } from "../compiler/config";
 
 // hm watch out for import path
 //  also sort of like an odd location...
-const StaticSqlFile = "./src/compiler/codegen/static.sql";
+// const StaticSqlFile = PUBLISH
+//   ? "./UI-dist/diel/static.sql"
+//   : "./src/compiler/codegen/static.sql";
+
+const StaticSqlFile = "./UI-dist/diel/static.sql";
 export const INIT_TIMESTEP = 1;
 
 export const SqliteMasterQuery = `

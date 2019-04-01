@@ -1,8 +1,9 @@
 // if there are any errors, it will throw an exception
 export const STRICT = true;
 export const VERBOSE = true;
+export const PUBLISH = true;
 export const DEBUG = false;
-if (!DEBUG) {
+if (PUBLISH) {
   console.log = () => {};
 }
 
