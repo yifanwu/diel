@@ -1,3 +1,0 @@
-# DIEL Architecture
-
-Coming soon!
