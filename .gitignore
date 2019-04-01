@@ -19,6 +19,7 @@ DIELParser$*
 code/src/tests/T.g4
 *.js.map
 *.js
+*.d.ts
 *.old
 *.csv
 *.txt
