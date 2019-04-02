@@ -1,7 +1,9 @@
-import { DielIr } from "./compiler/DielIr";
-import * as dielAstTypes from "./parser/dielAstTypes";
+import DielRuntime from "./runtime/DielRuntime";
+import { WorkerConfig, SocketConfig } from "./runtime/DbEngine";
 
 export {
-  DielIr,
-  dielAstTypes,
+  DielRuntime,
+  // the following are types that need to be exposed
+  WorkerConfig,
+  SocketConfig
 };

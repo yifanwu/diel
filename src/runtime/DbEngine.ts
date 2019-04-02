@@ -20,7 +20,21 @@ async function connectToSocket(url: string): Promise<WebSocket> {
   });
 }
 
-const WebWorkerSqlPath = "./UI-dist/worker.sql.js";
+interface DbSetupConfigBase {
+  dbType: DbType;
+}
+
+export interface SocketConfig extends DbSetupConfigBase {
+  connection: string;
+  message?: any; // JSON string to send to the server for setup
+}
+
+export interface WorkerConfig extends DbSetupConfigBase {
+  jsFile: string;
+  dataFile: string;
+}
+
+export type DbSetupConfig = SocketConfig | WorkerConfig;
 
 export type NodeDependency = Map<string, Set<string>>;
 
@@ -76,41 +90,52 @@ export default class DbEngine {
   //   this.getBubbledUpRelationToShip = getBubbledUpRelationToShip;
   // }
 
-  async setup(connectionString: string, dbName?: string) {
-    if (this.remoteType === DbType.Worker) {
-      const newConnection = new Worker(WebWorkerSqlPath);
-      this.connection = new ConnectionWrapper(newConnection, this.remoteType);
-      // note that this must be set before the await is called, otherwise we get into a dealock!
-      // same code for socket for below as well
-      this.connection.setHandler(this.getHandleMsgForRemote());
-      const response = await fetch(connectionString);
-      const bufferRaw = await response.arrayBuffer();
-      const buffer = new Uint8Array(bufferRaw);
-      // we should block because if it's not ack-ed the rest of the messages cannot be processed properly
-      await this.SendMsg({
-        remoteAction: DielRemoteAction.ConnectToDb,
-        lineage: INIT_TIMESTEP,
-        buffer,
-      }, true);
-    } else if (this.remoteType === DbType.Socket) {
-      try {
-        const socket = await connectToSocket(connectionString);
-        this.connection = new ConnectionWrapper(socket, this.remoteType);
-        this.connection.setHandler(this.getHandleMsgForRemote());
-        if (dbName) {
-          await this.SendMsg({
-            remoteAction: DielRemoteAction.ConnectToDb,
-            lineage: INIT_TIMESTEP,
-            dbName
-          }, true);
+  async setup(configUnion: DbSetupConfig) {
+    switch (this.remoteType) {
+      case DbType.Worker:
+        const configWorker = configUnion as WorkerConfig;
+        let newConnection;
+        try {
+          newConnection = new Worker(configWorker.jsFile);
+        } catch (e) {
+          ReportDielUserError(`Web Worker JS File is missing at this path ${configWorker.jsFile}, with error: ${e}.`);
         }
-      } catch (e) {
-        ReportDielUserError(`Socket ${connectionString} had error: ${e}.`);
-      }
-    } else if (this.remoteType === DbType.Local) {
-      LogInternalError(`Should not use DbEngine wrapper for local`);
-    } else {
-      LogInternalError(`handle different connections`, DielInternalErrorType.UnionTypeNotAllHandled);
+        this.connection = new ConnectionWrapper(newConnection, this.remoteType);
+        // note that this must be set before the await is called, otherwise we get into a dealock!
+        // same code for socket for below as well
+        this.connection.setHandler(this.getHandleMsgForRemote());
+        const response = await fetch(configWorker.dataFile);
+        const bufferRaw = await response.arrayBuffer();
+        const buffer = new Uint8Array(bufferRaw);
+        // we should block because if it's not ack-ed the rest of the messages cannot be processed properly
+        await this.SendMsg({
+          remoteAction: DielRemoteAction.ConnectToDb,
+          lineage: INIT_TIMESTEP,
+          buffer,
+        }, true);
+        break;
+      case DbType.Socket:
+        const configSocket = configUnion as SocketConfig;
+        try {
+          const socket = await connectToSocket(configSocket.connection);
+          this.connection = new ConnectionWrapper(socket, this.remoteType);
+          this.connection.setHandler(this.getHandleMsgForRemote());
+          if (configSocket.message) {
+            await this.SendMsg({
+              remoteAction: DielRemoteAction.ConnectToDb,
+              lineage: INIT_TIMESTEP,
+              message: configSocket.message
+            }, true);
+          }
+        } catch (e) {
+          ReportDielUserError(`Failed to connect to socket at ${configSocket.connection}, with error: ${e}.`);
+        }
+        break;
+      case DbType.Local:
+        LogInternalError(`Should not use DbEngine wrapper for local`);
+        break;
+      default:
+        LogInternalError(`handle different connections`, DielInternalErrorType.UnionTypeNotAllHandled);
     }
   }
 
@@ -184,9 +209,9 @@ export default class DbEngine {
           };
           return this.connection.send(id, msgToSend, isPromise);
         } else {
-          const dbName = opMsg.dbName;
+          const message = opMsg.message;
           const msgToSend = {
-            dbName
+            message
           };
           return this.connection.send(id, msgToSend, isPromise);
         }

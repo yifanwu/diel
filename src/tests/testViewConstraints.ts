@@ -1,16 +1,46 @@
 import { generateViewConstraintCheckQuery } from "./compilerTests/generateViewConstraints";
-import {not_null1, not_null2} from "./compilerTests/constraintQueryInput/null_constraint_input";
-import {check1, check2, check3} from "./compilerTests/constraintQueryInput/check_constraint_input";
-import {unique1, unique2} from "./compilerTests/constraintQueryInput/unique_constraint_input";
 import { GenerateUnitTestErrorLogger } from "../util/messages";
 
+const notNullOne = `
+  create view filtered_view as select a1, a2 from t1 where a1 > 10
+  constrain a1 NOT NULL;
+`;
+const notNullTwo = `
+  create view filtered_view as select a1, a2 from t1 where a1 > 10
+  constrain a1 NOT NULL, a2 NOT NULL;
+`;
 
-const toTest = [not_null1, not_null2, check1, check2, check3, unique1, unique2];
+const check1 = `
+  create view filtered_view as select a1, a2 from t1 where a1 < 10
+  constrain CHECK (a1 < 5);
+`;
+
+const check2 = `
+  create view filtered_view as select a1, a2 from t1 where a1 < 10
+  constrain CHECK (a1 < 5), CHECK (a2 < 10);
+`;
+
+const check3 = `
+  create view filtered_view as select a1, a2 from t1 where a1 < 10
+  constrain CHECK (a1 < 5 and a2 < 10);
+`;
+
+const unique1 = `
+  create view filtered_view as select a1, a2, a3 from t1 where a1 < 10
+  constrain UNIQUE (a1, a2);
+`;
+
+const unique2 = `
+  create view filtered_view as select a1, a2, a3 from t1 where a1 < 10
+  constrain UNIQUE (a1, a2), UNIQUE (a3);
+`;
+
+const toTest = [notNullOne, notNullTwo, check1, check2, check3, unique1, unique2];
 function assertCheckViewConstraintTest() {
     toTest.forEach(element => {
+        // @LUCIE: FIXME: right now it just prints and does not actually assert
         const logger = GenerateUnitTestErrorLogger("assertCheckViewConstraintTest", element);
         let viewqueries = generateViewConstraintCheckQuery(element);
-        let i, j, q;
         viewqueries.forEach(function(values, key) {
             console.log("View: " + key);
             values.forEach(function(ls) {

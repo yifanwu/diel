@@ -1,11 +1,12 @@
 import { DbIdType, RelationIdType, LogicalTimestep } from "../compiler/DielPhysicalExecution";
+import { WorkerConfig, SocketConfig } from "./DbEngine";
 
 export interface DielConfig {
   dielFiles: string[];
   setupCb: () => void;
   mainDbPath?: string;
-  workerDbPaths?: string[];
-  socketConnections?: {url: string, dbName: string}[];
+  workerConfigs?: WorkerConfig[];
+  socketConfigs?: SocketConfig[];
 }
 
 export type GetRelationToShipFuncType = (dbId: DbIdType, relation: string, step: LogicalTimestep) => Set<string>;
@@ -59,7 +60,7 @@ export interface RemoteShipRelationMessage extends DielRemoteMessageBase {
 }
 
 export interface RemoteOpenDbMessage extends DielRemoteMessageBase {
-  dbName?: string;     // for socket
+  message?: string;     // for socket
   buffer?: Uint8Array; // for worker
 }
 
