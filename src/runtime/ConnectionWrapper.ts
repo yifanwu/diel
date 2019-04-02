@@ -4,7 +4,7 @@ import { ParseSqlJsWorkerResult } from "./runtimeHelper";
 import { downloadHelper } from "../util/dielUtils";
 import { LogInfo, LogInternalError } from "../util/messages";
 
-type FinalMsgType = {buffer: any} | {sql: string} | {dbName: string};
+type FinalMsgType = {buffer: any} | {sql: string} | {message: string};
 
 // Things that need to be passed back!
 type FinalIdType = {

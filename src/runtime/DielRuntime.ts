@@ -352,44 +352,33 @@ export default class DielRuntime {
   async setupRemotes() {
     const inputCallback = this.NewInputMany.bind(this);
     let counter = LocalDbId;
-    const workerWaiting = this.config.workerDbPaths
-      ? this.config.workerDbPaths.map(path => {
+    const workerWaiting = this.config.workerConfigs
+      ? this.config.workerConfigs.map(config => {
         counter++;
         const remote = new DbEngine(DbType.Worker, counter, inputCallback);
         this.dbEngines.set(counter, remote);
-        return remote.setup(path);
+        return remote.setup(config);
       })
       : [];
-    const socketWaiting = this.config.socketConnections
-      ? this.config.socketConnections.map(socket => {
+    const socketWaiting = this.config.socketConfigs
+      ? this.config.socketConfigs.map(config => {
         counter++;
         const remote = new DbEngine(DbType.Socket, counter, inputCallback);
         this.dbEngines.set(counter, remote);
-        return remote.setup(socket.url, socket.dbName);
+        return remote.setup(config);
       })
       : [];
     await Promise.all(workerWaiting.concat(socketWaiting));
     return;
   }
 
-  // private updateRemotesBasedOnPhysicalExecution() {
-  //   this.dbEngines.forEach((db) => {
-  //     const getRelationDependencies = this.physicalExecution.getRelationDependenciesForDb(db.id);
-  //     const getRelationsToShip = this.physicalExecution.getRelationsToShipForDb.bind(this);
-  //     const getBubbledUpRelationToShip = this.physicalExecution.getBubbledUpRelationToShip.bind(this);
-  //     db.setupByPhysicalExecution(getRelationDependencies, getRelationsToShip, getBubbledUpRelationToShip);
-  //   });
-  // }
-
   private setupUDFs() {
     this.db.create_function("log", log);
-    // this.db.create_function("tick", this.tick());
-    // this.db.create_function("shipWorkerInput", this.shipWorkerInput.bind(this));
   }
 
   /**
-   * Note for Ryan
-   * add caching logic here
+   * Note for RYAN
+   * caching logic here
    * - get all cacheable outputs dependent on this input
    * - for each cacheable output
    *   - check if its depenent state is the same
@@ -431,24 +420,9 @@ export default class DielRuntime {
         this.dbEngines.get(t.destination).SendMsg(updateMsg);
       });
     }
-    // if (remotesToShipTo.destinationDbIds && remotesToShipTo.destinationDbIds.length > 0) {
-    //   remotesToShipTo.destinationDbIds.forEach((remoteId => {
-    //     const remote = this.findRemoteDbEngine(remoteId);
-    //     if (remote) {
-    //       const msg: RemoteUpdateRelationMessage = {
-    //         remoteAction: DielRemoteAction.UpdateRelation,
-    //         relationName: inputName,
-    //         lineage: timestep,
-    //         sql,
-    //       };
-    //       remote.SendMsg(msg);
-    //     }
-    //   }));
-    // }
   }
 
   private findRemoteDbEngine(remoteId: DbIdType) {
-    // some increment logic...
     const r = this.dbEngines.get(remoteId);
     if (!r) {
       LogInternalError(`Remote ${remoteId} not found`);
@@ -510,12 +484,10 @@ export default class DielRuntime {
     return r;
   }
 
-  // takes in teh SqlIrs in different environments and sticks them into the databases
+  // takes in the SqlIrs in different environments and sticks them into the databases
   // FIXME: better async handling
-  // also should fix the async logic
   async executeToDBs() {
     LogTmp(`Executing queries to db`);
-    // const mainSqlQUeries = generateSqlFromDielAst(this.physicalExecution.getLocalDbAst());
     // now execute to worker!
     const promises: Promise<any>[] = [];
     this.physicalExecution.astSpecPerDb.forEach((ast, id) => {
@@ -554,16 +526,6 @@ export default class DielRuntime {
     return;
   }
 
-  // ------------------------ for notebook related -----------------------------
-  ChangeQuery() {
-    throw new Error(`not implemnted`);
-    // const q = this.getQueryById(qId);
-    // q.versions.push(query);
-    // q.currentVersionIdx += 1;
-    // bookkeeping the views?
-    // refresh the annotation
-  }
-
   public GetScales(output: string, component?: string) {
     let result;
     if (component) {
@@ -577,6 +539,7 @@ export default class DielRuntime {
     }
     return result;
   }
+
   /**
    * AddView will take in a derived relation (the view)
    * FIXME/TODO:

@@ -4,7 +4,7 @@ import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateAst";
 import { CompileDiel } from "./DielCompiler";
 import { LogInfo } from "../util/messages";
-import { DielIr } from "..";
+import { DielIr } from "./DielIr";
 
 export function parse(code: string) {
   const inputStream = new ANTLRInputStream(code);
