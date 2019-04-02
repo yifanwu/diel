@@ -4,12 +4,12 @@ import { assertSimpleType, assertMultiplyType } from "./compilerTests/assertType
 import { testTopologicalSort, testDistributionLogc } from "./unitTest";
 import { assertBasicNormalizationOfRelation } from "./compilerTests/assertNormalization";
 import { assertBasicOperators } from "./parserTests/basicOperatorsTest";
-import { codeGenBasicSQLTest } from "./codeGenTests/sqlTest";
 import { assertAllStar } from "./compilerTests/testStarExpantion";
 import { assertBasicConstraints } from "./parserTests/constraintsTest";
-import { getDielIr } from "../compiler/compiler";
 import { assertFunctionParsing } from "./parserTests/functionTest";
 import { assertLatestSyntax } from "./compilerTests/testSyntaxSugar";
+import { codeGenBasicSQLTest } from "./sqlCodeGenTest";
+import { getDielIr } from "../src/compiler/compiler";
 
 // TODO: refactor tests to share more compiling and save some time...
 

@@ -1,4 +1,4 @@
-import { ExprAst, ExprType, ExprFunAst, ExprColumnAst, ExprValAst } from "../parser/exprAstTypes";
+import { ExprAst, ExprType, ExprFunAst, ExprColumnAst, ExprValAst } from "../src/parser/exprAstTypes";
 
 // assert expression is a function
 export function assertExprAsFunctionWithName(e: ExprAst, fName: string) {

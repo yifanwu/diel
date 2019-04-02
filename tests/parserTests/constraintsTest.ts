@@ -1,7 +1,7 @@
-import { getDielIr } from "../../compiler/compiler";
-import { GenerateUnitTestErrorLogger } from "../../util/messages";
-import { ExprFunAst, ExprType, ExprParen } from "../../parser/exprAstTypes";
-import { OriginalRelation } from "../../parser/dielAstTypes";
+import { getDielIr } from "../../src/compiler/compiler";
+import { GenerateUnitTestErrorLogger } from "../../src/util/messages";
+import { ExprFunAst, ExprType, ExprParen } from "../../src/parser/exprAstTypes";
+import { OriginalRelation } from "../../src/parser/dielAstTypes";
 
 export function assertBasicConstraints() {
   const q = `

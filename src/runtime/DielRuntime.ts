@@ -17,10 +17,13 @@ import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, Par
 import { DielPhysicalExecution, DbIdType, LocalDbId, LogicalTimestep, RelationIdType } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
 import { CreateDerivedSelectionSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
+import { viewConstraintCheck } from "../compiler/passes/generateViewConstraints";
+import { StaticSql } from "../compiler/codegen/staticSql";
 
-import { viewConstraintCheck } from "../tests/compilerTests/generateViewConstraints";
+// ugly global mutable pattern here...
+export let STRICT = false;
+export let LOGINFO = false;
 
-const StaticSqlFile = "./src/compiler/codegen/static.sql";
 export const INIT_TIMESTEP = 1;
 
 export const SqliteMasterQuery = `
@@ -74,6 +77,9 @@ export default class DielRuntime {
 
   constructor(config: DielConfig) {
     (<any>window).diel = this; // for debugging
+    // mutate global for logging
+    STRICT = config.isStrict ? config.isStrict : false;
+    LOGINFO = config.showLog ? config.showLog : false;
     this.timestep = INIT_TIMESTEP;
     this.config = config;
     this.eventByTimestep = new Map();
@@ -324,7 +330,7 @@ export default class DielRuntime {
     });
 
     // get the static ones
-    code += await (await fetch(StaticSqlFile)).text();
+    code += StaticSql;
     for (let i = 0; i < this.config.dielFiles.length; i ++) {
       const f = this.config.dielFiles[i];
       code += await (await fetch(f)).text();
@@ -352,23 +358,31 @@ export default class DielRuntime {
   async setupRemotes() {
     const inputCallback = this.NewInputMany.bind(this);
     let counter = LocalDbId;
-    const workerWaiting = this.config.workerConfigs
-      ? this.config.workerConfigs.map(config => {
+    const dbWaiting = this.config.dbConfigs
+      ? this.config.dbConfigs.map(config => {
         counter++;
-        const remote = new DbEngine(DbType.Worker, counter, inputCallback);
+        const remote = new DbEngine(config.dbType, counter, inputCallback);
         this.dbEngines.set(counter, remote);
         return remote.setup(config);
       })
       : [];
-    const socketWaiting = this.config.socketConfigs
-      ? this.config.socketConfigs.map(config => {
-        counter++;
-        const remote = new DbEngine(DbType.Socket, counter, inputCallback);
-        this.dbEngines.set(counter, remote);
-        return remote.setup(config);
-      })
-      : [];
-    await Promise.all(workerWaiting.concat(socketWaiting));
+    // const workerWaiting = this.config.workerConfigs
+    //   ? this.config.workerConfigs.map(config => {
+    //     counter++;
+    //     const remote = new DbEngine(DbType.Worker, counter, inputCallback);
+    //     this.dbEngines.set(counter, remote);
+    //     return remote.setup(config);
+    //   })
+    //   : [];
+    // const socketWaiting = this.config.socketConfigs
+    //   ? this.config.socketConfigs.map(config => {
+    //     counter++;
+    //     const remote = new DbEngine(DbType.Socket, counter, inputCallback);
+    //     this.dbEngines.set(counter, remote);
+    //     return remote.setup(config);
+    //   })
+    //   : [];
+    await Promise.all(dbWaiting);
     return;
   }
 

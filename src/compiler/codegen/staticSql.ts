@@ -1,6 +1,6 @@
--- this file contains the static parts of DIEL queries
+// this file contains the static parts of DIEL queries
 
--- __ are internal tables that developers can access?
+export const StaticSql = `
 create table __scales (
   component text not null,
   dimension integer not null,
@@ -10,7 +10,6 @@ create table __scales (
   z text
 );
 
-
 create table allInputs (
   timestep integer primary key,
   -- DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))
@@ -19,3 +18,4 @@ create table allInputs (
   inputRelation text not null,
   lineage integer
 );
+`;

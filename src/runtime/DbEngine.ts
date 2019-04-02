@@ -4,7 +4,6 @@ import { LogInternalError, ReportDielUserError, LogInternalWarning, DielInternal
 import { DbIdType, LogicalTimestep, RelationIdType, LocalDbId, DielPhysicalExecution } from "../compiler/DielPhysicalExecution";
 import { IsSetIdentical } from "../util/dielUtils";
 import { ConnectionWrapper } from "./ConnectionWrapper";
-import { PUBLISH } from "../compiler/config";
 
 async function connectToSocket(url: string): Promise<WebSocket> {
   return new Promise<WebSocket>(function(resolve, reject) {
@@ -39,56 +38,36 @@ export type DbSetupConfig = SocketConfig | WorkerConfig;
 export type NodeDependency = Map<string, Set<string>>;
 
 export default class DbEngine {
-  totalMsgCount: number; // for debugging
-  // the queue is complete if all the shipment is sent
+  // for debugging
+  totalMsgCount: number;
+  msgCountTimeStamp: number;
+  // for execution
   currentQueueHead: LogicalTimestep;
   physicalExeuctionRef: DielPhysicalExecution;
   queueMap: Map<LogicalTimestep, {
     deps: Set<RelationIdType>;
     received: Set<RelationIdType>;
     receivedValues: RemoteUpdateRelationMessage[];
-    // I might have more than one views, each need their dependency
     relationsToShip: Map<RelationIdType, Set<DbIdType>>;
-    // relationsToShipDestinations: Map<RelationIdType, Set<DbIdType>>;
-    // shipped: Set<RelationIdType>;
   }>;
+  // meta data
   remoteType: DbType;
   id: DbIdType;
-  // maps input to anothe map where we look at the relations
-  // cachedRelationDependencies: Map<RelationIdType, RelationDependency>;
-  // getRelationsToShipAfterUpdate: GetRelationToShipFuncType;
   relationShippingCallback: RelationShippingFuncType;
+
   connection: ConnectionWrapper;
-  // set up later
-  // getRelationDependencies: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<RelationIdType>>;
-  // getRelationDestinations: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<DbIdType>>;
-  // getBubbledUpRelationToShip: (dbId: DbIdType, relation: RelationIdType) => {destination: DbIdType, relation: RelationIdType}[];
-  // for sockets, it will look like 'ws://localhost:8999'
-  // and for workers, it will look like a file path to the db.
+
   constructor(remoteType: DbType,
               remoteId: number,
               relationShippingCallback: RelationShippingFuncType,
-          ) {
+  ) {
     this.remoteType = remoteType;
     this.id = remoteId;
     this.totalMsgCount = 0;
+    this.msgCountTimeStamp = Date.now();
     this.queueMap = new Map();
     this.relationShippingCallback = relationShippingCallback;
   }
-
-  setPhysicalExecutionReference(physicalExeuctionRef: DielPhysicalExecution) {
-    this.physicalExeuctionRef = physicalExeuctionRef;
-  }
-
-  // setupByPhysicalExecution(
-  //   getRelationDependencies: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<RelationIdType>>,
-  //   getRelationDestinations: (id: DbIdType, lineage: LogicalTimestep) => Map<RelationIdType, Set<DbIdType>>,
-  //   getBubbledUpRelationToShip: (dbId: DbIdType, relation: RelationIdType) => {destination: DbIdType, relation: RelationIdType}[]
-  // ) {
-  //   this.getRelationDestinations = getRelationDestinations;
-  //   this.getRelationDependencies = getRelationDependencies;
-  //   this.getBubbledUpRelationToShip = getBubbledUpRelationToShip;
-  // }
 
   async setup(configUnion: DbSetupConfig) {
     switch (this.remoteType) {
@@ -192,9 +171,7 @@ export default class DbEngine {
   public SendMsg(msg: DielRemoteMessage, isPromise = false): Promise<DielRemoteReply> | null {
     console.log("sending message", msg);
     this.totalMsgCount++;
-    if ((!PUBLISH) && (this.totalMsgCount > 100)) {
-      LogInternalError(`Too many messages`);
-    }
+    this.sanityCheck();
     const id = {
       remoteAction: msg.remoteAction,
       lineage: msg.lineage,
@@ -333,6 +310,23 @@ export default class DbEngine {
       }
     };
     return handleMsg;
+  }
+
+  // hack to prevent loops in messaging logic
+  private sanityCheck() {
+    // if we send 100 messages within 1 second, probably some loop going on...
+    if (this.totalMsgCount > 100) {
+      if (this.msgCountTimeStamp - Date.now() < 1000) {
+        LogInternalError(`Too many messages`);
+      } else {
+        this.totalMsgCount = 0;
+        this.msgCountTimeStamp = Date.now();
+      }
+    }
+  }
+
+  setPhysicalExecutionReference(physicalExeuctionRef: DielPhysicalExecution) {
+    this.physicalExeuctionRef = physicalExeuctionRef;
   }
 
   public downloadDb() {

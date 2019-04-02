@@ -1,6 +1,6 @@
-import { getDielIr } from "../../compiler/compiler";
-import { GenerateUnitTestErrorLogger, LogInfo } from "../../util/messages";
-import { DataType } from "../../parser/dielAstTypes";
+import { getDielIr } from "../../src/compiler/compiler";
+import { GenerateUnitTestErrorLogger, LogInfo } from "../../src/util/messages";
+import { DataType } from "../../src/parser/dielAstTypes";
 
 export function assertMultiplyType() {
   const q = `

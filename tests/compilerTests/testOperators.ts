@@ -1,3 +1,4 @@
+// TODO
 const logicalComposition = `
 create view vComp as SELECT a, b from t where (a > 2 and b >2) or (a < 1 and b < 1);`;
 
