@@ -1,7 +1,7 @@
- import { getDielIr } from "../../compiler/compiler";
-import { GenerateUnitTestErrorLogger, LogInfo } from "../../util/messages";
-import { ExprColumnAst } from "../../parser/exprAstTypes";
-import { DataType, DerivedRelation } from "../../parser/dielAstTypes";
+import { getDielIr } from "../../src/compiler/compiler";
+import { GenerateUnitTestErrorLogger, LogInfo } from "../../src/util/messages";
+import { ExprColumnAst } from "../../src/parser/exprAstTypes";
+import { DataType, DerivedRelation } from "../../src/parser/dielAstTypes";
 
 export function assertAllStar() {
   function assertColumns(viewName: string, selections: {columnName: string, relationName: string, dataType: DataType}[]) {

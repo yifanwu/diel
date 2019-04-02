@@ -1,7 +1,7 @@
-import { GenerateUnitTestErrorLogger } from "../../util/messages";
-import { ExprColumnAst } from "../../parser/exprAstTypes";
-import { DerivedRelation } from "../../parser/dielAstTypes";
-import { DielIr } from "../../compiler/DielIr";
+import { GenerateUnitTestErrorLogger } from "../../src/util/messages";
+import { ExprColumnAst } from "../../src/parser/exprAstTypes";
+import { DerivedRelation } from "../../src/parser/dielAstTypes";
+import { DielIr } from "../../src/compiler/DielIr";
 
 export function assertBasicNormalizationOfRelation(ir: DielIr, q: string) {
   const logger = GenerateUnitTestErrorLogger("assertBasicNormalizationOfRelation", q);

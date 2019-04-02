@@ -1,8 +1,8 @@
-import { GenerateUnitTestErrorLogger } from "../../util/messages";
-import { getDielAst } from "../../compiler/compiler";
-import { DielAst } from "../../parser/dielAstTypes";
-import { applyLatestToAst } from "../../compiler/passes/syntaxSugar";
-import {generateSqlFromDielAst} from "../../../src/compiler/codegen/codeGenSql";
+import { GenerateUnitTestErrorLogger } from "../../src/util/messages";
+import { getDielAst } from "../../src/compiler/compiler";
+import { DielAst } from "../../src/parser/dielAstTypes";
+import { applyLatestToAst } from "../../src/compiler/passes/syntaxSugar";
+import { generateSqlFromDielAst } from "../../src/compiler/codegen/codeGenSql";
 
 let jsonDiff = require("json-diff");
 

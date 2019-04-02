@@ -20,5 +20,4 @@ src/parser/grammar/*.ts
 *.txt
 *.db
 *.html
-*.json
 *.scrap

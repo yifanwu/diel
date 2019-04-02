@@ -1,5 +1,4 @@
-import { generateViewConstraintCheckQuery } from "./compilerTests/generateViewConstraints";
-import { GenerateUnitTestErrorLogger } from "../util/messages";
+import { generateViewConstraintCheckQuery } from "../../src/compiler/passes/generateViewConstraints";
 
 const notNullOne = `
   create view filtered_view as select a1, a2 from t1 where a1 > 10
@@ -39,7 +38,7 @@ const toTest = [notNullOne, notNullTwo, check1, check2, check3, unique1, unique2
 function assertCheckViewConstraintTest() {
     toTest.forEach(element => {
         // @LUCIE: FIXME: right now it just prints and does not actually assert
-        const logger = GenerateUnitTestErrorLogger("assertCheckViewConstraintTest", element);
+        // const logger = GenerateUnitTestErrorLogger("assertCheckViewConstraintTest", element);
         let viewqueries = generateViewConstraintCheckQuery(element);
         viewqueries.forEach(function(values, key) {
             console.log("View: " + key);

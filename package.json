@@ -1,0 +1,50 @@
+{
+  "name": "diel",
+  "version": "1.0.3",
+  "description": "data interaction events log is a new SQL embeded DSL for managing the state of history-aware interactive applications",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "files": [
+    "build/index.d.ts",
+    "build/index.ts",
+    "build/compiler/*",
+    "build/parser/*",
+    "build/runtime/*",
+    "build/util/*"
+  ],
+  "scripts": {
+    "build": "tsc -b src/",
+    "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
+    "test": "ts-node --no-cache src/tests/test.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yifanwu/diel.git"
+  },
+  "keywords": [
+    "interaction",
+    "history",
+    "sql"
+  ],
+  "author": "yifan wu",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/yifanwu/diel/issues"
+  },
+  "homepage": "https://github.com/yifanwu/diel#readme",
+  "devDependencies": {
+    "antlr4ts-cli": "^0.4.0-alpha.4",
+    "ts-node": "^7.0.1",
+    "typescript": "^3.0.3",
+    "tslint": "^5.11.0",
+    "source-map-loader": "^0.2.3",
+    "tslint-loader": "^3.5.3",
+    "awesome-typescript-loader": "^3.4.1",
+    "typescript-formatter": "^7.2.2"
+  },
+  "dependencies": {
+    "@types/sql.js": "0.0.29",
+    "antlr4ts": "^0.4.1-alpha.0",
+    "sql.js": "^0.5.0"
+  }
+}

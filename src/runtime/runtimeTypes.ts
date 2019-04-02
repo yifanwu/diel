@@ -1,12 +1,13 @@
 import { DbIdType, RelationIdType, LogicalTimestep } from "../compiler/DielPhysicalExecution";
-import { WorkerConfig, SocketConfig } from "./DbEngine";
+import { DbSetupConfig } from "./DbEngine";
 
 export interface DielConfig {
   dielFiles: string[];
   setupCb: () => void;
+  showLog?: boolean;
+  isStrict?: boolean;
   mainDbPath?: string;
-  workerConfigs?: WorkerConfig[];
-  socketConfigs?: SocketConfig[];
+  dbConfigs?: DbSetupConfig[];
 }
 
 export type GetRelationToShipFuncType = (dbId: DbIdType, relation: string, step: LogicalTimestep) => Set<string>;

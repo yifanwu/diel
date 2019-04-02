@@ -1,4 +1,4 @@
-import { STRICT, DEBUG } from "../compiler/config";
+import { STRICT } from "../runtime/DielRuntime";
 
 export const FgRed = "\x1b[31m";
 export const FgBlue = "\x1b[34m";
@@ -65,9 +65,8 @@ export function ReportUserRuntimeWarning(m: string) {
 
 // note that this is in browser
 export function ReportUserRuntimeError(m: string) {
-  if (DEBUG) debugger;
   if (STRICT) throw new Error(m);
-  // console.log(`%c Runtime error from user specification: ${m}`, "color: red");
+  console.log(`%c Runtime error from user specification: ${m}`, "color: red");
 }
 
 // both warning and error
