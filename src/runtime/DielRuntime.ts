@@ -80,6 +80,9 @@ export default class DielRuntime {
     // mutate global for logging
     STRICT = config.isStrict ? config.isStrict : false;
     LOGINFO = config.showLog ? config.showLog : false;
+    if (!LOGINFO) {
+      console.log = () => {};
+    }
     this.timestep = INIT_TIMESTEP;
     this.config = config;
     this.eventByTimestep = new Map();
