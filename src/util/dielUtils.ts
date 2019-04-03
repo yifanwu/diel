@@ -8,6 +8,15 @@ export function DeepCopy<T>(o: T): T {
   return JSON.parse(JSON.stringify(o));
 }
 
+export function CheckObjKeys(required: string[], obj: any) {
+  for (let i = 0; i < required.length; i ++) {
+    if (!(required[i] in obj)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function SetSymmetricDifference<T>(setA: Set<T>, setB: Set<T>): Set<T> {
   let _difference = new Set(setA);
   for (let elem of setB) {

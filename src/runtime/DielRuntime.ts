@@ -10,7 +10,7 @@ import { generateSelectionUnit, generateSqlFromDielAst, generateSqlViews, genera
 import Visitor from "../parser/generateAst";
 import { CompileDiel } from "../compiler/DielCompiler";
 import { log } from "../util/dielUdfs";
-import { downloadHelper } from "../util/dielUtils";
+import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, QueryConsoleColorSpec, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType } from "../util/messages";
 import { DielIr } from "../compiler/DielIr";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult } from "./runtimeHelper";
@@ -540,6 +540,7 @@ export default class DielRuntime {
     return;
   }
 
+  // TODO: use component to do namespacing
   public GetScales(output: string, component?: string) {
     let result;
     if (component) {
@@ -551,7 +552,11 @@ export default class DielRuntime {
     } else if (result.length > 1) {
       ReportUserRuntimeWarning(`Output ${output} used for multiple ${component ? `for compoenetn ${component}` : ""}`);
     }
-    return result;
+    const rawValue = result[0];
+    if (CheckObjKeys(["dimension", "x", "y", "z"], rawValue)) {
+      return rawValue as {dimension: number, x: string, y?: string, z?: string};
+    } else
+      LogInternalError(`scale logic inconsistent`);
   }
 
   /**
