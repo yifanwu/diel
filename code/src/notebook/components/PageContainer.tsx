@@ -53,7 +53,7 @@ export const PageContainer = () => {
         <Link to="undo">
             Undo
           </Link>
-          &nbsp;
+          &nbsp;  
       </div>
       <div id="main">
         <Switch>

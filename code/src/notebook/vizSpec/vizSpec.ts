@@ -1,4 +1,4 @@
-import { DerivedRelation, DataType, CompositeSelectionUnit, SelectionUnit, ColumnSelection, SetOperator } from "../../parser/dielAstTypes";
+import { DerivedRelation, DataType, CompositeSelectionUnit, SelectionUnit, ColumnSelection, SetOperator, AstType } from "../../parser/dielAstTypes";
 import DielRuntime from "../../runtime/DielRuntime";
 import { ChartType, RelationObject } from "../../runtime/runtimeTypes";
 import { ExprType, ExprFunAst, FunctionType } from "../../parser/exprAstTypes";
@@ -108,10 +108,10 @@ export interface VizSpec {
 // handles simple queries only
 export function generateVizSpecForSingleQuery(rt: DielRuntime, q: DerivedRelation): VizSpec {
   let selection: CompositeSelectionUnit = q.selection.compositeSelections[0] //TODO: multiple composite selections
-  let columnSelections: ColumnSelection[] = selection.relation.columnSelections //
+  let columnSelections: ColumnSelection[] = selection.relation.derivedColumnSelections //
   
   let spec : VizSpec = null
-  let query_copy = JSON.parse(JSON.stringify(q));
+  let query_copy : DerivedRelation = JSON.parse(JSON.stringify(q));
   let timeColumns: ColumnSelection[] = []
   let numericColumns: ColumnSelection[] = []
   let uselessColumns: ColumnSelection[] = []
@@ -133,6 +133,8 @@ export function generateVizSpecForSingleQuery(rt: DielRuntime, q: DerivedRelatio
     var columnName = (combined[0].alias) ? combined[0].alias : "column";
     combined[0].alias = columnName;
     let count = {
+      exprType: ExprType.Func,
+      dataType: DataType.Number,
       functionType: FunctionType.Custom,
       functionReference: "COUNT",
       args: []
@@ -149,17 +151,23 @@ export function generateVizSpecForSingleQuery(rt: DielRuntime, q: DerivedRelatio
     if (n > 10) {
       let c = combined[0];
       let count = {
-        functionType: FunctionType.BuiltIn,
+        exprType: ExprType.Func,
+        dataType: DataType.Number,
+        functionType: FunctionType.Custom,
         functionReference: "COUNT",
         args: []
       } as ExprFunAst;
       let max = {
-        functionType: FunctionType.BuiltIn,
+        exprType: ExprType.Func,
+        dataType: DataType.Number,
+        functionType: FunctionType.Custom,
         functionReference: "MAX",
         args: [c.expr]
       } as ExprFunAst;
       let min = {
-        functionType: FunctionType.BuiltIn,
+        exprType: ExprType.Func,
+        dataType: DataType.Number,
+        functionType: FunctionType.Custom,
         functionReference: "MIN",
         args: [c.expr]
       } as ExprFunAst;
@@ -179,12 +187,17 @@ export function generateVizSpecForSingleQuery(rt: DielRuntime, q: DerivedRelatio
       };
       rt.db.exec(generateSqlViews(argstats));
       rt.db.exec(`create view bins as select round(10 * ${columnName} / (argstats.max - argstats.min)) as bin, ${columnName} from ${q.name}`)
-      query_copy.allDerivedSelections[0] = {
+      var selectionUnitAst : SelectionUnit;
+      selectionUnitAst = {
         columnSelections: [
           {expr: count}, {expr: "bin"}],
         baseRelation: {relationName: "bins"},
         groupByClause: { selections: [{exprType: ExprType.Column, dataType: DataType.Number, columnName: "bin", hasStar: false}]
         }
+      }
+      query_copy.selection = {
+        astType: AstType.RelationSelection,
+        compositeSelections: [{op: SetOperator.NA, relation: selectionUnitAst}]
       }
       spec = {
         chartType: ChartType.BarChart,
@@ -193,11 +206,18 @@ export function generateVizSpecForSingleQuery(rt: DielRuntime, q: DerivedRelatio
         yAxisColumn: "quantity" 
       }
     } else {
-      query_copy.allDerivedSelections[0] = {
+      var selectionUnitAst : SelectionUnit;
+      selectionUnitAst = {
         columnSelections: [
           {expr: count}, combined[0]],
         baseRelation: {relationName: q.name},
         groupByClause: { selections: [combined[0].expr] }
+      }
+      const s = JSON.stringify(Math.random());
+      query_copy.name = query_copy.name + s;
+      query_copy.selection = {
+        astType: AstType.RelationSelection,
+        compositeSelections: [{op: SetOperator.NA, relation: selectionUnitAst}]
       };
       spec = {
         chartType: ChartType.BarChart,
@@ -209,7 +229,7 @@ export function generateVizSpecForSingleQuery(rt: DielRuntime, q: DerivedRelatio
   } else if (timeColumns.length + numericColumns.length == 2)
    {
     if (!(timeColumns.length==0)) {
-      query_copy.allDerivedSelections[0].columnSelections = [timeColumns[0], numericColumns[0]];
+      query_copy.selection.compositeSelections[0].relation.columnSelections = [timeColumns[0], numericColumns[0]];
       spec = {
         chartType: ChartType.LineChart,
         modifiedQuery: query_copy,
@@ -217,7 +237,7 @@ export function generateVizSpecForSingleQuery(rt: DielRuntime, q: DerivedRelatio
         yAxisColumn: (numericColumns[0].alias) ? numericColumns[0].alias : "attribute"
       }
     } else {
-      query_copy.allDerivedSelections[0].columnSelections = [numericColumns[0], numericColumns[1]];
+      query_copy.selection.compositeSelections[0].relation.columnSelections = [numericColumns[0], numericColumns[1]];
       spec = {
         chartType: ChartType.Scatter,
         modifiedQuery: query_copy,

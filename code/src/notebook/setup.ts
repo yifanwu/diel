@@ -3,16 +3,16 @@ import { DEMO_WITH_SOCKET, DEMO_WITH_SMALL_WEBWORKER, DEMO_WITH_LARGE_WEBWORKER,
 
 const dbPathPrefix = "./UI-dist/data/";
 
-const flightWorkerDbPaths = DEMO_WITH_SMALL_WEBWORKER
-  ? [`${dbPathPrefix}flights.small.sqlite`]
-  : DEMO_WITH_LARGE_WEBWORKER
-    ? [`${dbPathPrefix}flights.large.sqlite`]
-    : null;
+// const flightWorkerDbPaths = DEMO_WITH_SMALL_WEBWORKER
+//   ? [`${dbPathPrefix}flights.small.sqlite`]
+//   : DEMO_WITH_LARGE_WEBWORKER
+//     ? [`${dbPathPrefix}flights.large.sqlite`]
+//     : null;
 
 const workerDbPaths = [
     `${dbPathPrefix}fires.sqlite`,
     `${dbPathPrefix}pitchfork.large.sqlite`,
-  ].concat(flightWorkerDbPaths);
+  ]//.concat(flightWorkerDbPaths);
 
 const dielPrefix = "./src/notebook/dielSpec/";
 
@@ -23,7 +23,7 @@ const dielFiles = [
   // following are webworkers, and they all have smaller equivalents with sockets
   ...(DEMO_WITH_WEBWORKER
     ? [
-        `${dielPrefix}flights-remote.diel`,
+        // `${dielPrefix}flights-remote.diel`,
         `${dielPrefix}fires-remote.diel`,
         `${dielPrefix}pitchfork-remote.diel`
       ]
@@ -35,7 +35,7 @@ const dielFiles = [
       : []),
 ];
 
-const mainDbPath = `${dbPathPrefix}score.sqlite`;
+const mainDbPath = `${dbPathPrefix}flights.small.sqlite`;
 // const mainDbPath: string = null;
 
 const socketConnections = DEMO_WITH_SOCKET

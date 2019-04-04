@@ -111,6 +111,7 @@ export default class DielRuntime {
     const staticTriggers = this.physicalExecution.getStaticAsyncViewTrigger(outputName);
     // const staticTriggers = SetDifference(new Set(staticTriggersRaw.map(t => t.relation)), );
     // static triggers should be done just once...
+    this.db.run("select delta from click");
     if (staticTriggers && (staticTriggers.length > 0)) {
       console.log(`Sending triggers for async static output: ${outputName}`, staticTriggers);
         staticTriggers.map(t => {

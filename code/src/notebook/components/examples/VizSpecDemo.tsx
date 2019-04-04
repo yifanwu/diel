@@ -1,10 +1,14 @@
 import * as React from "react";
 import { diel } from "../../setup";
-import { DerivedRelation, RelationType, SetOperator, AstType } from "../../../parser/dielAstTypes";
+import { DerivedRelation, RelationType, SetOperator, AstType, DataType } from "../../../parser/dielAstTypes";
 import { RelationObject } from "../../../runtime/runtimeTypes";
 import { generateVizSpecForSingleQuery, VizSpec } from "../../vizSpec/vizSpec";
-import { getSelectionUnitAst } from "../../../compiler/compiler";
+import { getSelectionUnitAst, getVanillaSelectionUnitAst } from "../../../compiler/compiler";
 import { PolymorphicChart } from "./PolymorphicChart";
+import { ExprColumnAst, ExprType } from "../../../parser/exprAstTypes";
+import { normalizeColumnForSelectionUnit } from "../../../compiler/passes/normalizeColumnSelection";
+import { generateSqlViews } from "../../../compiler/codegen/codeGenSql";
+import { CreateDerivedSelectionSqlAstFromDielAst } from "../../../compiler/codegen/createSqlIr";
 
 interface VizSpecDemoState {
   userQuery: string;
@@ -31,10 +35,21 @@ export default class VizSpecDemo extends React.Component<{}, VizSpecDemoState> {
   }
 
   subQuery() {
+    "create view temp as select delay from flights"
+    "delay from flights"
+    "select flights.delay from flights"
     // compile query first!
-    const selectionUnitAst = getSelectionUnitAst(this.state.userQuery);
+    const r = diel.db.exec("create view bins as select delta from click");
+    const selectionUnitAst = getVanillaSelectionUnitAst("select delay from flights");
+    normalizeColumnForSelectionUnit(selectionUnitAst, {ir: diel.ir});
+    const s = JSON.stringify(Math.random());     
+    for (let c of selectionUnitAst.derivedColumnSelections) {
+      if (c.expr.exprType == ExprType.Column) {
+        (c.expr as ExprColumnAst).relationName = "";
+      }
+    }     
     const derivedRelationAst: DerivedRelation = {
-      name: this.state.viewName, // brittle!
+      name: "bins", // brittle!
       relationType: RelationType.View,
       selection: {
         astType: AstType.RelationSelection,
@@ -43,11 +58,16 @@ export default class VizSpecDemo extends React.Component<{}, VizSpecDemoState> {
     };
     // DEPENDENCY, generateVizSpecForSingleQuery reads from the IR,
     //   which is modified by the AddView
-    diel.AddView(derivedRelationAst);
+    
+    
     const vizSpec = generateVizSpecForSingleQuery(diel, derivedRelationAst);
+
+    const queryStr = generateSqlViews(CreateDerivedSelectionSqlAstFromDielAst(vizSpec.modifiedQuery));
+
+    // diel.db.exec(queryStr);
     diel.AddView(vizSpec.modifiedQuery);
     this.setState({
-      data: diel.simpleGetLocal(this.state.viewName)
+      data: diel.simpleGetLocal('bins')
     });
   }
 

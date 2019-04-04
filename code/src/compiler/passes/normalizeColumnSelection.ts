@@ -96,7 +96,7 @@ function starCase(ir: DielIr, s: SelectionUnit, currentColumnExpr: ExprColumnAst
     }
 }
 
-function normalizeColumnForSelectionUnit(s: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions): void {
+export function normalizeColumnForSelectionUnit(s: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions): void {
     const derivedColumnSelections: ColumnSelection[][] = s.columnSelections.map(c => {
       switch (c.expr.exprType) {
         case ExprType.Column:
