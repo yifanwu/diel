@@ -1,7 +1,7 @@
 import { DielAst, DerivedRelation, RelationType, createEmptyDielAst, Relation, DbIdType, RelationIdType, LogicalTimestep } from "../parser/dielAstTypes";
 import { DbType } from "../runtime/runtimeTypes";
 import { PhysicalMetaData } from "../runtime/DielRuntime";
-import { getEventTableFromDerived, SingleDistribution, QueryDistributionRecursiveEval } from "./passes/distributeQueries";
+import { getCacheTableFromDerived, SingleDistribution, QueryDistributionRecursiveEval } from "./passes/distributeQueries";
 import { LogInternalError } from "../util/messages";
 import { DependencyTree, NodeDependencyAugmented } from "./passes/passesHelper";
 import { SetIntersection } from "../util/dielUtils";
@@ -64,8 +64,13 @@ export class DielPhysicalExecution {
       const rDef = this.ir.GetRelationDef(distribution.relationName);
       if (isRelationTypeDerived(rDef.relationType)) {
         if (distribution.from !== distribution.to) {
-          const eventTableDef = getEventTableFromDerived(rDef as DerivedRelation);
+          const {cacheTableDef, eventTableDef, cacheReferenceDef} = getCacheTableFromDerived(rDef as DerivedRelation);
+          // event table for new data arrival
+          addRelationIfOnlyNotExist(astToSpec.relations, cacheTableDef);
+          // AND data cache
           addRelationIfOnlyNotExist(astToSpec.relations, eventTableDef);
+          addRelationIfOnlyNotExist(astToSpec.relations, cacheReferenceDef);
+          // add the view to the source ast
           addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
         } else {
           // doesn't matter from or to, it's the same

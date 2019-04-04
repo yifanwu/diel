@@ -19,7 +19,9 @@ import DbEngine from "./DbEngine";
 import { CreateDerivedSelectionSqlAstFromDielAst, createSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
 import { viewConstraintCheck, checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
+
 import { getPlainSelectQueryAst } from "../compiler/compiler";
+import { getEventTableCacheName } from "../compiler/passes/distributeQueries";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
@@ -148,6 +150,7 @@ export default class DielRuntime {
   }
 
   // verbose just to make sure that the exported type is kept in sync
+  // fix the any into RelationObject
   public NewInputMany: RelationShippingFuncType = (view: string, o: any, lineage?: number) => {
     lineage = lineage ? lineage : this.timestep;
     this.newInputHelper(view, o, lineage);
@@ -201,7 +204,7 @@ export default class DielRuntime {
           this.runOutput(b);
         }
       });
-      this.shipWorkerInput(eventName, this.timestep);
+      this.dispatchEventRequests(eventName, this.timestep);
     } else {
       ReportUserRuntimeError(`Event ${eventName} is not defined`);
     }
@@ -358,8 +361,22 @@ export default class DielRuntime {
     // test the IR here
   }
 
+  cachedRemoteInput(view: string, o: RelationObject, lineage: number) {
+    // insert into data cache
+    const cacheName = getEventTableCacheName(view);
+    const dataId = this.timestep;
+    // increment the dataId (which is just going to be the timestep)
+    // RYAN TODO:
+    // (1) REFACTOR newInputHelper's column fetching logic to generate the SQL string
+    // (2) cacheMeta look up the hashVal from the allInputs table with the lineage info
+    // const dataCacheQuery = `insert into ${cacheName} (${columns}, dataId) values (${this.timestep}, ${dataId});`;
+
+    // then invoke new event
+    this.NewInputMany(view, [{dataId}], lineage);
+  }
+
   async setupRemotes() {
-    const inputCallback = this.NewInputMany.bind(this);
+    const inputCallback = this.cachedRemoteInput.bind(this);
     let counter = LocalDbId;
     const dbWaiting = this.config.dbConfigs
       ? this.config.dbConfigs.map(config => {
@@ -393,6 +410,14 @@ export default class DielRuntime {
     this.db.create_function("log", log);
   }
 
+  hashEventValues(o: RelationObject): string {
+    
+  }
+
+  // FIXME: assume that only the inputName and values are relevant
+  checkCache(inputName: string) {
+    // fetch the most recent value from this input and hash it
+  }
   /**
    * Note for RYAN
    * caching logic here
@@ -404,7 +429,14 @@ export default class DielRuntime {
    * @param inputName
    * @param timestep
    */
-  shipWorkerInput(inputName: string, timestep: number) {
+  dispatchEventRequests(inputName: string, timestep: number) {
+    // look up cache
+    // if cachehit, then this.NewEvent("<cacheTable>", ) // and the dataId found
+    // else, ship
+    this.shipEventsToWorker(inputName, timestep);
+  }
+
+  shipEventsToWorker(inputName: string, timestep: number) {
     // const remotesToShipTo = this.physicalExecution.getShippingInfoForDbByEvent(inputName, LocalDbId);
     const remotesToShipTo = this.physicalExecution.getBubbledUpRelationToShip(LocalDbId, inputName);
     // FIXME: we can improve performance by grouping by the views to ship so that they are not evaluated multiple times.
