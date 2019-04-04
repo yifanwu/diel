@@ -1,5 +1,5 @@
 import { DielIr, isRelationTypeDerived } from "../DielIr";
-import { OriginalRelation, RelationType, DerivedRelation } from "../../parser/dielAstTypes";
+import { OriginalRelation, RelationType, DerivedRelation, DataType } from "../../parser/dielAstTypes";
 import { ExprType, ExprColumnAst } from "../../parser/exprAstTypes";
 import { ReportDielUserError, LogInternalError } from "../../util/messages";
 import { DbIdType, RelationIdType } from "../DielPhysicalExecution";
@@ -82,7 +82,16 @@ export function getShippingInfoFromDistributedEval() {
 
 }
 
-export function getEventTableFromDerived(relation: DerivedRelation) {
+export function getEventTableCacheName(tableName: string) {
+  return `${tableName}Cache`;
+}
+
+export function getEventTableCacheReferenceName(tableName: string) {
+  return `${tableName}Reference`;
+}
+
+
+export function getCacheTableFromDerived(relation: DerivedRelation) {
   const originalColumns = relation.selection.compositeSelections[0].relation.derivedColumnSelections;
   if (!originalColumns) {
     throw new Error(`query not normalized and cannot be distributed to main`);
@@ -107,13 +116,40 @@ export function getEventTableFromDerived(relation: DerivedRelation) {
       type: c.expr.dataType,
     };
   });
-  let createSpec: OriginalRelation = {
-    name: relation.name,
-    relationType: RelationType.EventTable,
+  let cacheTableDef: OriginalRelation = {
+    name: getEventTableCacheName(relation.name),
+    relationType: RelationType.Table,
     //  === RelationType.EventView ? RelationType.EventTable : RelationType.Table,
-    columns
+    columns: columns.concat({
+      name: "dataId",
+      type: DataType.Number,
+    })
   };
-  return createSpec;
+  const cacheReferenceDef: OriginalRelation = {
+    name: getEventTableCacheReferenceName(relation.name),
+    relationType: RelationType.EventTable,
+    columns: [{
+      name: "dataId",
+      type: DataType.Number,
+    }]
+  };
+
+  // RYAN TODO
+  /**
+   * create view fetchDataEvent as
+     select
+       c.item, c.val, e.timestep, e.timestamp, e.request_timestep
+    from fetchDataEventCache c join fetchDataEventPointer e on c.dataId  = e.dataId;
+   */
+  const eventTableDef = {
+      // : DerivedRelation = {
+    // return {} as any;
+  };
+  return {
+    cacheTableDef,
+    cacheReferenceDef,
+    eventTableDef
+  };
 }
 
 
