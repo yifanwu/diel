@@ -1,6 +1,5 @@
 import { ReportDielUserError, LogInternalWarning, LogInternalError, DielInternalErrorType } from "../../util/messages";
-import { ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprRelationAst } from "../../parser/exprAstTypes";
-import { OriginalRelation, JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType  } from "../../parser/dielAstTypes";
+import { ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprRelationAst, OriginalRelation, JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType  } from "../../parser/dielAstTypes";
 import { DielIr } from "../DielIr";
 
 /**

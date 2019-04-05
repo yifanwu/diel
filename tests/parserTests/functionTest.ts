@@ -1,7 +1,6 @@
 import { DielIr } from "../../src/compiler/DielIr";
 import { GenerateUnitTestErrorLogger } from "../../src/util/messages";
-import { ExprFunAst, FunctionType } from "../../src/parser/exprAstTypes";
-import { DerivedRelation } from "../../src/parser/dielAstTypes";
+import { ExprFunAst, FunctionType, DerivedRelation } from "../../src/parser/dielAstTypes";
 
 export function assertFunctionParsing(ir: DielIr, q: string) {
   const logger = GenerateUnitTestErrorLogger("assertFunctionParsing", q);

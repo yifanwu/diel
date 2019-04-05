@@ -1,7 +1,6 @@
 import { DielIr, SelectionUnitVisitorFunctionOptions } from "../DielIr";
 import { LogInternalError, ReportDielUserError, DielInternalErrorType } from "../../util/messages";
-import { DataType, BuiltInColumns, SelectionUnit, RelationReference } from "../../parser/dielAstTypes";
-import { ExprType, ExprFunAst, ExprColumnAst, ExprAst, BuiltInFunc, ExprValAst, ExprParen } from "../../parser/exprAstTypes";
+import { DielDataType, BuiltInColumns, SelectionUnit, RelationReference, ExprType, ExprFunAst, ExprColumnAst, ExprAst, BuiltInFunc, ExprValAst, ExprParen } from "../../parser/dielAstTypes";
 
 export function InferType(ir: DielIr) {
   ir.ApplyToImmediateSelectionUnits(inferTypeForSelection, true);
@@ -17,7 +16,7 @@ export function inferTypeForSelection(r: SelectionUnit, optional: SelectionUnitV
     if (!cs.expr.dataType) {
       LogInternalError(`derivedColumnSelections should be defined`);
     }
-    if (cs.expr.dataType === DataType.TBD) {
+    if (cs.expr.dataType === DielDataType.TBD) {
       cs.expr.dataType = getTypeForExpr(optional.ir, cs.expr, r);
     }
   });
@@ -44,7 +43,7 @@ function getUdfType(ir: DielIr, sUnit: SelectionUnit, funName: string, expr: Exp
   }
 }
 
-function getTypeForExpr(ir: DielIr, expr: ExprAst, sUnit: SelectionUnit): DataType {
+function getTypeForExpr(ir: DielIr, expr: ExprAst, sUnit: SelectionUnit): DielDataType {
   switch (expr.exprType) {
     case ExprType.Func:
       const funExpr = expr as ExprFunAst;

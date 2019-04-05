@@ -2,10 +2,9 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, DerivedRelation, Command, CrossFilterChartIr, CrossFilterIr, DielAst, DataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr, InsertionClause, DropClause, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst, createEmptyDielAst, Relation, ColumnConstraints, DeleteClause } from "./dielAstTypes";
+import { ExpressionValue, DerivedRelation, Command, CrossFilterChartIr, CrossFilterIr, DielAst, DielDataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr, InsertionClause, DropClause, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst, createEmptyDielAst, Relation, ColumnConstraints, DeleteClause, ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError, ReportDielUserError } from "../util/messages";
-import { ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst } from "./exprAstTypes";
 
 export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
@@ -218,7 +217,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitExprNegate(ctx: parser.ExprNegateContext): ExprFunAst {
     return {
       exprType: ExprType.Func,
-      dataType: DataType.Boolean,
+      dataType: DielDataType.Boolean,
       functionType: FunctionType.Logic,
       functionReference: "NOT",
       args: [this.visit(ctx.expr()) as ExprAst]
@@ -231,7 +230,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const relationName = ctx._relation ? ctx._relation.text : undefined;
     return {
       exprType: ExprType.Column,
-      dataType: DataType.TBD,
+      dataType: DielDataType.TBD,
       hasStar,
       columnName,
       relationName,
@@ -242,7 +241,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const selection = this.visit(ctx.selectQuery()) as RelationSelection;
     return {
       exprType: ExprType.Relation,
-      dataType: DataType.Relation,
+      dataType: DielDataType.Relation,
       selection,
     };
   }
@@ -254,7 +253,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitValueNumber(ctx: parser.ValueNumberContext): ExprValAst {
     return {
       exprType: ExprType.Val,
-      dataType: DataType.Number,
+      dataType: DielDataType.Number,
       value: Number(ctx.NUMBER().text)
     };
   }
@@ -264,7 +263,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const raw = ctx.STRING().text;
     return {
       exprType: ExprType.Val,
-      dataType: DataType.String,
+      dataType: DielDataType.String,
       value: raw.slice(1, raw.length - 1)
     };
   }
@@ -275,14 +274,14 @@ implements visitor.DIELVisitor<ExpressionValue> {
       : false;
     return {
       exprType: ExprType.Val,
-      dataType: DataType.String,
+      dataType: DielDataType.String,
       value
     };
   }
   // begin paren
   visitExprParenthesis(ctx: parser.ExprParenthesisContext): ExprParen {
     return {
-      dataType: DataType.TBD,
+      dataType: DielDataType.TBD,
       exprType: ExprType.Parenthesis,
       content: this.visit(ctx.expr()) as ExprAst
     };
@@ -293,7 +292,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const args = ctx.expr().map(e => this.visit(e) as ExprAst);
     return {
       exprType: ExprType.Val,
-      dataType: DataType.String,
+      dataType: DielDataType.String,
       functionType: FunctionType.BuiltIn,
       functionReference: BuiltInFunc.ConcatStrings,
       args
@@ -306,7 +305,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     // think about a more elegant comparison
     return {
       exprType: ExprType.Func,
-      dataType: DataType.TBD,
+      dataType: DielDataType.TBD,
       functionType: FunctionType.Custom,
       functionReference,
       args
@@ -317,11 +316,11 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitExprBinOp(ctx: parser.ExprBinOpContext): ExprFunAst {
     let functionType = FunctionType.Logic;
     let functionReference;
-    let dataType = DataType.Boolean;
+    let dataType = DielDataType.Boolean;
     if (ctx.mathOp()) {
       functionType = FunctionType.Math;
       functionReference = getCtxSourceCode(ctx.mathOp());
-      dataType = DataType.Number;
+      dataType = DielDataType.Number;
     } else if (ctx.compareOp()) {
       FunctionType.Compare;
       functionReference = getCtxSourceCode(ctx.compareOp());
@@ -343,7 +342,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const arg = this.visit(ctx.expr()) as ExprAst;
     return {
       exprType: ExprType.Func,
-      dataType: DataType.Boolean,
+      dataType: DielDataType.Boolean,
       functionType: FunctionType.BuiltIn,
       functionReference: BuiltInFunc.ValueIsNotNull,
       args: [arg]
@@ -356,7 +355,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const arg = this.visit(ctx.expr()) as ExprAst;
     return {
       exprType: ExprType.Func,
-      dataType: DataType.Boolean,
+      dataType: DielDataType.Boolean,
       functionType: FunctionType.BuiltIn,
       functionReference: BuiltInFunc.ValueIsNull,
       args: [arg]
@@ -368,7 +367,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const arg = this.visit(ctx.expr()) as ExprAst;
     return {
       exprType: ExprType.Func,
-      dataType: DataType.Boolean,
+      dataType: DielDataType.Boolean,
       functionType: FunctionType.BuiltIn,
       functionReference,
       args: [arg]
@@ -382,7 +381,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const arg2 = this.visit(args[1]) as ExprAst;
     return {
       exprType: ExprType.Func,
-      dataType: DataType.Boolean,
+      dataType: DielDataType.Boolean,
       functionType: FunctionType.BuiltIn,
       functionReference,
       args: [arg1, arg2]
@@ -394,7 +393,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const args = ctx.expr().map(e => this.visit(e) as ExprAst);
     return {
       exprType: ExprType.Func,
-      dataType: DataType.TBD,
+      dataType: DielDataType.TBD,
       functionType: FunctionType.BuiltIn,
       functionReference: func,
       args
@@ -648,7 +647,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
         // think about a more elegant comparison
         defaultValue = {
           exprType: ExprType.Func,
-          dataType: DataType.TBD,
+          dataType: DielDataType.TBD,
           functionType: FunctionType.Custom,
           functionReference,
           args

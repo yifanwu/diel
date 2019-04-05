@@ -1,4 +1,4 @@
-import { DielAst, DerivedRelation, RelationType, createEmptyDielAst, Relation } from "../parser/dielAstTypes";
+import { DielAst, DerivedRelation, RelationType, createEmptyDielAst, Relation, DbIdType, RelationIdType, LogicalTimestep } from "../parser/dielAstTypes";
 import { DbType } from "../runtime/runtimeTypes";
 import { PhysicalMetaData } from "../runtime/DielRuntime";
 import { getEventTableFromDerived, SingleDistribution, QueryDistributionRecursiveEval } from "./passes/distributeQueries";
@@ -12,9 +12,6 @@ export type RelationShippingInfo = {
   dependencies: Set<RelationIdType>;
 };
 
-export type DbIdType = number;
-export type RelationIdType = string;
-export type LogicalTimestep = number;
 
 export const LocalDbId = 1;
 export const NoEventLineage = -1;

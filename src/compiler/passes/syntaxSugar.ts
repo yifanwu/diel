@@ -1,6 +1,5 @@
 import {ReportDielUserError} from "../../util/messages";
-import { SetOperator, DataType } from "../../../src/parser/dielAstTypes";
-import { ExprAst, ExprType, ExprRelationAst, FunctionType, ExprFunAst } from "../../../src/parser/exprAstTypes";
+import { ExprAst, ExprType, ExprRelationAst, FunctionType, ExprFunAst, SetOperator, DielDataType } from "../../../src/parser/dielAstTypes";
 import { SelectionUnit, DielAst, AstType, RelationSelection } from "../../parser/dielAstTypes";
 import { GetAllDerivedViews, GetAllPrograms } from "../DielIr";
 
@@ -84,7 +83,7 @@ function modifyWhereComplete(relation: SelectionUnit, relationName: string): voi
     // 2-1. create exprast for relation.timestep
     let lhsExpr = {
         exprType: ExprType.Column,
-        dataType: DataType.TBD,
+        dataType: DielDataType.TBD,
         hasStar: false,
         columnName: "timestep",
         relationName: relationName
@@ -98,7 +97,7 @@ function modifyWhereComplete(relation: SelectionUnit, relationName: string): voi
         exprType: ExprType.Func,
         functionType: FunctionType.Logic,
         functionReference: "=",
-        dataType: DataType.Boolean,
+        dataType: DielDataType.Boolean,
         args: []
     } as ExprFunAst;
 
@@ -121,7 +120,7 @@ function modifyWhereComplete(relation: SelectionUnit, relationName: string): voi
         exprType: ExprType.Func,
         functionType: FunctionType.Logic,
         functionReference: "and",
-        dataType: DataType.Boolean,
+        dataType: DielDataType.Boolean,
         args: [originalAST, lhs]
     } as ExprAst;
 
@@ -134,7 +133,7 @@ function modifyWhereComplete(relation: SelectionUnit, relationName: string): voi
 function createSubquery(relationName: string): ExprAst {
     let relationAST = {
         exprType: ExprType.Relation,
-        dataType: DataType.Relation,
+        dataType: DielDataType.Relation,
         selection: {
             astType: AstType.RelationSelection,
             compositeSelections: [
@@ -147,13 +146,13 @@ function createSubquery(relationName: string): ExprAst {
                                 alias: null,
                                 expr: {
                                     exprType: ExprType.Func,
-                                    dataType: DataType.TBD,
+                                    dataType: DielDataType.TBD,
                                     functionType: FunctionType.Custom,
                                     functionReference: "max",
                                     args: [
                                         {
                                             exprType: ExprType.Column,
-                                            dataType: DataType.TBD,
+                                            dataType: DielDataType.TBD,
                                             hasStar: false,
                                             columnName: "timestep"
                                         }

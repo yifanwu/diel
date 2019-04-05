@@ -1,5 +1,4 @@
-import { DielAst, ProgramsIr, DataType, RelationType, Column, CompositeSelectionUnit, InsertionClause, OriginalRelation, DerivedRelation, Command, Relation } from "../../parser/dielAstTypes";
-import { RelationIdType } from "../DielPhysicalExecution";
+import { DielAst, ProgramsIr, DielDataType, RelationType, Column, CompositeSelectionUnit, InsertionClause, OriginalRelation, DerivedRelation, Command, Relation, RelationIdType } from "../../parser/dielAstTypes";
 import { LogInternalError, DielInternalErrorType } from "../../util/messages";
 
 export interface RelationSpec {
@@ -33,14 +32,14 @@ export interface SqlAst {
 const inputColumns: Column[] = [
   {
     name: "timestep",
-    type: DataType.Number,
+    type: DielDataType.Number,
     // constraints: {
     //   primaryKey: true
     // }
   },
   {
     name: "lineage",
-    type: DataType.Number,
+    type: DielDataType.Number,
   }
 ];
 

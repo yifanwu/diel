@@ -1,10 +1,9 @@
 import { getDielIr } from "../../src/compiler/compiler";
 import { GenerateUnitTestErrorLogger, LogInfo } from "../../src/util/messages";
-import { ExprColumnAst } from "../../src/parser/exprAstTypes";
-import { DataType, DerivedRelation } from "../../src/parser/dielAstTypes";
+import { ExprColumnAst, DielDataType, DerivedRelation } from "../../src/parser/dielAstTypes";
 
 export function assertAllStar() {
-  function assertColumns(viewName: string, selections: {columnName: string, relationName: string, dataType: DataType}[]) {
+  function assertColumns(viewName: string, selections: {columnName: string, relationName: string, dataType: DielDataType}[]) {
     const view = ir.GetRelationDef(viewName) as DerivedRelation;
     const columns = view.selection.compositeSelections[0].relation.derivedColumnSelections;
     if (!columns) {
@@ -32,12 +31,12 @@ export function assertAllStar() {
   const logger = GenerateUnitTestErrorLogger("assertAllStar", q);
   let ir = getDielIr(q);
   assertColumns("v1", [
-    {columnName: "a", relationName: "t", dataType: DataType.Number},
-    {columnName: "b", relationName: "t", dataType: DataType.Number}
+    {columnName: "a", relationName: "t", dataType: DielDataType.Number},
+    {columnName: "b", relationName: "t", dataType: DielDataType.Number}
   ]);
   assertColumns("v2", [
-    {columnName: "a", relationName: "t2", dataType: DataType.Number},
-    {columnName: "c", relationName: "t2", dataType: DataType.Number}
+    {columnName: "a", relationName: "t2", dataType: DielDataType.Number},
+    {columnName: "c", relationName: "t2", dataType: DielDataType.Number}
   ]);
   LogInfo(`assertAllStar passed`);
   return true;

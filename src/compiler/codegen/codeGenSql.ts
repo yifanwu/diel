@@ -1,7 +1,6 @@
-import { DataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause } from "../../parser/dielAstTypes";
+import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen, DielDataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause } from "../../parser/dielAstTypes";
 import { RelationSpec, RelationQuery, SqlAst, createSqlAstFromDielAst } from "./createSqlIr";
 import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
-import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
 
 export function generateSqlFromDielAst(ast: DielAst, options?: { replace: boolean; isRemote: boolean}) {
   const isRemote = options ? options.isRemote ? options.isRemote : false : false;
@@ -171,7 +170,7 @@ export function generateExpr(e: ExprAst): string {
     case ExprType.Val:
       const v = e as ExprValAst;
       const str = v.value.toString();
-      if ((e.dataType === DataType.String) || (e.dataType === DataType.TimeStamp)) {
+      if ((e.dataType === DielDataType.String) || (e.dataType === DielDataType.TimeStamp)) {
         return `'${str}'`;
       }
       return str;
@@ -305,11 +304,11 @@ function generateInserts(i: InsertionClause): string {
   return `INSERT INTO ${i.relation} ${columns} ${values}`;
 }
 
-const TypeConversionLookUp = new Map<DataType, string>([
-  [DataType.String, "TEXT"],
-  [DataType.Number, "REAL"],
-  [DataType.Boolean, "INTEGER"],
-  [DataType.TimeStamp, "DATETIME"]
+const TypeConversionLookUp = new Map<DielDataType, string>([
+  [DielDataType.String, "TEXT"],
+  [DielDataType.Number, "REAL"],
+  [DielDataType.Boolean, "INTEGER"],
+  [DielDataType.TimeStamp, "DATETIME"]
 ]);
 
 function generateColumnDefinition(c: Column): string {

@@ -1,4 +1,4 @@
-import { DataType } from "./dielAstTypes";
+import { DielDataType } from "./dielAstTypes";
 import { Interval } from "antlr4ts/misc";
 
 export function parseColumnType(str: string) {
@@ -7,14 +7,14 @@ export function parseColumnType(str: string) {
     case "integer":
     case "int":
     case "real":
-      return DataType.Number;
+      return DielDataType.Number;
     case "string":
     case "text":
-      return DataType.String;
+      return DielDataType.String;
     case "boolean":
-      return DataType.Boolean;
+      return DielDataType.Boolean;
     case "datetime":
-      return DataType.TimeStamp;
+      return DielDataType.TimeStamp;
     default:
       throw new Error(`parseColumnType error, got ${str}`);
   }

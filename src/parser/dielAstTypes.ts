@@ -1,6 +1,9 @@
-import { ExprAst, ExprValAst } from "./exprAstTypes";
-import { LogInternalError } from "../util/messages";
-import { RelationIdType } from "../compiler/DielPhysicalExecution";
+// import { ExprAst, ExprValAst } from "./exprAstTypes";
+// import { LogInternalError } from "../util/messages";
+// import { RelationIdType } from "../compiler/DielPhysicalExecution";
+export type DbIdType = number;
+export type RelationIdType = string;
+export type LogicalTimestep = number;
 
 export interface DielTemplate {
   variables: string[];
@@ -14,7 +17,7 @@ export interface TemplateVariableAssignmentUnit {
   assignment: string;
 }
 
-export enum DataType {
+export enum DielDataType {
   Void = "Void",
   String = "String",
   Number = "Number",
@@ -63,73 +66,73 @@ export interface TransferInfo {
 
 export interface UdfType {
   udf: string;
-  type: DataType;
+  type: DielDataType;
 }
 
 interface BuiltInColumnType {
   column: string;
-  type: DataType;
+  type: DielDataType;
 }
 
 export const BuiltInColumns: BuiltInColumnType[] = [
   {
     column: "rowid",
-    type: DataType.Number
+    type: DielDataType.Number
   },
   {
     column: "timestep",
-    type: DataType.Number
+    type: DielDataType.Number
   },
   {
     column: "timestamp",
-    type: DataType.Number
+    type: DielDataType.Number
   }
 ];
 
 export const BuiltInUdfTypes: UdfType[] = [
   {
     udf: "COUNT",
-    type: DataType.Number
+    type: DielDataType.Number
   },
   {
     udf: "MIN",
-    type: DataType.Number
+    type: DielDataType.Number
   },
   {
     udf: "MAX",
-    type: DataType.Number
+    type: DielDataType.Number
   },
   {
     udf: "SUM",
-    type: DataType.Number
+    type: DielDataType.Number
   },
   {
     udf: "/",
-    type: DataType.Number
+    type: DielDataType.Number
   },
   {
     udf: "*",
-    type: DataType.Number
+    type: DielDataType.Number
   },
   {
     udf: "+",
-    type: DataType.Number
+    type: DielDataType.Number
   },
   {
     udf: "-",
-    type: DataType.Number
+    type: DielDataType.Number
   },
   {
     udf: "ROUND",
-    type: DataType.Number
+    type: DielDataType.Number
   },
   {
     udf: "AVG",
-    type: DataType.Number
+    type: DielDataType.Number
   },
   {
     udf: "GROUP_CONCAT",
-    type: DataType.String
+    type: DielDataType.String
   },
 ];
 
@@ -264,7 +267,7 @@ export interface ColumnSelection {
 
 export interface Column {
   name: string;
-  type: DataType;
+  type: DielDataType;
   constraints?: ColumnConstraints;
   defaultValue?: ExprAst;
 }
@@ -360,18 +363,6 @@ export interface RelationReference {
   subquery?: RelationSelection;
 }
 
-/**
- * If there is a subquery, then use alias, otherwise use the original relation name
- * @param r relation reference
- */
-export function getRelationReferenceName(r: RelationReference) {
-  const n = r.subquery ? r.alias : r.relationName;
-  if (!n) {
-    LogInternalError(`RelationReference either does not have an alias or name:\n ${JSON.stringify(r)}`);
-  }
-  return n;
-}
-
 export interface JoinAst extends AstBase {
   templateSpec?: TemplateVariableAssignments;
   joinType: JoinType;
@@ -419,3 +410,96 @@ export interface DeleteClause extends AstBase {
   relationName: string;
   predicate?: ExprAst; // could be no predicate
 }
+
+
+/**
+ * Notes
+ * - expression has to be a recursive dataype
+ * - we allow for sets in the Expr to make the set-oriented functions expressible.
+ */
+
+export enum ExprType {
+  Func = "Func",
+  Val = "Val",
+  Column = "Column",
+  Relation = "Relation",
+  Parenthesis = "Parenthesis"
+}
+
+export type ExprAst = ExprFunAst | ExprValAst | ExprColumnAst | ExprRelationAst | ExprParen;
+
+export interface ExprBase {
+  exprType: ExprType;
+  dataType: DielDataType;
+}
+
+/**
+ * note that the string names here are used directly to generate the SQL queries
+ *   so change the names carefully..
+ * must be all caps for some laziness reasons
+ */
+export enum BuiltInFunc {
+  In = "IN",
+  Coalesce = "COALESCE",
+  ValueIsNull = "IS NULL",
+  ValueIsNotNull = "NOT NULL",
+  SetEmpty = "NOT EXIST",
+  SetNotEmpty = "EXIST",
+  // specially parsed when SQL gen
+  IfThisThen = "IFTHISTHEN",
+  ConcatStrings = "CONCATSTRINGS"
+}
+
+export enum FunctionType {
+  Math = "Math",
+  Compare = "Compare",
+  Logic = "Logic",
+  BuiltIn = "BuiltIn",
+  Custom = "Custom"
+}
+
+export interface ExprParen extends ExprBase {
+  content: ExprAst;
+}
+
+export interface ExprRelationAst extends ExprBase {
+  selection: RelationSelection;
+}
+
+export interface ExprFunAst extends ExprBase {
+  functionType: FunctionType;
+  functionReference: string;
+  args: ExprAst[];
+}
+
+// hm there might be multiple here...
+export interface ExprColumnAst extends ExprBase  {
+  // column: SimpleColumSelection;
+  columnName: string;
+  hasStar: boolean;
+  relationName?: string;
+}
+
+export interface ExprValAst extends ExprBase {
+  value: string | number | boolean;
+}
+
+export interface CustomFunc {
+  name: string;
+}
+
+// export enum MathOp {
+//   ADD,
+//   SUB,
+//   MUL,
+//   DIV
+// }
+
+// export enum CompareOp {
+//   EQ,
+//   NE,
+//   GT,
+//   GTE,
+//   LT,
+//   LTE
+// }

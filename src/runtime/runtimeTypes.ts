@@ -1,4 +1,4 @@
-import { DbIdType, RelationIdType, LogicalTimestep } from "../compiler/DielPhysicalExecution";
+import { DbIdType, RelationIdType, LogicalTimestep } from "../parser/dielAstTypes";
 import { DbSetupConfig } from "./DbEngine";
 
 export interface DielConfig {

@@ -1,14 +1,12 @@
-import { DataType, ColumnSelection } from "../../parser/dielAstTypes";
+import { ExprType, ExprColumnAst, DielDataType, ColumnSelection } from "../../parser/dielAstTypes";
 import { SimpleColumn } from "../DielIr";
-import { ExprType, ExprColumnAst } from "../../parser/exprAstTypes";
-
 
 export function copyColumnSelection(s: ColumnSelection) {
   const columnName = (s.expr as ExprColumnAst).columnName;
   return {
     expr: {
       exprType: ExprType.Column,
-      dataType: DataType.TBD,
+      dataType: DielDataType.TBD,
       columnName,
       hasStar: false,
       relationName: (s.expr  as ExprColumnAst).relationName,

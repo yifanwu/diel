@@ -1,7 +1,18 @@
-import { ExprType, ExprRelationAst, ExprFunAst, ExprAst, ExprParen } from "../../parser/exprAstTypes";
-import { SelectionUnit, RelationReference, RelationType } from "../../parser/dielAstTypes";
+import { ExprType, ExprRelationAst, ExprFunAst, ExprAst, ExprParen,  DbIdType, RelationIdType, SelectionUnit, RelationReference, RelationType } from "../../parser/dielAstTypes";
 import { LogInternalError } from "../../util/messages";
-import { DbIdType, RelationIdType } from "../DielPhysicalExecution";
+import { } from "../DielPhysicalExecution";
+
+/**
+ * If there is a subquery, then use alias, otherwise use the original relation name
+ * @param r relation reference
+ */
+export function getRelationReferenceName(r: RelationReference) {
+  const n = r.subquery ? r.alias : r.relationName;
+  if (!n) {
+    LogInternalError(`RelationReference either does not have an alias or name:\n ${JSON.stringify(r)}`);
+  }
+  return n;
+}
 
 export interface NodeDependencyAugmented extends NodeDependency {
   relationName: string;
