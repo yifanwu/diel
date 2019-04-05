@@ -7,6 +7,9 @@ export const BgRed = "\x1b[41m";
 export const BgGreen = "\x1b[42m";
 export const BgYellow = "\x1b[43m";
 
+const IsNode = true;
+// typeof window === "undefined";
+
 export const QueryConsoleColorSpec = "color: green";
 
 export enum DielInternalErrorType {
@@ -24,18 +27,19 @@ export enum DielInternalWarningType {
   ArgNull = "ArgNull"
 }
 
-export function LogInternalError(m: string, errorType = DielInternalErrorType.Untitled) {
-  if (typeof window === "undefined") {
+export function LogInternalError(m: string, errorType = DielInternalErrorType.Untitled): null {
+  if (IsNode) {
     console.log(`${FgRed}%s${Reset}`, m);
   } else {
     debugger;
     console.log(`%cError[${errorType}]: ${m}`, "color: red");
   }
   if (STRICT) throw new Error();
+  return null;
 }
 
 export function LogInternalWarning(m: string, wariningType = DielInternalWarningType.Untitled) {
-  if (typeof window === "undefined") {
+  if (IsNode) {
     console.log(`${FgRed}%s${Reset}`, m);
   } else {
     console.log(`%cWarning[${wariningType}]: ${m}`, "color: orange");
@@ -76,8 +80,8 @@ export enum UserErrorType {
 
 // TODO: this should also report the line of the code
 // the input should be more structured
-export function ReportDielUserError(m: string, q?: string, errorType?: UserErrorType) {
-  if (typeof window === "undefined") {
+export function ReportDielUserError(m: string, q?: string, errorType?: UserErrorType): null {
+  if (IsNode) {
     console.log(`${FgRed}%s${Reset}`, m);
   } else {
     debugger;
@@ -86,6 +90,7 @@ export function ReportDielUserError(m: string, q?: string, errorType?: UserError
   if (STRICT) {
     throw new Error();
   }
+  return null;
 }
 
 export function ReportDielUserWarning(m: string, q?: string) {

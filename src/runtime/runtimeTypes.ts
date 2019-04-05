@@ -21,6 +21,8 @@ export enum DbType {
   Socket = "Socket"
 }
 
+// TODO: add more runtime info
+// e.g., number of times accessed etc.
 export interface TableMetaData {
   dbId: DbIdType;
 }

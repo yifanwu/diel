@@ -66,7 +66,7 @@ function tryToApplyATemplate(ast: RelationSelection | JoinAst): void {
 
   function _changeString(inStr: string): string {
     if (!inStr) {
-      return;
+      return inStr;
     }
     if ((inStr[0] === "{") && (inStr[inStr.length - 1] === "}")) {
       const varName = inStr.slice(1, inStr.length - 1);

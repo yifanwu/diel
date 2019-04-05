@@ -58,6 +58,7 @@ export class ConnectionWrapper {
       });
     } else {
       this.sendNoPromise(id, msgToSend);
+      return null;
     }
   }
 

@@ -7,13 +7,14 @@ src/parser/grammar/*.ts
 src/parser/grammar/*.ts
 .antlr
 
+*.tsbuildinfo
 *.tgz
 *.java
 *.class
 *.tokens
 *.jar
 *tmp.*
-*.js.map
+*.map
 *.js
 *.d.ts
 *.csv

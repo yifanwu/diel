@@ -1,5 +1,5 @@
 import { DielIr, SimpleColumn, SelectionUnitVisitorFunctionOptions, BuiltInColumn, columnsFromSelectionUnit } from "../DielIr";
-import { ReportDielUserError } from "../../util/messages";
+import { ReportDielUserError, LogInternalError } from "../../util/messages";
 import { ExprType, ExprColumnAst } from "../../parser/exprAstTypes";
 import {  SelectionUnit, ColumnSelection, getRelationReferenceName, RelationReference, DataType } from "../../parser/dielAstTypes";
 import { copyColumnSelection, createColumnSectionFromRelationReference } from "./helper";
@@ -43,7 +43,7 @@ function columnsFromLocalSelectionUnit(ir: DielIr, s: SelectionUnit, refName: st
   } else {
     return baseResult;
   }
-  ReportDielUserError(`Relation not defined`);
+  return ReportDielUserError(`Relation not defined`);
 }
 
 function starCase(ir: DielIr, s: SelectionUnit, currentColumnExpr: ExprColumnAst) {
@@ -137,6 +137,7 @@ function normalizeColumnForSelectionUnit(s: SelectionUnit, optional: SelectionUn
         // might be slow? #FIXME
         return [JSON.parse(JSON.stringify(c))];
       }
+      return LogInternalError(`Should have returned by now`);
     });
     s.derivedColumnSelections = [].concat(...derivedColumnSelections);
     // TODO: in addition to just expanding this query we might be interested in systematically expanding all other subqueries in the future...

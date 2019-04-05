@@ -24,6 +24,7 @@ export function isRelationTypeDerived(rType: RelationType) {
     return false;
   } else {
     LogInternalError(`RelationType ${rType} is not defined to be derived or not`);
+    return null;
   }
 }
 
@@ -91,7 +92,7 @@ export class DielIr {
     if (result) {
       return result;
     } else {
-      LogInternalError(`Relation ${rName} not defined`);
+      return LogInternalError(`Relation ${rName} not defined`);
     }
     // const original = this.allOriginalRelations.get(rName);
     // if (original) {
@@ -128,10 +129,13 @@ export class DielIr {
     const selections = unit.derivedColumnSelections;
     if (selections) {
       const column = selections.filter(s => {
-        if (s.expr.exprType === ExprType.Column) {
-          return (s.expr as ExprColumnAst).columnName === columnName;
-        } else if (s.expr.exprType === ExprType.Func) {
-          return (s.alias === columnName);
+        switch (s.expr.exprType) {
+          case ExprType.Column:
+            return (s.expr as ExprColumnAst).columnName === columnName;
+          case ExprType.Func:
+            return (s.alias === columnName);
+          default:
+            return LogInternalError(`Relation ${unit} does not have derivedColumnSelections`);
         }
       });
       if (column.length > 0) {
@@ -140,7 +144,7 @@ export class DielIr {
         return null;
       }
     } else {
-      LogInternalError(`Relation ${unit} does not have derivedColumnSelections`);
+      return LogInternalError(`Relation ${unit} does not have derivedColumnSelections`);
     }
   }
   public GetColumnsFromRelationName(relationName: string): SimpleColumn[] {
@@ -153,7 +157,7 @@ export class DielIr {
       }
     } else {
       // note for LUCIE: this is a good place to add the fuzzy search for correct relation name suggestion
-      LogInternalError(`Cannot find relation ${relationName}`, DielInternalErrorType.RelationNotFound);
+      return LogInternalError(`Cannot find relation ${relationName}`, DielInternalErrorType.RelationNotFound);
     }
   }
 
@@ -186,7 +190,7 @@ export class DielIr {
     if (d && (d.relationType === RelationType.EventView)) {
       return d;
     }
-    LogInternalWarning(`GetEventByName for ${n} failed`);
+    return LogInternalWarning(`GetEventByName for ${n} failed`);
   }
 
   /**
