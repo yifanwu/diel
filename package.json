@@ -15,7 +15,8 @@
   "scripts": {
     "build": "tsc -b src/",
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
-    "test": "ts-node --no-cache src/tests/test.ts"
+    "test": "tsc -b tests/",
+    "debug": "node --inspect-brk -r ts-node/register tests/tmp.ts"
   },
   "repository": {
     "type": "git",
@@ -34,12 +35,12 @@
   "homepage": "https://github.com/yifanwu/diel#readme",
   "devDependencies": {
     "antlr4ts-cli": "^0.4.0-alpha.4",
-    "ts-node": "^7.0.1",
-    "typescript": "^3.0.3",
-    "tslint": "^5.11.0",
-    "source-map-loader": "^0.2.3",
-    "tslint-loader": "^3.5.3",
     "awesome-typescript-loader": "^3.4.1",
+    "source-map-loader": "^0.2.3",
+    "ts-node": "^7.0.1",
+    "tslint": "^5.15.0",
+    "tslint-loader": "^3.5.3",
+    "typescript": "^3.4.1",
     "typescript-formatter": "^7.2.2"
   },
   "dependencies": {

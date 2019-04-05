@@ -34,6 +34,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
       return newAst;
     } else {
       LogInternalError(`Template ${templateName} not defined`);
+      return null;
     }
   }
   // this is useful for compiling partial queries
@@ -95,6 +96,12 @@ implements visitor.DIELVisitor<ExpressionValue> {
     };
   }
 
+  // visitSelectQuery(ctx: parser.SelectQueryContext): RelationSelection {
+  //   return this.visit(ctx) as RelationSelection;
+  //   // if (ctx.)
+  //   // return this.visit(ctx.getRuleContext());
+  // }
+
   visitSelectQueryDirect(ctx: parser.SelectQueryDirectContext): RelationSelection {
     // this is lazy, assume union or intersection to a hve the same columns
     const firstQuery = this.visit(ctx.selectUnitQuery()) as SelectionUnit;
@@ -139,7 +146,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
       astType: AstType.Delete,
       relationName,
       predicate
-    }
+    };
   }
 
   visitViewStmt(ctx: parser.ViewStmtContext): DerivedRelation {

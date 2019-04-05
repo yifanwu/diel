@@ -53,7 +53,7 @@ function getTypeForExpr(ir: DielIr, expr: ExprAst, sUnit: SelectionUnit): DataTy
       const columnExpr = expr as ExprColumnAst;
       // make sure that the source is specified
       if (!columnExpr.relationName) {
-        LogInternalError(`The normalization pass screwed up and did not specify the source relation for ${JSON.stringify(columnExpr)}`);
+        return LogInternalError(`The normalization pass screwed up and did not specify the source relation for ${JSON.stringify(columnExpr)}`);
       }
       const cn = columnExpr.columnName;
       // case 1: check for keywords
@@ -82,6 +82,7 @@ function getTypeForExpr(ir: DielIr, expr: ExprAst, sUnit: SelectionUnit): DataTy
             // now access it, should be fine...
             return ir.GetTypeFromDerivedRelationColumn(tempRelation, cn);
           }
+          return null;
         };
         // first check base!
         const typeFromBase = checkAlias(sUnit.baseRelation);
@@ -97,7 +98,7 @@ function getTypeForExpr(ir: DielIr, expr: ExprAst, sUnit: SelectionUnit): DataTy
             return typeFromJoin;
           }
         }
-        LogInternalError("Should have found a type by now!");
+        return LogInternalError("Should have found a type by now!");
       } else {
         return existingType;
       }
@@ -109,6 +110,6 @@ function getTypeForExpr(ir: DielIr, expr: ExprAst, sUnit: SelectionUnit): DataTy
       const valExpr = expr as ExprValAst;
       return valExpr.dataType;
     default:
-      LogInternalError(`Should have handled all cases`, DielInternalErrorType.UnionTypeNotAllHandled);
+      return LogInternalError(`Should have handled all cases`, DielInternalErrorType.UnionTypeNotAllHandled);
   }
 }

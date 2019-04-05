@@ -1,4 +1,4 @@
-import { DataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst } from "../../parser/dielAstTypes";
+import { DataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause } from "../../parser/dielAstTypes";
 import { RelationSpec, RelationQuery, SqlAst, createSqlAstFromDielAst } from "./createSqlIr";
 import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen } from "../../parser/exprAstTypes";
@@ -28,16 +28,20 @@ function generateCommand(command: Command) {
     case AstType.Insert:
       return generateInserts(command as InsertionClause);
     case AstType.Drop:
-      // allCmdStrs.push(generateDr(command as DropClause));
-      LogInternalError(`Not implemented`, DielInternalErrorType.NotImplemented);
-    break;
+      return generateDrop(command as DropClause);
     case AstType.RelationSelection:
       return generateSelect((command as RelationSelection).compositeSelections);
+    default:
+      LogInternalError(`Other AstTypes ${command.astType} not handled`, DielInternalErrorType.UnionTypeNotAllHandled);
+      return null;
   }
 }
 
+function generateDrop(command: DropClause) {
+  return `DROP TABLE ${command.relationName};`;
+}
+
 // FIXME note that we should probably not use the if not exist as a crutch
-// to fix later
 function generateTableSpec(t: RelationSpec, replace = false): string {
   const replaceQuery = replace ? `DROP TABLE IF EXISTS ${t.name};` : "";
   return `${replaceQuery}
@@ -220,9 +224,11 @@ export function generateExpr(e: ExprAst): string {
           return `${f.functionReference} (${f.args.map(a => generateExpr(a)).join(", ")})`;
         default:
           LogInternalError(`FunctionType type ${f.functionType} not handled`, DielInternalErrorType.UnionTypeNotAllHandled);
+          return null;
       }
     default:
       LogInternalError(`Expr type ${e.exprType} not handled`, DielInternalErrorType.UnionTypeNotAllHandled);
+      return null;
   }
 }
 

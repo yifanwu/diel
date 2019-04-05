@@ -408,6 +408,8 @@ export interface OrderByAst {
   selection: ExprAst;
 }
 
+// FIXME: add drop for views as well
+// and maybe constraints?
 export interface DropClause extends AstBase {
   relationName: string;
 }

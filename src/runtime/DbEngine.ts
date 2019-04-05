@@ -77,7 +77,7 @@ export default class DbEngine {
         try {
           newConnection = new Worker(configWorker.jsFile);
         } catch (e) {
-          ReportDielUserError(`Web Worker JS File is missing at this path ${configWorker.jsFile}, with error: ${e}.`);
+          return ReportDielUserError(`Web Worker JS File is missing at this path ${configWorker.jsFile}, with error: ${e}.`);
         }
         this.connection = new ConnectionWrapper(newConnection, this.remoteType);
         // note that this must be set before the await is called, otherwise we get into a dealock!
@@ -87,12 +87,11 @@ export default class DbEngine {
         const bufferRaw = await response.arrayBuffer();
         const buffer = new Uint8Array(bufferRaw);
         // we should block because if it's not ack-ed the rest of the messages cannot be processed properly
-        await this.SendMsg({
+        return await this.SendMsg({
           remoteAction: DielRemoteAction.ConnectToDb,
           lineage: INIT_TIMESTEP,
           buffer,
         }, true);
-        break;
       case DbType.Socket:
         const configSocket = configUnion as SocketConfig;
         try {
@@ -100,21 +99,21 @@ export default class DbEngine {
           this.connection = new ConnectionWrapper(socket, this.remoteType);
           this.connection.setHandler(this.getHandleMsgForRemote());
           if (configSocket.message) {
-            await this.SendMsg({
+            return await this.SendMsg({
               remoteAction: DielRemoteAction.ConnectToDb,
               lineage: INIT_TIMESTEP,
               message: configSocket.message
             }, true);
           }
+          // FIXME
+          return LogInternalError(`Should not be in this condition`);
         } catch (e) {
-          ReportDielUserError(`Failed to connect to socket at ${configSocket.connection}, with error: ${e}.`);
+          return ReportDielUserError(`Failed to connect to socket at ${configSocket.connection}, with error: ${e}.`);
         }
-        break;
       case DbType.Local:
-        LogInternalError(`Should not use DbEngine wrapper for local`);
-        break;
+        return LogInternalError(`Should not use DbEngine wrapper for local`);
       default:
-        LogInternalError(`handle different connections`, DielInternalErrorType.UnionTypeNotAllHandled);
+        return LogInternalError(`handle different connections`, DielInternalErrorType.UnionTypeNotAllHandled);
     }
   }
 
@@ -141,14 +140,14 @@ export default class DbEngine {
   }
 
   // RECURSIVE
-  private evaluateQueueOnUpdateHandler() {
+  private evaluateQueueOnUpdateHandler(): null {
     if (!this.currentQueueHead) {
       // this is the first time
       this.currentQueueHead = Math.min(...this.queueMap.keys());
     }
     const currentItem = this.queueMap.get(this.currentQueueHead);
     if (!currentItem) {
-      LogInternalError(`Queue should contain current head ${this.currentQueueHead}, but it contains ${this.queueMap.keys()}!`);
+      return LogInternalError(`Queue should contain current head ${this.currentQueueHead}, but it contains ${this.queueMap.keys()}!`);
     }
     // coarse grained
     if (IsSetIdentical(currentItem.received, currentItem.deps)) {
@@ -166,6 +165,7 @@ export default class DbEngine {
       this.nextQueue();
     }
     // need to keep on waiting
+    return null;
   }
 
   public SendMsg(msg: DielRemoteMessage, isPromise = false): Promise<DielRemoteReply> | null {
@@ -217,6 +217,7 @@ export default class DbEngine {
         } else {
           // otherwise push on the queue
           this.queueMap.get(msg.lineage).receivedValues.push(updateMsg);
+          return null;
         }
       }
       case DielRemoteAction.DefineRelations: {
@@ -251,12 +252,12 @@ export default class DbEngine {
             };
             this.SendMsg(staticMsg);
           });
-          return;
+          return null;
         }
         if ((this.id !== LocalDbId) && (shipMsg.dbId !== LocalDbId)) {
           // this case is not yet supported
           LogInternalError(`Shipping across remote engines from ${this.id} to ${shipMsg.dbId}`, DielInternalErrorType.NotImplemented);
-          return;
+          return null;
         }
         const msgToSend = {
           sql: `select * from ${shipMsg.relationName};`
@@ -271,7 +272,7 @@ export default class DbEngine {
         return this.connection.send(id, msgToSend, true);
       }
       default:
-        LogInternalError(`DielRemoteAction ${msg.remoteAction} not handled`);
+        return LogInternalError(`DielRemoteAction ${msg.remoteAction} not handled`);
     }
   }
 

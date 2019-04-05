@@ -330,7 +330,7 @@ export class DielPhysicalExecution {
     if (r) {
       return r.dbId;
     } else {
-      LogInternalError(`Cannot find relation ${rName}`);
+      return LogInternalError(`Cannot find relation ${rName}`);
     }
   }
 }

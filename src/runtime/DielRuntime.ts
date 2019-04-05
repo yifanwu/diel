@@ -19,6 +19,7 @@ import DbEngine from "./DbEngine";
 import { CreateDerivedSelectionSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
 import { viewConstraintCheck } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
+import { getPlainSelectQueryAst } from "../compiler/compiler";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
@@ -484,13 +485,14 @@ export default class DielRuntime {
       return this.db.prepare(q);
     } catch (e) {
       LogInternalError(`Got ${e} while preparing for query ${q}`);
+      return null;
     }
   }
 
   /**
    * returns the results as an array of objects (sql.js)
    */
-  ExecuteAstQuery(ast: SelectionUnit): RelationObject {
+  ExecuteSqlAst(ast: SelectionUnit): RelationObject {
     const queryString = generateSelectionUnit(ast);
     return this.ExecuteStringQuery(queryString);
   }
@@ -544,6 +546,7 @@ export default class DielRuntime {
   }
 
   // TODO: use component to do namespacing
+  // this should really not be part of the runtime --- should more be part of DIEL-UI?
   public GetScales(output: string, component?: string) {
     let result;
     if (component) {
@@ -560,17 +563,20 @@ export default class DielRuntime {
       return rawValue as {dimension: number, x: string, y?: string, z?: string};
     } else
       LogInternalError(`scale logic inconsistent`);
+      return null;
   }
 
   /**
-   * AddView will take in a derived relation (the view)
-   * FIXME/TODO:
-   * - assume this is local (so it does not need to be processed by distributed query)
-   * - also assume that it's compiled (i.e., typed & normalized etc)
-   * and we can just add it to the output lx
-   * ist
+   * if there is no name, it's a view
+   * if there is name, it's a select
+   * need to specify what kind of relation: is it an output? FIXME later, maybe we don't need this commitment up front?
    */
-  public AddView(q: DerivedRelation) {
+  public AddRelationByString(q: string, rType: RelationType, rName?: string) {
+    const selectionUnitAst = getPlainSelectQueryAst(q);
+
+  }
+
+  public AddViewByAst(q: DerivedRelation) {
     const queryStr = generateSqlViews(CreateDerivedSelectionSqlAstFromDielAst(q));
     this.addViewToLocal(queryStr);
     this.setupNewOutput(q);
