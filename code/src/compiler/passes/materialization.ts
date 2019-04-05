@@ -105,38 +105,8 @@ function changeASTMaterialize(view: DerivedRelation,
   ast.relations.splice(relationIndex, 1);
   ast.relations.splice(numTables, 0, table);
 
-  // 5. delete derived column selection of the depended outputs and views!
-  deleteDependentsDerivedColumnSelection(ast, view.name, dependents, ir);
-
 }
 
-/**
- * Delete Derived Column Selection in the Dependent view or output ast,
- * since they changed into tables
- */
-function deleteDependentsDerivedColumnSelection(ast: DielAst, vname: string, dependents: string[], ir: DielIr) {
-  let dependent: DerivedRelation;
-  // 1. iterate through the dependent that this view is depended by
-  dependents.forEach(dname => {
-    // dependents have to be derived relation
-    dependent = ir.GetRelationDefinition(dname) as DerivedRelation;
-    dependent.selection.compositeSelections.forEach(sel => {
-      // 2. delete derived column selection
-      if (sel.relation.derivedColumnSelections) {
-        sel.relation.derivedColumnSelections.forEach((colsel, index) => {
-          let expr = colsel.expr as ExprColumnAst;
-          if (expr.relationName === vname) {
-            sel.relation.derivedColumnSelections.splice(index, 1);
-          }
-        });
-        // 3. remove the json entry completely
-        if (sel.relation.derivedColumnSelections.length <= 0) {
-          delete sel.relation["derivedColumnSelections"];
-        }
-      }
-    });
-  });
-}
 
 /**
  * Create AST for DeleteClause
@@ -169,12 +139,7 @@ function makeInsertCommand(view: DerivedRelation): Command {
       compositeSelections: view.selection.compositeSelections
     } as RelationSelection
   };
-  // drop the derived column selection since it's made a table ???
-  insertClause.selection.compositeSelections.forEach(unit => {
-    if (unit.relation.derivedColumnSelections) {
-      delete unit.relation["derivedColumnSelections"];
-    }
-  });
+
   return insertClause;
 }
 

@@ -9,6 +9,7 @@ import { ConsoleErrorListener } from "antlr4ts";
 import { TransformAstForMaterialization } from "../../compiler/passes/materialization";
 import { DielIr } from "../../lib";
 import { NormalizeColumnSelection } from "../../compiler/passes/normalizeColumnSelection";
+import { CompileDiel } from "../../compiler/DielCompiler";
 
 var jsonDiff = require("json-diff");
 
@@ -26,27 +27,27 @@ export function testMaterialization() {
 
 
 function compareAST(query: string, ast2: DielAst, logger: any, logdiff: boolean) {
-  let ast1 = getDielAst(query);
-  let ir1 = new DielIr(ast1);
-  NormalizeColumnSelection(ir1);
+  let ir1 = getDielIr(query);
+  let ast1 = ir1.ast;
 
-  let pretty1 = JSON.stringify(ast1.relations[6], null, 2);
-  let pretty2 = JSON.stringify(ast2.relations[6], null, 2);
+  let pretty1 = JSON.stringify(ast1, null, 2);
+  let pretty2 = JSON.stringify(ast2, null, 2);
 
   let diff = jsonDiff.diff(pretty1, pretty2);
 
-  console.log("============ Result ==============");
+  // console.log("============ Result ==============");
 
   // compare the programs!!!!!!!!!
-  let map1 = JSON.stringify(Array.from(ast1.programs));
-  let map2 = JSON.stringify(Array.from(ast2.programs));
+  // let map1 = JSON.stringify(Array.from(ast1.programs), null, 2);
+  // console.log(map1);
+  // let map2 = JSON.stringify(Array.from(ast2.programs));
 
-  if (map1 !== map2) {
-    console.log(map1);
-    console.log(map2);
-    console.log("\x1b[34m Failed. Programs not the same \x1b[0m");
-    return;
-  }
+  // if (map1 !== map2) {
+  //   console.log("", map1);
+  //   console.log(map2);
+  //   console.log("\x1b[34m Failed. Programs not the same \x1b[0m");
+  //   return;
+  // }
 
 
 
@@ -310,3 +311,4 @@ create output o2 as select aPrime from v1 where aPrime = a;
 `;
 
 let tests = [[q1, a1], [q2, a2], [q3, a3], [q4, a4], [q5, a5], [q6, a6]];
+// let tests = [[q1, a1]];
