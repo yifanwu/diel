@@ -1,8 +1,8 @@
 import { DbType, DielRemoteAction, DielRemoteReply, DielRemoteMessageId } from "./runtimeTypes";
-import { DbIdType, LogicalTimestep } from "../compiler/DielPhysicalExecution";
 import { ParseSqlJsWorkerResult } from "./runtimeHelper";
 import { downloadHelper } from "../util/dielUtils";
 import { LogInfo, LogInternalError } from "../util/messages";
+import { DbIdType, LogicalTimestep } from "../parser/dielAstTypes";
 
 type FinalMsgType = {buffer: any} | {sql: string} | {message: string};
 

@@ -1,6 +1,6 @@
 import { getDielIr } from "../../src/compiler/compiler";
 import { GenerateUnitTestErrorLogger, LogInfo } from "../../src/util/messages";
-import { DataType } from "../../src/parser/dielAstTypes";
+import { DielDataType } from "../../src/parser/dielAstTypes";
 
 export function assertMultiplyType() {
   const q = `
@@ -10,7 +10,7 @@ export function assertMultiplyType() {
   const logger = GenerateUnitTestErrorLogger("assertMultiplyType", q);
   let ir = getDielIr(q);
   const v2Type = ir.GetRelationColumnType("v2", "newA");
-  if (v2Type !== DataType.Number) {
+  if (v2Type !== DielDataType.Number) {
     logger(`Column "newA" of "v2" is not correctly typed, got ${v2Type} instead`);
   }
   LogInfo(`assertMultiplyType passed`);
@@ -37,7 +37,7 @@ export function assertSimpleType() {
   let ir = getDielIr(q);
   function arrivalAssert(viewName: string) {
     const arrivalType = ir.GetRelationColumnType(viewName, "arrival");
-    if (arrivalType !== DataType.Number) {
+    if (arrivalType !== DielDataType.Number) {
       logger(`Column "arrival" of ${viewName} is not correctly typed, got ${arrivalType} instead`);
     }
   }

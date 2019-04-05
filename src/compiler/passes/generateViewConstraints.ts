@@ -1,11 +1,10 @@
-import { DataType, RelationType, DerivedRelation, CompositeSelection, SelectionUnit, ColumnSelection, RelationSelection, RelationReference, GroupByAst } from "../../parser/dielAstTypes";
+import { DielDataType, RelationType, DerivedRelation, CompositeSelection, SelectionUnit, ColumnSelection, RelationSelection, RelationReference, GroupByAst } from "../../parser/dielAstTypes";
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as lexer from "../../parser/grammar/DIELLexer";
 import * as parser from "../../parser/grammar/DIELParser";
 import {generateViewConstraintSelection, generateExpr} from "../../compiler/codegen/codeGenSql";
-import { DielAst, RelationConstraints } from "../../parser/dielAstTypes";
+import { DielAst, RelationConstraints, ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst } from "../../parser/dielAstTypes";
 import Visitor from "../../parser/generateAst";
-import {ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst} from "../../parser/exprAstTypes";
 
 export function generateViewConstraintCheckQuery(query: string): Map<string, string[][]> {
   let ast = checkValidView(query);
@@ -82,7 +81,7 @@ function getSelectClauseAST(fromSel: CompositeSelection): SelectionUnit {
     let columnSel = {} as ColumnSelection;
     columnSel.expr = {
       exprType: ExprType.Column,
-      dataType: DataType.TBD,
+      dataType: DielDataType.TBD,
       hasStar: true
     } as ExprAst;
 
@@ -121,7 +120,7 @@ function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionU
 
       whereClause = {
         exprType: ExprType.Func,
-        dataType: DataType.Boolean,
+        dataType: DielDataType.Boolean,
         functionType: FunctionType.Custom,
         functionReference: "NOT",
         args: [exprAst.content] // strip out parenthesis
@@ -149,7 +148,7 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
       // formating the AST for whereclause
       let whereClause = {
         exprType : ExprType.Func,
-        dataType : DataType.Boolean,
+        dataType : DielDataType.Boolean,
         functionType : FunctionType.BuiltIn,
         functionReference : BuiltInFunc.ValueIsNull,
         args : [] as ExprValAst[]
@@ -178,7 +177,7 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
 
       whereClauseArg = {
         exprType: ExprType.Column,
-        dataType: DataType.TBD,
+        dataType: DielDataType.TBD,
         hasStar: false,
         columnName: cname
       } as ExprColumnAst;
@@ -217,7 +216,7 @@ function getUniqueQuery (view_constraints: RelationConstraints, selUnit: Selecti
       groupbyArgs.map(function(colName) {
         let expr = {
           exprType: ExprType.Column,
-          dataType: DataType.TBD,
+          dataType: DielDataType.TBD,
           hasStar: false,
           columnName: colName
         } as ExprColumnAst;
@@ -230,22 +229,22 @@ function getUniqueQuery (view_constraints: RelationConstraints, selUnit: Selecti
         exprType: ExprType.Func,
         functionType: FunctionType.Logic,
         functionReference: ">",
-        dataType: DataType.Boolean,
+        dataType: DielDataType.Boolean,
         args : [
           {
             exprType: ExprType.Func,
-            dataType: DataType.TBD,
+            dataType: DielDataType.TBD,
             functionType: FunctionType.Custom,
             functionReference: "COUNT",
             args: [{
                     exprType: ExprType.Column,
-                    dataType: DataType.TBD,
+                    dataType: DielDataType.TBD,
                     hasStar: true
                 }]
           },
           {
             exprType: ExprType.Val,
-            dataType: DataType.Number,
+            dataType: DielDataType.Number,
             value: 1
           } as ExprValAst
         ] as ExprAst[]
@@ -268,13 +267,13 @@ function getUniqueQuery (view_constraints: RelationConstraints, selUnit: Selecti
       selectColumns.push({
         expr: {
           exprType: ExprType.Func,
-          dataType: DataType.TBD,
+          dataType: DielDataType.TBD,
           functionType: FunctionType.Custom,
           functionReference: "COUNT",
           args: [
             {
               exprType: ExprType.Column,
-              dataType: DataType.TBD,
+              dataType: DielDataType.TBD,
               hasStar: true
             }]}} as ColumnSelection);
 

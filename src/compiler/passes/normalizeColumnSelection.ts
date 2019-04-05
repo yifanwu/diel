@@ -1,7 +1,7 @@
 import { DielIr, SimpleColumn, SelectionUnitVisitorFunctionOptions, BuiltInColumn, columnsFromSelectionUnit } from "../DielIr";
 import { ReportDielUserError, LogInternalError } from "../../util/messages";
-import { ExprType, ExprColumnAst } from "../../parser/exprAstTypes";
-import {  SelectionUnit, ColumnSelection, getRelationReferenceName, RelationReference, DataType } from "../../parser/dielAstTypes";
+import { ExprType, ExprColumnAst, SelectionUnit, ColumnSelection, RelationReference, DielDataType } from "../../parser/dielAstTypes";
+import { getRelationReferenceName } from "../passes/passesHelper";
 import { copyColumnSelection, createColumnSectionFromRelationReference } from "./helper";
 import { generateSelectionUnitBody } from "../codegen/codeGenSql";
 
@@ -83,7 +83,7 @@ function starCase(ir: DielIr, s: SelectionUnit, currentColumnExpr: ExprColumnAst
         const newColumns: ColumnSelection[] = columnsFromRelationReference(ir, j.relation).map(c => ({
           expr: {
             exprType: ExprType.Column,
-            dataType: DataType.TBD,
+            dataType: DielDataType.TBD,
             hasStar: false,
             columnName: c.columnName,
             relationName: relationName,
@@ -115,11 +115,11 @@ function normalizeColumnForSelectionUnit(s: SelectionUnit, optional: SelectionUn
           // UGH this is so ugly...
           if (currentColumnExpr.columnName.toUpperCase() === BuiltInColumn.TIMESTAMP) {
             // FIXME: check if base is input; too lazy for now
-            return [createColumnSectionFromRelationReference(c, {columnName: currentColumnExpr.columnName, type: DataType.TimeStamp}, s.baseRelation.relationName)];
+            return [createColumnSectionFromRelationReference(c, {columnName: currentColumnExpr.columnName, type: DielDataType.TimeStamp}, s.baseRelation.relationName)];
           }
           if (currentColumnExpr.columnName.toUpperCase() === BuiltInColumn.TIMESTEP) {
             // FIXME: check if base is input; too lazy for now
-            return [createColumnSectionFromRelationReference(c, {columnName: currentColumnExpr.columnName, type: DataType.Number}, s.baseRelation.relationName)];
+            return [createColumnSectionFromRelationReference(c, {columnName: currentColumnExpr.columnName, type: DielDataType.Number}, s.baseRelation.relationName)];
           }
           const columnsFrombaseSelection = columnsFromRelationReference(optional.ir, s.baseRelation);
           const foundFrombase = columnsFrombaseSelection.filter(cBase => cBase.columnName === currentColumnExpr.columnName);

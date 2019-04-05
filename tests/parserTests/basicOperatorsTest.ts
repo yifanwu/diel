@@ -1,8 +1,7 @@
 import { getDielIr } from "../../src/compiler/compiler";
 import { GenerateUnitTestErrorLogger, LogInfo } from "../../src/util/messages";
-import { ExprColumnAst, ExprFunAst } from "../../src/parser/exprAstTypes";
 import { assertExprAsFunctionWithName, assertExprAsColumnWithname, assertValue } from "../testHelper";
-import { DerivedRelation } from "../../src/parser/dielAstTypes";
+import { ExprColumnAst, ExprFunAst, DerivedRelation } from "../../src/parser/dielAstTypes";
 
 export function assertBasicOperators() {
   let q = `

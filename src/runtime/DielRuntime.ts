@@ -5,7 +5,7 @@ import { DIELLexer } from "../parser/grammar/DIELLexer";
 import { DIELParser } from "../parser/grammar/DIELParser";
 
 import { DielRemoteAction, RelationObject, DielConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, } from "./runtimeTypes";
-import { OriginalRelation, DerivedRelation, RelationType, SelectionUnit } from "../parser/dielAstTypes";
+import { OriginalRelation, DerivedRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationIdType } from "../parser/dielAstTypes";
 import { generateSelectionUnit, generateSqlFromDielAst, generateSqlViews, generateInsertClauseStringForValue } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
 import { CompileDiel } from "../compiler/DielCompiler";
@@ -14,7 +14,7 @@ import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, QueryConsoleColorSpec, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType } from "../util/messages";
 import { DielIr } from "../compiler/DielIr";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult } from "./runtimeHelper";
-import { DielPhysicalExecution, DbIdType, LocalDbId, LogicalTimestep, RelationIdType } from "../compiler/DielPhysicalExecution";
+import { DielPhysicalExecution, LocalDbId } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
 import { CreateDerivedSelectionSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
 import { viewConstraintCheck } from "../compiler/passes/generateViewConstraints";

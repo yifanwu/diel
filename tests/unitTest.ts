@@ -1,7 +1,7 @@
 import { DependencyTree, getTopologicalOrder, NodeDependencyAugmented } from "../src/compiler/passes/passesHelper";
-import { RelationIdType, LocalDbId, DbIdType } from "../src/compiler/DielPhysicalExecution";
 import { SingleDistribution, QueryDistributionRecursiveEval } from "../src/compiler/passes/distributeQueries";
-import { RelationType } from "../src/parser/dielAstTypes";
+import { RelationType, RelationIdType, DbIdType  } from "../src/parser/dielAstTypes";
+import { LocalDbId } from "../src/compiler/DielPhysicalExecution";
 import { BgGreen, Reset } from "../src/util/messages";
 
 export function testTopologicalSort() {

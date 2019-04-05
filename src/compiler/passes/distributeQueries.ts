@@ -1,8 +1,7 @@
 import { DielIr, isRelationTypeDerived } from "../DielIr";
-import { OriginalRelation, RelationType, DerivedRelation } from "../../parser/dielAstTypes";
-import { ExprType, ExprColumnAst } from "../../parser/exprAstTypes";
+import { OriginalRelation, RelationType, DerivedRelation, DbIdType, RelationIdType, ExprType, ExprColumnAst } from "../../parser/dielAstTypes";
 import { ReportDielUserError, LogInternalError } from "../../util/messages";
-import { DbIdType, RelationIdType } from "../DielPhysicalExecution";
+import {  } from "../DielPhysicalExecution";
 import { NodeDependencyAugmented } from "./passesHelper";
 
 export type SingleDistribution = {

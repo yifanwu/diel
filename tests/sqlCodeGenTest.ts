@@ -1,7 +1,6 @@
 import { generateSelectionUnit } from "../src/compiler/codegen/codeGenSql";
 import { GenerateUnitTestErrorLogger } from "../src/util/messages";
-import { ExprType, FunctionType } from "../src/parser/exprAstTypes";
-import { DataType, SelectionUnit, JoinType, AstType } from "../src/parser/dielAstTypes";
+import { ExprType, FunctionType, DielDataType, SelectionUnit, JoinType, AstType } from "../src/parser/dielAstTypes";
 
 /**
  * stripped of space and lower cased
@@ -15,7 +14,7 @@ export function codeGenBasicSQLTest() {
   const columns = [{
     expr: {
       exprType: ExprType.Column,
-      dataType: DataType.TBD,
+      dataType: DielDataType.TBD,
       columnName: "aId",
       hasStar: false,
       relationName: "t1"
@@ -25,7 +24,7 @@ export function codeGenBasicSQLTest() {
   {
     expr: {
       exprType: ExprType.Column,
-      dataType: DataType.TBD,
+      dataType: DielDataType.TBD,
       columnName: "",
       hasStar: true,
       relationName: "t2"
@@ -34,20 +33,20 @@ export function codeGenBasicSQLTest() {
   ];
   const predicate = {
     exprType: ExprType.Func,
-    dataType: DataType.Boolean,
+    dataType: DielDataType.Boolean,
     functionType: FunctionType.Compare,
     functionReference: "=",
     args: [
       {
         exprType: ExprType.Column,
-        dataType: DataType.TBD,
+        dataType: DielDataType.TBD,
         columnName: "aId",
         hasStar: false,
         relationName: "t1"
       },
       {
         exprType: ExprType.Column,
-        dataType: DataType.TBD,
+        dataType: DielDataType.TBD,
         columnName: "aId",
         hasStar: false,
         relationName: "t2"

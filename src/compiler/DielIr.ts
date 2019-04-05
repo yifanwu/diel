@@ -1,12 +1,10 @@
-import { DielAst, DerivedRelation, DataType, OriginalRelation, RelationType, SelectionUnit, CompositeSelection, Relation, Command } from "../parser/dielAstTypes";
+import { DielAst, DerivedRelation, DielDataType, OriginalRelation, RelationType, SelectionUnit, CompositeSelection, Relation, Command, RelationIdType, ExprType, ExprColumnAst, ExprFunAst } from "../parser/dielAstTypes";
 import { DependencyInfo } from "./passes/passesHelper";
 import { LogInternalWarning, LogInternalError, DielInternalErrorType } from "../util/messages";
-import { ExprType, ExprColumnAst, ExprFunAst } from "../parser/exprAstTypes";
-import { RelationIdType } from "./DielPhysicalExecution";
 
 type CompositeSelectionFunction<T> = (s: CompositeSelection, relationName?: string) => T;
 export type SelectionUnitVisitorFunctionOptions = {relationName?: string, ir?: DielIr};
-export type SimpleColumn = {columnName: string, type: DataType};
+export type SimpleColumn = {columnName: string, type: DielDataType};
 type SelectionUnitFunction<T> = (s: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions) => T;
 
 export enum BuiltInColumn {
@@ -106,7 +104,7 @@ export class DielIr {
     // }
   }
 
-  public GetRelationColumnType(relationName: string, columnName: string): DataType | null {
+  public GetRelationColumnType(relationName: string, columnName: string): DielDataType | null {
     const derived = this.allCompositeSelections.get(relationName);
     if (derived) {
       return this.GetTypeFromDerivedRelationColumn(derived[0].relation, columnName);
@@ -125,7 +123,7 @@ export class DielIr {
     }
   }
 
-  public GetTypeFromDerivedRelationColumn(unit: SelectionUnit, columnName: string): DataType | null {
+  public GetTypeFromDerivedRelationColumn(unit: SelectionUnit, columnName: string): DielDataType | null {
     const selections = unit.derivedColumnSelections;
     if (selections) {
       const column = selections.filter(s => {

@@ -1,9 +1,10 @@
-import { DbType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemoteReply, RemoteOpenDbMessage, RemoteExecuteMessage, RemoteShipRelationMessage, GetRelationToShipFuncType, RemoteUpdateRelationMessage } from "./runtimeTypes";
+import { DbType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemoteReply, RemoteOpenDbMessage, RemoteExecuteMessage, RemoteShipRelationMessage, RemoteUpdateRelationMessage } from "./runtimeTypes";
 import { SqliteMasterQuery, RelationShippingFuncType, INIT_TIMESTEP } from "./DielRuntime";
 import { LogInternalError, ReportDielUserError, LogInternalWarning, DielInternalErrorType, LogInfo } from "../util/messages";
-import { DbIdType, LogicalTimestep, RelationIdType, LocalDbId, DielPhysicalExecution } from "../compiler/DielPhysicalExecution";
+import { LocalDbId, DielPhysicalExecution } from "../compiler/DielPhysicalExecution";
 import { IsSetIdentical } from "../util/dielUtils";
 import { ConnectionWrapper } from "./ConnectionWrapper";
+import { LogicalTimestep, RelationIdType, DbIdType } from "../parser/dielAstTypes";
 
 async function connectToSocket(url: string): Promise<WebSocket> {
   return new Promise<WebSocket>(function(resolve, reject) {

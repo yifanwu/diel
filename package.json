@@ -2,15 +2,10 @@
   "name": "diel",
   "version": "1.0.5",
   "description": "data interaction events log is a new SQL embeded DSL for managing the state of history-aware interactive applications",
-  "main": "build/index.js",
-  "types": "build/index.d.ts",
+  "main": "build/src/index.js",
+  "types": "build/src/index.d.ts",
   "files": [
-    "build/index.d.ts",
-    "build/index.ts",
-    "build/compiler/*",
-    "build/parser/*",
-    "build/runtime/*",
-    "build/util/*"
+    "build/src/*"
   ],
   "scripts": {
     "build": "tsc -b src/",

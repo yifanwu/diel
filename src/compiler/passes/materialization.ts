@@ -1,6 +1,5 @@
-import { Relation, RelationType, DielAst } from "../../parser/dielAstTypes";
+import { Relation, RelationType, DielAst, RelationIdType } from "../../parser/dielAstTypes";
 import { DependencyTree, getTopologicalOrder } from "./passesHelper";
-import { RelationIdType } from "../DielPhysicalExecution";
 import { GetDependenciesFromViewList } from "./dependnecy";
 import { GetAllDerivedViews } from "../DielIr";
 
