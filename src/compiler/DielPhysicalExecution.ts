@@ -55,6 +55,7 @@ export class DielPhysicalExecution {
         relationDef.push(newDef);
       }
     }
+    setIfNotExist(LocalDbId);
     const setofRelationsDistributed = new Set<RelationIdType>();
     distributions.map(distribution => {
       const astToSpec = setIfNotExist(distribution.to);
