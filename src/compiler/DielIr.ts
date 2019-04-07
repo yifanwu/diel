@@ -1,4 +1,4 @@
-import { DielAst, DerivedRelation, DielDataType, OriginalRelation, RelationType, SelectionUnit, CompositeSelection, Relation, Command, RelationIdType, ExprType, ExprColumnAst, ExprFunAst } from "../parser/dielAstTypes";
+import { DielAst, DerivedRelation, DielDataType, OriginalRelation, RelationType, SelectionUnit, CompositeSelection, Relation, Command, RelationIdType, ExprType, ExprColumnAst, ExprFunAst, AstType, InsertionClause } from "../parser/dielAstTypes";
 import { DependencyInfo } from "./passes/passesHelper";
 import { LogInternalWarning, LogInternalError, DielInternalErrorType } from "../util/messages";
 
@@ -230,6 +230,19 @@ export class DielIr {
       // this step flattens
       ir.GetAllDerivedViews().reduce((acc, r) => acc.concat(applyToDerivedRelation(r, fun)), initial);
     }
+    // also need to walk thru the programs...
+    ir.ast.programs.forEach((commands, _) => {
+      commands.map(c => {
+        // check the select clause from insert
+        // @LUCIE: let me know if this covers all your use cases
+        if (c.astType === AstType.Insert) {
+          const insertClause = c as InsertionClause;
+          if (insertClause.selection) {
+            insertClause.selection.compositeSelections.map(s => fun(s.relation, {ir}));
+          }
+        }
+      });
+    });
     return initial;
   }
 

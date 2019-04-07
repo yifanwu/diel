@@ -3,7 +3,7 @@ import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateAst";
 import { CompileDiel } from "./DielCompiler";
-import { LogInfo } from "../util/messages";
+import { LogInfo, PrintCode } from "../util/messages";
 import { DielIr } from "./DielIr";
 import { RelationSelection } from "../parser/dielAstTypes";
 
@@ -32,7 +32,7 @@ export function getDielIr(code: string) {
 }
 
 export function getDielAst(code: string) {
-  LogInfo(`Starting compilation of ${code}`);
+  PrintCode(code);
   const inputStream = new ANTLRInputStream(code);
   const l = new lexer.DIELLexer(inputStream);
   const tokenStream = new CommonTokenStream(l);

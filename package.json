@@ -10,8 +10,9 @@
   "scripts": {
     "build": "tsc -b src/",
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
-    "test": "tsc -b tests/",
-    "debug": "node --inspect-brk -r ts-node/register tests/tmp.ts"
+    "test-build": "tsc -b tests/ && node build/tests/index.js",
+    "test-watch": "tsc -b -watch tests/",
+    "debug": "node --inspect-brk -r ts-node/register tests/index.ts"
   },
   "repository": {
     "type": "git",
