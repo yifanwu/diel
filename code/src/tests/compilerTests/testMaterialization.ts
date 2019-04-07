@@ -38,7 +38,10 @@ function compareAST(query: string, ast2: DielAst, logger: any, logdiff: boolean)
   // console.log("============ Result ==============");
 
   // compare the programs!!!!!!!!!
-  // let map1 = JSON.stringify(Array.from(ast1.programs), null, 2);
+  ast1.programs.forEach(function(value, key) {
+    console.log(key);
+    console.log(JSON.stringify(value, null, 2));
+  });
   // console.log(map1);
   // let map2 = JSON.stringify(Array.from(ast2.programs));
 
@@ -271,10 +274,31 @@ create output o2 as select aPrime from v1 where aPrime = a;
 `;
 
 
+/**
+         t1
+         |
+         v1
+        /  \
+       o1  v2
+          /  \
+         o2   o3
+*/
+let q7 =
+`
+create table t1 (a integer);
+
+create view v1 as select a + 1 as v1Prime from t1;
+create view v2 as select v1Prime + 1 as v2Prime from v1;
+
+create output o1 as select v1Prime from v1;
+create output o2 as select v2Prime from v2;
+create output o3 as select v2Prime from v2;
+`
+;
 
 // 7. FOR LATER! how do you handle view constraints..?
 
-let q7 = `
+let view_constraint_query = `
 create table t1 (a integer);
 
 create view v1 as
@@ -289,7 +313,7 @@ create output o2 as select aPrime from v1 where aPrime = a;
 
 `;
 
-let a7 = `
+let view_constraint_answer = `
 create table t1 (a integer);
 
 create table v1 (aPrime integer, aPPrime integer);
@@ -310,5 +334,5 @@ create output o2 as select aPrime from v1 where aPrime = a;
 
 `;
 
-let tests = [[q1, a1], [q2, a2], [q3, a3], [q4, a4], [q5, a5], [q6, a6]];
-// let tests = [[q1, a1]];
+// let tests = [[q1, a1], [q2, a2], [q3, a3], [q4, a4], [q5, a5], [q6, a6]];
+let tests = [[q1, a1]];
