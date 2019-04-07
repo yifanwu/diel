@@ -2,13 +2,16 @@
   "name": "diel",
   "version": "1.0.5",
   "description": "data interaction events log is a new SQL embeded DSL for managing the state of history-aware interactive applications",
-  "main": "build/src/index.js",
+  "main": "build/diel.js",
+  "jsdelivr": "build/diel.js",
+  "module": "build/src/index.js",
   "types": "build/src/index.d.ts",
   "files": [
     "build/src/*"
   ],
   "scripts": {
-    "build": "tsc -b src/",
+    "build": "tsc -b src",
+    "bundle": "rollup -c",
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
     "test-build": "tsc -b tests/ && node build/tests/index.js",
     "test-watch": "tsc -b -watch tests/",
@@ -31,7 +34,11 @@
   "homepage": "https://github.com/yifanwu/diel#readme",
   "devDependencies": {
     "antlr4ts-cli": "^0.4.0-alpha.4",
-    "awesome-typescript-loader": "^3.4.1",
+    "rollup": "^1.9.0",
+    "rollup-plugin-commonjs": "^9.3.4",
+    "rollup-plugin-node-builtins": "^2.1.2",
+    "rollup-plugin-node-globals": "^1.4.0",
+    "rollup-plugin-node-resolve": "^4.2.1",
     "source-map-loader": "^0.2.3",
     "ts-node": "^7.0.1",
     "tslint": "^5.15.0",
