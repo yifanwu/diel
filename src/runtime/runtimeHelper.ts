@@ -1,10 +1,9 @@
 import { Database, QueryResults } from "sql.js";
 import { RelationObject } from "./runtimeTypes";
-import { SelectionUnit } from "../parser/dielAstTypes";
+// import { SelectionUnit } from "../parser/dielAstTypes";
 
-export function generateViewNameForSelect(ast: SelectionUnit) {
-
-}
+// export function generateViewNameForSelect(ast: SelectionUnit) {
+// }
 
 /**
  * returns all the SQL that defines tables in this DB

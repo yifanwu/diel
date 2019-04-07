@@ -84,7 +84,7 @@ viewStmt
 
 programStmt
   // : CREATE PROGRAM programBody ';'                  # programStmtGeneral
-  : CREATE PROGRAM AFTER '(' IDENTIFIER (',' IDENTIFIER) ')' programBody ';' 
+  : CREATE PROGRAM AFTER '(' IDENTIFIER (',' IDENTIFIER)* ')' programBody ';' 
   // # programStmtSpecific
   ;
 
@@ -96,6 +96,7 @@ programBody
 aProgram
   : insertQuery 
   | selectQuery
+  | deleteStmt
   ;
 
 selectQuery
@@ -112,7 +113,7 @@ dropQuery
   ;
 
 deleteStmt
-  : DELETE FROM IDENTIFIER (WHERE expr)?;
+  : DELETE FROM IDENTIFIER (WHERE expr)? ';';
 
 variableAssignment
   : variable=IDENTIFIER '=' assignment=STRING

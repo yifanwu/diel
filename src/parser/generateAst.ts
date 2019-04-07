@@ -10,6 +10,9 @@ export default class Visitor extends AbstractParseTreeVisitor<ExpressionValue>
 implements visitor.DIELVisitor<ExpressionValue> {
   private ast: DielAst;
   private templates: Map<string, DielTemplate>;
+  // this is to avoid visiting commands that are defined in programs
+  // must be a better programming pattern to deal with this, hack for now... :/
+  private seenInserts: number[];
 
   defaultResult() {
     LogInternalError("All the visits should be handled");
@@ -42,8 +45,11 @@ implements visitor.DIELVisitor<ExpressionValue> {
     this.ast = ir;
   }
 
+  // this is serving also as a constrcutor
+  // look into if there is a cleaner way to do this
   visitQueries = (ctx: parser.QueriesContext): DielAst => {
     this.ast = createEmptyDielAst();
+    this.seenInserts = [];
     this.templates = new Map();
     ctx.templateStmt().map(e => this.visitTemplateStmt(e));
     this.ast.udfTypes = ctx.registerTypeUdf().map(e => (
@@ -57,10 +63,29 @@ implements visitor.DIELVisitor<ExpressionValue> {
         this.visit(e) as DerivedRelation
     ));
     this.ast.relations = originalRelations.concat(derivedRelations);
-    // this.ast.views = ;
-    const insert = ctx.insertQuery().map(e => (
-      this.visit(e) as InsertionClause
-    )) as Command[];
+    // programs
+    const programs = ctx.programStmt().map(e => (
+      this.visit(e) as ProgramsParserIr
+    ));
+    console.log("raw programs", JSON.stringify(programs, null, 2));
+    console.log("current seen", JSON.stringify(this.seenInserts));
+    programs.map(p => {
+      p.events.map(e => {
+        if (this.ast.programs.has(e)) {
+          this.ast.programs.get(e).push(...p.queries);
+        } else {
+          debugger;
+          this.ast.programs.set(e, p.queries);
+        }
+      });
+    });
+    // commands
+    // make sure not to execute the inserts that have been executed in programs.
+    const insert = ctx.insertQuery()
+      .filter(e => this.seenInserts.find(i => i === e.start.startIndex) === null)
+      .map(e => (
+        this.visit(e) as InsertionClause
+      )) as Command[];
     const drops = ctx.dropQuery().map(e => (
       this.visit(e) as DropClause
     ));
@@ -68,18 +93,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
       this.visit(e) as DeleteClause
     ));
     this.ast.commands = insert.concat(drops).concat(deletes);
-    const programs = ctx.programStmt().map(e => (
-      this.visit(e) as ProgramsParserIr
-    ));
-    programs.map(p => {
-      p.events.map(e => {
-        if (this.ast.programs.has(e)) {
-          this.ast.programs.get(e).push(...p.queries);
-        } else {
-          this.ast.programs.set(e, p.queries);
-        }
-      });
-    });
     this.ast.crossfilters = ctx.crossfilterStmt().map(e => (
       this.visit(e) as CrossFilterIr
     ));
@@ -694,9 +707,14 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitProgramBody(ctx: parser.ProgramBodyContext): Command[] {
     const programs = ctx.aProgram().map(e => {
       if (e.insertQuery()) {
+        this.seenInserts.push(e._start.startIndex);
         return this.visit(e.insertQuery()) as InsertionClause;
-      } else {
+      } else if (e.selectQuery()) {
         return this.visit(e.selectQuery()) as RelationSelection;
+      } else if (e.deleteStmt()) {
+        return this.visit(e.deleteStmt()) as DeleteClause;
+      } else {
+        return LogInternalError(`Unhandled command`);
       }
     });
     return programs;

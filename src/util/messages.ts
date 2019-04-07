@@ -2,15 +2,14 @@ import { STRICT } from "../runtime/DielRuntime";
 
 export const FgRed = "\x1b[31m";
 export const FgBlue = "\x1b[34m";
-export const Reset = "\x1b[0m";
+export const FgGray = "\x1b[90m";
+export const FgMagenta = "\x1b[35m";
+
 export const BgRed = "\x1b[41m";
 export const BgGreen = "\x1b[42m";
 export const BgYellow = "\x1b[43m";
 
-const IsNode = true;
-// typeof window === "undefined";
-
-export const QueryConsoleColorSpec = "color: green";
+export const Reset = "\x1b[0m";
 
 export enum DielInternalErrorType {
   Untitled = "Untitled",
@@ -27,23 +26,19 @@ export enum DielInternalWarningType {
   ArgNull = "ArgNull"
 }
 
+export function PrintCode(code: string) {
+  const codeWithLine = code.split("\n").map((c, i) => `${i + 1}\t${c}`).join("\n");
+  console.log(`DIEL Code Generated\n${FgBlue}%s${Reset}}`, codeWithLine);
+}
+
 export function LogInternalError(m: string, errorType = DielInternalErrorType.Untitled): null {
-  if (IsNode) {
-    console.log(`${FgRed}%s${Reset}`, m);
-  } else {
-    debugger;
-    console.log(`%cError[${errorType}]: ${m}`, "color: red");
-  }
+  console.log(`%cError[${errorType}]: ${m}`, "color: red");
   if (STRICT) throw new Error();
   return null;
 }
 
 export function LogInternalWarning(m: string, wariningType = DielInternalWarningType.Untitled) {
-  if (IsNode) {
-    console.log(`${FgRed}%s${Reset}`, m);
-  } else {
-    console.log(`%cWarning[${wariningType}]: ${m}`, "color: orange");
-  }
+  console.log(`${FgMagenta}[${wariningType}]%s${Reset}`, m);
 }
 
 export function LogInfo(m: string, obj?: any) {
@@ -51,7 +46,7 @@ export function LogInfo(m: string, obj?: any) {
 }
 
 export function LogTmp(m: string) {
-  console.log(`%c ${m}`, "color: gray");
+  console.log(`${FgGray}${m}${Reset}`);
 }
 
 export function LogStandout(m: string) {
@@ -64,13 +59,13 @@ export function ReportDielBasicParsingError(m: string) {
 }
 
 export function ReportUserRuntimeWarning(m: string) {
-  console.log(`%cUser runtime warning: ${m}`, "color: orange");
+  console.log(`${FgMagenta}[User Error]%s${Reset}`, m);
 }
 
 // note that this is in browser
 export function ReportUserRuntimeError(m: string) {
   if (STRICT) throw new Error(m);
-  console.log(`%c Runtime error from user specification: ${m}`, "color: red");
+  console.log(`${BgYellow}[User Error]%s${Reset}`, m);
 }
 
 // both warning and error
@@ -81,15 +76,8 @@ export enum UserErrorType {
 // TODO: this should also report the line of the code
 // the input should be more structured
 export function ReportDielUserError(m: string, q?: string, errorType?: UserErrorType): null {
-  if (IsNode) {
-    console.log(`${FgRed}%s${Reset}`, m);
-  } else {
-    debugger;
-    console.log(`%cUser Error[${errorType}]: ${m}${q ? `\nFor query ${q}` : ""}`, "color: red");
-  }
-  if (STRICT) {
-    throw new Error();
-  }
+  console.log(`${FgRed}%s${Reset}`, m);
+  if (STRICT) throw new Error();
   return null;
 }
 

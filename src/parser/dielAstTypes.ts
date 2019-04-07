@@ -1,6 +1,3 @@
-// import { ExprAst, ExprValAst } from "./exprAstTypes";
-// import { LogInternalError } from "../util/messages";
-// import { RelationIdType } from "../compiler/DielPhysicalExecution";
 export type DbIdType = number;
 export type RelationIdType = string;
 export type LogicalTimestep = number;

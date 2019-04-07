@@ -11,7 +11,7 @@ import Visitor from "../parser/generateAst";
 import { CompileDiel } from "../compiler/DielCompiler";
 import { log } from "../util/dielUdfs";
 import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
-import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, QueryConsoleColorSpec, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType } from "../util/messages";
+import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo } from "../util/messages";
 import { DielIr } from "../compiler/DielIr";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult } from "./runtimeHelper";
 import { DielPhysicalExecution, LocalDbId } from "../compiler/DielPhysicalExecution";
@@ -192,7 +192,7 @@ export default class DielRuntime {
       } else {
         finalQuery = `insert into ${eventName} (timestep, lineage) values (${this.timestep}, ${lineage});`;
       }
-      console.log(`%c Tick Executing\n${finalQuery + allInputQuery}`, QueryConsoleColorSpec);
+      LogInfo(`Tick\n${finalQuery + allInputQuery}`);
       this.db.exec(finalQuery + allInputQuery);
 
       const inputDep = this.ir.dependencies.inputDependenciesOutput.get(eventName);
@@ -339,8 +339,7 @@ export default class DielRuntime {
       const f = this.config.dielFiles[i];
       code += await (await fetch(f)).text();
     }
-    const codeWithLine = code.split("\n");
-    console.log(`%c DIEL Code Generated:\n${codeWithLine.map((c, i) => `${i + 1}\t${c}`).join("\n")}`, "color: green");
+    PrintCode(code);
     const inputStream = new ANTLRInputStream(code);
     const p = new DIELParser(new CommonTokenStream(new DIELLexer(inputStream)));
     const tree = p.queries();
@@ -452,7 +451,6 @@ export default class DielRuntime {
    * returns the DIEL code that will be ran to register the tables
    */
   private async setupMainDb() {
-    // let dielCode = "";
     if (!this.config.mainDbPath) {
       this.db = new Database();
     } else {
