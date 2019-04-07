@@ -12,7 +12,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   private templates: Map<string, DielTemplate>;
   // this is to avoid visiting commands that are defined in programs
   // must be a better programming pattern to deal with this, hack for now... :/
-  private seenInserts: number[];
+  // private seenInserts: number[];
 
   defaultResult() {
     LogInternalError("All the visits should be handled");
@@ -49,7 +49,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   // look into if there is a cleaner way to do this
   visitQueries = (ctx: parser.QueriesContext): DielAst => {
     this.ast = createEmptyDielAst();
-    this.seenInserts = [];
+    // this.seenInserts = [];
     this.templates = new Map();
     ctx.templateStmt().map(e => this.visitTemplateStmt(e));
     this.ast.udfTypes = ctx.registerTypeUdf().map(e => (
@@ -67,14 +67,14 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const programs = ctx.programStmt().map(e => (
       this.visit(e) as ProgramsParserIr
     ));
-    console.log("raw programs", JSON.stringify(programs, null, 2));
-    console.log("current seen", JSON.stringify(this.seenInserts));
+    // console.log("raw programs", JSON.stringify(programs, null, 2));
+    // console.log("current seen", JSON.stringify(this.seenInserts));
     programs.map(p => {
       p.events.map(e => {
         if (this.ast.programs.has(e)) {
           this.ast.programs.get(e).push(...p.queries);
         } else {
-          debugger;
+          // debugger;
           this.ast.programs.set(e, p.queries);
         }
       });
@@ -82,7 +82,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     // commands
     // make sure not to execute the inserts that have been executed in programs.
     const insert = ctx.insertQuery()
-      .filter(e => this.seenInserts.find(i => i === e.start.startIndex) === null)
+      // .filter(e => this.seenInserts.find(i => i === e.start.startIndex) === null)
       .map(e => (
         this.visit(e) as InsertionClause
       )) as Command[];
@@ -707,7 +707,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
   visitProgramBody(ctx: parser.ProgramBodyContext): Command[] {
     const programs = ctx.aProgram().map(e => {
       if (e.insertQuery()) {
-        this.seenInserts.push(e._start.startIndex);
+        // this.seenInserts.push(e._start.startIndex);
         return this.visit(e.insertQuery()) as InsertionClause;
       } else if (e.selectQuery()) {
         return this.visit(e.selectQuery()) as RelationSelection;
