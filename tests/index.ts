@@ -24,3 +24,5 @@ create output o2 as select aPrime from v1 join t3 on aPrime = a;
 const ir = getDielIr(q);
 console.log("\n");
 console.log(JSON.stringify(ir, null, 2));
+console.log("\n");
+console.log(JSON.stringify([...ir.ast.programs]));
