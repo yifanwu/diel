@@ -59,9 +59,9 @@ function compareAST(query: string, ast2: DielAst, logger: any, logdiff: boolean)
 // 1. simple. Materialize v1
 let q1 =
 `
-create table t1 (a integer);
-create table t2 (a integer);
-create table t3 (a integer);
+create event table t1 (a integer);
+create event table t2 (a integer);
+create event table t3 (a integer);
 
 create view v1 as select a + 1 as aPrime from t1 where a > 2;
 
@@ -71,9 +71,9 @@ create output o2 as select aPrime from v1 join t3 on aPrime = a;
 
 let a1 =
 `
-create table t1 (a integer);
-create table t2 (a integer);
-create table t3 (a integer);
+create event table t1 (a integer);
+create event table t2 (a integer);
+create event table t3 (a integer);
 
 create table v1 (aPrime integer);
 create program after (t1)
@@ -89,8 +89,8 @@ create output o2 as select aPrime from v1 join t3 on aPrime = a;
 // 2. multiple views to materialize horizontally. Materialize v1, v2
 let q2 =
 `
-create table t1 (a integer);
-create table t2 (a integer);
+create event table t1 (a integer);
+create event table t2 (a integer);
 
 create view v1 as select a + 1 as aPrime from t1 where a > 2;
 create view v2 as select a + 1 as aPrime from t2 where a > 2;
@@ -102,8 +102,8 @@ create output o2 as select aPrime from v2 join v1 on aPrime = a;
 
 let a2 =
 `
-create table t1 (a integer);
-create table t2 (a integer);
+create event table t1 (a integer);
+create event table t2 (a integer);
 
 create table v1 (aPrime integer);
 create program after (t1)
@@ -127,9 +127,9 @@ create output o2 as select aPrime from v2 join v1 on aPrime = a;
 // 3. only views that have more than 1 dependency. Materialize v2
 let q3 =
 `
-create table t1 (a integer);
-create table t2 (a integer);
-create table t3 (a integer);
+create event table t1 (a integer);
+create event table t2 (a integer);
+create event table t3 (a integer);
 
 create view v1 as select a + 1 as aPrime from t1 where a > 2;
 create view v2 as select a + 1 as aPrime from t2 where a > 2;
@@ -141,9 +141,9 @@ create output o2 as select aPrime from v2 join v3 on aPrime = a;
 
 let a3 =
 `
-create table t1 (a integer);
-create table t2 (a integer);
-create table t3 (a integer);
+create event table t1 (a integer);
+create event table t2 (a integer);
+create event table t3 (a integer);
 
 create view v1 as select a + 1 as aPrime from t1 where a > 2;
 
@@ -163,7 +163,7 @@ create output o2 as select aPrime from v2 join v3 on aPrime = a;
 // 4. nested views. Materialize just v2. v2 is still dependent on v1.
 let q4 =
 `
-create table t1 (a integer);
+create event table t1 (a integer);
 
 create view v1 as select a + 1 as aPrime from t1 where a > 2;
 create view v2 as select a + 1 as aPrime from v1 where a > 2;
@@ -174,7 +174,7 @@ create output o2 as select aPrime from v2 where aPrime = a;
 
 let a4 =
 `
-create table t1 (a integer);
+create event table t1 (a integer);
 
 create view v1 as select a + 1 as aPrime from t1 where a > 2;
 
@@ -192,7 +192,7 @@ create output o2 as select aPrime from v2 where aPrime = a;
 
 // 5. complex view query with Latest
 let q5 = `
-create table t1 (a integer);
+create event table t1 (a integer);
 
 create view v1 as
 select a + 1 as aPrime, a+2 as aPPrime from LATEST t1
@@ -207,7 +207,7 @@ create output o2 as select aPrime from v1 where aPrime = a;
 `;
 
 let a5 = `
-create table t1 (a integer);
+create event table t1 (a integer);
 
 create table v1 (aPrime integer, aPPrime integer);
 create program after (t1)
@@ -229,8 +229,8 @@ create output o2 as select aPrime from v1 where aPrime = a;
 // 6.  view join query
 let q6 =
 `
-create table t1 (a integer);
-create table t2 (a integer);
+create event table t1 (a integer);
+create event table t2 (a integer);
 
 create view v1 as
 select a + 1 as aPrime from t1 join t2 on t1.a = t2.a;
@@ -242,8 +242,8 @@ create output o2 as select aPrime from v1 where aPrime = a;
 
 let a6 = `
 
-create table t1 (a integer);
-create table t2 (a integer);
+create event table t1 (a integer);
+create event table t2 (a integer);
 
 create table v1 (aPrime integer);
 create program after (t1, t2)
@@ -272,7 +272,7 @@ Materialize v1, v2
 */
 let q7 =
 `
-create table t1 (a integer);
+create event table t1 (a integer);
 
 create view v1 as select a + 1 as v1Prime from t1;
 create view v2 as select v1Prime + 1 as v2Prime from v1;
@@ -285,7 +285,7 @@ create output o3 as select v2Prime from v2;
 
 let a7 =
 `
-create table t1 (a integer);
+create event table t1 (a integer);
 
 create table v1 (v1Prime integer);
 create program after (t1)
