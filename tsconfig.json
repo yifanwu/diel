@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "commonjs",
+    "lib": ["es6", "dom"], // hm what's with the dom
+    
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    // "noUnusedLocals": true, // cannot use because ANTLR generated files have this problem
+    // "preserveConstEnums": true,
+    
+    "experimentalDecorators": true,
+    "composite": true
+  },
+ "include":[],
+
+ "references": [
+    {
+      "path": "./src"
+    },
+    {
+      "path": "./tests"
+    },
+  ]
+}
