@@ -16,7 +16,7 @@ The critical step is to take on a (_very_) data-centric lens, where we see inter
 
 The query can reference data that live on remote servers and the full event history, and the query execution engine will figure out how to keep the UI state up to date with the new values in the tables, which is to say, imperatively, that an event automatically causes the UI to reevaluate.
 
-## :sparkles:Hello, DIEL:sparkles:
+## Hello, DIEL
 
 You can view the [live examples](https://logical-interactions.github.io/diel-gallery/).
 
