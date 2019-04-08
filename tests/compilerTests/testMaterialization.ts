@@ -261,7 +261,8 @@ create output o2 as select aPrime from v1 where aPrime = a;
 
 
 /**
-         t1
+Materialize v1, v2
+        t1
          |
          v1
         /  \
@@ -275,6 +276,30 @@ create table t1 (a integer);
 
 create view v1 as select a + 1 as v1Prime from t1;
 create view v2 as select v1Prime + 1 as v2Prime from v1;
+
+create output o1 as select v1Prime from v1;
+create output o2 as select v2Prime from v2;
+create output o3 as select v2Prime from v2;
+`
+;
+
+let a7 =
+`
+create table t1 (a integer);
+
+create table v1 (v1Prime integer);
+create program after (t1)
+  begin
+    delete from v1;
+    insert into v1 select a + 1 as v1Prime from t1;
+  end;
+
+create table v2 (v2Prime integer);
+create program after (t1)
+  begin
+    delete from v2;
+    insert into v2 select v1Prime + 1 as v2Prime from v1;
+  end;
 
 create output o1 as select v1Prime from v1;
 create output o2 as select v2Prime from v2;
@@ -320,5 +345,5 @@ create output o2 as select aPrime from v1 where aPrime = a;
 
 `;
 
-let tests = [[q1, a1], [q2, a2], [q3, a3], [q4, a4], [q5, a5], [q6, a6]];
+let tests = [[q1, a1], [q2, a2], [q3, a3], [q4, a4], [q5, a5], [q6, a6], [q7, a7]];
 // let tests = [[q1, a1]];
