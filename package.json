@@ -1,6 +1,6 @@
 {
   "name": "diel",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "data interaction events log is a new SQL embeded DSL for managing the state of history-aware interactive applications",
   "main": "build/diel.js",
   "jsdelivr": "build/diel.js",

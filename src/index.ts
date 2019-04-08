@@ -1,6 +1,7 @@
 import DielRuntime from "./runtime/DielRuntime";
 import { WorkerConfig, SocketConfig } from "./runtime/DbEngine";
 import { DbType, RelationObject, RecordObject } from "./runtime/runtimeTypes";
+import { DerivedRelation } from "./parser/dielAstTypes";
 
 export {
   DielRuntime,
@@ -9,5 +10,6 @@ export {
   RecordObject,
   WorkerConfig,
   SocketConfig,
+  DerivedRelation,
   DbType
 };
