@@ -7,7 +7,7 @@ trash/
 src/parser/grammar/*.ts
 src/parser/grammar/*.ts
 .antlr
-server/sample-data/*.sqlite
+server/
 
 *.tsbuildinfo
 *.tgz
