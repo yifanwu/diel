@@ -261,6 +261,7 @@ create output o2 as select aPrime from v1 where aPrime = a;
 
 
 /**
+ * 7. Deep Tree
 Materialize v1, v2
         t1
          |
@@ -307,7 +308,7 @@ create output o3 as select v2Prime from v2;
 `
 ;
 
-// 7. FOR LATER! how do you handle view constraints..?
+// 8. FOR LATER! how do you handle view constraints..?
 
 let view_constraint_query = `
 create table t1 (a integer);

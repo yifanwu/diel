@@ -10,7 +10,8 @@ import { assertFunctionParsing } from "./parserTests/functionTest";
 import { assertLatestSyntax } from "./compilerTests/testSyntaxSugar";
 import { testMaterialization } from "./compilerTests/testMaterialization";
 import { codeGenBasicSQLTest } from "./sqlCodeGenTest";
-// import { getDielIr } from "../src/compiler/compiler";
+import { testGetOriginalRelationsDependedOn } from "./compilerTests/testDependency";
+import { getDielIr } from "../src/compiler/compiler";
 
 // TODO: refactor tests to share more compiling and save some time...
 
@@ -31,8 +32,8 @@ create view v3 as select a from t1 where b in (select b from t2 where c = 'hello
 
 // testDistributionLogc();
 // assertLatestSyntax(); // LUCIE TODO
-testMaterialization();
-
+// testMaterialization();
+testGetOriginalRelationsDependedOn();
 // testTopologicalSort();
 
 

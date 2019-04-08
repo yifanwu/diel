@@ -34,13 +34,16 @@ export function TransformAstForMaterialization(ast: DielAst) {
   });
   let numTables = originalRelations.length;
 
-  // Materialize by topological order
   let view: DerivedRelation;
   let originalTables: Set<string>;
+  // Materialize by topological order
   topoOrder.forEach(relation => {
     if (toMaterialize.indexOf(relation) !== -1) {
       view = getRelationDef(relation);
+      // TODO. optimize getting original tables by changning data structure???
+      // currently, it's done by one pass bfs of deptree
       originalTables = getOriginalRelationsDependedOn(view, deps, originalRelations);
+      // Materialize the view into table
       changeASTMaterialize(view, ast, ir,
               originalTables,
               deps.get(view.name).isDependedBy,
@@ -75,10 +78,6 @@ function changeASTMaterialize(view: DerivedRelation,
   table.copyFrom = undefined;
 
   // 2. make a program ast
-
-  // 2-0. optimize getting original tables by changning data structure???
-  // currently, it's done by one pass bfs of deptree
-
   // 2-1. create insert,delete ast
   let deleteCommand = makeDeleteCommand(view);
   let insertCommand = makeInsertCommand(view);
@@ -132,13 +131,12 @@ function makeInsertCommand(view: DerivedRelation): Command {
   insertClause = {
     astType: AstType.Insert,
     relation: view.name,
-    columns: [], // what is this for??
+    columns: [],
     selection: {
       astType: AstType.RelationSelection,
       compositeSelections: view.selection.compositeSelections
     } as RelationSelection
   };
-
   return insertClause;
 }
 

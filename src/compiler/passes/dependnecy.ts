@@ -106,7 +106,9 @@ export function generateDependenciesByName(depTree: DependencyTree, rName: strin
 /**
  * Return the original relations that the view depends on
  */
-export function getOriginalRelationsDependedOn(view: DerivedRelation, depTree: DependencyTree, originalRelations: string[]): Set<string> {
+export function getOriginalRelationsDependedOn(view: DerivedRelation, depTree: DependencyTree,
+  originalRelations: string[]): Set<string> {
+
   let dep = depTree.get(view.name);
   let tables = new Set<string> ();
   if (dep && dep.dependsOn.length > 0) {
@@ -117,21 +119,18 @@ export function getOriginalRelationsDependedOn(view: DerivedRelation, depTree: D
 
     while (toVisit.length > 0) {
       next = toVisit.shift();
-      visited.push(next); // not necessary
       if (originalRelations.indexOf(next) !== -1) {
         tables.add(next);
+        visited.push(next); // not necessary
+        continue;
       }
       let children = depTree.get(next).dependsOn;
       children.forEach(child => {
-
-        if (originalRelations.indexOf(child) !== -1) {
-          tables.add(child);
-        }
-        else if (toVisit.indexOf(next) === -1 && visited.indexOf(next) === -1) {
+        if (toVisit.indexOf(next) === -1 && visited.indexOf(next) === -1) {
           toVisit.push(child);
         }
       });
-
+      visited.push(next); // not necessary
     }
   }
   return tables;
