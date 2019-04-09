@@ -95,8 +95,9 @@ interface TypedColumn {
   type: DataType
 }
 
-function getDerivedColumnSelections(cacheTableDef: OriginalRelation,
-  cacheReferenceDef: OriginalRelation,
+function getEventDerivedColumnSelections(
+  cacheTableName: string,
+  cacheReferenceName: string,
   columns: TypedColumn[]): ColumnSelection[] {
 
     var cols: ColumnSelection[] = [];
@@ -105,17 +106,18 @@ function getDerivedColumnSelections(cacheTableDef: OriginalRelation,
           expr: {
             exprType: ExprType.Column,
             columnName: c.name,
-            relationName: cacheReferenceDef.name,
+            relationName: cacheReferenceName,
             hasStar: false,
             dataType: c.type,
           }
         })
     });
+    // write more compactly?
     cols.push({
       expr: {
         exprType: ExprType.Column,
         columnName: "timestep",
-        relationName: cacheReferenceDef.name,
+        relationName: cacheReferenceName,
         hasStar: false,
         dataType: DataType.Number,
       }
@@ -124,7 +126,7 @@ function getDerivedColumnSelections(cacheTableDef: OriginalRelation,
       expr: {
         exprType: ExprType.Column,
         columnName: "timestamp",
-        relationName: cacheReferenceDef.name,
+        relationName: cacheReferenceName,
         hasStar: false,
         dataType: DataType.TimeStamp,
       }
@@ -133,7 +135,7 @@ function getDerivedColumnSelections(cacheTableDef: OriginalRelation,
       expr: {
         exprType: ExprType.Column,
         columnName: "lineage",
-        relationName: cacheReferenceDef.name,
+        relationName: cacheReferenceName,
         hasStar: false,
         dataType: DataType.Number,
       }
@@ -142,7 +144,9 @@ function getDerivedColumnSelections(cacheTableDef: OriginalRelation,
 
 }
 
-function makeCacheJoinClause(cacheRelationName: string, referenceRelationName: string): JoinAst {
+function makeCacheJoinClause(
+  cacheRelationName: string,
+  referenceRelationName: string): JoinAst {
   const dataId = "dataId"
   let returnVal: JoinAst = {
     astType: AstType.Join,
@@ -217,9 +221,9 @@ export function getCacheTableFromDerived(relation: DerivedRelation) {
     }]
   };
 
-  var derivedColumnSelections = getDerivedColumnSelections(
-            cacheTableDef,
-            cacheReferenceDef,
+  var derivedColumnSelections = getEventDerivedColumnSelections(
+            cacheTableDef.name,
+            cacheReferenceDef.name,
             columns
   );
  
@@ -231,7 +235,7 @@ export function getCacheTableFromDerived(relation: DerivedRelation) {
     from fetchDataEventCache c join fetchDataEventPointer e on c.dataId  = e.dataId;
    */
   const eventTableDef: DerivedRelation = {
-    name: "",
+    name: relation.name,
     selection: {
       compositeSelections: [{
         op: SetOperator.NA,
