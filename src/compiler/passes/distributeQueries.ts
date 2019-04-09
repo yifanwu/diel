@@ -1,5 +1,7 @@
 import { DielIr, isRelationTypeDerived } from "../DielIr";
 import { OriginalRelation, RelationType, DerivedRelation, DbIdType, RelationIdType, ExprType, ExprColumnAst } from "../../parser/dielAstTypes";
+
+
 import { ReportDielUserError, LogInternalError } from "../../util/messages";
 import {  } from "../DielPhysicalExecution";
 import { NodeDependencyAugmented } from "./passesHelper";
@@ -89,6 +91,89 @@ export function getEventTableCacheReferenceName(tableName: string) {
   return `${tableName}Reference`;
 }
 
+interface TypedColumn {
+  name: string,
+  type: DataType
+}
+
+function getDerivedColumnSelections(cacheTableDef: OriginalRelation,
+  cacheReferenceDef: OriginalRelation,
+  columns: TypedColumn[]): ColumnSelection[] {
+
+    var cols: ColumnSelection[] = [];
+    columns.forEach(function(c) {
+        cols.push({
+          expr: {
+            exprType: ExprType.Column,
+            columnName: c.name,
+            relationName: cacheReferenceDef.name,
+            hasStar: false,
+            dataType: c.type,
+          }
+        })
+    });
+    cols.push({
+      expr: {
+        exprType: ExprType.Column,
+        columnName: "timestep",
+        relationName: cacheReferenceDef.name,
+        hasStar: false,
+        dataType: DataType.Number,
+      }
+    });
+    cols.push({
+      expr: {
+        exprType: ExprType.Column,
+        columnName: "timestamp",
+        relationName: cacheReferenceDef.name,
+        hasStar: false,
+        dataType: DataType.TimeStamp,
+      }
+    });
+    cols.push({
+      expr: {
+        exprType: ExprType.Column,
+        columnName: "lineage",
+        relationName: cacheReferenceDef.name,
+        hasStar: false,
+        dataType: DataType.Number,
+      }
+    });
+    return cols;
+
+}
+
+function makeCacheJoinClause(cacheRelationName: string, referenceRelationName: string): JoinAst {
+  const dataId = "dataId"
+  let returnVal: JoinAst = {
+    astType: AstType.Join,
+    joinType: JoinType.Inner,
+    relation: {
+      relationName: cacheRelationName
+    },
+    predicate: {
+      dataType: DataType.Boolean,
+      exprType: ExprType.Func,
+      functionType: FunctionType.Compare,
+      functionReference: "=",
+      args: [{
+          exprType: ExprType.Column,
+          relationName: cacheRelationName,
+          columnName: dataId, 
+          dataType: DataType.Number,
+          hasStar: false
+        }, { 
+          exprType: ExprType.Column,
+          relationName: referenceRelationName,
+          columnName: dataId,
+          dataType: DataType.Number,
+          hasStar: false
+        }
+      ]
+    }
+  };
+  return returnVal;
+}
 
 export function getCacheTableFromDerived(relation: DerivedRelation) {
   const originalColumns = relation.selection.compositeSelections[0].relation.derivedColumnSelections;
@@ -101,7 +186,7 @@ export function getCacheTableFromDerived(relation: DerivedRelation) {
       if (c.expr.exprType === ExprType.Column) {
         columnName = (c.expr as ExprColumnAst).columnName;
       } else {
-        ReportDielUserError(`Must specify alias for view columns if they are not colume selections!
+        ReportDielUserError(`Must specify alias for view columns if they are not column selections!
          You did not for ${relation}, with column ${JSON.stringify(c, null, 2)}`);
       }
     } else {
@@ -147,6 +232,12 @@ export function getCacheTableFromDerived(relation: DerivedRelation) {
     }]
   };
 
+  var derivedColumnSelections = getDerivedColumnSelections(
+            cacheTableDef,
+            cacheReferenceDef,
+            columns
+  );
+ 
   // RYAN TODO
   /**
    * create view fetchDataEvent as
@@ -154,9 +245,23 @@ export function getCacheTableFromDerived(relation: DerivedRelation) {
        c.item, c.val, e.timestep, e.timestamp, e.request_timestep
     from fetchDataEventCache c join fetchDataEventPointer e on c.dataId  = e.dataId;
    */
-  const eventTableDef = {
-      // : DerivedRelation = {
-    // return {} as any;
+  const eventTableDef: DerivedRelation = {
+    name: "",
+    selection: {
+      compositeSelections: [{
+        op: SetOperator.NA,
+        relation: {
+          derivedColumnSelections: derivedColumnSelections,
+          columnSelections: derivedColumnSelections,
+          baseRelation: { relationName: cacheReferenceDef.name },
+          joinClauses: [
+            makeCacheJoinClause(cacheTableDef.name, cacheReferenceDef.name)
+          ]
+        }
+      }],
+      astType: AstType.RelationSelection
+    },
+    relationType: RelationType.EventView,
   };
   return {
     cacheTableDef,

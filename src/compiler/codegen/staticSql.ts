@@ -19,4 +19,10 @@ create table allInputs (
   lineage integer,
   hashVal text
 );
+
+create table cacheMeta (
+  hash text not null,
+  dataId integer not null,
+  eventTableName text not null
+);
 `;
