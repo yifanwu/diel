@@ -33,6 +33,7 @@ export enum DielRemoteAction {
   DefineRelations = "DefineRelations",
   UpdateRelation = "UpdateRelation",
   ShipRelation = "ShipRelation",
+  CleanUpQueries = "CleanUpQueries"
 }
 
 export interface DielRemoteMessageId {

@@ -1,5 +1,5 @@
-import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen, DielDataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause } from "../../parser/dielAstTypes";
-import { RelationSpec, RelationQuery, SqlAst, createSqlAstFromDielAst } from "./createSqlIr";
+import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen, DielDataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause, DropType } from "../../parser/dielAstTypes";
+import { RelationSpec, RelationQuery, SqlAst, createSqlAstFromDielAst, TriggerAst } from "./createSqlIr";
 import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
 
 export function generateSqlFromDielAst(ast: DielAst, options?: { replace: boolean; isRemote: boolean}) {
@@ -9,15 +9,34 @@ export function generateSqlFromDielAst(ast: DielAst, options?: { replace: boolea
   return generateStringFromSqlIr(sqlAst, replace);
 }
 
+export function generateCleanUpAstFromSqlAst(ast: SqlAst): DropClause[] {
+  // basically drop everything
+  // triggers etc.
+  const tables = ast.tables.map(t => ({
+    astType: AstType.Drop,
+    dropType: DropType.Table,
+    dropName: t.name
+  }));
+  const views = ast.views.map(v => ({
+    astType: AstType.Drop,
+    dropType: DropType.View,
+    dropName: v.name
+  }));
+  let triggers = ast.triggers.map(t => ({
+      astType: AstType.Drop,
+      dropType: DropType.Trigger,
+      dropName: t.tName
+    }));
+  // note that we might need to do dependency order?
+  return triggers.concat(views).concat(tables);
+}
+
 export function generateStringFromSqlIr(sqlAst: SqlAst, replace = false): string[] {
   // if remoteType is server, then we need to drop the old ones if we want to make a new one
   // we need to architect this properly to scale, but a quick fix for now
   const tables = sqlAst.tables.map(t => generateTableSpec(t, replace));
   const views = sqlAst.views.map(v => generateSqlViews(v, replace));
-  let triggers: string[] = [];
-  sqlAst.triggers.forEach((v, k) => {
-    triggers = triggers.concat(generateTrigger(v, k, replace));
-  });
+  let triggers = sqlAst.triggers.map(t => generateTrigger(t, replace));
   let commands = sqlAst.commands.map(c => generateCommand(c));
   return tables.concat(views).concat(triggers).concat(commands);
 }
@@ -36,8 +55,8 @@ function generateCommand(command: Command) {
   }
 }
 
-function generateDrop(command: DropClause) {
-  return `DROP TABLE ${command.relationName};`;
+export function generateDrop(command: DropClause) {
+  return `DROP ${command.dropType} ${command.dropName};`;
 }
 
 // FIXME note that we should probably not use the if not exist as a crutch
@@ -259,16 +278,11 @@ function generateLimit(e: ExprAst): string {
   return `LIMIT ${generateExpr(e)}`;
 }
 
-function generateTrigger(queries: Command[], input: string, replace = false): string {
-  if (!input) {
-    // this is the general one
-    LogInternalError(`trigger even must be specified`);
-  }
-  const triggerName = `${input}DielProgram`;
-  const replaceQuery = replace ? `DROP TRIGGER IF EXISTS ${triggerName};` : "";
+function generateTrigger(trigger: TriggerAst, replace = false): string {
+  const replaceQuery = replace ? `DROP TRIGGER IF EXISTS ${trigger.tName};` : "";
   let program = `${replaceQuery}
-  CREATE TRIGGER ${triggerName} AFTER INSERT ON ${input}\nBEGIN\n`;
-  program += queries.map(p => {
+  CREATE TRIGGER ${trigger.tName} AFTER INSERT ON ${trigger.afterRelationName}\nBEGIN\n`;
+  program += trigger.commands.map(p => {
     if (p.astType === AstType.RelationSelection) {
       const r = p as RelationSelection;
       return generateSelect(r.compositeSelections) + ";";

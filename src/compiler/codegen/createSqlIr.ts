@@ -17,15 +17,22 @@ export interface RelationQuery {
   query: CompositeSelectionUnit[];
 }
 
+export interface TriggerAst {
+  tName: string;
+  afterRelationName: string;
+  commands: Command[];
+}
+
 /**
  * Note
  * - Recycling the programsIr from DIEL AST
+ * - Note that the name for programsIr in triggers will not be the original relation but a hashed value
  */
 export interface SqlAst {
   // tablespec
   tables: RelationSpec[];
   views: RelationQuery[];
-  triggers: ProgramsIr;
+  triggers: TriggerAst[];
   commands: Command[];
 }
 
@@ -105,19 +112,13 @@ export function createSqlAstFromDielAst(ast: DielAst, isRemote: boolean): SqlAst
     const programsToAddRaw = ast.programs.get("");
     const programsToAdd = programsToAddRaw ? programsToAddRaw : [];
 
-    const triggers: ProgramsIr = new Map();
+    const triggers: TriggerAst[] = [];
     ast.programs.forEach((v, input) => {
-      // clean up: not going to have this logic here anymore because we need atomic stuff
-      // if (isMain) {
-      //   const sharedProgram: InsertionClause = {
-      //     astType: AstType.Insert,
-      //     relation: "allInputs",
-      //     columns: ["inputRelation"],
-      //     values: [`'${input}'`]
-      //   };
-      //   triggers.set(input, [sharedProgram, ...programsToAdd, ...v ]);
-      // }
-      triggers.set(input, [...programsToAdd, ...v ]);
+      triggers.push({
+        tName: `${input}Trigger`, // inputs are unique since its a map
+        afterRelationName: input,
+        commands: [...programsToAdd, ...v ],
+      });
   });
 
   const commands = ast.commands;

@@ -51,18 +51,20 @@ export default class DbEngine {
     receivedValues: RemoteUpdateRelationMessage[];
     relationsToShip: Map<RelationIdType, Set<DbIdType>>;
   }>;
+  config: DbSetupConfig;
   // meta data
-  remoteType: DbType;
   id: DbIdType;
   relationShippingCallback: RelationShippingFuncType;
-
+  // if the connection has multiple databases, then the dbName must be specified
+  // dbName?: string;
   connection: ConnectionWrapper;
 
-  constructor(remoteType: DbType,
+  constructor(config: DbSetupConfig,
               remoteId: number,
               relationShippingCallback: RelationShippingFuncType,
   ) {
-    this.remoteType = remoteType;
+    // this.remoteType = remoteType;
+    this.config = config;
     this.id = remoteId;
     this.totalMsgCount = 0;
     this.msgCountTimeStamp = Date.now();
@@ -70,17 +72,17 @@ export default class DbEngine {
     this.relationShippingCallback = relationShippingCallback;
   }
 
-  async setup(configUnion: DbSetupConfig) {
-    switch (this.remoteType) {
+  async setup() {
+    switch (this.config.dbType) {
       case DbType.Worker:
-        const configWorker = configUnion as WorkerConfig;
+        const configWorker = this.config as WorkerConfig;
         let newConnection;
         try {
           newConnection = new Worker(configWorker.jsFile);
         } catch (e) {
           return ReportDielUserError(`Web Worker JS File is missing at this path ${configWorker.jsFile}, with error: ${e}.`);
         }
-        this.connection = new ConnectionWrapper(newConnection, this.remoteType);
+        this.connection = new ConnectionWrapper(newConnection, this.config.dbType);
         // note that this must be set before the await is called, otherwise we get into a dealock!
         // same code for socket for below as well
         this.connection.setHandler(this.getHandleMsgForRemote());
@@ -94,10 +96,10 @@ export default class DbEngine {
           buffer,
         }, true);
       case DbType.Socket:
-        const configSocket = configUnion as SocketConfig;
+        const configSocket = this.config as SocketConfig;
         try {
           const socket = await connectToSocket(configSocket.connection);
-          this.connection = new ConnectionWrapper(socket, this.remoteType);
+          this.connection = new ConnectionWrapper(socket, this.config.dbType);
           this.connection.setHandler(this.getHandleMsgForRemote());
           if (configSocket.message) {
             return await this.SendMsg({
@@ -131,9 +133,9 @@ export default class DbEngine {
           msgId: updateMsg.msgId,
           lineage: updateMsg.lineage,
         };
-        const msgToSend = {
-          sql: updateMsg.sql
-        };
+        const msgToSend = this.extendMsgWithCustom({
+          sql: updateMsg.sql,
+        });
         this.connection.send(id, msgToSend, false);
       });
       this.evaluateQueueOnUpdateHandler();
@@ -169,6 +171,20 @@ export default class DbEngine {
     return null;
   }
 
+  private extendMsgWithCustom(msg: any) {
+    switch (this.config.dbType) {
+      case DbType.Worker:
+        return msg;
+      case DbType.Socket:
+        return {
+          message: (this.config as SocketConfig).message,
+          ...msg,
+        };
+      default:
+        LogInternalError(`Shouldn't be any other cases`);
+    }
+  }
+
   public SendMsg(msg: DielRemoteMessage, isPromise = false): Promise<DielRemoteReply> | null {
     console.log("sending message", msg);
     this.totalMsgCount++;
@@ -180,7 +196,7 @@ export default class DbEngine {
     switch (msg.remoteAction) {
       case DielRemoteAction.ConnectToDb: {
         const opMsg = msg as RemoteOpenDbMessage;
-        if (this.remoteType === DbType.Worker) {
+        if (this.config.dbType === DbType.Worker) {
           const buffer = opMsg.buffer;
           const msgToSend = {
             buffer
@@ -193,6 +209,13 @@ export default class DbEngine {
           };
           return this.connection.send(id, msgToSend, isPromise);
         }
+      }
+      case DielRemoteAction.CleanUpQueries: {
+        const cleanupMsg = msg as RemoteExecuteMessage;
+        const msgToSend = this.extendMsgWithCustom({
+          sql: cleanupMsg.sql
+        });
+        return this.connection.send(id, msgToSend, isPromise);
       }
       case DielRemoteAction.UpdateRelation: {
         const updateMsg = msg as RemoteUpdateRelationMessage;
@@ -211,9 +234,10 @@ export default class DbEngine {
         // then process
         if ((!this.currentQueueHead) || (msg.lineage === this.currentQueueHead)) {
           // can actually execute execute
-          const msgToSend = {
+          // figure out the dbname if it's there.
+          const msgToSend = this.extendMsgWithCustom({
             sql: updateMsg.sql
-          };
+          });
           return this.connection.send(id, msgToSend, isPromise);
         } else {
           // otherwise push on the queue
@@ -223,9 +247,9 @@ export default class DbEngine {
       }
       case DielRemoteAction.DefineRelations: {
         const defineMsg = msg as RemoteExecuteMessage;
-        const msgToSend = {
-          sql: defineMsg.sql
-        };
+        const msgToSend = this.extendMsgWithCustom({
+          sql: defineMsg.sql,
+        });
         console.log(`%c Running Query in Remote[${this.id}]:\n${defineMsg.sql}`, "color: pink");
         return this.connection.send(id, msgToSend, isPromise);
       }
@@ -260,16 +284,16 @@ export default class DbEngine {
           LogInternalError(`Shipping across remote engines from ${this.id} to ${shipMsg.dbId}`, DielInternalErrorType.NotImplemented);
           return null;
         }
-        const msgToSend = {
-          sql: `select * from ${shipMsg.relationName};`
-        };
+        const msgToSend = this.extendMsgWithCustom({
+          sql: `select * from ${shipMsg.relationName};`,
+        });
         return this.connection.send(newId, msgToSend, isPromise);
       }
       case DielRemoteAction.GetResultsByPromise: {
         const sql = (msg as RemoteExecuteMessage).sql;
-        const msgToSend = {
-          sql
-        };
+        const msgToSend = this.extendMsgWithCustom({
+          sql,
+        });
         return this.connection.send(id, msgToSend, true);
       }
       default:
@@ -303,6 +327,10 @@ export default class DbEngine {
           console.log(`Relations defined successfully for ${this.id}`);
           break;
         }
+        case DielRemoteAction.CleanUpQueries: {
+          console.log(`Cleanup queries defined successfully for ${this.id}`);
+          break;
+        }
         case DielRemoteAction.ConnectToDb: {
           console.log(`Db opened for ${this.id}`);
           break;
@@ -333,7 +361,7 @@ export default class DbEngine {
 
   public downloadDb() {
     // only available on workers
-    if (this.remoteType === DbType.Worker) {
+    if (this.config.dbType === DbType.Worker) {
       (this.connection.connection as Worker).postMessage({
         id: "download",
         action: "export",
