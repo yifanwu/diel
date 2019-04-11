@@ -1,7 +1,6 @@
 import { checkViewConstraint } from "../../src/compiler/passes/generateViewConstraints";
 import { GenerateUnitTestErrorLogger } from "../../src/util/messages";
 import { getDielAst, getPlainSelectQueryAst } from "../../src/compiler/compiler";
-import { IntegerList } from "antlr4ts/misc/IntegerList";
 let jsonDiff = require("json-diff");
 
 
