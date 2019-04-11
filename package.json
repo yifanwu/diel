@@ -15,6 +15,7 @@
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
     "test-build": "tsc -b tests/ && node build/tests/index.js",
     "test-watch": "tsc -b -watch tests/",
+    "test": "ts-node --no-cache ./tests/test.ts",
     "debug": "node --inspect-brk -r ts-node/register tests/index.ts"
   },
   "repository": {

@@ -12,7 +12,7 @@ import { testMaterialization } from "./compilerTests/testMaterialization";
 import { codeGenBasicSQLTest } from "./sqlCodeGenTest";
 import { testGetOriginalRelationsDependedOn } from "./compilerTests/testDependency";
 import { getDielIr } from "../src/compiler/compiler";
-
+import { assertCheckViewConstraintTest } from "./compilerTests/testViewConstraints";
 // TODO: refactor tests to share more compiling and save some time...
 
 const q = `
@@ -33,7 +33,8 @@ create view v3 as select a from t1 where b in (select b from t2 where c = 'hello
 // testDistributionLogc();
 // assertLatestSyntax(); // LUCIE TODO
 // testMaterialization();
-testGetOriginalRelationsDependedOn();
+// testGetOriginalRelationsDependedOn();
+assertCheckViewConstraintTest();
 // testTopologicalSort();
 
 

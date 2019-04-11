@@ -17,7 +17,7 @@ import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, Par
 import { DielPhysicalExecution, LocalDbId } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
 import { CreateDerivedSelectionSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
-import { viewConstraintCheck } from "../compiler/passes/generateViewConstraints";
+import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { getPlainSelectQueryAst } from "../compiler/compiler";
 
@@ -347,7 +347,7 @@ export default class DielRuntime {
     this.ir = CompileDiel(new DielIr(ast));
 
     // get sql for views constraints
-    viewConstraintCheck(ast).forEach((queries: string[][], viewName: string) => {
+    checkViewConstraint(ast).forEach((queries: string[][], viewName: string) => {
       if (queries.length > 0) {
         let viewConstraint = new ViewConstraintQuery();
         viewConstraint.viewName = viewName;
