@@ -9,7 +9,7 @@ import { assertFunctionParsing } from "./parserTests/functionTest";
 import { assertLatestSyntax } from "./compilerTests/testSyntaxSugar";
 import { codeGenBasicSQLTest } from "./sqlCodeGenTest";
 import { testGetOriginalRelationsDependedOn } from "./compilerTests/testDependency";
-
+import { testMaterializedViewConstraint } from "./compilerTests/testConstraintMaterializedView";
 // import { PrintCode } from "../src/util/messages";
 
 
@@ -47,3 +47,5 @@ assertMultiplyType();
 const ir = getDielIr(q);
 assertBasicNormalizationOfRelation(ir, q);
 assertFunctionParsing(ir, q);
+
+testMaterializedViewConstraint();

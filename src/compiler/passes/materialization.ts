@@ -65,16 +65,8 @@ function changeASTMaterialize(view: DerivedRelation,
   let table = getEventTableFromDerived(view);
   table.relationType = RelationType.Table;
 
-  // wouldn't view constraints be lost??? LATER
-  table.constraints = {
-    relationNotNull: false,
-    relationHasOneRow: false,
-    primaryKey: [],
-    notNull: [],
-    uniques: [],
-    exprChecks: [],
-    foreignKeys: [],
-  } as RelationConstraints;
+  // 1-1. translate constraints
+  translateConstraints(view, table);
   table.copyFrom = undefined;
 
   // 2. make a program ast
@@ -103,6 +95,32 @@ function changeASTMaterialize(view: DerivedRelation,
   ast.relations.splice(relationIndex, 1);
   ast.relations.splice(numTables, 0, table);
 
+}
+
+/**
+ * Translate view constraints to table constraints.
+ * @param view
+ * @param table
+ */
+function translateConstraints(view: DerivedRelation, table: OriginalRelation) {
+  // 1. translate column constraints
+  console.log(view.constraints);
+  table.columns.forEach(c => {
+    // 1-1. Handle NOT NULL constraint
+    if (view.constraints.notNull.indexOf(c.name) !== -1) {
+      c.constraints.notNull = true;
+    }
+    // 1-2. Handle UNIQUE column constraint
+    view.constraints.uniques.forEach(array => {
+      if (array.length === 1 && array[0] === c.name) {
+        c.constraints.unique = true;
+      }
+    });
+    // 1-3. No need to translate check constraints
+    // they are directly copied in step 2, at the end.
+  });
+  // 2. copy relation constraints
+  table.constraints = view.constraints;
 }
 
 
