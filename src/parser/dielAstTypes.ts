@@ -238,6 +238,7 @@ export type ExpressionValue = DielAst
   | RelationSelection
   | RelationConstraints
   | Command[]
+  | DropClause
   | string
   | string[]
   | RawValues
@@ -396,10 +397,19 @@ export interface OrderByAst {
   selection: ExprAst;
 }
 
+export enum DropType {
+  Table = "Table",
+  View = "View",
+  Trigger = "Trigger",
+  Constraint = "Constraint",
+  Index = "Index"
+}
+
 // FIXME: add drop for views as well
 // and maybe constraints?
 export interface DropClause extends AstBase {
-  relationName: string;
+  dropType: DropType;
+  dropName: string;
 }
 
 // LUCIE TODO: need to create this for the corresponding codeGenSQL file!

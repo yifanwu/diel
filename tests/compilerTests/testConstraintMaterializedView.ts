@@ -1,8 +1,7 @@
-import { GenerateUnitTestErrorLogger, LogInfo } from "../../src/util/messages";
-import { getDielIr, getDielAst } from "../../src/compiler/compiler";
-import { DerivedRelation, DielAst } from "../../src/parser/dielAstTypes";
-import { TransformAstForMaterialization } from "../../src/compiler/passes/materialization";
+import { GenerateUnitTestErrorLogger } from "../testHelper";
+import { getDielIr } from "../../build/src/compiler/compiler";
 
+// @LUCIE: seems like this is WIP?
 
 // Relation vs column constraint
 // create view v1 ,,,, constrain check (a < 10);
@@ -29,12 +28,12 @@ let notNullAnswer1 =
 create event table t1 (a integer);
 
 create table v1 (
-    aPrime integer NOT NULL, aPPrime integer NOT NULL
+  aPrime integer NOT NULL, aPPrime integer NOT NULL
 );
 create program after (t1)
-	begin
-		delete from v1;
-		insert into v1 select a + 1 as aPrime, a + 2 as aPPrime from t1;
+  begin
+  delete from v1;
+  insert into v1 select a + 1 as aPrime, a + 2 as aPPrime from t1;
   end;
 
 create output o1 as select aPrime from v1;
@@ -61,15 +60,15 @@ let checkAnswer1 =
 create event table t1 (a integer);
 
 create table v1 (
-    aPrime integer,
-    aPPrime integer,
-    check (aPrime > 10 and aPrime < 100),
-    check (aPPrime < 100)
+  aPrime integer,
+  aPPrime integer,
+  check (aPrime > 10 and aPrime < 100),
+  check (aPPrime < 100)
 );
 create program after (t1)
-	begin
-		delete from v1;
-		insert into v1 select a + 1 as aPrime, a + 2 as aPPrime from t1;
+  begin
+    delete from v1;
+    insert into v1 select a + 1 as aPrime, a + 2 as aPPrime from t1;
   end;
 
 create output o1 as select aPrime from v1;
@@ -94,14 +93,14 @@ let checkAnswer2 =
 create event table t1 (a integer);
 
 create table v1 (
-    aPrime integer check (aPrime < 15),
-    aPPrime integer,
-    check (aPrime > 10 and aPPrime < 100)
+  aPrime integer check (aPrime < 15),
+  aPPrime integer,
+  check (aPrime > 10 and aPPrime < 100)
 );
 create program after (t1)
-	begin
-		delete from v1;
-		insert into v1 select a + 1 as aPrime, a + 2 as aPPrime from t1;
+  begin
+  delete from v1;
+  insert into v1 select a + 1 as aPrime, a + 2 as aPPrime from t1;
   end;
 
 create output o1 as select aPrime from v1;
@@ -128,13 +127,13 @@ let uniqueAnswer1 =
 create event table t1 (a integer);
 
 create table v1 (
-    aPrime integer UNIQUE,
-    aPPrime integer UNIQUE
+  aPrime integer UNIQUE,
+  aPPrime integer UNIQUE
 );
 create program after (t1)
-	begin
-		delete from v1;
-		insert into v1 select a + 1 as aPrime, a + 2 as aPPrime from t1;
+  begin
+  delete from v1;
+  insert into v1 select a + 1 as aPrime, a + 2 as aPPrime from t1;
   end;
 
 create output o1 as select aPrime from v1;
@@ -159,14 +158,14 @@ let uniqueAnswer2 =
 create event table t1 (a integer);
 
 create table v1 (
-    aPrime integer,
-    aPPrime integer,
-    unique (aPrime, aPPrime)
+  aPrime integer,
+  aPPrime integer,
+  unique (aPrime, aPPrime)
 );
 create program after (t1)
-	begin
-		delete from v1;
-		insert into v1 select a + 1 as aPrime, a + 2 as aPPrime from t1;
+  begin
+  delete from v1;
+  insert into v1 select a + 1 as aPrime, a + 2 as aPPrime from t1;
   end;
 
 create output o1 as select aPrime from v1;
@@ -205,11 +204,11 @@ const tests = [
 
 
 export function testMaterializedViewConstraint() {
-    for (let test of tests) {
-        var query = test[0];
-        var answer = test[1];
-        const logger = GenerateUnitTestErrorLogger("assertBasicMaterialization", query);
-        let ast1 = getDielIr(query);
-        let ast2 = getDielIr(answer);
-    }
+  for (let test of tests) {
+  let query = test[0];
+  let answer = test[1];
+  const logger = GenerateUnitTestErrorLogger("assertBasicMaterialization", query);
+  let ast1 = getDielIr(query);
+  let ast2 = getDielIr(answer);
+  }
 }

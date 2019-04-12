@@ -1,6 +1,6 @@
 import { getDielIr } from "../../src/compiler/compiler";
-import { GenerateUnitTestErrorLogger } from "../../src/util/messages";
 import { ExprFunAst, ExprType, ExprParen, OriginalRelation } from "../../src/parser/dielAstTypes";
+import { GenerateUnitTestErrorLogger } from "../testHelper";
 
 export function assertBasicConstraints() {
   const q = `
@@ -22,50 +22,51 @@ export function assertBasicConstraints() {
   const logger = GenerateUnitTestErrorLogger("assertBasicConstraints", q);
   const ordersTable = ir.GetRelationDef("Orders") as OriginalRelation;
   if (!ordersTable) {
-    logger(`Did not even parse Orders table`);
+    logger.error(`Did not even parse Orders table`);
   }
   console.log(JSON.stringify(ordersTable));
 
   // foreign key
   const fk = ordersTable.constraints.foreignKeys;
   if (!fk) {
-    logger(`foreign key not created`);
+    logger.error(`foreign key not created`);
   }
   const expected = "PersonID";
   if ((fk[0].sourceColumn !== expected)) {
-    logger(`created foreign key source column is wrong, got ${fk[0].sourceColumn} but expected ${expected}`);
+    logger.error(`created foreign key source column is wrong, got ${fk[0].sourceColumn} but expected ${expected}`);
   }
   if (fk[0].targetColumn !== expected) {
-    logger(`created foreign key targetColumn is wrong, got ${fk[0].targetColumn}`);
+    logger.error(`created foreign key targetColumn is wrong, got ${fk[0].targetColumn}`);
   }
   if (fk[0].targetRelation !== "Persons") {
-    logger(`created foreign key targetRelation is wrong, got ${fk[0].targetRelation}`);
+    logger.error(`created foreign key targetRelation is wrong, got ${fk[0].targetRelation}`);
   }
   // NOT NULL
   const notNulls = ordersTable.constraints.notNull;
   if (notNulls.length !== 2) {
-    logger(`Missing not nulls, only have ${JSON.stringify(notNulls)}`);
+    logger.error(`Missing not nulls, only have ${JSON.stringify(notNulls)}`);
   }
   // a bit brittle here, assumes parsing order
   if (notNulls[0] !== "OrderID") {
-    logger(`Parsed wrong not null; have ${notNulls[0]} but expects OrderID`);
+    logger.error(`Parsed wrong not null; have ${notNulls[0]} but expects OrderID`);
   }
   if (notNulls[1] !== "OrderNumber") {
-    logger(`Parsed wrong not null; have ${JSON.stringify(notNulls[1])}`);
+    logger.error(`Parsed wrong not null; have ${JSON.stringify(notNulls[1])}`);
   }
   // Primary key
   const pk = ordersTable.constraints.primaryKey;
   if ((!pk) || pk[0] !== "OrderID") {
-    logger(`Primary key not created or is wrong, ${pk}`);
+    logger.error(`Primary key not created or is wrong, ${pk}`);
   }
   // check
   const personsTable = ir.GetRelationDef("Persons") as OriginalRelation;
   const checks = personsTable.constraints.exprChecks;
-  if (!checks) {
-    logger(`check not created, ${JSON.stringify(checks)}`);
+  if ((!checks) || checks.length === 0) {
+    logger.error(`check not created, ${JSON.stringify(checks)}`);
   }
   if (checks[0].exprType !== ExprType.Parenthesis || (<ExprFunAst>((<ExprParen>checks[0]).content)).functionReference !== ">=") {
-    logger(`check not correct, ${JSON.stringify(checks[0])}`);
+    logger.error(`check not correct, ${JSON.stringify(checks[0])}`);
   }
+  logger.pass();
   return true;
 }

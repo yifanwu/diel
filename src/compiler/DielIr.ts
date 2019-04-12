@@ -200,6 +200,10 @@ export class DielIr {
       .map(i => i.name);
   }
 
+  public GetAllRelationNames() {
+    return this.ast.relations.map(i => i.name);
+  }
+
   /**
    * Warning: this method does not actually visit all the selection units
    *   e.g., if it's a where predicate with a subquery, it's not going to visit the unit

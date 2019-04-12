@@ -1,6 +1,6 @@
 import { RelationConstraints, DerivedRelation, Relation, RelationIdType, RelationType, DielAst, OriginalRelation, Command, ProgramsIr, BuiltInUdfTypes, DeleteClause, AstType, InsertionClause, RelationSelection } from "../../parser/dielAstTypes";
 import { DependencyTree, getTopologicalOrder } from "./passesHelper";
-import { GetDependenciesFromViewList, getOriginalRelationsDependedOn } from "./dependnecy";
+import { GetDependenciesFromViewList, getOriginalRelationsDependedOn } from "./dependency";
 import { GetAllDerivedViews } from "../DielIr";
 import { getEventTableFromDerived} from "./distributeQueries";
 import { DielIr } from "../DielIr";

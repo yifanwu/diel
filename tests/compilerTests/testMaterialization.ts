@@ -1,15 +1,16 @@
-import { GenerateUnitTestErrorLogger, LogInfo } from "../../src/util/messages";
 import { getDielIr, getDielAst } from "../../src/compiler/compiler";
-import { DerivedRelation, DielAst } from "../../src/parser/dielAstTypes";
+import { DielAst } from "../../src/parser/dielAstTypes";
 import { TransformAstForMaterialization } from "../../src/compiler/passes/materialization";
+import { GenerateUnitTestErrorLogger } from "../testHelper";
+import { TestLogger } from "../testTypes";
 
-var jsonDiff = require("json-diff");
+let jsonDiff = require("json-diff");
 
 
 export function testMaterialization() {
   for (let test of tests) {
-    var query = test[0];
-    var answer = test[1];
+    let query = test[0];
+    let answer = test[1];
     const logger = GenerateUnitTestErrorLogger("assertBasicMaterialization", query);
     let ast = getDielAst(query);
     TransformAstForMaterialization(ast);
@@ -18,7 +19,7 @@ export function testMaterialization() {
 }
 
 
-function compareAST(query: string, ast2: DielAst, logger: any, logdiff: boolean) {
+function compareAST(query: string, ast2: DielAst, logger: TestLogger, logdiff: boolean) {
   let ir1 = getDielIr(query);
   let ast1 = ir1.ast;
 
@@ -45,14 +46,10 @@ function compareAST(query: string, ast2: DielAst, logger: any, logdiff: boolean)
     console.log(JSON.parse(diff.__old));
     console.log(JSON.parse(diff.__new));
     }
-    console.log("\x1b[34m Failed \x1b[0m");
+    logger.error("\x1b[34m Failed \x1b[0m");
 
-    // logger("AST NOT THE SAME");
-    console.log("=================================");
   } else {
-    console.log("\x1b[31m PASSED \x1b[0m");
-    console.log("=================================");
-
+    logger.pass();
   }
 }
 

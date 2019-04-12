@@ -1,6 +1,7 @@
 import { checkViewConstraint } from "../../src/compiler/passes/generateViewConstraints";
-import { GenerateUnitTestErrorLogger } from "../../src/util/messages";
 import { getDielAst, getPlainSelectQueryAst } from "../../src/compiler/compiler";
+import { GenerateUnitTestErrorLogger } from "../testHelper";
+import { TestLogger } from "../testTypes";
 let jsonDiff = require("json-diff");
 
 
@@ -161,24 +162,21 @@ const tests = [[combined1, combinedAnswer1],
 [unique1, uniqueAnswer1], [unique1, uniqueAnswer2]];
 
 export function assertCheckViewConstraintTest() {
-  // @LUCIE: FIXME: right now it just prints and does not actually assert
-  // Sorry, Fixed now!
+  const logger = GenerateUnitTestErrorLogger("assertCheckViewConstraintTest");
   for (let test of tests) {
     const query = test[0] as string;
     const answer = test[1] as string[];
-    const logger = GenerateUnitTestErrorLogger("assertCheckViewConstraintTest", query);
     let ast = getDielAst(query);
     let viewqueries = checkViewConstraint(ast);
     let computedQueries = Array.from(viewqueries)[0][1];
-    compareAST(computedQueries, answer);
+    compareAST(computedQueries, answer, logger);
   }
-
+  logger.pass();
 }
 
-
-function compareAST(computedQueries: string[][], answerQueries: string[]) {
+function compareAST(computedQueries: string[][], answerQueries: string[], logger: TestLogger) {
   if (answerQueries.length !== computedQueries.length) {
-    console.log("\x1b[34m Failed. Array length different. \x1b[0m");
+    logger.error("Array length different.");
     return;
   }
   for (let i in computedQueries) {
@@ -193,11 +191,7 @@ function compareAST(computedQueries: string[][], answerQueries: string[]) {
     let diff = jsonDiff.diff(pretty1, pretty2);
 
     if (diff !== undefined) {
-      console.log("Computed:\n", q);
-      console.log("Answer:\n", a);
-      console.log("\x1b[34m Failed \x1b[0m");
-    } else {
-    console.log("\x1b[31m PASSED \x1b[0m");
+      logger.error(`${pretty1} is not the same as ${pretty2}`);
     }
   }
 }

@@ -1,6 +1,6 @@
 import { getDielIr } from "../../src/compiler/compiler";
-import { GenerateUnitTestErrorLogger, LogInfo } from "../../src/util/messages";
-import { assertExprAsFunctionWithName, assertExprAsColumnWithname, assertValue } from "../testHelper";
+import { LogInfo } from "../../src/util/messages";
+import { assertExprAsFunctionWithName, assertExprAsColumnWithname, assertValue, GenerateUnitTestErrorLogger } from "../testHelper";
 import { ExprColumnAst, ExprFunAst, DerivedRelation } from "../../src/parser/dielAstTypes";
 
 export function assertBasicOperators() {
@@ -18,31 +18,31 @@ export function assertBasicOperators() {
   // test group by
   const groupByClauses = v1Relation.groupByClause;
   if (groupByClauses.selections.length !== 1) {
-    logger(`View v1 does not have group by clause!`);
+    logger.error(`View v1 does not have group by clause!`);
   }
   const groupByColumnName = (<ExprColumnAst>groupByClauses.selections[0]).columnName;
   if (groupByColumnName !== "aid") {
-    logger(`View v1 does not have the expected group by clause of aid, instead it got ${groupByColumnName}`);
+    logger.error(`View v1 does not have the expected group by clause of aid, instead it got ${groupByColumnName}`);
   }
   // test having
   if (!assertExprAsFunctionWithName(groupByClauses.predicate, ">")) {
-    logger(`View v1's having clause didn't recognize the function expression, got ${JSON.stringify(groupByClauses.predicate)} instead`);
+    logger.error(`View v1's having clause didn't recognize the function expression, got ${JSON.stringify(groupByClauses.predicate)} instead`);
   }
   const avgExpr = (<ExprFunAst>groupByClauses.predicate).args[0];
   if (!assertExprAsFunctionWithName(avgExpr, "avg")) {
-    logger(`View v1's having clause didn't recognize the column argument, got ${JSON.stringify(avgExpr)} instead`);
+    logger.error(`View v1's having clause didn't recognize the column argument, got ${JSON.stringify(avgExpr)} instead`);
   }
   // test order by
   const orderByClauses = v1Relation.orderByClause;
   if (!assertExprAsColumnWithname(orderByClauses[0].selection, "aid")) {
-    logger(`View v1's having clause didn't recognize the column argument, got ${JSON.stringify(orderByClauses[0].selection)} instead`);
+    logger.error(`View v1's having clause didn't recognize the column argument, got ${JSON.stringify(orderByClauses[0].selection)} instead`);
   }
   // test limit by
   const limitClause = v1Relation.limitClause;
   if (!assertValue(limitClause, 5)) {
-    logger(`View v1's limit clause didn't get 5 properly, got ${JSON.stringify(limitClause)} instead`);
+    logger.error(`View v1's limit clause didn't get 5 properly, got ${JSON.stringify(limitClause)} instead`);
   }
-  LogInfo(`assertBasicOperators passed`);
+  logger.pass();
   return true;
 }
 

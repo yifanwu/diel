@@ -3,7 +3,6 @@ import { OriginalRelation, RelationType, DerivedRelation, DbIdType, RelationIdTy
 import { ReportDielUserError, LogInternalError } from "../../util/messages";
 import {  } from "../DielPhysicalExecution";
 import { NodeDependencyAugmented } from "./passesHelper";
-import { ColumnConstraintsContext } from "../../parser/grammar/DIELParser";
 
 export type SingleDistribution = {
   relationName: RelationIdType,

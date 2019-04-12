@@ -4,7 +4,12 @@ import { downloadHelper } from "../util/dielUtils";
 import { LogInfo, LogInternalError } from "../util/messages";
 import { DbIdType, LogicalTimestep } from "../parser/dielAstTypes";
 
-type FinalMsgType = {buffer: any} | {sql: string} | {message: string};
+type FinalMsgType =
+    { buffer: any }     // setting up worker (note that talking to servers do not require serialization)
+  | { message: string } // setting up server via socket
+  | { sql: string }     // worker
+  | { sql: string, message: {dbName: string }} // server via socket
+  ;
 
 // Things that need to be passed back!
 type FinalIdType = {
@@ -21,7 +26,8 @@ const DielRemoteActionToEngineActionWorker = new Map<DielRemoteAction, string>([
   [DielRemoteAction.UpdateRelation, "exec"],
   [DielRemoteAction.ConnectToDb, "open"],
   [DielRemoteAction.DefineRelations, "exec"],
-  [DielRemoteAction.ShipRelation, "exec"]
+  [DielRemoteAction.ShipRelation, "exec"],
+  [DielRemoteAction.CleanUpQueries, "cleanup"] // supported only for socket
 ]);
 const DielRemoteActionToEngineActionSocket = new Map(DielRemoteActionToEngineActionWorker);
 DielRemoteActionToEngineActionSocket.set(DielRemoteAction.DefineRelations, "run");

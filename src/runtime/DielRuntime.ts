@@ -6,7 +6,7 @@ import { DIELParser } from "../parser/grammar/DIELParser";
 
 import { DielRemoteAction, RelationObject, DielConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, } from "./runtimeTypes";
 import { OriginalRelation, DerivedRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationIdType } from "../parser/dielAstTypes";
-import { generateSelectionUnit, generateSqlFromDielAst, generateSqlViews, generateInsertClauseStringForValue } from "../compiler/codegen/codeGenSql";
+import { generateSelectionUnit, generateSqlFromDielAst, generateSqlViews, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
 import { CompileDiel } from "../compiler/DielCompiler";
 import { log } from "../util/dielUdfs";
@@ -16,8 +16,8 @@ import { DielIr } from "../compiler/DielIr";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult } from "./runtimeHelper";
 import { DielPhysicalExecution, LocalDbId } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
-import { CreateDerivedSelectionSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
-import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
+import { CreateDerivedSelectionSqlAstFromDielAst, createSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
+import { viewConstraintCheck, checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { getPlainSelectQueryAst } from "../compiler/compiler";
 
@@ -311,13 +311,13 @@ export default class DielRuntime {
     });
     this.physicalMetaData.dbs.set(LocalDbId, {dbType: DbType.Local});
     let code = processSqlMetaDataFromRelationObject(tableDefinitions, "main");
-    // for (let i = 0; i < this.dbEngines.length; i ++) {
     const promises: Promise<{id: DbIdType, data: RecordObject[]}>[] = [];
     this.dbEngines.forEach((db) => {
-      this.physicalMetaData.dbs.set(db.id, {dbType: db.remoteType});
+      this.physicalMetaData.dbs.set(db.id, {dbType: db.config.dbType});
       promises.push(db.getMetaData(db.id));
     });
     const metadatas = await Promise.all(promises);
+    // const allDielRelations = this.ir.GetAllRelationNames();
     metadatas.map(mD => {
       code += processSqlMetaDataFromRelationObject(mD.data, mD.id.toString());
       // .map(m => m["sql"] + ";").join("\n");
@@ -364,9 +364,9 @@ export default class DielRuntime {
     const dbWaiting = this.config.dbConfigs
       ? this.config.dbConfigs.map(config => {
         counter++;
-        const remote = new DbEngine(config.dbType, counter, inputCallback);
+        const remote = new DbEngine(config, counter, inputCallback);
         this.dbEngines.set(counter, remote);
-        return remote.setup(config);
+        return remote.setup();
       })
       : [];
     // const workerWaiting = this.config.workerConfigs
@@ -509,7 +509,7 @@ export default class DielRuntime {
     const promises: Promise<any>[] = [];
     this.physicalExecution.astSpecPerDb.forEach((ast, id) => {
       if (id === LocalDbId) {
-        const queries = generateSqlFromDielAst(ast);
+        const queries = generateStringFromSqlIr(createSqlAstFromDielAst(ast, false), false);
         for (let s of queries) {
           try {
             console.log(`%c Running Query in Main:\n${s}`, "color: purple");
@@ -520,19 +520,31 @@ export default class DielRuntime {
         }
       } else {
         const remoteInstance = this.findRemoteDbEngine(id);
-        remoteInstance.setPhysicalExecutionReference(this.physicalExecution);
-        const replace = remoteInstance.remoteType === DbType.Socket;
-        const isRemote = true;
-        const queries = generateSqlFromDielAst(ast, {replace, isRemote});
         if (remoteInstance) {
+          remoteInstance.setPhysicalExecutionReference(this.physicalExecution);
+          const replace = remoteInstance.config.dbType === DbType.Socket;
+          const isRemote = true;
+          const sqlAst = createSqlAstFromDielAst(ast, isRemote);
+          const queries = generateStringFromSqlIr(sqlAst, replace);
           if (queries && queries.length > 0) {
             const sql = queries.map(q => q + ";").join("\n");
             const msg: RemoteExecuteMessage = {
               remoteAction: DielRemoteAction.DefineRelations,
               lineage: INIT_TIMESTEP,
-              sql
+              sql,
             };
             promises.push(remoteInstance.SendMsg(msg, true));
+          }
+          const deleteQueryAst = generateCleanUpAstFromSqlAst(sqlAst);
+          const deleteQueries = deleteQueryAst.map(d => generateDrop(d)).join("\n");
+          console.log(`%c Cleanup queries:\n${deleteQueries}`, "color: blue");
+          if ((remoteInstance.config.dbType === DbType.Socket) && deleteQueries) {
+            const msg: RemoteExecuteMessage = {
+              remoteAction: DielRemoteAction.CleanUpQueries,
+              lineage: INIT_TIMESTEP,
+              sql: deleteQueries,
+            };
+            remoteInstance.SendMsg(msg, false);
           }
         } else {
           LogInternalError(`Remote ${id} is not found!`);

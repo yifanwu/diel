@@ -1,28 +1,49 @@
-import { getPlainSelectQueryAst, getDielIr } from "../src/compiler/compiler";
-import { PrintCode } from "../src/util/messages";
+import { getDielIr } from "../src/compiler/compiler";
+import { assertSimpleType, assertMultiplyType } from "./compilerTests/assertTypes";
+import { testTopologicalSort, testDistributionLogc } from "./unitTest";
+import { assertBasicNormalizationOfRelation } from "./compilerTests/assertNormalization";
+import { assertBasicOperators } from "./parserTests/basicOperatorsTest";
+import { assertAllStar } from "./compilerTests/testStarExpantion";
+import { assertBasicConstraints } from "./parserTests/constraintsTest";
+import { assertFunctionParsing } from "./parserTests/functionTest";
+import { assertLatestSyntax } from "./compilerTests/testSyntaxSugar";
+import { codeGenBasicSQLTest } from "./sqlCodeGenTest";
+import { testGetOriginalRelationsDependedOn } from "./compilerTests/testDependency";
 
-const obj = getPlainSelectQueryAst("select * from t1 union select b from t2");
+// import { PrintCode } from "../src/util/messages";
 
-console.log(JSON.stringify(obj, null, 2));
+
+// TODO: refactor tests to share more compiling and save some time...
 
 const q = `
-create table t1 (a integer);
-create table t2 (a integer);
-create table t3 (a integer);
+create event table t1 (
+  a int,
+  b int
+);
+create event table t2 (
+  c text,
+  b int
+);
 
-create table v1 (aPrime integer);
-create program after (t1)
-	begin
-		delete from v1;
-		insert into v1 select a + 1 as aPrime from t1 where a > 2;
-  end;
-
-create output o1 as select aPrime from v1 join t2 on aPrime = a;
-create output o2 as select aPrime from v1 join t3 on aPrime = a;
+create view v1 as select a from t1 join t2 on t1.b = t2.b where c = 'cat';
+create view v2 as select a from t1 join (select max(b) as b from t2) m on m.b = t1.b;
+create view v3 as select a from t1 where b in (select b from t2 where c = 'hello');
 `;
 
+testGetOriginalRelationsDependedOn();
+testDistributionLogc();
+assertLatestSyntax();
+
+testTopologicalSort();
+
+// @LUCIE the following test is failing
+// assertBasicConstraints();
+codeGenBasicSQLTest();
+assertBasicOperators();
+assertSimpleType();
+assertAllStar();
+assertMultiplyType();
+
 const ir = getDielIr(q);
-console.log("\n");
-console.log(JSON.stringify(ir, null, 2));
-console.log("\n");
-console.log(JSON.stringify([...ir.ast.programs]));
+assertBasicNormalizationOfRelation(ir, q);
+assertFunctionParsing(ir, q);

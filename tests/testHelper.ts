@@ -1,4 +1,6 @@
 import { ExprAst, ExprType, ExprFunAst, ExprColumnAst, ExprValAst } from "../src/parser/dielAstTypes";
+import { TestLogger } from "./testTypes";
+import { BgYellow, Reset, FgRed, FgGreen } from "../src/util/messages";
 
 // assert expression is a function
 export function assertExprAsFunctionWithName(e: ExprAst, fName: string) {
@@ -10,7 +12,6 @@ export function assertExprAsFunctionWithName(e: ExprAst, fName: string) {
   }
   return true;
 }
-
 
 // assert expression is a number
 // the any might be a bit brittle
@@ -34,4 +35,19 @@ export function assertExprAsColumnWithname(e: ExprAst, cName: string) {
     return false;
   }
   return true;
+}
+
+export function GenerateUnitTestErrorLogger(testName: string, q?: string): TestLogger {
+  console.log(`=================================\n
+  ${BgYellow}Starting Test: %s${Reset}\n`, testName);
+  if (q) console.log(`With query:\n%s`, q);
+  return {
+    error: (m: string, obj?: any) => {
+      console.log(`\n ${FgRed}Error for [${testName}]: %s${Reset}`, m, obj);
+      throw new Error(`Test [${testName}] failed\n`);
+    },
+    pass: () => {
+      console.log(`${FgGreen}Test [${testName}] Passed :) \n================================${Reset}`);
+    }
+  };
 }

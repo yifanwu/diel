@@ -1,24 +1,25 @@
 import { getDielIr } from "../../src/compiler/compiler";
-import { GenerateUnitTestErrorLogger, LogInfo } from "../../src/util/messages";
+import { LogInfo } from "../../src/util/messages";
 import { ExprColumnAst, DielDataType, DerivedRelation } from "../../src/parser/dielAstTypes";
+import { GenerateUnitTestErrorLogger } from "../testHelper";
 
 export function assertAllStar() {
   function assertColumns(viewName: string, selections: {columnName: string, relationName: string, dataType: DielDataType}[]) {
     const view = ir.GetRelationDef(viewName) as DerivedRelation;
     const columns = view.selection.compositeSelections[0].relation.derivedColumnSelections;
     if (!columns) {
-      logger(`${viewName} is not expanded`);
+      logger.error(`${viewName} is not expanded`);
     }
     selections.forEach((v, idx) => {
       const col = columns[idx].expr as ExprColumnAst;
       if (col.columnName !== v.columnName) {
-        logger(`${viewName} did not expand properly, expected column name "${v.columnName}" but got ${col.columnName} instead.`);
+        logger.error(`${viewName} did not expand properly, expected column name "${v.columnName}" but got ${col.columnName} instead.`);
       }
       if (col.relationName !== v.relationName) {
-        logger(`${viewName} did not expand properly, expected normalized relation "${v.relationName}" but got ${col.relationName} instead.`);
+        logger.error(`${viewName} did not expand properly, expected normalized relation "${v.relationName}" but got ${col.relationName} instead.`);
       }
       if (col.dataType !== v.dataType) {
-        logger(`${viewName} did not expand properly, expected type "${v.dataType}" but got ${col.dataType} instead.`);
+        logger.error(`${viewName} did not expand properly, expected type "${v.dataType}" but got ${col.dataType} instead.`);
       }
     });
   }
@@ -38,6 +39,6 @@ export function assertAllStar() {
     {columnName: "a", relationName: "t2", dataType: DielDataType.Number},
     {columnName: "c", relationName: "t2", dataType: DielDataType.Number}
   ]);
-  LogInfo(`assertAllStar passed`);
+  logger.pass();
   return true;
 }

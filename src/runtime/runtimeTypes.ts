@@ -33,6 +33,7 @@ export enum DielRemoteAction {
   DefineRelations = "DefineRelations",
   UpdateRelation = "UpdateRelation",
   ShipRelation = "ShipRelation",
+  CleanUpQueries = "CleanUpQueries"
 }
 
 export interface DielRemoteMessageId {
@@ -74,6 +75,7 @@ export interface RemoteUpdateRelationMessage extends RemoteExecuteMessage {
 export interface RemoteExecuteMessage extends DielRemoteMessageBase {
   sql: string;
 }
+
 
 export type DielRemoteMessage = RemoteGetResultsByPromiseMessage
                                 | RemoteShipRelationMessage

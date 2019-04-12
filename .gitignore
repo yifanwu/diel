@@ -1,6 +1,5 @@
 .DS_Store
 node_modules/
-code/
 build/
 dist/
 DIELParser$*
@@ -8,7 +7,6 @@ trash/
 src/parser/grammar/*.ts
 src/parser/grammar/*.ts
 .antlr
-server/
 
 *.tsbuildinfo
 *.tgz

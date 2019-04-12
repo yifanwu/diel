@@ -23,8 +23,17 @@ export function getExistingTableDefinitions(isWorker: boolean, db?: Database): s
   return queries;
 }
 
+/**
+ * Hack: some relations are defined already from another session---currently we don't have a hook to clean up, so skip them
+ * , relationsToSkip?: string[]
+ */
 export function processSqlMetaDataFromRelationObject(rO: RelationObject, sourceName: string): string {
-  return rO.map(definition => definition["sql"].toString().replace(/create table/ig, `\n--${sourceName}\nregister table`) + ";").join("\n");
+  // const filtered = (relationsToSkip)
+  //   ? rO.filter(r => !relationsToSkip.find(rS => rS === r["name"]))
+  //   : rO;
+  return rO.map(definition => definition["sql"].toString()
+    .replace(/create table/ig, `\n--${sourceName}\nregister table`) + ";")
+    .join("\n");
 }
 
 export function ParseSqlJsWorkerResult(data: QueryResults[]): RelationObject {
