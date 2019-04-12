@@ -16,7 +16,8 @@
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
     "test": "tsc -b tests/ && node build/tests/index.js",
     "test-watch": "tsc -b -w tests/",
-    "debug": "node --inspect-brk -r ts-node/register tests/index.ts"
+    "debug": "node --inspect-brk -r ts-node/register tests/index.ts",
+    "testEnd": "tsc -b testEndToEnd/ && node build/testEndToEnd/index.js"
   },
   "repository": {
     "type": "git",
