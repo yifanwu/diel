@@ -104,7 +104,6 @@ function changeASTMaterialize(view: DerivedRelation,
  */
 function translateConstraints(view: DerivedRelation, table: OriginalRelation) {
   // 1. translate column constraints
-  console.log(view.constraints);
   table.columns.forEach(c => {
     // 1-1. Handle NOT NULL constraint
     if (view.constraints.notNull.indexOf(c.name) !== -1) {

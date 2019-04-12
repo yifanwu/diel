@@ -10,6 +10,7 @@ import { assertLatestSyntax } from "./compilerTests/testSyntaxSugar";
 import { codeGenBasicSQLTest } from "./sqlCodeGenTest";
 import { testGetOriginalRelationsDependedOn } from "./compilerTests/testDependency";
 import { testMaterializedViewConstraint } from "./compilerTests/testConstraintMaterializedView";
+import { assertCheckViewConstraintTest } from "./compilerTests/testViewConstraints";
 // import { PrintCode } from "../src/util/messages";
 
 
@@ -49,3 +50,4 @@ assertBasicNormalizationOfRelation(ir, q);
 assertFunctionParsing(ir, q);
 
 testMaterializedViewConstraint();
+assertCheckViewConstraintTest();

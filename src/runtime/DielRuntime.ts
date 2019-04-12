@@ -17,7 +17,7 @@ import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, Par
 import { DielPhysicalExecution, LocalDbId } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
 import { CreateDerivedSelectionSqlAstFromDielAst, createSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
-import { viewConstraintCheck, checkViewConstraint } from "../compiler/passes/generateViewConstraints";
+import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { getPlainSelectQueryAst } from "../compiler/compiler";
 

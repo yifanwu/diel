@@ -159,7 +159,7 @@ const combinedAnswer1 = [
 const tests = [[combined1, combinedAnswer1],
 [notNull1, notNullAnswer1], [notNull2, notNullAnswer2],
 [check1, checkAnswer1], [check2, checkAnswer2], [check3, checkAnswer3], [check4, checkAnswer4],
-[unique1, uniqueAnswer1], [unique1, uniqueAnswer2]];
+[unique1, uniqueAnswer1], [unique2, uniqueAnswer2]];
 
 export function assertCheckViewConstraintTest() {
   const logger = GenerateUnitTestErrorLogger("assertCheckViewConstraintTest");

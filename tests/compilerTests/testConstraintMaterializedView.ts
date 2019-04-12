@@ -228,10 +228,10 @@ const tests = [
 ];
 
 export function testMaterializedViewConstraint() {
+  const logger = GenerateUnitTestErrorLogger("testMaterializedViewConstraint");
   for (let test of tests) {
     let query = test[0];
     let answer = test[1];
-    const logger = GenerateUnitTestErrorLogger("assertBasicMaterialization", query);
     let ast1 = getDielIr(query).ast;
 
     let ast2 = getDielIr(answer).ast;
@@ -250,6 +250,6 @@ export function testMaterializedViewConstraint() {
     if (map1 !== map2) {
         logger.error(`${map1} is not the same as ${map2}`);
     }
-    logger.pass();
   }
+  logger.pass();
 }

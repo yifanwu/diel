@@ -1,57 +1,20 @@
 import { DielDataType, RelationType, DerivedRelation, CompositeSelection, SelectionUnit, ColumnSelection, RelationSelection, RelationReference, GroupByAst } from "../../parser/dielAstTypes";
 import {generateViewConstraintSelection, generateExpr} from "../../compiler/codegen/codeGenSql";
 import { DielAst, RelationConstraints, ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst } from "../../parser/dielAstTypes";
+import { GetAllDerivedViews } from "../DielIr";
 
-import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
-import * as lexer from "../../parser/grammar/DIELLexer";
-import * as parser from "../../parser/grammar/DIELParser";
-// import {generateViewConstraintSelection, generateExpr} from "../../compiler/codegen/codeGenSql";
-// import { DielAst, RelationConstraints, ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst } from "../../parser/dielAstTypes";
-import Visitor from "../../parser/generateAst";
-
-export function generateViewConstraintCheckQuery(query: string): Map<string, string[][]> {
-  let ast = checkValidView(query);
-  if (ast) {
-    // valid view
-    return checkViewConstraint(ast);
-  }
-  return null;
-}
-
-export function viewConstraintCheck(ast: DielAst): Map<string, string[][]> {
-  return checkViewConstraint(ast);
-}
-
-// @LUCIE: this is already defined as a helper function in the compiler.ts file
-// Check if this is a valid view query. Return ast if it is, or null.
-function checkValidView(query: string): DielAst {
-  const inputStream = new ANTLRInputStream(query);
-  const l = new lexer.DIELLexer(inputStream);
-  const tokenStream = new CommonTokenStream(l);
-  const p = new parser.DIELParser(tokenStream);
-  const tree = p.queries();
-  let visitor = new Visitor();
-  let ast = visitor.visitQueries(tree);
-  if (ast.relations.length > 0) {
-    return ast;
-  }
-  return null;
-}
-
-// Precondition: query is a valid view statement
-// supports only a single relation in view
+/**
+ * Takes in an ast and check if its views broke their constraints.
+ * If they did, return a map of view names to list of select queries for constraint checking
+ * Map { view name => [[generated select query, which constraint was broken]] }
+ */
 export function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
-  // var i, j;
   let ret = new Map<string, string[][]>();
 
   // Handling multiple view statements
-  for ( let i = 0; i < ast.relations.length; i++) {
-    let view = ast.relations[i] as DerivedRelation;
-    if (view.relationType !== RelationType.View
-        && view.relationType !== RelationType.EventView
-        && view.relationType !== RelationType.Output) {
-      continue;
-    }
+  const views = GetAllDerivedViews(ast);
+
+  for (let view of views) {
     let viewConstraint = view.constraints;
     let queries = [] as string[][];
     let selClause;
@@ -149,7 +112,8 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
   if (view_constraint.notNull && view_constraint.notNull.length > 0) {
 
     let notNullColumns = view_constraint.notNull;
-    for (let i = 0; i < notNullColumns.length; i++) {
+    let i;
+    for (let i in notNullColumns) {
       // formating the AST for whereclause
       let whereClause = {
         exprType : ExprType.Func,
@@ -290,7 +254,6 @@ function getUniqueQuery (view_constraints: RelationConstraints, selUnit: Selecti
   }
   return ret;
 }
-
 
 
 
