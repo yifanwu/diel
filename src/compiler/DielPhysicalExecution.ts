@@ -120,7 +120,6 @@ export class DielPhysicalExecution {
       // commenting out for now for performance
       // const materialization = TransformAstForMaterialization(ast);
       // console.log(JSON.stringify(materialization, null, 2));
-      console.log("ERHEIRHIERHIERHIEIEHRIEHRIER");
     // });
     // then get the out
     return astSpecPerDb;
