@@ -236,6 +236,8 @@ export default class DielRuntime {
    * Check view constraints afresh and report if broken
    */
   constraintChecking(viewName: string) {
+
+    // TODO. Check view constraint for nested views. currently, it only checks output view.
     console.log("toggle mode: ", this.checkConstraints);
     // only check if checking mode is turned on
     if (this.checkConstraints) {

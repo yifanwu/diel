@@ -21,20 +21,20 @@ export function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
 
     // Only when there is a constraint on view
     if (viewConstraint) {
-      let composite_selections = view.selection.compositeSelections as CompositeSelection;
+      let compositeSelections = view.selection.compositeSelections as CompositeSelection;
 
       // 1. handle null constraint
-      selClause = getSelectClauseAST(composite_selections);
+      selClause = getSelectClauseAST(compositeSelections);
       let nullQueries = getNullQuery(viewConstraint, selClause);
       queries = queries.concat(nullQueries);
 
       // 2. handle unique constraint
-      selClause = getSelectClauseAST(composite_selections);
+      selClause = getSelectClauseAST(compositeSelections);
       let uniqueQueries = getUniqueQuery(viewConstraint, selClause);
       queries = queries.concat(uniqueQueries);
 
       // 3. handle check constraint
-      selClause = getSelectClauseAST(composite_selections);
+      selClause = getSelectClauseAST(compositeSelections);
       let checkQueries = getCheckQuery(viewConstraint, selClause);
       queries = queries.concat(checkQueries);
     }
@@ -75,8 +75,8 @@ function getSelectClauseAST(fromSel: CompositeSelection): SelectionUnit {
     return selUnit;
 }
 
-function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionUnit): string[][] {
-  let exprAsts = view_constraint.exprChecks;
+function getCheckQuery(viewConstraint: RelationConstraints, selUnit: SelectionUnit): string[][] {
+  let exprAsts = viewConstraint.exprChecks;
   let ret = [] as string[][];
   let whichConstraint: string;
   if (exprAsts && exprAsts.length > 0) {
@@ -106,12 +106,11 @@ function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionU
 }
 
 
-function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUnit): string[][] {
-  // console.log(JSON.stringify(view_constraint, null, 2));
+function getNullQuery(viewConstraint: RelationConstraints, selUnit: SelectionUnit): string[][] {
   let ret = [] as string[][];
-  if (view_constraint.notNull && view_constraint.notNull.length > 0) {
+  if (viewConstraint.notNull && viewConstraint.notNull.length > 0) {
 
-    let notNullColumns = view_constraint.notNull;
+    let notNullColumns = viewConstraint.notNull;
     let i;
     for (let i in notNullColumns) {
       // formating the AST for whereclause
@@ -162,9 +161,9 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
   return ret;
 }
 
-function getUniqueQuery (view_constraints: RelationConstraints, selUnit: SelectionUnit): string[][] {
+function getUniqueQuery (viewConstraint: RelationConstraints, selUnit: SelectionUnit): string[][] {
   let ret = [] as string[][];
-  let uniques = view_constraints.uniques;
+  let uniques = viewConstraint.uniques;
 
   // check if unique constraint exists
   if (uniques && uniques.length > 0) {
