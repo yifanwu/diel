@@ -103,23 +103,35 @@ function changeASTMaterialize(view: DerivedRelation,
  * @param table
  */
 function translateConstraints(view: DerivedRelation, table: OriginalRelation) {
-  // 1. translate column constraints
-  table.columns.forEach(c => {
-    // 1-1. Handle NOT NULL constraint
-    if (view.constraints.notNull.indexOf(c.name) !== -1) {
-      c.constraints.notNull = true;
-    }
-    // 1-2. Handle UNIQUE column constraint
-    view.constraints.uniques.forEach(array => {
-      if (array.length === 1 && array[0] === c.name) {
-        c.constraints.unique = true;
+  if (view.constraints) {
+    // 1. translate column constraints
+    table.columns.forEach(c => {
+      // 1-1. Handle NOT NULL constraint
+      if (view.constraints.notNull.indexOf(c.name) !== -1) {
+        c.constraints.notNull = true;
       }
+      // 1-2. Handle UNIQUE column constraint
+      view.constraints.uniques.forEach(array => {
+        if (array.length === 1 && array[0] === c.name) {
+          c.constraints.unique = true;
+        }
+      });
+      // 1-3. No need to translate check constraints
+      // they are directly copied in step 2, at the end.
     });
-    // 1-3. No need to translate check constraints
-    // they are directly copied in step 2, at the end.
-  });
-  // 2. copy relation constraints
-  table.constraints = view.constraints;
+    // 2. copy relation constraints
+    table.constraints = view.constraints;
+  } else {
+    table.constraints = {
+      relationNotNull: false,
+      relationHasOneRow: false,
+      primaryKey: [],
+      notNull: [],
+      uniques: [],
+      exprChecks: [],
+      foreignKeys: [],
+    } as RelationConstraints;
+  }
 }
 
 

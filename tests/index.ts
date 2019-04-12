@@ -11,6 +11,7 @@ import { codeGenBasicSQLTest } from "./sqlCodeGenTest";
 import { testGetOriginalRelationsDependedOn } from "./compilerTests/testDependency";
 import { testMaterializedViewConstraint } from "./compilerTests/testConstraintMaterializedView";
 import { assertCheckViewConstraintTest } from "./compilerTests/testViewConstraints";
+import { testMaterialization } from "./compilerTests/testMaterialization";
 // import { PrintCode } from "../src/util/messages";
 
 
@@ -51,3 +52,4 @@ assertFunctionParsing(ir, q);
 
 testMaterializedViewConstraint();
 assertCheckViewConstraintTest();
+testMaterialization();

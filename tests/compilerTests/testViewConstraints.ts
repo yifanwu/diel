@@ -2,8 +2,6 @@ import { checkViewConstraint } from "../../src/compiler/passes/generateViewConst
 import { getDielAst, getPlainSelectQueryAst } from "../../src/compiler/compiler";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
 import { TestLogger } from "../testTypes";
-let jsonDiff = require("json-diff");
-
 
 /**
  * Answer Query array order, respectively:
@@ -188,9 +186,8 @@ function compareAST(computedQueries: string[][], answerQueries: string[], logger
 
     let pretty1 = JSON.stringify(ast1, null, 2);
     let pretty2 = JSON.stringify(ast2, null, 2);
-    let diff = jsonDiff.diff(pretty1, pretty2);
 
-    if (diff !== undefined) {
+    if (pretty1 !== pretty2) {
       logger.error(`${pretty1} is not the same as ${pretty2}`);
     }
   }

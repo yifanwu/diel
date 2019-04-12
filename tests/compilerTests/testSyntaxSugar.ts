@@ -4,8 +4,6 @@ import { applyLatestToAst } from "../../src/compiler/passes/syntaxSugar";
 import { generateSqlFromDielAst } from "../../src/compiler/codegen/codeGenSql";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
 import { TestLogger } from "../testTypes";
-// FIXME: don't use require, set up a temp .d.ts file
-let jsonDiff = require("json-diff");
 
 export function assertLatestSyntax() {
   const logger = GenerateUnitTestErrorLogger("assertLatestSyntax");
@@ -23,13 +21,12 @@ function compareAST(q1: string, ast2: DielAst, logger: TestLogger) {
   let ast1 = getDielAst(q1);
   let pretty1 = JSON.stringify(ast1, null, 2);
   let pretty2 = JSON.stringify(ast2, null, 2);
-  let diff = jsonDiff.diff(pretty1, pretty2);
 
   // console.log("============ Query ==============");
   let sqls = generateSqlFromDielAst(ast2);
   // console.log("Converted:\n\n", sqls[0], "\n");
 
-  if (diff !== undefined) {
+  if (pretty1 !== pretty2) {
     logger.error(`${pretty1} is not the same as ${pretty2}.`);
   }
 }
