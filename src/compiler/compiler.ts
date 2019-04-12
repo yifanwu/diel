@@ -32,7 +32,7 @@ export function getDielIr(code: string) {
 }
 
 export function getDielAst(code: string) {
-  PrintCode(code);
+  // PrintCode(code);
   const inputStream = new ANTLRInputStream(code);
   const l = new lexer.DIELLexer(inputStream);
   const tokenStream = new CommonTokenStream(l);

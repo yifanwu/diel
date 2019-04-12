@@ -1,9 +1,12 @@
 import { DielDataType, RelationType, DerivedRelation, CompositeSelection, SelectionUnit, ColumnSelection, RelationSelection, RelationReference, GroupByAst } from "../../parser/dielAstTypes";
+import {generateViewConstraintSelection, generateExpr} from "../../compiler/codegen/codeGenSql";
+import { DielAst, RelationConstraints, ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst } from "../../parser/dielAstTypes";
+
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as lexer from "../../parser/grammar/DIELLexer";
 import * as parser from "../../parser/grammar/DIELParser";
-import {generateViewConstraintSelection, generateExpr} from "../../compiler/codegen/codeGenSql";
-import { DielAst, RelationConstraints, ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst } from "../../parser/dielAstTypes";
+// import {generateViewConstraintSelection, generateExpr} from "../../compiler/codegen/codeGenSql";
+// import { DielAst, RelationConstraints, ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst } from "../../parser/dielAstTypes";
 import Visitor from "../../parser/generateAst";
 
 export function generateViewConstraintCheckQuery(query: string): Map<string, string[][]> {
@@ -19,7 +22,8 @@ export function viewConstraintCheck(ast: DielAst): Map<string, string[][]> {
   return checkViewConstraint(ast);
 }
 
-/** Check if this is a valid view query. Return ast if it is, or null. */
+// @LUCIE: this is already defined as a helper function in the compiler.ts file
+// Check if this is a valid view query. Return ast if it is, or null.
 function checkValidView(query: string): DielAst {
   const inputStream = new ANTLRInputStream(query);
   const l = new lexer.DIELLexer(inputStream);
@@ -36,7 +40,7 @@ function checkValidView(query: string): DielAst {
 
 // Precondition: query is a valid view statement
 // supports only a single relation in view
-function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
+export function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
   // var i, j;
   let ret = new Map<string, string[][]>();
 
@@ -48,28 +52,27 @@ function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
         && view.relationType !== RelationType.Output) {
       continue;
     }
-    let view_constraint = view.constraints;
+    let viewConstraint = view.constraints;
     let queries = [] as string[][];
-
     let selClause;
 
     // Only when there is a constraint on view
-    if (view_constraint) {
+    if (viewConstraint) {
       let composite_selections = view.selection.compositeSelections as CompositeSelection;
 
       // 1. handle null constraint
       selClause = getSelectClauseAST(composite_selections);
-      let nullQueries = getNullQuery(view_constraint, selClause);
+      let nullQueries = getNullQuery(viewConstraint, selClause);
       queries = queries.concat(nullQueries);
 
       // 2. handle unique constraint
       selClause = getSelectClauseAST(composite_selections);
-      let uniqueQueries = getUniqueQuery(view_constraint, selClause);
+      let uniqueQueries = getUniqueQuery(viewConstraint, selClause);
       queries = queries.concat(uniqueQueries);
 
       // 3. handle check constraint
       selClause = getSelectClauseAST(composite_selections);
-      let checkQueries = getCheckQuery(view_constraint, selClause);
+      let checkQueries = getCheckQuery(viewConstraint, selClause);
       queries = queries.concat(checkQueries);
     }
     ret.set(view.name, queries);
@@ -77,6 +80,11 @@ function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
   return ret;
 }
 
+/**
+ * Takes in a selection clause ast and copy/re-format so that
+ * it can go inside where clause.
+ * e.g) where (select a1, a2 from t1 where a1 < 10)
+ */
 function getSelectClauseAST(fromSel: CompositeSelection): SelectionUnit {
     let columnSel = {} as ColumnSelection;
     columnSel.expr = {
@@ -117,7 +125,6 @@ function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionU
 
       // where in the query it was broken
       whichConstraint = "CHECK " + generateExpr(exprAst);
-
       whereClause = {
         exprType: ExprType.Func,
         dataType: DielDataType.Boolean,
@@ -128,7 +135,6 @@ function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionU
 
       // ast for the whole clause
       selUnit.whereClause = whereClause;
-
       let str = generateViewConstraintSelection(selUnit);
       ret.push([str, whichConstraint]);
     }
@@ -143,8 +149,7 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
   if (view_constraint.notNull && view_constraint.notNull.length > 0) {
 
     let notNullColumns = view_constraint.notNull;
-    let i;
-    for (i = 0; i < notNullColumns.length; i++) {
+    for (let i = 0; i < notNullColumns.length; i++) {
       // formating the AST for whereclause
       let whereClause = {
         exprType : ExprType.Func,
@@ -172,8 +177,6 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
 
       // console.log(generateExpr(originalAST));
       let whichConstraint = cname + " NOT NULL";
-
-
 
       whereClauseArg = {
         exprType: ExprType.Column,

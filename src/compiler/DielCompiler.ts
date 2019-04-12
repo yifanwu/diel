@@ -1,7 +1,7 @@
 import { DielIr } from "./DielIr";
 import { applyTemplates } from "./passes/applyTemplate";
 import { applyCrossfilter } from "./passes/applyCrossfilter";
-import { ApplyDependencies } from "./passes/dependnecy";
+import { ApplyDependencies } from "./passes/dependency";
 import { NormalizeConstraints } from "./passes/normalizeConstraints";
 import { NormalizeColumnSelection } from "./passes/normalizeColumnSelection";
 import { InferType } from "./passes/inferType";

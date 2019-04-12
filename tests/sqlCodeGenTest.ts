@@ -1,6 +1,6 @@
 import { generateSelectionUnit } from "../src/compiler/codegen/codeGenSql";
-import { GenerateUnitTestErrorLogger } from "../src/util/messages";
 import { ExprType, FunctionType, DielDataType, SelectionUnit, JoinType, AstType } from "../src/parser/dielAstTypes";
+import { GenerateUnitTestErrorLogger } from "./testHelper";
 
 /**
  * stripped of space and lower cased
@@ -68,6 +68,6 @@ export function codeGenBasicSQLTest() {
   const refSolution = `select t1.aId as a, t2.* from t1 LEFT OUTER join t2 on t1.aId = t2.aId`;
   const logger = GenerateUnitTestErrorLogger("codeGenBasicSQLTest", refSolution);
   if (strip(sGen) !== strip(refSolution)) {
-    logger(`Generated SQL is wrong. Expected ${refSolution}, but got ${sGen} instead`);
+    logger.error(`Generated SQL is wrong. Expected ${refSolution}, but got ${sGen} instead`);
   }
 }

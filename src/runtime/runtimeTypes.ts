@@ -76,6 +76,7 @@ export interface RemoteExecuteMessage extends DielRemoteMessageBase {
   sql: string;
 }
 
+
 export type DielRemoteMessage = RemoteGetResultsByPromiseMessage
                                 | RemoteShipRelationMessage
                                 | RemoteUpdateRelationMessage

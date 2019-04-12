@@ -1,13 +1,13 @@
-import { GenerateUnitTestErrorLogger } from "../../src/util/messages";
 import { DerivedRelation, ExprColumnAst } from "../../src/parser/dielAstTypes";
 import { DielIr } from "../../src/compiler/DielIr";
+import { GenerateUnitTestErrorLogger } from "../testHelper";
 
 export function assertBasicNormalizationOfRelation(ir: DielIr, q: string) {
   const logger = GenerateUnitTestErrorLogger("assertBasicNormalizationOfRelation", q);
   const v1Relation = ir.GetRelationDef("v1") as DerivedRelation;
   const aSelection = v1Relation.selection.compositeSelections[0].relation.derivedColumnSelections[0].expr as ExprColumnAst;
   if (aSelection.relationName !== "t1") {
-    logger(`Normalization pass failed, I had expected a to be matched with relation t1. Got: ${JSON.stringify(aSelection, null, 2)}`);
+    logger.error(`Normalization pass failed, I had expected a to be matched with relation t1. Got: ${JSON.stringify(aSelection, null, 2)}`);
   }
 
   // the following are known bugs, currently not implemented.

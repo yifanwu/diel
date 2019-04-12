@@ -17,7 +17,7 @@ import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, Par
 import { DielPhysicalExecution, LocalDbId } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
 import { CreateDerivedSelectionSqlAstFromDielAst, createSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
-import { viewConstraintCheck } from "../compiler/passes/generateViewConstraints";
+import { viewConstraintCheck, checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { getPlainSelectQueryAst } from "../compiler/compiler";
 
@@ -347,7 +347,7 @@ export default class DielRuntime {
     this.ir = CompileDiel(new DielIr(ast));
 
     // get sql for views constraints
-    viewConstraintCheck(ast).forEach((queries: string[][], viewName: string) => {
+    checkViewConstraint(ast).forEach((queries: string[][], viewName: string) => {
       if (queries.length > 0) {
         let viewConstraint = new ViewConstraintQuery();
         viewConstraint.viewName = viewName;
@@ -538,7 +538,7 @@ export default class DielRuntime {
           const deleteQueryAst = generateCleanUpAstFromSqlAst(sqlAst);
           const deleteQueries = deleteQueryAst.map(d => generateDrop(d)).join("\n");
           console.log(`%c Cleanup queries:\n${deleteQueries}`, "color: blue");
-          if (deleteQueries) {
+          if ((remoteInstance.config.dbType === DbType.Socket) && deleteQueries) {
             const msg: RemoteExecuteMessage = {
               remoteAction: DielRemoteAction.CleanUpQueries,
               lineage: INIT_TIMESTEP,

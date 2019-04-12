@@ -1,6 +1,7 @@
 import { STRICT } from "../runtime/DielRuntime";
 
 export const FgRed = "\x1b[31m";
+export const FgGreen = "\x1b[32m";
 export const FgBlue = "\x1b[34m";
 export const FgGray = "\x1b[90m";
 export const FgMagenta = "\x1b[35m";
@@ -28,7 +29,7 @@ export enum DielInternalWarningType {
 
 export function PrintCode(code: string) {
   const codeWithLine = code.split("\n").map((c, i) => `${i + 1}\t${c}`).join("\n");
-  console.log(`DIEL Code Generated\n${FgBlue}%s${Reset}}`, codeWithLine);
+  console.log(`DIEL Code\n%s}`, codeWithLine);
 }
 
 export function LogInternalError(m: string, errorType = DielInternalErrorType.Untitled): null {
@@ -82,17 +83,8 @@ export function ReportDielUserError(m: string, q?: string, errorType?: UserError
 }
 
 export function ReportDielUserWarning(m: string, q?: string) {
-  console.log(`User Warning: ${BgGreen}%s${Reset}`, m);
-  if (q) console.log(`\nQuery: ${FgBlue}%s${Reset}\n`, q);
-}
-
-
-export function GenerateUnitTestErrorLogger(testName: string, q: string) {
-  console.log(`${BgYellow}Starting Test: %s${Reset}\nWith query:\n%s`, testName, q);
-  return (m: string) => {
-    console.log(`\nError for ${testName}: ${FgRed}%s${Reset}`, m);
-    throw new Error(`Unit test ${testName} failed\n`);
-  };
+  console.log(`User Warning: ${FgMagenta}%s${Reset}`, m);
+  if (q) console.log(`\nQuery: ${FgMagenta}%s${Reset}\n`, q);
 }
 
 export function sanityAssert(b: boolean, msg: string) {

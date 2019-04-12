@@ -1,3 +1,12 @@
+<<<<<<< HEAD
+## Welcome to DIEL
+
+We are working on adding a full tutorial here! Meanwhile, you can checkout the [gallery](https://github.com/yifanwu/diel-gallery).
+
+### People
+
+Research @ UC Berkley: [yifan](http://twitter.com/yifanwu), advised by [eugene wu](http://www.cs.columbia.edu/~ewu/), [remco chang](http://www.cs.tufts.edu/~remco/), and [joe hellerstein](http://db.cs.berkeley.edu/jmh/), with contributions from [ryan](http://github.com/rmpurp) and [lucie](http://github.com/dkqntiqn).
+=======
 # DIEL
 
 Welcome to the DIEL home page.
@@ -80,3 +89,4 @@ Research @ UC Berkley: [yifan](http://twitter.com/yifanwu), advised by [eugene w
 <a name="clientdb">2</a>: Many people have the misconception of databases being a monstrous piece of software that's managed by DBAs. However, at its simplest, a database engine simply stores tables and executes relational queries, which are very simple---select, project, and join (with group by and aggregations).
 
 <a name="remote">3</a>: This description omits the details of how DIEL executes across nodes---we'll update this document soon with details of how that works!
+>>>>>>> master
