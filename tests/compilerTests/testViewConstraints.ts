@@ -19,6 +19,7 @@ const notNullAnswer1 = [
     select *
     from (select a1, a2 from t1 where a1 > 10)
     where a1 IS NULL
+    limit 30
     ;
   `
 ];
@@ -32,12 +33,14 @@ const notNullAnswer2 = [
   `
     select *
     from (select a1, a2 from t1 where a1 > 10)
-    where a1 IS NULL;
+    where a1 IS NULL
+    limit 30;
   `,
   `
     select *
     from (select a1, a2 from t1 where a1 > 10)
-    where a2 IS NULL;
+    where a2 IS NULL
+    limit 30;
   `
 ];
 
@@ -50,7 +53,8 @@ const checkAnswer1 = [
   `
     select *
     from (select a1, a2 from t1 where a1 < 10)
-    where NOT (a1 < 5);
+    where NOT (a1 < 5)
+    limit 30;
   `
 ];
 
@@ -63,12 +67,14 @@ const checkAnswer2 = [
   `
     select *
     from (select a1, a2 from t1 where a1 < 10)
-    where NOT (a1 < 5);
+    where NOT (a1 < 5)
+    limit 30;
   `,
   `
     select *
     from (select a1, a2 from t1 where a1 < 10)
-    where NOT (a2 < 10);
+    where NOT (a2 < 10)
+    limit 30;
   `
 ];
 
@@ -81,7 +87,8 @@ const checkAnswer3 = [
   `
     select *
     from (select a1, a2 from t1 where a1 < 10)
-    where NOT (a1 < 5 and a2 < 10);
+    where NOT (a1 < 5 and a2 < 10)
+    limit 30;
   `
 ];
 
@@ -95,7 +102,8 @@ const checkAnswer4 = [
   `
     select *
     from (select a1, a2 from t1 where a1 < 10)
-    where NOT (a1 < 5 or a2 < 10);
+    where NOT (a1 < 5 or a2 < 10)
+    limit 30;
   `
 ];
 
@@ -108,7 +116,8 @@ const uniqueAnswer1 = [
   `
     select a1, a2, COUNT (*)
     from (select a1, a2, a3 from t1 where a1 < 10)
-    GROUP BY a1, a2 HAVING COUNT(*) > 1;
+    GROUP BY a1, a2 HAVING COUNT(*) > 1
+    limit 30;
   `
 ];
 
@@ -121,12 +130,14 @@ const uniqueAnswer2 = [
   `
     select a1, a2, COUNT (*)
     from (select a1, a2, a3 from t1 where a1 < 10)
-    GROUP BY a1, a2 HAVING COUNT(*) > 1;
+    GROUP BY a1, a2 HAVING COUNT(*) > 1
+    limit 30;
   `,
   `
     select a3, COUNT (*)
     from (select a1, a2, a3 from t1 where a1 < 10)
-    GROUP BY a3 HAVING COUNT(*) > 1;
+    GROUP BY a3 HAVING COUNT(*) > 1
+    limit 30;
   `
 ];
 
@@ -140,24 +151,34 @@ const combinedAnswer1 = [
   `
     select *
     from (select a1, a2, a3 from t1)
-    where a3 IS NULL;
+    where a3 IS NULL
+    limit 30;
   `,
   `
     select a1, COUNT (*)
     from (select a1, a2, a3 from t1)
-    GROUP BY a1 HAVING COUNT(*) > 1;
+    GROUP BY a1 HAVING COUNT(*) > 1
+    limit 30;
   `,
   `
     select *
     from (select a1, a2, a3 from t1)
-    where NOT (a2 < 5);
+    where NOT (a2 < 5)
+    limit 30;
   `
 ];
 
-const tests = [[combined1, combinedAnswer1],
-[notNull1, notNullAnswer1], [notNull2, notNullAnswer2],
-[check1, checkAnswer1], [check2, checkAnswer2], [check3, checkAnswer3], [check4, checkAnswer4],
-[unique1, uniqueAnswer1], [unique2, uniqueAnswer2]];
+const tests = [
+[combined1, combinedAnswer1],
+[notNull1, notNullAnswer1],
+[notNull2, notNullAnswer2],
+[check1, checkAnswer1],
+[check2, checkAnswer2],
+[check3, checkAnswer3],
+[check4, checkAnswer4],
+[unique1, uniqueAnswer1],
+[unique2, uniqueAnswer2]
+];
 
 export function assertCheckViewConstraintTest() {
   const logger = GenerateUnitTestErrorLogger("assertCheckViewConstraintTest");
@@ -188,7 +209,7 @@ function compareAST(computedQueries: string[][], answerQueries: string[], logger
     let pretty2 = JSON.stringify(ast2, null, 2);
 
     if (pretty1 !== pretty2) {
-      logger.error(`${pretty1} is not the same as ${pretty2}`);
+      logger.error(`${q} is not the same as ${a}`);
     }
   }
 }

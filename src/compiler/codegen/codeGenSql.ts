@@ -114,7 +114,9 @@ export function generateViewConstraintSelection(v: SelectionUnit): string {
     ${generateSelectionUnit(v.baseRelation.subquery.compositeSelections[0].relation)}
   )
   ${generateWhere(v.whereClause)}
-  ${generateGroupBy(v.groupByClause)}`;
+  ${generateGroupBy(v.groupByClause)}
+  ${generateLimit(v.limitClause)}
+  `;
   return ret;
 }
 

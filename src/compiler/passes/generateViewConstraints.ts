@@ -70,7 +70,11 @@ function getSelectClauseAST(fromSel: CompositeSelection): SelectionUnit {
       joinClauses: [],
       groupByClause: null,
       orderByClause: null,
-      limitClause: null
+      limitClause: {
+        exprType: ExprType.Val,
+        dataType: DielDataType.Number,
+        value: 30
+      }
     } as SelectionUnit;
     return selUnit;
 }
@@ -138,7 +142,6 @@ function getNullQuery(viewConstraint: RelationConstraints, selUnit: SelectionUni
         } as ExprAst]
       } as ExprAst;
 
-      // console.log(generateExpr(originalAST));
       let whichConstraint = cname + " NOT NULL";
 
       whereClauseArg = {
