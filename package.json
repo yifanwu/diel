@@ -1,6 +1,6 @@
 {
   "name": "diel",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "data interaction events log is a new SQL embeded DSL for managing the state of history-aware interactive applications",
   "main": "build/diel.js",
   "jsdelivr": "build/diel.js",
@@ -10,12 +10,14 @@
     "build/src/*"
   ],
   "scripts": {
+    "setup": "npm install",
     "build": "tsc -b src",
     "bundle": "rollup -c",
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
-    "test-build": "tsc -b tests/ && node build/tests/index.js",
+    "test": "tsc -b tests/ && node build/tests/index.js",
     "test-watch": "tsc -b -w tests/",
-    "debug": "node --inspect-brk -r ts-node/register tests/index.ts"
+    "debug": "node --inspect-brk -r ts-node/register tests/index.ts",
+    "testEnd": "tsc -b testEndToEnd/ && node build/testEndToEnd/index.js"
   },
   "repository": {
     "type": "git",

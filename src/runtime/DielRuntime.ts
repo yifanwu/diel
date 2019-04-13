@@ -585,7 +585,9 @@ export default class DielRuntime {
    */
   public AddRelationByString(q: string, rType: RelationType, rName?: string) {
     const selectionUnitAst = getPlainSelectQueryAst(q);
-
+    // then we need to give it a name
+    // everything need to be progressively done?
+    // then we need to decide how it will be executed
   }
 
   public AddViewByAst(q: DerivedRelation) {
