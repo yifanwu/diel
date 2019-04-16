@@ -1,4 +1,6 @@
-import { DielRuntime, DbSetupConfig, DbType, RelationObject } from "../../src";
+import * as path from "path";
+
+import { DielRuntime, DbSetupConfig, DbType, RelationObject } from "../src";
 
 /**
  * LUCIE TODO:
@@ -7,19 +9,19 @@ import { DielRuntime, DbSetupConfig, DbType, RelationObject } from "../../src";
  * - put the .diel into the current dir (cp from diel-gallery)
  */
 
-const jsFile = "./<FIX>worker.sql.js";
+const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/js/worker.sql.js");
 
 const dbConfigs: DbSetupConfig[] = [
   {
     dbType: DbType.Worker,
     jsFile,
-    dataFile: `<FIX>flights.small.sqlite`
+    dataFile: path.resolve(__dirname, "../../testEndToEnd/data/flights.small.sqlite")
   },
 ];
 
 const mainDbPath: string = null;
 
-const dielFiles = [`<FIX>flights-remote.diel`];
+const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/flights-remote.diel")];
 
 export const diel = new DielRuntime({
   isStrict: true,

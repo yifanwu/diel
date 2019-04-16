@@ -64,7 +64,6 @@ export default class DielRuntime {
   ir: DielIr;
   physicalExecution: DielPhysicalExecution;
   dbEngines: Map<DbIdType, DbEngine>;
-  workerDbPaths: string[];
   physicalMetaData: PhysicalMetaData;
   config: DielConfig;
   staticRelationsSent: Set<RelationIdType>;
@@ -77,7 +76,9 @@ export default class DielRuntime {
   protected runtimeOutputs: Map<string, Statement>;
 
   constructor(config: DielConfig) {
-    (<any>window).diel = this; // for debugging
+    if (typeof window !== "undefined") {
+      (<any>window).diel = this; // for debugging
+    }
     // mutate global for logging
     STRICT = config.isStrict ? config.isStrict : false;
     LOGINFO = config.showLog ? config.showLog : false;
@@ -458,9 +459,6 @@ export default class DielRuntime {
       const bufferRaw = await response.arrayBuffer();
       const buffer = new Uint8Array(bufferRaw);
       this.db = new Database(buffer);
-      // debug
-      (<any>window).mainDb = this.db;
-      // FIXME: might have some weird issues with types of DIEL tables?
     }
     return;
   }
@@ -586,12 +584,12 @@ export default class DielRuntime {
     // then we need to give it a name
     // then we need to do the normalization, infertypes
     // FIXME: add a way to add templates?
-    
+
     // then we need to decide how it will be executed
     // see if the data is over local, if so, do nothing
-    
+
     // if data is over remote, then split into async event - TODO? Ryan/Lucie?
-    
+
   }
 
   public async AddViewByAst(q: DerivedRelation) {
@@ -601,7 +599,7 @@ export default class DielRuntime {
   }
 
   private addViewToLocal(query: string): void {
-    
+
   }
 
   // ------------------------ debugging related ---------------------------
