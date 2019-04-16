@@ -1,36 +1,39 @@
-import { getSelectionUnitDep, getTopologicalOrder, DependencyTree } from "./passesHelper";
+import { getSelectionUnitDep, getTopologicalOrder, DependencyTree, DependencyInfo } from "./passesHelper";
 import { RelationType, DerivedRelation } from "../../parser/dielAstTypes";
 import { SetIntersection } from "../../util/dielUtils";
 import { GetAllDerivedViews, DielIr } from "../DielIr";
 import { LogInternalError } from "../../util/messages";
 
+function AddDependency() {
+  
+}
+
+// incremental dep tree building
+function addDependencyOneWay(depTree: DependencyTree, view: DerivedRelation) {
+  let dependsOn: string[] = [];
+  view.selection.compositeSelections.map(c => {
+    const deps = getSelectionUnitDep(c.relation);
+    dependsOn = deps.concat(dependsOn);
+  });
+  if (!view.name) {
+    LogInternalError(`Relation should be named`);
+  }
+  depTree.set(view.name, {
+    dependsOn,
+    isDependedBy: []
+  });
+}
+
 export function GetDependenciesFromViewList(views: DerivedRelation[]) {
   const depTree: DependencyTree = new Map<string, {dependsOn: string[], isDependedBy: string[]}>();
-  views.map(v => {
-    let dependsOn: string[] = [];
-    v.selection.compositeSelections.map(c => {
-      const deps = getSelectionUnitDep(c.relation);
-      dependsOn = deps.concat(dependsOn);
-    });
-    if (!v.name) {
-      LogInternalError(`Relation should be named`);
-    }
-    if (v.name === "{sourceRelation}") {
-      debugger;
-    }
-    depTree.set(v.name, {
-      dependsOn,
-      isDependedBy: []
-    });
-  });
+  // add one direction
+  views.map(v => addDependencyOneWay(depTree, v));
+  // add the other direction
   depTree.forEach((value, key) => {
     value.dependsOn.map(dO => {
       if (dO) { // avoid the case when its null
         // it's possible that these don't exist, if they are the leaves
         if (!depTree.has(dO)) {
-          if (dO === "{sourceRelation}") {
-            debugger;
-          }
           depTree.set(dO, {dependsOn: [], isDependedBy: []});
         }
         depTree.get(dO).isDependedBy.push(key);

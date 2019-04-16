@@ -584,19 +584,24 @@ export default class DielRuntime {
   public AddRelationByString(q: string, rType: RelationType, rName?: string) {
     const selectionUnitAst = getPlainSelectQueryAst(q);
     // then we need to give it a name
-    // everything need to be progressively done?
+    // then we need to do the normalization, infertypes
+    // FIXME: add a way to add templates?
+    
     // then we need to decide how it will be executed
+    // see if the data is over local, if so, do nothing
+    
+    // if data is over remote, then split into async event - TODO? Ryan/Lucie?
+    
   }
 
-  public AddViewByAst(q: DerivedRelation) {
+  public async AddViewByAst(q: DerivedRelation) {
     const queryStr = generateSqlViews(CreateDerivedSelectionSqlAstFromDielAst(q));
     this.addViewToLocal(queryStr);
     this.setupNewOutput(q);
   }
 
   private addViewToLocal(query: string): void {
-    // exec to loca!
-    this.db.run(query);
+    
   }
 
   // ------------------------ debugging related ---------------------------

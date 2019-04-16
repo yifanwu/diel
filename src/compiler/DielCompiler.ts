@@ -1,10 +1,11 @@
 import { DielIr } from "./DielIr";
-import { applyTemplates } from "./passes/applyTemplate";
+import { applyTemplates, tryToApplyATemplate } from "./passes/applyTemplate";
 import { applyCrossfilter } from "./passes/applyCrossfilter";
 import { ApplyDependencies } from "./passes/dependency";
 import { NormalizeConstraints } from "./passes/normalizeConstraints";
 import { NormalizeColumnSelection } from "./passes/normalizeColumnSelection";
 import { InferType } from "./passes/inferType";
+import { RelationSelection } from "../parser/dielAstTypes";
 
 /**
  * Note that the compilation here is logical
@@ -19,4 +20,10 @@ export function CompileDiel(ir: DielIr) {
   NormalizeColumnSelection(ir);
   InferType(ir);
   return ir;
+}
+
+// there should be a progressive version of this already.
+export function CompileAstGivenIr(ir: DielIr, q: RelationSelection) {
+  tryToApplyATemplate(q);
+  
 }

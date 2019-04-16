@@ -49,7 +49,7 @@ export function applyTemplates(ir: DielIr) {
  * modify in place
  * @param ast
  */
-function tryToApplyATemplate(ast: RelationSelection | JoinAst): void {
+export function tryToApplyATemplate(ast: RelationSelection | JoinAst): void {
 
   if (!ast.templateSpec) {
     // there is no template to apply here!
