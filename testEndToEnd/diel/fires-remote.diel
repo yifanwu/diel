@@ -1,0 +1,40 @@
+create event table panFireItx (
+  latMin real,
+  latMax real,
+  longMin real,
+  longMax real
+);
+
+create output fireMapBounds AS
+  select latMin, latMax, longMin, longMax
+  from panFireItx
+  where timestep = (select max(timestep) from panFireItx);
+
+create event view fireSpotsEvent AS
+select
+  LATITUDE,
+  LONGITUDE
+from
+  fires
+  left outer join panFireItx
+on (
+    LATITUDE < latMax and LATITUDE > latMin
+    and LONGITUDE < longMin and LONGITUDE > longMax
+  ) OR (
+    latMax IS NULL
+  ) OR (
+    latMin IS NULL
+  ) OR (
+    longMax IS NULL
+  ) OR (
+    longMin IS NULL
+  )
+limit 100;
+
+insert into __scales (component, dimension, outputName, x, y) values ('fires', 2, 'fireSpots', 'LATITUDE', 'LONGITUDE');
+create output fireSpots AS
+  select *
+  from fireSpotsEvent
+  where
+    timestep = (select max(timestep) from panFireItx)
+    or (select count() from panFireItx) = 0;

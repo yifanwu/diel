@@ -1,0 +1,57 @@
+-- TODO: add some singers to do the filtering, maybe free text? (ordered by popularity)
+
+create event view allGenresEvent AS
+  select DISTINCT genre
+  from genres
+  where genre NOT NULL;
+
+-- FIX ME: the initial staticTriggers might trigger the initial things to shared multiple times
+create output allGenres AS
+  select genre from allGenresEvent;
+
+create event table userGenreSelectionEvent (
+  genre text
+);
+
+create output currentUserGenreSelection AS
+  select * from userGenreSelectionEvent
+  where timestep = (select max(timestep) from userGenreSelectionEvent);
+
+
+create event view pitchForkScoreDistributionEvent as
+  select
+    round(score * 10 / 10) as scoreBin,
+    count(*) as count
+  from reviews
+    join genres on genres.reviewid = reviews.reviewid
+    join currentUserGenreSelection e
+      on e.genre = genres.genre
+      or e.genre IS NULL
+  group by scoreBin;
+
+insert into __scales (component, dimension, outputName, x, y) values ('pitchfork', 2, 'pitchForkScoreDistribution', 'scoreBin', 'count');
+create output pitchForkScoreDistribution as
+  select *
+  from pitchForkScoreDistributionEvent
+  where timestep = (
+      select max(timestep) from pitchForkScoreDistributionEvent
+    );
+
+create event view pitchForkYearDistributionEvent AS
+  select
+    pub_year as yearBin,
+    count(*) as count
+  from reviews
+    join genres on genres.reviewid = reviews.reviewid
+    join currentUserGenreSelection e
+      on e.genre = genres.genre
+      or e.genre IS NULL
+  group by yearBin;
+
+insert into __scales (component, dimension, outputName, x, y) values ('pitchfork', 2, 'pitchForkYearDistribution', 'scoreBin', 'count');
+create output pitchForkYearDistribution as
+  select *
+  from pitchForkYearDistributionEvent
+  where timestep = (
+      select max(timestep) from pitchForkYearDistributionEvent
+    );

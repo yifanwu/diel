@@ -1,0 +1,29 @@
+CREATE EVENT TABLE ueClickEvent(id INT);
+CREATE EVENT TABLE ueUndoEvent();
+
+CREATE TABLE ueAllSelections(id INT);
+
+CREATE PROGRAM AFTER (ueClickEvent, ueUndoEvent)-- record the items at every timestep into state
+  BEGIN
+    INSERT INTO ueAllSelections 
+    SELECT * FROM ueCurrentSelection;
+  END;
+
+CREATE OUTPUT ueCurrentSelection AS
+  -- `coalesce` picks the first non-null argument.
+  SELECT coalesce(s.id, e.id) as id
+  FROM (
+    select * from ueClickEvent
+    where timestep = (select max(timestep) from ueClickEvent)
+  ) e
+  LEFT OUTER JOIN ueCurrentUndoSel s ON 1;
+
+CREATE VIEW ueCurrentUndoSel AS
+  SELECT * FROM ueAllSelections AS s
+  WHERE rowid = (( -- past rank as the result of undo operations
+    SELECT max(rowid) FROM ueAllSelections -- the current timestep
+  ) - ( 
+    SELECT count() * 2 - 1 -- the count of new undos minus 1
+    FROM ueUndoEvent u
+    WHERE u.timestep > (select max(timestep) FROM ueClickEvent)
+  ));
