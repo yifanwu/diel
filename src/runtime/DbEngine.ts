@@ -80,7 +80,7 @@ export default class DbEngine {
         try {
           newConnection = new Worker(configWorker.jsFile);
         } catch (e) {
-          return ReportDielUserError(`Web Worker JS File is missing at this path ${configWorker.jsFile}, with error: ${e}.`);
+          return ReportDielUserError(`Error loading worker: ${e}. The path used is ${configWorker.jsFile}.`);
         }
         this.connection = new ConnectionWrapper(newConnection, this.config.dbType);
         // note that this must be set before the await is called, otherwise we get into a dealock!
