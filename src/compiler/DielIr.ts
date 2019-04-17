@@ -1,6 +1,6 @@
 import { DielAst, DerivedRelation, DielDataType, OriginalRelation, RelationType, SelectionUnit, CompositeSelection, Relation, Command, RelationIdType, ExprType, ExprColumnAst, ExprFunAst, AstType, InsertionClause } from "../parser/dielAstTypes";
-import { DependencyInfo } from "./passes/passesHelper";
 import { LogInternalWarning, LogInternalError, DielInternalErrorType } from "../util/messages";
+import { DependencyInfo } from "../runtime/runtimeTypes";
 
 type CompositeSelectionFunction<T> = (s: CompositeSelection, relationName?: string) => T;
 export type SelectionUnitVisitorFunctionOptions = {relationName?: string, ir?: DielIr};
@@ -15,7 +15,7 @@ export enum BuiltInColumn {
 const DerivedRelationTypes = new Set([RelationType.View, RelationType.EventView, , RelationType.Output, RelationType.DerivedTable]);
 const OriginalRelationTypes = new Set([RelationType.Table, RelationType.EventTable, RelationType.ExistingAndImmutable]);
 
-export function isRelationTypeDerived(rType: RelationType) {
+export function IsRelationTypeDerived(rType: RelationType) {
   if (DerivedRelationTypes.has(rType)) {
     return true;
   } else if (OriginalRelationTypes.has(rType)) {
@@ -46,7 +46,7 @@ export function columnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[] {
 
 // --------------- Gettter functions for AST BEGIN --------------------
 export function GetAllDerivedViews(ast: DielAst): DerivedRelation[] {
-  return ast.relations.filter(r => isRelationTypeDerived(r.relationType)) as DerivedRelation[];
+  return ast.relations.filter(r => IsRelationTypeDerived(r.relationType)) as DerivedRelation[];
 }
 
 export function GetAllPrograms(ast: DielAst) {
@@ -148,7 +148,7 @@ export class DielIr {
   public GetColumnsFromRelationName(relationName: string): SimpleColumn[] {
     const relationDef = this.GetRelationDefinition(relationName);
     if (relationDef) {
-      if (isRelationTypeDerived(relationDef.relationType)) {
+      if (IsRelationTypeDerived(relationDef.relationType)) {
         return columnsFromSelectionUnit((relationDef as DerivedRelation).selection.compositeSelections[0].relation);
       } else {
         return (relationDef as OriginalRelation).columns.map(c => ({columnName: c.name, type: c.type}));
@@ -164,7 +164,7 @@ export class DielIr {
   }
 
   public GetAllDerivedViews(): DerivedRelation[] {
-    return this.ast.relations.filter(r => isRelationTypeDerived(r.relationType)) as DerivedRelation[];
+    return this.ast.relations.filter(r => IsRelationTypeDerived(r.relationType)) as DerivedRelation[];
   }
 
   public GetOutputs(): DerivedRelation[] {
@@ -172,7 +172,7 @@ export class DielIr {
   }
 
   public GetOriginalRelations(): OriginalRelation[] {
-    return this.ast.relations.filter(r => !isRelationTypeDerived(r.relationType)) as OriginalRelation[];
+    return this.ast.relations.filter(r => !IsRelationTypeDerived(r.relationType)) as OriginalRelation[];
   }
 
   public GetDielDefinedOriginalRelation() {

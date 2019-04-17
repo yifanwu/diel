@@ -1,5 +1,35 @@
 import { DielIr } from "../DielIr";
 import { LogInternalError } from "../../util/messages";
+import { OriginalRelation } from "../../parser/dielAstTypes";
+
+export function NormalizeConstraintsForSingleOriginalRelation(r: OriginalRelation) {
+  r.columns.map(c => {
+    if (c.constraints) {
+      if (c.constraints.notNull) {
+        if (r.constraints.notNull) {
+          r.constraints.notNull.push(c.name);
+        } else {
+          r.constraints.notNull = [c.name];
+        }
+      }
+      if (c.constraints.unique) {
+        if (r.constraints.uniques) {
+          r.constraints.uniques.push([c.name]);
+        } else {
+          r.constraints.uniques = [[c.name]];
+        }
+      }
+      if (c.constraints.primaryKey) {
+        if (r.constraints.primaryKey && (r.constraints.primaryKey.length > 0)) {
+          LogInternalError(`Cannot have more than one primary key! You already have ${r.constraints.primaryKey} but we are adding ${c.name}`);
+        } else {
+          r.constraints.primaryKey = [c.name];
+        }
+      }
+      // not including autoincrement here since it's not really a constraint... sigh semantics
+    }
+  });
+}
 
 /**
  * constraints can be created either on the column or on the table
@@ -18,31 +48,6 @@ import { LogInternalError } from "../../util/messages";
  */
 export function NormalizeConstraints(ir: DielIr) {
   ir.GetDielDefinedOriginalRelation().map((r) => {
-    r.columns.map(c => {
-      if (c.constraints) {
-        if (c.constraints.notNull) {
-          if (r.constraints.notNull) {
-            r.constraints.notNull.push(c.name);
-          } else {
-            r.constraints.notNull = [c.name];
-          }
-        }
-        if (c.constraints.unique) {
-          if (r.constraints.uniques) {
-            r.constraints.uniques.push([c.name]);
-          } else {
-            r.constraints.uniques = [[c.name]];
-          }
-        }
-        if (c.constraints.primaryKey) {
-          if (r.constraints.primaryKey && (r.constraints.primaryKey.length > 0)) {
-            LogInternalError(`Cannot have more than one primary key! You already have ${r.constraints.primaryKey} but we are adding ${c.name}`);
-          } else {
-            r.constraints.primaryKey = [c.name];
-          }
-        }
-        // not including autoincrement here since it's not really a constraint... sigh semantics
-      }
-    });
+    NormalizeConstraintsForSingleOriginalRelation(r);
   });
 }

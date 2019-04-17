@@ -1,11 +1,11 @@
-import { DielIr } from "./DielIr";
-import { applyTemplates, tryToApplyATemplate } from "./passes/applyTemplate";
-import { applyCrossfilter } from "./passes/applyCrossfilter";
-import { ApplyDependencies } from "./passes/dependency";
-import { NormalizeConstraints } from "./passes/normalizeConstraints";
-import { NormalizeColumnSelection } from "./passes/normalizeColumnSelection";
-import { InferType } from "./passes/inferType";
-import { RelationSelection } from "../parser/dielAstTypes";
+import { DielIr, IsRelationTypeDerived } from "./DielIr";
+import { ApplyTemplates, TryToApplyTemplate, TryToCopyRelationSpec } from "./passes/applyTemplate";
+import { ApplyCrossfilter } from "./passes/applyCrossfilter";
+import { ApplyDependencies, AddDependency } from "./passes/dependency";
+import { NormalizeConstraints, NormalizeConstraintsForSingleOriginalRelation } from "./passes/normalizeConstraints";
+import { NormalizeColumnSelection, NormalizeColumnForDerivedRelation } from "./passes/normalizeColumnSelection";
+import { InferType, InferTypeForDerivedRelation } from "./passes/inferType";
+import { RelationSelection, DerivedRelation, OriginalRelation, RelationType } from "../parser/dielAstTypes";
 
 /**
  * Note that the compilation here is logical
@@ -13,9 +13,9 @@ import { RelationSelection } from "../parser/dielAstTypes";
  * @param ir the IR that will be manipulated
  */
 export function CompileDiel(ir: DielIr) {
-  applyTemplates(ir);
+  ApplyTemplates(ir);
   ApplyDependencies(ir);
-  applyCrossfilter(ir.ast);
+  ApplyCrossfilter(ir.ast);
   NormalizeConstraints(ir);
   NormalizeColumnSelection(ir);
   InferType(ir);
@@ -23,7 +23,28 @@ export function CompileDiel(ir: DielIr) {
 }
 
 // there should be a progressive version of this already.
-export function CompileAstGivenIr(ir: DielIr, q: RelationSelection) {
-  tryToApplyATemplate(q);
-  
+// do not support crossfilter for now, but easy to fix!
+export function CompileAstGivenIr(ir: DielIr, relation: OriginalRelation | DerivedRelation) {
+  if (IsRelationTypeDerived(relation.relationType)) {
+    CompileDerivedAstGivenIr(ir, relation as DerivedRelation);
+  } else {
+    CompileOriginalAstGivenIr(ir, relation as OriginalRelation);
+  }
+}
+
+export function CompileDerivedAstGivenIr(ir: DielIr, view: DerivedRelation) {
+  TryToApplyTemplate(view.selection);
+  AddDependency(ir.dependencies.depTree, view);
+  NormalizeColumnForDerivedRelation(ir, view);
+  InferTypeForDerivedRelation(ir, view);
+  // assume that this is in place edit
+  // FIXME: this is a brittle assumption!!!
+  return view;
+}
+
+export function CompileOriginalAstGivenIr(ir: DielIr, original: OriginalRelation) {
+  TryToCopyRelationSpec(ir, original);
+  // no need to add dependency
+  NormalizeConstraintsForSingleOriginalRelation(original);
+  return original;
 }

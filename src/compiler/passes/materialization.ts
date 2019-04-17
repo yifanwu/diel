@@ -1,12 +1,10 @@
-import { RelationConstraints, DerivedRelation, Relation, RelationIdType, RelationType, DielAst, OriginalRelation, Command, ProgramsIr, BuiltInUdfTypes, DeleteClause, AstType, InsertionClause, RelationSelection } from "../../parser/dielAstTypes";
-import { DependencyTree, getTopologicalOrder } from "./passesHelper";
+import { RelationConstraints, DerivedRelation, Relation, RelationIdType, RelationType, DielAst, Command, DeleteClause, AstType, InsertionClause, RelationSelection } from "../../parser/dielAstTypes";
+import { getTopologicalOrder } from "./passesHelper";
 import { GetDependenciesFromViewList, getOriginalRelationsDependedOn } from "./dependency";
 import { GetAllDerivedViews } from "../DielIr";
 import { getEventTableFromDerived} from "./distributeQueries";
 import { DielIr } from "../DielIr";
 import { NormalizeColumnSelection } from "./normalizeColumnSelection";
-import { ConstraintClauseContext } from "../../parser/grammar/DIELParser";
-import { ExprColumnAst } from "../../parser/dielAstTypes";
 
 export function TransformAstForMaterialization(ast: DielAst) {
   const views = GetAllDerivedViews(ast);
@@ -44,9 +42,7 @@ export function TransformAstForMaterialization(ast: DielAst) {
       // currently, it's done by one pass bfs of deptree
       originalTables = getOriginalRelationsDependedOn(view, deps, originalRelations);
       // Materialize the view into table
-      changeASTMaterialize(view, ast, ir,
-              originalTables,
-              deps.get(view.name).isDependedBy,
+      changeASTMaterialize(view, ast, originalTables,
               numTables);
       numTables += 1;
     }
@@ -57,8 +53,7 @@ export function TransformAstForMaterialization(ast: DielAst) {
  * Change the derived view ast into program ast in place
  */
 function changeASTMaterialize(view: DerivedRelation,
-  ast: DielAst, ir: DielIr, originalTables: Set<string>,
-  dependents: string[],
+  ast: DielAst, originalTables: Set<string>,
   numTables: number) {
 
   // 1. make a view into a table

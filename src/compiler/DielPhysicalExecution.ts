@@ -1,26 +1,28 @@
 import { DielAst, DerivedRelation, RelationType, createEmptyDielAst, Relation, DbIdType, RelationIdType, LogicalTimestep } from "../parser/dielAstTypes";
-import { DbType } from "../runtime/runtimeTypes";
+import { DbType, NodeDependencyAugmented, NodeDependency, DependencyTree, ExecutionSpec } from "../runtime/runtimeTypes";
 import { PhysicalMetaData } from "../runtime/DielRuntime";
 import { getEventTableFromDerived, SingleDistribution, QueryDistributionRecursiveEval } from "./passes/distributeQueries";
-import { LogInternalError } from "../util/messages";
-import { DependencyTree, NodeDependencyAugmented } from "./passes/passesHelper";
+import { LogInternalError, DielInternalErrorType } from "../util/messages";
 import { SetIntersection } from "../util/dielUtils";
-import { isRelationTypeDerived, DielIr } from "./DielIr";
-
-export type RelationShippingInfo = {
-  destinations: Set<DbIdType>;
-  dependencies: Set<RelationIdType>;
-};
-
+import { IsRelationTypeDerived, DielIr } from "./DielIr";
 
 export const LocalDbId = 1;
-export const NoEventLineage = -1;
+
+// local helper function
+// not using a set here because sets do not work well over complex objects...
+function addRelationIfOnlyNotExist(relationDef: Relation[], newDef: Relation) {
+  if (!relationDef.find(r => r.name === newDef.name)) {
+    relationDef.push(newDef);
+    return true;
+  }
+  return false;
+}
 
 export class DielPhysicalExecution {
   ir: DielIr; // read only
+  augmentedDep: Map<string, NodeDependencyAugmented>;
   metaData: PhysicalMetaData; // read only
   astSpecPerDb: Map<DbIdType, DielAst>;
-  runtimeOutputNames: Set<RelationIdType>;
   distributions: SingleDistribution[];
   getEventByTimestep: (step: LogicalTimestep) => RelationIdType;
 
@@ -29,127 +31,156 @@ export class DielPhysicalExecution {
     this.metaData = metaData;
     this.getEventByTimestep = getEventByTimestep;
     // get all the outputs and loop
-    const augmentedDep = this.augmentDepTree(this.ir.dependencies.depTree);
+    this.augmentedDep = this.augmentDepTree(this.ir.dependencies.depTree);
     // let's first figure out the shipping information
-    this.distributions = this.distributedEval(augmentedDep);
+    this.distributions = [];
+    this.distributedEval();
     // organize it by db-engines so we know how to set it up
     // then construct the definitions
-    this.astSpecPerDb = this.getExecutionSpecsFromDistribution(this.distributions);
+    this.astSpecPerDb = new Map<DbIdType, DielAst>();
+    this.setAstSpecPerDbIfNotExist(LocalDbId);
+    this.getExecutionSpecsFromDistribution(this.distributions);
   }
 
-  public AddRuntimeOutput(outputName: string) {
-    this.runtimeOutputNames.add(outputName);
+  private setAstSpecPerDbIfNotExist(dbId: DbIdType) {
+    if (!this.astSpecPerDb.has(dbId)) {
+      this.astSpecPerDb.set(dbId, createEmptyDielAst());
+    }
+    return this.astSpecPerDb.get(dbId);
+  }
+  // FIXME: what is this doing
+  // public AddRuntimeOutput(outputName: string) {
+  //   this.runtimeOutputNames.add(outputName);
+  // }
+  public GetInstructionsToAddOutput(view: DerivedRelation) {
+    // we need to first figure it out what relations we need to to define to what
+    // and also change the triggers now
+    // the dependency is already agumented
+    this.augmentDepTreeNode(this.ir.dependencies.depTree.get(view.name), view.name);
+    // then figure out the additional distributions
+    const newDistributions = this.distributedEvalForOutput(view);
+    // then figure out the ASTs
+    const overallNewRelations: ExecutionSpec = [];
+    newDistributions.map(distribution => {
+      const newRelations = this.getExecutionSpecForSingleDistribution(distribution);
+      const isAdded = this.addNewRelationsToExistingSpec(newRelations);
+      isAdded.map((b, i) => {
+        if (b) overallNewRelations.push(newRelations[i]);
+      });
+    });
+    return overallNewRelations;
+    // const newRelations = this.getExecutionSpecForSingleDistribution(newDistributions);
+    // this.addNewRelationsToExistingSpec(newRelations);
+    // const newSpecs = this.addNewRelationsToExistingSpec();
   }
 
-  private getExecutionSpecsFromDistribution(distributions: SingleDistribution[]): Map<DbIdType, DielAst> {
-    const astSpecPerDb = new Map<DbIdType, DielAst>();
-    // first get the in
-    function setIfNotExist(dbId: DbIdType) {
-      if (!astSpecPerDb.has(dbId)) {
-        astSpecPerDb.set(dbId, createEmptyDielAst());
-      }
-      return astSpecPerDb.get(dbId);
-    }
-    function addRelationIfOnlyNotExist(relationDef: Relation[], newDef: Relation) {
-      if (!relationDef.find(r => r.name === newDef.name)) {
-        relationDef.push(newDef);
-      }
-    }
-    setIfNotExist(LocalDbId);
-    const setofRelationsDistributed = new Set<RelationIdType>();
-    distributions.map(distribution => {
-      const astToSpec = setIfNotExist(distribution.to);
-      const astFromSpec = setIfNotExist(distribution.from);
-      setofRelationsDistributed.add(distribution.relationName);
-      const rDef = this.ir.GetRelationDef(distribution.relationName);
-      if (isRelationTypeDerived(rDef.relationType)) {
-        if (distribution.from !== distribution.to) {
-          const eventTableDef = getEventTableFromDerived(rDef as DerivedRelation);
-          addRelationIfOnlyNotExist(astToSpec.relations, eventTableDef);
-          addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
-        } else {
-          // doesn't matter from or to, it's the same
-          addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
-        }
-      } else {
-        // if we are shipping over, we should remove the event and just keep it vanilla table
-        // if ((distribution.to !== LocalDbId) && rDef.relationType === RelationType.EventTable) {
-        //   const newRDef = JSON.parse(JSON.stringify(rDef)) as OriginalRelation;
-        //   newRDef.relationType = RelationType.Table;
-        //   addRelationIfOnlyNotExist(astToSpec.relations, newRDef);
-        // } else {
-        //   addRelationIfOnlyNotExist(astToSpec.relations, rDef);
+  // TODO
+  public GetInstructionsToRemoveQuery() {
+    LogInternalError("GetInstructionsToRemoveQuery TODO", DielInternalErrorType.NotImplemented);
+  }
+
+  private getExecutionSpecForSingleDistribution(distribution: SingleDistribution): ExecutionSpec {
+    const newRelations: ExecutionSpec = [];
+    const rDef = this.ir.GetRelationDef(distribution.relationName);
+    if (IsRelationTypeDerived(rDef.relationType)) {
+      if (distribution.from !== distribution.to) {
+        const eventTableDef = getEventTableFromDerived(rDef as DerivedRelation);
+        // if (addRelationIfOnlyNotExist(astToSpec.relations, eventTableDef)) {
+        newRelations.push({dbId: distribution.to, relationDef: eventTableDef});
         // }
-        addRelationIfOnlyNotExist(astToSpec.relations, rDef);
+        // newRelations.push({dbId: distribution.from, relationDef: rDef});
+        // addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
       }
-      // these are outputs
-      const astSepcLocal = setIfNotExist(LocalDbId);
-      if (!astSepcLocal.relations.find(r => r.name === distribution.finalOutputName)) {
-        astSepcLocal.relations.push(this.ir.GetRelationDef(distribution.finalOutputName));
-      }
+      newRelations.push({dbId: distribution.from, relationDef: rDef});
+      // doesn't matter from or to, it's the same
+      // addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
+    } else {
+      // FIXME: figureout why we don't need to check for types here?....
+      // if we are shipping over, we should remove the event and just keep it vanilla table
+      // if ((distribution.to !== LocalDbId) && rDef.relationType === RelationType.EventTable) {
+      //   const newRDef = JSON.parse(JSON.stringify(rDef)) as OriginalRelation;
+      //   newRDef.relationType = RelationType.Table;
+      //   addRelationIfOnlyNotExist(astToSpec.relations, newRDef);
+      // } else {
+      //   addRelationIfOnlyNotExist(astToSpec.relations, rDef);
+      // }
+      // addRelationIfOnlyNotExist(astToSpec.relations, rDef);
+      newRelations.push({dbId: distribution.to, relationDef: rDef});
+    }
+    // these are outputs
+    newRelations.push({dbId: LocalDbId, relationDef: this.ir.GetRelationDef(distribution.finalOutputName)});
+    // const astSepcLocal = this.setAstSpecPerDbIfNotExist(LocalDbId);
+    // if (!astSepcLocal.relations.find(r => r.name === distribution.finalOutputName)) {
+    //   astSepcLocal.relations.push();
+    // }
+    return newRelations;
+  }
+
+  private addNewRelationsToExistingSpec(newRelations: {dbId: DbIdType, relationDef: Relation}[]): boolean[] {
+    return newRelations.map(newR => {
+      const astSpec = this.setAstSpecPerDbIfNotExist(newR.dbId);
+      return addRelationIfOnlyNotExist(astSpec.relations, newR.relationDef);
+    });
+  }
+
+  private getExecutionSpecsFromDistribution(distributions: SingleDistribution[]) {
+    distributions.map(distribution => {
+      const newRelations = this.getExecutionSpecForSingleDistribution(distribution);
+      this.addNewRelationsToExistingSpec(newRelations);
     });
     // need to add the static tables that are not directly referenced to main
     // find any static table that was not used by outputs...
     this.ir.GetOriginalRelations().map(r => {
       if ((r.relationType === RelationType.Table)
       || (r.relationType === RelationType.DerivedTable)) {
-        if (!setofRelationsDistributed.has(r.name)) {
+        if (!distributions.find(d => d.relationName === r.name)) {
           // we need to add this to the local one
           // fixme: might be relevant for workers as well
-          astSpecPerDb.get(LocalDbId).relations.push(r);
+          this.astSpecPerDb.get(LocalDbId).relations.push(r);
         }
       }}
     );
     // as well as the commands
-    astSpecPerDb.get(LocalDbId).commands = this.ir.ast.commands;
+    this.astSpecPerDb.get(LocalDbId).commands = this.ir.ast.commands;
     // add user defined programs to main db
-    if (astSpecPerDb.get(LocalDbId).programs.size > 0) {
+    if (this.astSpecPerDb.get(LocalDbId).programs.size > 0) {
       LogInternalError("FIXME: need to merge instead of reset");
     }
-    astSpecPerDb.get(LocalDbId).programs = this.ir.ast.programs;
-    // sanity check: only localDB is allowed to have EventTables!
-    // astSpecPerDb.forEach((ast, dbId) => {
-    //   if (dbId !== LocalDbId) {
-    //     ast.relations.map(r => {
-    //       if (r.relationType === RelationType.EventTable) {
-    //         LogInternalError(`only local DB instance  (${LocalDbId}) is allowed to have ${RelationType.EventTable}, but ${dbId} has it too, for ${r.name}`);
-    //       }
-    //     });
-    //   }
-      // TODO: materialization
-      // commenting out for now for performance
-      // const materialization = TransformAstForMaterialization(ast);
-      // console.log(JSON.stringify(materialization, null, 2));
-    // });
-    // then get the out
-    return astSpecPerDb;
+    this.astSpecPerDb.get(LocalDbId).programs = this.ir.ast.programs;
+  }
+
+  // FIXME: double check that the distributions are properly pushed
+  distributedEvalForOutput(output: DerivedRelation) {
+    const newDistributions: SingleDistribution[] = [];
+    const scope = {
+      augmentedDep: this.augmentedDep,
+      selectRelationEvalOwner: this.selectRelationEvalOwner.bind(this),
+      outputName: output.name
+    };
+    this.augmentedDep.get(output.name).dependsOn.map(dep => {
+      const result = QueryDistributionRecursiveEval(newDistributions, scope, dep);
+      // send all the final views to local
+      newDistributions.push({
+        forRelationName: output.name,
+        relationName: result.relationName,
+        from: result.dbId,
+        to: LocalDbId,
+        finalOutputName: output.name,
+      });
+    });
+    this.distributions = newDistributions.concat(this.distributions);
+    return newDistributions;
   }
 
   /**
    * recursive function to evaluate what view needs to be where
    */
-  distributedEval(augmentedDep: Map<string, NodeDependencyAugmented>) {
-    const selectRelationEvalOwner = this.selectRelationEvalOwner.bind(this);
-    let distributionsForAllOutput: SingleDistribution[] = [];
-    this.ir.GetOutputs().map(output => {
-      const distributions: SingleDistribution[] = [];
-      const scope = {augmentedDep, selectRelationEvalOwner, outputName: output.name};
-      augmentedDep.get(output.name).dependsOn.map(dep => {
-        const result = QueryDistributionRecursiveEval(distributions, scope, dep);
-        // send all the final views to local
-        distributions.push({
-          forRelationName: output.name,
-          relationName: result.relationName,
-          from: result.dbId,
-          to: LocalDbId,
-          finalOutputName: output.name,
-        });
-      });
-      distributionsForAllOutput = distributionsForAllOutput.concat(distributions);
-    });
-    return distributionsForAllOutput;
+  distributedEval() {
+    // let distributionsForAllOutput: SingleDistribution[] = [];
+    this.ir.GetOutputs().map(this.distributedEvalForOutput);
+    // return distributionsForAllOutput;
   }
-// , output: RelationIdType
+
   getBubbledUpRelationToShip(dbId: DbIdType, relation: RelationIdType): {destination: DbIdType, relation: RelationIdType}[] {
     const distributions = this.distributions;
     function helper(acc: {destination: DbIdType, relation: RelationIdType}[], dbId: DbIdType, relation: RelationIdType) {
@@ -269,24 +300,28 @@ export class DielPhysicalExecution {
     return this.astSpecPerDb.get(dbId);
   }
 
+  augmentDepTreeNode(nodDep: NodeDependency, relationName: RelationIdType) {
+    const relationType = this.ir.GetRelationDef(relationName).relationType;
+    const remoteId = (relationType === RelationType.EventTable || relationType === RelationType.Table)
+      ? LocalDbId
+      : (relationType === RelationType.ExistingAndImmutable)
+        ? this.getDbIdByRelationName(relationName)
+        : null; // this is null because we might not know, and need the recursive processing to set
+    const nodeDepAugmetned: NodeDependencyAugmented = {
+      remoteId,
+      relationName,
+      relationType,
+      ...Object.assign({}, nodDep),
+    };
+    return nodeDepAugmetned;
+  }
   /**
    * adding where the location is, as well as the type of location it is.
    */
   augmentDepTree(depTree: DependencyTree) {
-    const augmentedTree = new Map<string, NodeDependencyAugmented>();
-    depTree.forEach((nodDep, relationName) => {
-      const relationType = this.ir.GetRelationDef(relationName).relationType;
-      const remoteId = (relationType === RelationType.EventTable || relationType === RelationType.Table)
-        ? LocalDbId
-        : (relationType === RelationType.ExistingAndImmutable)
-          ? this.getDbIdByRelationName(relationName)
-          : null; // this is null because we might not know, and need the recursive processing to set
-      const nodeDepAugmetned: NodeDependencyAugmented = {
-        remoteId,
-        relationName,
-        relationType,
-        ...Object.assign({}, nodDep),
-      };
+    const augmentedTree = new Map<RelationIdType, NodeDependencyAugmented>();
+    depTree.forEach((nodeDep, relationName) => {
+      const nodeDepAugmetned = this.augmentDepTreeNode(nodeDep, relationName);
       augmentedTree.set(relationName, nodeDepAugmetned);
     });
     return augmentedTree;

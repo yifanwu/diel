@@ -5,7 +5,7 @@ import { DielAst, DerivedRelation, CrossFilterIr, RelationType, SetOperator, Sel
  * - We are assuming that crossfitlers do not have unions
  * @param ast DielAst
  */
-export function applyCrossfilter(ast: DielAst): void {
+export function ApplyCrossfilter(ast: DielAst): void {
   const newSetsOfViews = ast.crossfilters.map(c => _getViews(c));
   ast.relations = ast.relations.concat(...newSetsOfViews);
 }

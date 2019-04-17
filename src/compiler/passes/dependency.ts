@@ -1,11 +1,13 @@
 import { getSelectionUnitDep, getTopologicalOrder, DependencyTree, DependencyInfo } from "./passesHelper";
-import { RelationType, DerivedRelation } from "../../parser/dielAstTypes";
+import { RelationType, DerivedRelation, RelationIdType } from "../../parser/dielAstTypes";
 import { SetIntersection } from "../../util/dielUtils";
 import { GetAllDerivedViews, DielIr } from "../DielIr";
 import { LogInternalError } from "../../util/messages";
 
-function AddDependency() {
-  
+export function AddDependency(depTree: DependencyTree, view: DerivedRelation) {
+  // first add dependency one way, then the other way
+  const dependsOn = addDependencyOneWay(depTree, view);
+  addDependencyOtherWay(depTree, dependsOn, view.name);
 }
 
 // incremental dep tree building
@@ -22,24 +24,25 @@ function addDependencyOneWay(depTree: DependencyTree, view: DerivedRelation) {
     dependsOn,
     isDependedBy: []
   });
+  return dependsOn;
+}
+
+function addDependencyOtherWay(depTree: DependencyTree, dependsOn: RelationIdType[], viewName: RelationIdType) {
+  dependsOn.map(dO => {
+    if (dO) { // avoid the case when its null
+      // it's possible that these don't exist, if they are the leaves
+      if (!depTree.has(dO)) {
+        depTree.set(dO, {dependsOn: [], isDependedBy: []});
+      }
+      depTree.get(dO).isDependedBy.push(viewName);
+    }
+  });
 }
 
 export function GetDependenciesFromViewList(views: DerivedRelation[]) {
   const depTree: DependencyTree = new Map<string, {dependsOn: string[], isDependedBy: string[]}>();
   // add one direction
-  views.map(v => addDependencyOneWay(depTree, v));
-  // add the other direction
-  depTree.forEach((value, key) => {
-    value.dependsOn.map(dO => {
-      if (dO) { // avoid the case when its null
-        // it's possible that these don't exist, if they are the leaves
-        if (!depTree.has(dO)) {
-          depTree.set(dO, {dependsOn: [], isDependedBy: []});
-        }
-        depTree.get(dO).isDependedBy.push(key);
-      }
-    });
-  });
+  views.map(v => AddDependency(depTree, v));
   return depTree;
 }
 

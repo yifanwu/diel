@@ -1,9 +1,15 @@
 import { DielIr, SelectionUnitVisitorFunctionOptions } from "../DielIr";
 import { LogInternalError, ReportDielUserError, DielInternalErrorType } from "../../util/messages";
-import { DielDataType, BuiltInColumns, SelectionUnit, RelationReference, ExprType, ExprFunAst, ExprColumnAst, ExprAst, BuiltInFunc, ExprValAst, ExprParen } from "../../parser/dielAstTypes";
+import { DielDataType, BuiltInColumns, SelectionUnit, RelationReference, ExprType, ExprFunAst, ExprColumnAst, ExprAst, BuiltInFunc, ExprValAst, ExprParen, DerivedRelation } from "../../parser/dielAstTypes";
 
 export function InferType(ir: DielIr) {
   ir.ApplyToImmediateSelectionUnits(inferTypeForSelection, true);
+}
+
+export function InferTypeForDerivedRelation(ir: DielIr, view: DerivedRelation) {
+  view.selection.compositeSelections.map(s => {
+    inferTypeForSelection(s.relation, {relationName: view.name, ir});
+  });
 }
 
 // recurively invoked

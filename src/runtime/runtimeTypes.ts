@@ -1,5 +1,28 @@
-import { DbIdType, RelationIdType, LogicalTimestep } from "../parser/dielAstTypes";
+import { DbIdType, RelationIdType, LogicalTimestep, RelationType, Relation } from "../parser/dielAstTypes";
 import { DbSetupConfig } from "./DbEngine";
+
+export type ExecutionSpec = {dbId: DbIdType, relationDef: Relation}[];
+
+export interface NodeDependencyAugmented extends NodeDependency {
+  relationName: string;
+  remoteId?: DbIdType; // only has remoteId if it's an original table
+  relationType: RelationType;
+}
+
+export type NodeDependency = {
+  dependsOn: RelationIdType[],
+  isDependedBy: RelationIdType[]
+};
+
+export type DependencyTree = Map<RelationIdType, NodeDependency>;
+
+export interface DependencyInfo {
+  // both ways for easy access
+  depTree: DependencyTree;
+  topologicalOrder: string[];
+  inputDependenciesOutput: Map<string, Set<string>>;
+  inputDependenciesAll: Map<string, Set<string>>;
+}
 
 export interface DielConfig {
   dielFiles: string[];

@@ -1,6 +1,6 @@
 import { DielIr, SimpleColumn, SelectionUnitVisitorFunctionOptions, BuiltInColumn, columnsFromSelectionUnit } from "../DielIr";
 import { ReportDielUserError, LogInternalError } from "../../util/messages";
-import { ExprType, ExprColumnAst, SelectionUnit, ColumnSelection, RelationReference, DielDataType } from "../../parser/dielAstTypes";
+import { ExprType, ExprColumnAst, SelectionUnit, ColumnSelection, RelationReference, DielDataType, DerivedRelation } from "../../parser/dielAstTypes";
 import { getRelationReferenceName } from "../passes/passesHelper";
 import { copyColumnSelection, createColumnSectionFromRelationReference } from "./helper";
 import { generateSelectionUnitBody } from "../codegen/codeGenSql";
@@ -96,6 +96,13 @@ function starCase(ir: DielIr, s: SelectionUnit, currentColumnExpr: ExprColumnAst
     }
 }
 
+export function NormalizeColumnForDerivedRelation(ir: DielIr, view: DerivedRelation) {
+  view.selection.compositeSelections.map(s => {
+    normalizeColumnForSelectionUnit(s.relation, {relationName: view.name, ir});
+  });
+}
+
+// FIXME: the SelectionUnitVisitorFunctionOptions is a bit confusing.
 function normalizeColumnForSelectionUnit(s: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions): void {
     const derivedColumnSelections: ColumnSelection[][] = s.columnSelections.map(c => {
       switch (c.expr.exprType) {

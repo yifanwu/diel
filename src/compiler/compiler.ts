@@ -3,7 +3,6 @@ import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateAst";
 import { CompileDiel } from "./DielCompiler";
-import { LogInfo, PrintCode } from "../util/messages";
 import { DielIr } from "./DielIr";
 import { RelationSelection } from "../parser/dielAstTypes";
 

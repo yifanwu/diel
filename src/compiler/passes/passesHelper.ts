@@ -1,6 +1,6 @@
-import { ExprType, ExprRelationAst, ExprFunAst, ExprAst, ExprParen,  DbIdType, RelationIdType, SelectionUnit, RelationReference, RelationType } from "../../parser/dielAstTypes";
+import { ExprType, ExprRelationAst, ExprFunAst, ExprAst, ExprParen,  DbIdType, RelationIdType, SelectionUnit, RelationReference } from "../../parser/dielAstTypes";
 import { LogInternalError } from "../../util/messages";
-import { } from "../DielPhysicalExecution";
+import { DependencyTree } from "../../runtime/runtimeTypes";
 
 /**
  * If there is a subquery, then use alias, otherwise use the original relation name
@@ -12,27 +12,6 @@ export function getRelationReferenceName(r: RelationReference) {
     LogInternalError(`RelationReference either does not have an alias or name:\n ${JSON.stringify(r)}`);
   }
   return n;
-}
-
-export interface NodeDependencyAugmented extends NodeDependency {
-  relationName: string;
-  remoteId?: DbIdType; // only has remoteId if it's an original table
-  relationType: RelationType;
-}
-
-export type NodeDependency = {
-  dependsOn: RelationIdType[],
-  isDependedBy: RelationIdType[]
-};
-
-export type DependencyTree = Map<RelationIdType, NodeDependency>;
-
-export interface DependencyInfo {
-  // both ways for easy access
-  depTree: DependencyTree;
-  topologicalOrder: string[];
-  inputDependenciesOutput: Map<string, Set<string>>;
-  inputDependenciesAll: Map<string, Set<string>>;
 }
 
 function getRelationReferenceDep(r: RelationReference): string[] {

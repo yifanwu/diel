@@ -36,8 +36,6 @@ export interface WorkerConfig extends DbSetupConfigBase {
 
 export type DbSetupConfig = SocketConfig | WorkerConfig;
 
-export type NodeDependency = Map<string, Set<string>>;
-
 export default class DbEngine {
   // for debugging
   totalMsgCount: number;

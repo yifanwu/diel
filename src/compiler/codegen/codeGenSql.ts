@@ -1,5 +1,5 @@
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen, DielDataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause, DropType } from "../../parser/dielAstTypes";
-import { RelationSpec, RelationQuery, SqlAst, createSqlAstFromDielAst, TriggerAst } from "./createSqlIr";
+import { SqlOriginalRelation, SqlDerivedRelation, SqlAst, createSqlAstFromDielAst, TriggerAst, SqlRelationType, SqlRelation } from "./createSqlIr";
 import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
 
 export function generateSqlFromDielAst(ast: DielAst, options?: { replace: boolean; isRemote: boolean}) {
@@ -12,33 +12,28 @@ export function generateSqlFromDielAst(ast: DielAst, options?: { replace: boolea
 export function generateCleanUpAstFromSqlAst(ast: SqlAst): DropClause[] {
   // basically drop everything
   // triggers etc.
-  const tables = ast.tables.map(t => ({
+  const tables = ast.relations.map(r => ({
     astType: AstType.Drop,
-    dropType: DropType.Table,
-    dropName: t.name
+    dropType: r.sqlRelationType === SqlRelationType.Table ? DropType.Table : DropType.View,
+    dropName: r.name
   }));
-  const views = ast.views.map(v => ({
-    astType: AstType.Drop,
-    dropType: DropType.View,
-    dropName: v.name
-  }));
+
   let triggers = ast.triggers.map(t => ({
       astType: AstType.Drop,
       dropType: DropType.Trigger,
       dropName: t.tName
     }));
   // note that we might need to do dependency order?
-  return triggers.concat(views).concat(tables);
+  return triggers.concat(tables);
 }
 
 export function generateStringFromSqlIr(sqlAst: SqlAst, replace = false): string[] {
   // if remoteType is server, then we need to drop the old ones if we want to make a new one
   // we need to architect this properly to scale, but a quick fix for now
-  const tables = sqlAst.tables.map(t => generateTableSpec(t, replace));
-  const views = sqlAst.views.map(v => generateSqlViews(v, replace));
+  const relations = sqlAst.relations.map(t => GenerateSqlRelationString(t, replace));
   let triggers = sqlAst.triggers.map(t => generateTrigger(t, replace));
   let commands = sqlAst.commands.map(c => generateCommand(c));
-  return tables.concat(views).concat(triggers).concat(commands);
+  return relations.concat(triggers).concat(commands);
 }
 
 function generateCommand(command: Command) {
@@ -59,8 +54,19 @@ export function generateDrop(command: DropClause) {
   return `DROP ${command.dropType} ${command.dropName};`;
 }
 
+export function GenerateSqlRelationString(r: SqlRelation, replace = false): string | null {
+  switch (r.sqlRelationType) {
+    case SqlRelationType.Table:
+      return generateTableSpec(r as SqlOriginalRelation, replace);
+    case SqlRelationType.View:
+      return generateSqlViews(r as SqlDerivedRelation, replace);
+    default:
+      return LogInternalError("Not all Sql relation types are handled", DielInternalErrorType.UnionTypeNotAllHandled);
+  }
+}
+
 // FIXME note that we should probably not use the if not exist as a crutch
-function generateTableSpec(t: RelationSpec, replace = false): string {
+function generateTableSpec(t: SqlOriginalRelation, replace = false): string {
   const replaceQuery = replace ? `DROP TABLE IF EXISTS ${t.name};` : "";
   return `${replaceQuery}
   CREATE TABLE ${t.name} (
@@ -68,7 +74,7 @@ function generateTableSpec(t: RelationSpec, replace = false): string {
   )`;
 }
 
-export function generateSqlViews(v: RelationQuery, replace = false): string {
+export function generateSqlViews(v: SqlDerivedRelation, replace = false): string {
   const replaceQuery = replace ? `DROP VIEW IF EXISTS ${v.name};` : "";
   return `${replaceQuery}
   CREATE VIEW ${v.name} AS

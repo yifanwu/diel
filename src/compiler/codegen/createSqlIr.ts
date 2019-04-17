@@ -1,21 +1,27 @@
 import { DielAst, ProgramsIr, DielDataType, RelationType, Column, CompositeSelectionUnit, InsertionClause, OriginalRelation, DerivedRelation, Command, Relation, RelationIdType } from "../../parser/dielAstTypes";
 import { LogInternalError, DielInternalErrorType } from "../../util/messages";
 
-export interface RelationSpec {
-  name: string;
-  columns: Column[];
-}
-
 export enum SqlRelationType {
   View,
   Table
 }
 
-export interface RelationQuery {
-  name: string;
+interface SqlRelationBase {
   sqlRelationType: SqlRelationType;
+}
+
+export interface SqlOriginalRelation extends SqlRelationBase {
+  name: string;
+  columns: Column[];
+}
+
+
+export interface SqlDerivedRelation extends SqlRelationBase {
+  name: string;
   query: CompositeSelectionUnit[];
 }
+
+export type SqlRelation = SqlDerivedRelation | SqlOriginalRelation;
 
 export interface TriggerAst {
   tName: string;
@@ -29,9 +35,7 @@ export interface TriggerAst {
  * - Note that the name for programsIr in triggers will not be the original relation but a hashed value
  */
 export interface SqlAst {
-  // tablespec
-  tables: RelationSpec[];
-  views: RelationQuery[];
+  relations: SqlRelation[];
   triggers: TriggerAst[];
   commands: Command[];
 }
@@ -59,6 +63,40 @@ export function CreateDerivedSelectionSqlAstFromDielAst(ast: Relation) {
   };
 }
 
+// FIXME: this isRemote logic is very ugly...
+export function CreateUnitSqlFromUnitDiel(rAst: Relation, isRemote: boolean): SqlRelation {
+  switch (rAst.relationType) {
+    case RelationType.EventTable: {
+      const i = rAst as OriginalRelation;
+      return {
+        sqlRelationType: SqlRelationType.Table,
+        name: i.name,
+        columns: isRemote ? i.columns : i.columns.concat(inputColumns)
+      };
+    }
+    // case RelationType.IntermediateEventTable:
+    case RelationType.Table: {
+      const i = rAst as OriginalRelation;
+      return {
+        sqlRelationType: SqlRelationType.Table,
+        name: i.name,
+        columns: i.columns
+      };
+    }
+    case RelationType.Output:
+    case RelationType.EventView:
+    case RelationType.DerivedTable:
+    case RelationType.View: {
+      return CreateDerivedSelectionSqlAstFromDielAst(rAst);
+    }
+    case RelationType.ExistingAndImmutable:
+      // pass
+      return null;
+    default:
+      return LogInternalError(`Should all be handled, but ${rAst.relationType} was not`, DielInternalErrorType.UnionTypeNotAllHandled);
+  }
+}
+
 /**
  * Notes:
  * - staticTables do not need to be created since they already exist
@@ -74,57 +112,22 @@ export function createSqlAstFromDielAst(ast: DielAst, isRemote: boolean): SqlAst
     sqlRelationType: SqlRelationType,
     query: CompositeSelectionUnit[]
   }[] = [];
-  ast.relations
-    .map(iUnionType => {
-      switch (iUnionType.relationType) {
-        case RelationType.EventTable: {
-          const i = iUnionType as OriginalRelation;
-          tables.push({
-            name: i.name,
-            columns: isRemote ? i.columns : i.columns.concat(inputColumns)
-          });
-          break;
-        }
-        // case RelationType.IntermediateEventTable:
-        case RelationType.Table: {
-          const i = iUnionType as OriginalRelation;
-          tables.push({
-            name: i.name,
-            columns: i.columns
-          });
-          break;
-        }
-        case RelationType.Output:
-        case RelationType.EventView:
-        case RelationType.DerivedTable:
-        case RelationType.View: {
-          const genAst = CreateDerivedSelectionSqlAstFromDielAst(iUnionType);
-          views.push(genAst);
-          break;
-        }
-        case RelationType.ExistingAndImmutable:
-          // pass
-          break;
-        default:
-          LogInternalError(`Should all be handled, but ${iUnionType.relationType} was not`, DielInternalErrorType.UnionTypeNotAllHandled);
-      }
-    });
-    const programsToAddRaw = ast.programs.get("");
-    const programsToAdd = programsToAddRaw ? programsToAddRaw : [];
+  const relations = ast.relations.map(r => CreateUnitSqlFromUnitDiel(r, isRemote));
+  const programsToAddRaw = ast.programs.get("");
+  const programsToAdd = programsToAddRaw ? programsToAddRaw : [];
 
-    const triggers: TriggerAst[] = [];
-    ast.programs.forEach((v, input) => {
-      triggers.push({
-        tName: `${input}Trigger`, // inputs are unique since its a map
-        afterRelationName: input,
-        commands: [...programsToAdd, ...v ],
-      });
+  const triggers: TriggerAst[] = [];
+  ast.programs.forEach((v, input) => {
+    triggers.push({
+      tName: `${input}Trigger`, // inputs are unique since its a map
+      afterRelationName: input,
+      commands: [...programsToAdd, ...v ],
+    });
   });
 
   const commands = ast.commands;
   return {
-    tables,
-    views,
+    relations,
     triggers,
     commands
   };

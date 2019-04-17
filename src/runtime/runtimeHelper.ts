@@ -1,9 +1,27 @@
 import { Database, QueryResults } from "sql.js";
 import { RelationObject } from "./runtimeTypes";
+import { RelationSelection } from "../parser/dielAstTypes";
+import { LogInternalError } from "../util/messages";
 // import { SelectionUnit } from "../parser/dielAstTypes";
 
 // export function generateViewNameForSelect(ast: SelectionUnit) {
 // }
+
+export function GenerateViewName(q: RelationSelection) {
+  const hash = Math.floor(Math.random() * 1000).toString();
+  if (q.compositeSelections)
+    return `${q.compositeSelections[0].relation.columnSelections.map(c => c.alias).join("-")}-${hash}`;
+  return hash;
+}
+
+export function CaughtLocalRun(db: Database, s: string) {
+  try {
+    console.log(`%c Running Query in Main:\n${s}`, "color: purple");
+    db.run(s);
+  } catch (error) {
+    LogInternalError(`Error while running\n${s}\n${error}`);
+  }
+}
 
 /**
  * returns all the SQL that defines tables in this DB

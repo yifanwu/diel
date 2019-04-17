@@ -1,8 +1,8 @@
-import { DielIr, isRelationTypeDerived } from "../DielIr";
+import { DielIr, IsRelationTypeDerived } from "../DielIr";
 import { OriginalRelation, RelationType, DerivedRelation, DbIdType, RelationIdType, ExprType, ExprColumnAst } from "../../parser/dielAstTypes";
 import { ReportDielUserError, LogInternalError } from "../../util/messages";
 import {  } from "../DielPhysicalExecution";
-import { NodeDependencyAugmented } from "./passesHelper";
+import { NodeDependencyAugmented } from "../../runtime/runtimeTypes";
 
 export type SingleDistribution = {
   relationName: RelationIdType,
@@ -38,7 +38,7 @@ export function QueryDistributionRecursiveEval(
     forRelationName: node.relationName,
     finalOutputName: scope.outputName,
   };
-  if (isRelationTypeDerived(node.relationType)) {
+  if (IsRelationTypeDerived(node.relationType)) {
     // derived, need to look at the things it needs, then decide who should own this relation
     // logic that decides the relation
     const dependentRecResults = node.dependsOn.map(depRelation => QueryDistributionRecursiveEval(distributions, scope, depRelation));

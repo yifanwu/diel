@@ -4,19 +4,19 @@ import { Database, Statement } from "sql.js";
 import { DIELLexer } from "../parser/grammar/DIELLexer";
 import { DIELParser } from "../parser/grammar/DIELParser";
 
-import { DielRemoteAction, RelationObject, DielConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, } from "./runtimeTypes";
+import { DielRemoteAction, RelationObject, DielConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, ExecutionSpec, } from "./runtimeTypes";
 import { OriginalRelation, DerivedRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationIdType } from "../parser/dielAstTypes";
-import { generateSelectionUnit, generateSqlFromDielAst, generateSqlViews, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst } from "../compiler/codegen/codeGenSql";
+import { generateSelectionUnit, generateSqlFromDielAst, generateSqlViews, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst, GenerateSqlRelationString } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
-import { CompileDiel } from "../compiler/DielCompiler";
+import { CompileDiel, CompileAstGivenIr, CompileDerivedAstGivenIr } from "../compiler/DielCompiler";
 import { log } from "../util/dielUdfs";
 import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo } from "../util/messages";
 import { DielIr } from "../compiler/DielIr";
-import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult } from "./runtimeHelper";
+import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult, GenerateViewName, CaughtLocalRun } from "./runtimeHelper";
 import { DielPhysicalExecution, LocalDbId } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
-import { CreateDerivedSelectionSqlAstFromDielAst, createSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
+import { CreateDerivedSelectionSqlAstFromDielAst, createSqlAstFromDielAst, CreateUnitSqlFromUnitDiel } from "../compiler/codegen/createSqlIr";
 import { viewConstraintCheck, checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { getPlainSelectQueryAst } from "../compiler/compiler";
@@ -501,6 +501,32 @@ export default class DielRuntime {
     return r;
   }
 
+  async incrementalExecuteToDb(instructions: ExecutionSpec) {
+    const promises: Promise<any>[] = [];
+    instructions.map(i => {
+      if (i.dbId === LocalDbId)  {
+        const sqlAst = CreateUnitSqlFromUnitDiel(i.relationDef, false);
+        const sqlStr = GenerateSqlRelationString(sqlAst);
+        CaughtLocalRun(this.db, sqlStr);
+      } else {
+        const sqlAst = CreateUnitSqlFromUnitDiel(i.relationDef, true);
+        // FIXME: think about replacement logic
+        const sqlStr = GenerateSqlRelationString(sqlAst);
+        const remoteInstance = this.findRemoteDbEngine(i.dbId);
+        if (remoteInstance) {
+          const msg: RemoteExecuteMessage = {
+            remoteAction: DielRemoteAction.DefineRelations,
+            lineage: INIT_TIMESTEP,
+            sql: sqlStr,
+          };
+          promises.push(remoteInstance.SendMsg(msg, true));
+        }
+      }
+    });
+    await Promise.all(promises);
+    return;
+  }
+
   // takes in the SqlIrs in different environments and sticks them into the databases
   // FIXME: better async handling
   async executeToDBs() {
@@ -511,12 +537,7 @@ export default class DielRuntime {
       if (id === LocalDbId) {
         const queries = generateStringFromSqlIr(createSqlAstFromDielAst(ast, false), false);
         for (let s of queries) {
-          try {
-            console.log(`%c Running Query in Main:\n${s}`, "color: purple");
-            this.db.run(s);
-          } catch (error) {
-            LogInternalError(`Error while running\n${s}\n${error}`);
-          }
+          CaughtLocalRun(this.db, s);
         }
       } else {
         const remoteInstance = this.findRemoteDbEngine(id);
@@ -582,7 +603,14 @@ export default class DielRuntime {
    * need to specify what kind of relation: is it an output? FIXME later, maybe we don't need this commitment up front?
    */
   public AddRelationByString(q: string, rType: RelationType, rName?: string) {
-    const selectionUnitAst = getPlainSelectQueryAst(q);
+    const relationSelection = getPlainSelectQueryAst(q);
+    const derived: DerivedRelation = {
+      name: rName ? rName : GenerateViewName(relationSelection),
+      relationType: RelationType.Output,
+      selection: relationSelection
+    };
+    const compiledAst = CompileDerivedAstGivenIr(this.ir, derived);
+    const instructions = this.physicalExecution.GetInstructionsToAddOutput(compiledAst);
     // then we need to give it a name
     // then we need to do the normalization, infertypes
     // FIXME: add a way to add templates?
@@ -594,7 +622,7 @@ export default class DielRuntime {
     
   }
 
-  public async AddViewByAst(q: DerivedRelation) {
+  public AddViewByAst(q: DerivedRelation) {
     const queryStr = generateSqlViews(CreateDerivedSelectionSqlAstFromDielAst(q));
     this.addViewToLocal(queryStr);
     this.setupNewOutput(q);
