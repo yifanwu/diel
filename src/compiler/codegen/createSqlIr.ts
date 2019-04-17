@@ -57,7 +57,7 @@ const inputColumns: Column[] = [
 export function CreateDerivedSelectionSqlAstFromDielAst(ast: Relation) {
   const v = ast as DerivedRelation;
   return {
-    name: v.name,
+    name: v.rName,
     sqlRelationType: (v.relationType === RelationType.View) ? SqlRelationType.View : SqlRelationType.Table,
     query: v.selection.compositeSelections
   };
@@ -70,7 +70,7 @@ export function CreateUnitSqlFromUnitDiel(rAst: Relation, isRemote: boolean): Sq
       const i = rAst as OriginalRelation;
       return {
         sqlRelationType: SqlRelationType.Table,
-        name: i.name,
+        name: i.rName,
         columns: isRemote ? i.columns : i.columns.concat(inputColumns)
       };
     }
@@ -79,7 +79,7 @@ export function CreateUnitSqlFromUnitDiel(rAst: Relation, isRemote: boolean): Sq
       const i = rAst as OriginalRelation;
       return {
         sqlRelationType: SqlRelationType.Table,
-        name: i.name,
+        name: i.rName,
         columns: i.columns
       };
     }

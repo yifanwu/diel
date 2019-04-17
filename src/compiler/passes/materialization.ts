@@ -5,6 +5,7 @@ import { GetAllDerivedViews } from "../DielIr";
 import { getEventTableFromDerived} from "./distributeQueries";
 import { DielIr } from "../DielIr";
 import { NormalizeColumnSelection } from "./normalizeColumnSelection";
+import { DependencyTree } from "../../runtime/runtimeTypes";
 
 export function TransformAstForMaterialization(ast: DielAst) {
   const views = GetAllDerivedViews(ast);
@@ -14,7 +15,7 @@ export function TransformAstForMaterialization(ast: DielAst) {
   const topoOrder = getTopologicalOrder(deps);
 
   function getRelationDef(rName: string) {
-    return views.find(v => v.name === rName);
+    return views.find(v => v.rName === rName);
   }
   const toMaterialize = getRelationsToMateralize(deps, getRelationDef);
   // now we need to figure out what EventTables toMaterialize depends on
@@ -28,7 +29,7 @@ export function TransformAstForMaterialization(ast: DielAst) {
   // Get a list of original relations for faster lookup for insert clause
   let originalRelations = [] as string[];
   ir.GetOriginalRelations().forEach(value => {
-    originalRelations.push(value.name);
+    originalRelations.push(value.rName);
   });
   let numTables = originalRelations.length;
 
@@ -110,7 +111,7 @@ function makeDeleteCommand(view: DerivedRelation): Command {
   let deleteClause: DeleteClause;
   deleteClause = {
     astType: AstType.Delete,
-    relationName: view.name,
+    relationName: view.rName,
     predicate: null
   };
   return deleteClause;
@@ -125,7 +126,7 @@ function makeInsertCommand(view: DerivedRelation): Command {
   let insertClause: InsertionClause;
   insertClause = {
     astType: AstType.Insert,
-    relation: view.name,
+    relation: view.rName,
     columns: [],
     selection: {
       astType: AstType.RelationSelection,

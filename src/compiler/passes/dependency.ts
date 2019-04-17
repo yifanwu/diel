@@ -1,13 +1,14 @@
-import { getSelectionUnitDep, getTopologicalOrder, DependencyTree, DependencyInfo } from "./passesHelper";
+import { getSelectionUnitDep, getTopologicalOrder } from "./passesHelper";
 import { RelationType, DerivedRelation, RelationIdType } from "../../parser/dielAstTypes";
 import { SetIntersection } from "../../util/dielUtils";
 import { GetAllDerivedViews, DielIr } from "../DielIr";
 import { LogInternalError } from "../../util/messages";
+import { DependencyTree } from "../../runtime/runtimeTypes";
 
 export function AddDependency(depTree: DependencyTree, view: DerivedRelation) {
   // first add dependency one way, then the other way
   const dependsOn = addDependencyOneWay(depTree, view);
-  addDependencyOtherWay(depTree, dependsOn, view.name);
+  addDependencyOtherWay(depTree, dependsOn, view.rName);
 }
 
 // incremental dep tree building
@@ -17,10 +18,10 @@ function addDependencyOneWay(depTree: DependencyTree, view: DerivedRelation) {
     const deps = getSelectionUnitDep(c.relation);
     dependsOn = deps.concat(dependsOn);
   });
-  if (!view.name) {
+  if (!view.rName) {
     LogInternalError(`Relation should be named`);
   }
-  depTree.set(view.name, {
+  depTree.set(view.rName, {
     dependsOn,
     isDependedBy: []
   });
@@ -63,7 +64,7 @@ export function ApplyDependencies(ir: DielIr) {
 function generateDependenciesByInput(depTree: DependencyTree, ir: DielIr) {
   const inputDependenciesOutput = new Map<string, Set<string>>();
   const inputDependenciesAll = new Map<string, Set<string>>();
-  const outputSet = new Set(ir.GetAllDerivedViews().filter(v => v.relationType === RelationType.Output).map(o => o.name));
+  const outputSet = new Set(ir.GetAllDerivedViews().filter(v => v.relationType === RelationType.Output).map(o => o.rName));
   ir.GetEventRelationNames().map(i => {
     const allDependencies = generateDependenciesByName(depTree, i);
     const inputDependencyValues = SetIntersection<string>(allDependencies, outputSet);
@@ -113,12 +114,12 @@ export function generateDependenciesByName(depTree: DependencyTree, rName: strin
 export function getOriginalRelationsDependedOn(view: DerivedRelation, depTree: DependencyTree,
   originalRelations: string[]): Set<string> {
 
-   let dep = depTree.get(view.name);
+   let dep = depTree.get(view.rName);
   let tables = new Set<string> ();
   if (dep && dep.dependsOn.length > 0) {
     // breadth first
     let toVisit = dep.dependsOn.slice(); // clone
-    let visited = [view.name] as string[];
+    let visited = [view.rName] as string[];
     let next: string;
 
      while (toVisit.length > 0) {

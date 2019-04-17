@@ -134,7 +134,7 @@ export const BuiltInUdfTypes: UdfType[] = [
 ];
 
 interface RelationBase {
-  name: string;
+  rName: string;
   constraints?: RelationConstraints;
   relationType: RelationType;
 }

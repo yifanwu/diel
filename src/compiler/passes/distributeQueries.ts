@@ -116,7 +116,7 @@ export function getEventTableFromDerived(relation: DerivedRelation) {
   let createSpec: OriginalRelation = {
     relationType: RelationType.EventTable,
     //  === RelationType.EventView ? RelationType.EventTable : RelationType.Table,
-    name: relation.name,
+    rName: relation.rName,
     columns
   };
   return createSpec;
@@ -128,6 +128,6 @@ export function getEventTableFromDerived(relation: DerivedRelation) {
 export function findOutputDep(ir: DielIr) {
   const depTree = ir.dependencies.depTree;
   const outputDep = new Set<string>();
-  ir.GetOutputs().map(o => depTree.get(o.name).dependsOn.map(d => outputDep.add(d)));
+  ir.GetOutputs().map(o => depTree.get(o.rName).dependsOn.map(d => outputDep.add(d)));
   return outputDep;
 }

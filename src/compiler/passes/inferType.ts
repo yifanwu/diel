@@ -8,7 +8,7 @@ export function InferType(ir: DielIr) {
 
 export function InferTypeForDerivedRelation(ir: DielIr, view: DerivedRelation) {
   view.selection.compositeSelections.map(s => {
-    inferTypeForSelection(s.relation, {relationName: view.name, ir});
+    inferTypeForSelection(s.relation, {relationName: view.rName, ir});
   });
 }
 

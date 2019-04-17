@@ -11,7 +11,7 @@ export const LocalDbId = 1;
 // local helper function
 // not using a set here because sets do not work well over complex objects...
 function addRelationIfOnlyNotExist(relationDef: Relation[], newDef: Relation) {
-  if (!relationDef.find(r => r.name === newDef.name)) {
+  if (!relationDef.find(r => r.rName === newDef.rName)) {
     relationDef.push(newDef);
     return true;
   }
@@ -48,15 +48,13 @@ export class DielPhysicalExecution {
     }
     return this.astSpecPerDb.get(dbId);
   }
-  // FIXME: what is this doing
-  // public AddRuntimeOutput(outputName: string) {
-  //   this.runtimeOutputNames.add(outputName);
-  // }
+
+  // FIXME: need to look into whether this is giving things in the right order
   public GetInstructionsToAddOutput(view: DerivedRelation) {
     // we need to first figure it out what relations we need to to define to what
     // and also change the triggers now
     // the dependency is already agumented
-    this.augmentDepTreeNode(this.ir.dependencies.depTree.get(view.name), view.name);
+    this.augmentDepTreeNode(this.ir.dependencies.depTree.get(view.rName), view.rName);
     // then figure out the additional distributions
     const newDistributions = this.distributedEvalForOutput(view);
     // then figure out the ASTs
@@ -133,7 +131,7 @@ export class DielPhysicalExecution {
     this.ir.GetOriginalRelations().map(r => {
       if ((r.relationType === RelationType.Table)
       || (r.relationType === RelationType.DerivedTable)) {
-        if (!distributions.find(d => d.relationName === r.name)) {
+        if (!distributions.find(d => d.relationName === r.rName)) {
           // we need to add this to the local one
           // fixme: might be relevant for workers as well
           this.astSpecPerDb.get(LocalDbId).relations.push(r);
@@ -155,17 +153,17 @@ export class DielPhysicalExecution {
     const scope = {
       augmentedDep: this.augmentedDep,
       selectRelationEvalOwner: this.selectRelationEvalOwner.bind(this),
-      outputName: output.name
+      outputName: output.rName
     };
-    this.augmentedDep.get(output.name).dependsOn.map(dep => {
+    this.augmentedDep.get(output.rName).dependsOn.map(dep => {
       const result = QueryDistributionRecursiveEval(newDistributions, scope, dep);
       // send all the final views to local
       newDistributions.push({
-        forRelationName: output.name,
+        forRelationName: output.rName,
         relationName: result.relationName,
         from: result.dbId,
         to: LocalDbId,
-        finalOutputName: output.name,
+        finalOutputName: output.rName,
       });
     });
     this.distributions = newDistributions.concat(this.distributions);
@@ -251,7 +249,7 @@ export class DielPhysicalExecution {
     const inputEvent = this.getEventByTimestep(lineage);
     const allInputDeps = this.ir.dependencies.inputDependenciesAll.get(inputEvent);
     const ast = this.astSpecPerDb.get(dbId);
-    const allEvents = new Set(ast.relations.filter(r => r.relationType === RelationType.EventTable).map(r => r.name));
+    const allEvents = new Set(ast.relations.filter(r => r.relationType === RelationType.EventTable).map(r => r.rName));
     // PERF FIXME: this is corase grained
     const deps = SetIntersection(allEvents, allInputDeps);
     const relationsToShip = new Map<RelationIdType, Set<DbIdType>>();

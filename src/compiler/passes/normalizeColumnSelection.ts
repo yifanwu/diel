@@ -98,7 +98,7 @@ function starCase(ir: DielIr, s: SelectionUnit, currentColumnExpr: ExprColumnAst
 
 export function NormalizeColumnForDerivedRelation(ir: DielIr, view: DerivedRelation) {
   view.selection.compositeSelections.map(s => {
-    normalizeColumnForSelectionUnit(s.relation, {relationName: view.name, ir});
+    normalizeColumnForSelectionUnit(s.relation, {relationName: view.rName, ir});
   });
 }
 

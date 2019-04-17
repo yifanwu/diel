@@ -14,13 +14,13 @@ export function testGetOriginalRelationsDependedOn() {
 
   let originalRelations = [] as string[];
   ir.GetOriginalRelations().forEach(function(value: Relation) {
-    originalRelations.push(value.name);
+    originalRelations.push(value.rName);
   });
 
   views.forEach(function(view: DerivedRelation) {
     let dependedTables = getOriginalRelationsDependedOn(view, deps, originalRelations);
-    if (!IsSetIdentical(answer.get(view.name), dependedTables)) {
-      logger.error(`Two sets are not the same.`, {expected: answer.get(view.name), got: dependedTables});
+    if (!IsSetIdentical(answer.get(view.rName), dependedTables)) {
+      logger.error(`Two sets are not the same.`, {expected: answer.get(view.rName), got: dependedTables});
     }
   });
   logger.pass();

@@ -174,7 +174,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const constraints = ctx.constraintClause() ? this.visit(ctx.constraintClause()) as RelationConstraints : null;
     const selection = this.visit(ctx.selectQuery()) as RelationSelection;
     return {
-      name,
+      rName: name,
       relationType,
       constraints,
       selection
@@ -567,7 +567,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
     return {
       relationType,
-      name,
+      rName: name,
       columns,
       constraints,
       copyFrom
@@ -581,7 +581,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const constraints = this._processConstraintDefinitionHelper(ctx.constraintDefinition());
     // name and relationType are dummy to avoid having to add more to the union type...
     return {
-      name: "",
+      rName: "",
       relationType: null,
       columns,
       constraints

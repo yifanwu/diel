@@ -76,17 +76,17 @@ export class DielIr {
     this.allCompositeSelections = allCompositeSelections;
     this.allOriginalRelations = new Map();
     this.GetOriginalRelations().map((r) => {
-      this.allOriginalRelations.set(r.name, r);
+      this.allOriginalRelations.set(r.rName, r);
     });
     this.allDerivedRelations = new Map();
     this.GetAllDerivedViews().map((r) => {
-      this.allDerivedRelations.set(r.name, r);
+      this.allDerivedRelations.set(r.rName, r);
     });
   }
 
   GetRelationDef(rName: string): Relation {
     // first search in original, then serach in derived, compalin otherwise
-    const result = this.ast.relations.find(r => r.name === rName);
+    const result = this.ast.relations.find(r => r.rName === rName);
     if (result) {
       return result;
     } else {
@@ -160,7 +160,7 @@ export class DielIr {
   }
 
   public GetRelationDefinition(relationName: RelationIdType) {
-    return this.ast.relations.find(r => r.name === relationName);
+    return this.ast.relations.find(r => r.rName === relationName);
   }
 
   public GetAllDerivedViews(): DerivedRelation[] {
@@ -197,11 +197,11 @@ export class DielIr {
   public GetEventRelationNames() {
     return this.ast.relations
       .filter(r => ((r.relationType === RelationType.EventTable) || (r.relationType === RelationType.EventView)))
-      .map(i => i.name);
+      .map(i => i.rName);
   }
 
   public GetAllRelationNames() {
-    return this.ast.relations.map(i => i.name);
+    return this.ast.relations.map(i => i.rName);
   }
 
   /**
@@ -214,7 +214,7 @@ export class DielIr {
   public ApplyToImmediateSelectionUnits<T>(fun: SelectionUnitFunction<T>, byDependency = false): T[] {
     const ir = this;
     function applyToDerivedRelation<T>(r: DerivedRelation, fun: SelectionUnitFunction<T>): T[] {
-      return r.selection.compositeSelections.map(c => fun(c.relation, {ir, relationName: r.name}));
+      return r.selection.compositeSelections.map(c => fun(c.relation, {ir, relationName: r.rName}));
     }
     let initial: T[] = [];
     if (byDependency && ir.dependencies) {
@@ -267,7 +267,7 @@ export class DielIr {
       return initial;
     } else {
       // this step flattens
-      return this.GetAllDerivedViews().map(r => fun(r.selection.compositeSelections, r.name));
+      return this.GetAllDerivedViews().map(r => fun(r.selection.compositeSelections, r.rName));
     }
   }
 

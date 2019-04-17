@@ -75,7 +75,7 @@ export function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
       let checkQueries = getCheckQuery(viewConstraint, selClause);
       queries = queries.concat(checkQueries);
     }
-    ret.set(view.name, queries);
+    ret.set(view.rName, queries);
   }
   return ret;
 }

@@ -471,9 +471,9 @@ export default class DielRuntime {
    * FIXME: just pass in what it needs, the name str
    */
   private setupNewOutput(r: DerivedRelation) {
-    const q = `select * from ${r.name}`;
+    const q = `select * from ${r.rName}`;
     this.runtimeOutputs.set(
-      r.name,
+      r.rName,
       this.dbPrepare(q)
     );
   }
@@ -598,38 +598,29 @@ export default class DielRuntime {
   }
 
   /**
-   * if there is no name, it's a view
-   * if there is name, it's a select
-   * need to specify what kind of relation: is it an output? FIXME later, maybe we don't need this commitment up front?
+   * we assume that the string is a basic select
    */
-  public AddRelationByString(q: string, rType: RelationType, rName?: string) {
+  public async AddOutputRelationByString(q: string, rName?: string) {
     const relationSelection = getPlainSelectQueryAst(q);
+    rName = rName ? rName : GenerateViewName(relationSelection);
     const derived: DerivedRelation = {
-      name: rName ? rName : GenerateViewName(relationSelection),
+      rName,
       relationType: RelationType.Output,
       selection: relationSelection
     };
+    await this.AddViewByAst(derived);
+    return rName;
+  }
+
+  /**
+   * Note that the AST here need not be typed or de-stared
+   * It's fine if they are.
+   * #OPTIMIZE: In the future, we can skip some of the compiling steps if its already normalized
+   */
+  public async AddViewByAst(derived: DerivedRelation) {
     const compiledAst = CompileDerivedAstGivenIr(this.ir, derived);
     const instructions = this.physicalExecution.GetInstructionsToAddOutput(compiledAst);
-    // then we need to give it a name
-    // then we need to do the normalization, infertypes
-    // FIXME: add a way to add templates?
-    
-    // then we need to decide how it will be executed
-    // see if the data is over local, if so, do nothing
-    
-    // if data is over remote, then split into async event - TODO? Ryan/Lucie?
-    
-  }
-
-  public AddViewByAst(q: DerivedRelation) {
-    const queryStr = generateSqlViews(CreateDerivedSelectionSqlAstFromDielAst(q));
-    this.addViewToLocal(queryStr);
-    this.setupNewOutput(q);
-  }
-
-  private addViewToLocal(query: string): void {
-    
+    await this.incrementalExecuteToDb(instructions);
   }
 
   // ------------------------ debugging related ---------------------------

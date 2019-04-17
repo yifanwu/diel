@@ -33,11 +33,11 @@ export function ApplyTemplates(ir: DielIr) {
 export function TryToCopyRelationSpec(ir: DielIr, r: OriginalRelation): void {
   if (r.copyFrom) {
     // make sure it's not copying from itself
-    if (r.copyFrom === r.name) {
-      ReportDielUserError(`You cannot copy ${r.name} from itself!`);
+    if (r.copyFrom === r.rName) {
+      ReportDielUserError(`You cannot copy ${r.rName} from itself!`);
     }
     // find the relation
-    const sourceRelation = ir.GetDielDefinedOriginalRelation().filter(r => r.name === r.copyFrom);
+    const sourceRelation = ir.GetDielDefinedOriginalRelation().filter(r => r.rName === r.copyFrom);
     if (sourceRelation.length === 0) {
       ReportDielUserError(`The relation definition you are trying to copy from, ${r.copyFrom}, does not exist`);
     } else {
