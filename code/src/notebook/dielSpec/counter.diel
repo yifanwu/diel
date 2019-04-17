@@ -4,4 +4,12 @@ create output currentClick AS
   select sum(delta) as count from click
   constrain check (count < 10);
 
-create table test1 (a integer);
+create table test1_1 (a integer);
+insert into test1_1 values (1), (2), (3), (4), (5), (6), (7);
+create table test1_2 (a integer);
+insert into test1_2 values (1), (2), (3), (4), (5), (6), (7), (8), (9), (10), (11);
+create table test2 (a integer, b integer);
+
+create table test3 (a string);
+
+create table test4 (a integer, b integer, c integer);

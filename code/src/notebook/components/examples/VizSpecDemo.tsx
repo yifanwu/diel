@@ -35,19 +35,12 @@ export default class VizSpecDemo extends React.Component<{}, VizSpecDemoState> {
   }
 
   subQuery() {
-    "create view temp as select delay from flights"
-    "delay from flights"
-    "select flights.delay from flights"
     // compile query first!
-    const r = diel.db.exec("create view bins as select delta from click");
-    const selectionUnitAst = getVanillaSelectionUnitAst("select delay from flights");
+    const r = diel.db.exec("select * from test1_2");
+
+    const selectionUnitAst = getVanillaSelectionUnitAst("select a from test1_2");
     normalizeColumnForSelectionUnit(selectionUnitAst, {ir: diel.ir});
-    const s = JSON.stringify(Math.random());     
-    for (let c of selectionUnitAst.derivedColumnSelections) {
-      if (c.expr.exprType == ExprType.Column) {
-        (c.expr as ExprColumnAst).relationName = "";
-      }
-    }     
+    const s = JSON.stringify(Math.random());
     const derivedRelationAst: DerivedRelation = {
       name: "bins", // brittle!
       relationType: RelationType.View,
@@ -58,17 +51,16 @@ export default class VizSpecDemo extends React.Component<{}, VizSpecDemoState> {
     };
     // DEPENDENCY, generateVizSpecForSingleQuery reads from the IR,
     //   which is modified by the AddView
-    
-    
+
     const vizSpec = generateVizSpecForSingleQuery(diel, derivedRelationAst);
 
     const queryStr = generateSqlViews(CreateDerivedSelectionSqlAstFromDielAst(vizSpec.modifiedQuery));
 
     // diel.db.exec(queryStr);
-    diel.AddView(vizSpec.modifiedQuery);
-    this.setState({
-      data: diel.simpleGetLocal('bins')
-    });
+    // diel.AddView(vizSpec.modifiedQuery);
+    // this.setState({
+    //   data: diel.simpleGetLocal('bins')
+    // });
   }
 
   render() {
