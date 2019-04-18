@@ -1,0 +1,14 @@
+create output allOriginAirports AS
+  select * from allOriginAirportsEvent
+  constrain check (c > 100);
+
+create event view allOriginAirportsEvent AS
+  select
+    origin,
+    count() as c
+  from flights
+    group by origin
+  order by c
+  limit 20
+  constrain check (c > 80);
+
