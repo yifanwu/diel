@@ -5,7 +5,8 @@ create output allOriginAirports AS
 create event view allOriginAirportsEvent AS
   select
     origin,
-    count() as c
+    count() as c,
+    avg(delay) as avgDelay
   from flights
     group by origin
   order by c

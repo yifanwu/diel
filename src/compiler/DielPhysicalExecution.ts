@@ -6,6 +6,7 @@ import { LogInternalError } from "../util/messages";
 import { DependencyTree, NodeDependencyAugmented } from "./passes/passesHelper";
 import { SetIntersection } from "../util/dielUtils";
 import { isRelationTypeDerived, DielIr } from "./DielIr";
+import { TransformAstForMaterialization } from "./passes/materialization";
 
 export type RelationShippingInfo = {
   destinations: Set<DbIdType>;
@@ -108,8 +109,8 @@ export class DielPhysicalExecution {
     }
     astSpecPerDb.get(LocalDbId).programs = this.ir.ast.programs;
     // sanity check: only localDB is allowed to have EventTables!
-    // astSpecPerDb.forEach((ast, dbId) => {
-    //   if (dbId !== LocalDbId) {
+    astSpecPerDb.forEach((ast, dbId) => {
+      // if (dbId !== LocalDbId) {
     //     ast.relations.map(r => {
     //       if (r.relationType === RelationType.EventTable) {
     //         LogInternalError(`only local DB instance  (${LocalDbId}) is allowed to have ${RelationType.EventTable}, but ${dbId} has it too, for ${r.name}`);
@@ -118,9 +119,9 @@ export class DielPhysicalExecution {
     //   }
       // TODO: materialization
       // commenting out for now for performance
-      // const materialization = TransformAstForMaterialization(ast);
-      // console.log(JSON.stringify(materialization, null, 2));
-    // });
+      const materialization = TransformAstForMaterialization(ast);
+      console.log("materialized?", ast, dbId);
+    });
     // then get the out
     return astSpecPerDb;
   }

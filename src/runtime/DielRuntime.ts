@@ -639,30 +639,30 @@ export default class DielRuntime {
     console.log(`%cConstraint Broken!\nview: ${viewName}\nconstraint: ${constraint}`, "background:red; color: white");
     return true;
 
-  //   let dbID = this.physicalMetaData.relationLocation.get(viewName).dbId;
-  //   let r;
-  //   if (dbID === LocalDbId) {
-  //     r = this.db.exec(query)[0];
-  //   } else {
-  //     const executeMessage: RemoteExecuteMessage = {
-  //       remoteAction: DielRemoteAction.GetResultsByPromise,
-  //       lineage: this.timestep,
-  //       sql: query
-  //     };
-  //     this.dbEngines.get(dbID).SendMsg(executeMessage).then((value) => {
-  //       r = value;
-  //     });
-  //   }
-  //   if (r) {
-  //     console.log(`%cConstraint Broken!\nview: ${viewName}\nconstraint: ${constraint}`, "background:red; color: white");
-  //     console.log(r.columns.join("\t"));
-  //     console.log(JSON.stringify(r.values).replace(/\],\[/g, "\n").replace("[[", "").replace("]]", "").replace(/,/g, "\t"));
-  //     // console.table(r.columns);
-  //     // console.table(r.values);
-  //     return true;
-  //   } else {
-  //     // console.log("No results");
-  //     return false;
-  //   }
+    let dbID = this.physicalMetaData.relationLocation.get(viewName).dbId;
+    let r;
+    if (dbID === LocalDbId) {
+      r = this.db.exec(query)[0];
+    } else {
+      const executeMessage: RemoteExecuteMessage = {
+        remoteAction: DielRemoteAction.GetResultsByPromise,
+        lineage: this.timestep,
+        sql: query
+      };
+      this.dbEngines.get(dbID).SendMsg(executeMessage).then((value) => {
+        r = value;
+      });
+    }
+    if (r) {
+      console.log(`%cConstraint Broken!\nview: ${viewName}\nconstraint: ${constraint}`, "background:red; color: white");
+      console.log(r.columns.join("\t"));
+      console.log(JSON.stringify(r.values).replace(/\],\[/g, "\n").replace("[[", "").replace("]]", "").replace(/,/g, "\t"));
+      // console.table(r.columns);
+      // console.table(r.values);
+      return true;
+    } else {
+      // console.log("No results");
+      return false;
+    }
   }
 }
