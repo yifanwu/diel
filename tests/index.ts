@@ -39,6 +39,7 @@ assertLatestSyntax();
 testTopologicalSort();
 
 // @LUCIE the following test is failing
+// re: I didn't create the below test, but did you want me to take a look..?
 // assertBasicConstraints();
 codeGenBasicSQLTest();
 assertBasicOperators();

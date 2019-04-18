@@ -413,6 +413,7 @@ export interface DropClause extends AstBase {
 }
 
 // LUCIE TODO: need to create this for the corresponding codeGenSQL file!
+// re: implemented! please check.
 export interface DeleteClause extends AstBase {
   relationName: string;
   predicate?: ExprAst; // could be no predicate
