@@ -57,5 +57,5 @@ create view v3 as select a from t1 where b in (select b from t2 where c = 'hello
 // // testMaterializedViewConstraint();
 // // assertCheckViewConstraintTest();
 // // testMaterialization();
-// testMaterializationOpLevel();
+testMaterializationOpLevel();
 testUpdateGrammar();

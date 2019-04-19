@@ -8,29 +8,35 @@ export function testMaterializationOpLevel() {
   const logger = GenerateUnitTestErrorLogger("testMaterializationOpLevel");
   let ir = getDielIr(q1);
   console.log(ir);
+  let ir2 = getDielIr(a1);
+  console.log(ir2);
 }
-
 
 let q1 =
 `
--- select sum(a), count(a) as s from t1;
+create event table t1 (a integer);
 
-create table t1 (a int);
+create view v1 as select sum(a) as sumA, count(a) as countA from t1;
 
--- materialized table 
-create table s (sumVal int, countVal int);
-
--- initial value
-insert into s select sum(a), count(a) as s from t1;
-
--- update
-create program after (t1)
-  begin
-    update s set
-      sumVal = (select sumVal + new.a),
-      countVal = (select countVal + 1);
-  end;
-
-insert into t1 values (2), (3), (4);
+create output o1 as select countA from v1;
+create output o2 as select sumA from v1;
 `;
 
+let a1 =
+`
+create event table t1 (a integer);
+
+create table v1 (sumA integer, countA integer);
+insert into v1 select sum(a), count(a) from t1;
+
+create program after (t1)
+	begin
+    update v1 set
+      sumVal = (select sumVal + new.a),
+      countVal = (select countVal + 1)
+      ;
+  end;
+
+  create output o1 as select countA from v1;
+  create output o2 as select sumA from v1;
+`;
