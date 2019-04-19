@@ -1,3 +1,5 @@
+import { UpdateBodyContext } from "./grammar/DIELParser";
+
 export type DbIdType = number;
 export type RelationIdType = string;
 export type LogicalTimestep = number;
@@ -426,7 +428,8 @@ export interface DeleteClause extends AstBase {
 
 export interface UpdateClause extends AstBase {
   relationName: string;
-  // selection clause??
+  columns: string[];
+  selection: RelationSelection[];
 }
 
 /**

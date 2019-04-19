@@ -7,7 +7,7 @@ import { TestLogger } from "../testTypes";
 export function testUpdateGrammar() {
   const logger = GenerateUnitTestErrorLogger("testUpdateGrammar");
   let ir = getDielIr(q1);
-  console.log(ir.ast);
+  console.log(JSON.stringify(ir.ast.programs.get("t1"), null, 2));
 }
 
 
@@ -16,7 +16,8 @@ let q1 =
 create program after (t1)
   begin
     update s set
-      sumVal = (select sumVal + new.a)
+      sumVal = (select sumVal + new.a),
+      countVal = (select countVal + 1)
     ;
   end;
 `;

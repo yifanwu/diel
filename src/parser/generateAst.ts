@@ -167,11 +167,21 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitUpdateQuery(ctx: parser.UpdateQueryContext): UpdateClause {
     const relationName = ctx.IDENTIFIER().text;
+    const updateBody = ctx.updateBody();
+    let columns = [] as string[];
+    let selections = [] as RelationSelection[];
+    updateBody.map((context) => {
+      columns.push(context.IDENTIFIER().text);
+      selections.push(this.visit(context.selectQuery()) as RelationSelection);
+    });
     return {
       astType: AstType.Update,
-      relationName
+      relationName: relationName,
+      columns: columns,
+      selection: selections
     };
   }
+
 
   visitViewStmt(ctx: parser.ViewStmtContext): DerivedRelation {
     const name = ctx.IDENTIFIER().text;
