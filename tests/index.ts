@@ -13,6 +13,7 @@ import { testMaterializedViewConstraint } from "./compilerTests/testConstraintMa
 import { assertCheckViewConstraintTest } from "./compilerTests/testViewConstraints";
 import { testMaterialization } from "./compilerTests/testMaterialization";
 import { testMaterializationOpLevel } from "./compilerTests/testMaterializationOP";
+import { testUpdateGrammar } from "./parserTests/updateGrammarTest";
 
 // import { PrintCode } from "../src/util/messages";
 
@@ -34,13 +35,14 @@ create view v2 as select a from t1 join (select max(b) as b from t2) m on m.b = 
 create view v3 as select a from t1 where b in (select b from t2 where c = 'hello');
 `;
 
-// testGetOriginalRelationsDependedOn();
-// testDistributionLogc();
-// assertLatestSyntax();
+// // testGetOriginalRelationsDependedOn();
+// // testDistributionLogc();
+// // assertLatestSyntax();
 
-// testTopologicalSort();
+// // testTopologicalSort();
 
 // // @LUCIE the following test is failing
+// // re: I didn't create the below test, but did you want me to take a look..?
 // // assertBasicConstraints();
 // codeGenBasicSQLTest();
 // assertBasicOperators();
@@ -48,11 +50,12 @@ create view v3 as select a from t1 where b in (select b from t2 where c = 'hello
 // assertAllStar();
 // assertMultiplyType();
 
-// const ir = getDielIr(q);
-// assertBasicNormalizationOfRelation(ir, q);
-// assertFunctionParsing(ir, q);
+// // const ir = getDielIr(q);
+// // assertBasicNormalizationOfRelation(ir, q);
+// // assertFunctionParsing(ir, q);
 
-// testMaterializedViewConstraint();
-// assertCheckViewConstraintTest();
-// testMaterialization();
-testMaterializationOpLevel();
+// // testMaterializedViewConstraint();
+// // assertCheckViewConstraintTest();
+// // testMaterialization();
+// testMaterializationOpLevel();
+testUpdateGrammar();

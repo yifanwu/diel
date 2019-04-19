@@ -61,6 +61,8 @@ import { OrderByClauseContext } from './DIELParser';
 import { OrderSpecContext } from './DIELParser';
 import { InsertQueryContext } from './DIELParser';
 import { InsertBodyContext } from './DIELParser';
+import { UpdateQueryContext } from './DIELParser';
+import { UpdateBodyContext } from './DIELParser';
 import { JoinClauseContext } from './DIELParser';
 import { LimitClauseContext } from './DIELParser';
 import { RelationReferenceContext } from './DIELParser';
@@ -513,6 +515,20 @@ export interface DIELVisitor<Result> extends ParseTreeVisitor<Result> {
 	 * @return the visitor result
 	 */
 	visitInsertBody?: (ctx: InsertBodyContext) => Result;
+
+	/**
+	 * Visit a parse tree produced by `DIELParser.updateQuery`.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	visitUpdateQuery?: (ctx: UpdateQueryContext) => Result;
+
+	/**
+	 * Visit a parse tree produced by `DIELParser.updateBody`.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	visitUpdateBody?: (ctx: UpdateBodyContext) => Result;
 
 	/**
 	 * Visit a parse tree produced by `DIELParser.joinClause`.

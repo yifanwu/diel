@@ -2,7 +2,7 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, DerivedRelation, Command, CrossFilterChartIr, CrossFilterIr, DielAst, DielDataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr, InsertionClause, DropClause, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst, createEmptyDielAst, Relation, ColumnConstraints, DeleteClause, ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst, DropType } from "./dielAstTypes";
+import { ExpressionValue, DerivedRelation, Command, CrossFilterChartIr, CrossFilterIr, DielAst, DielDataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr, InsertionClause, DropClause, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst, createEmptyDielAst, Relation, ColumnConstraints, DeleteClause, ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst, DropType, UpdateClause } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError, ReportDielUserError } from "../util/messages";
 
@@ -92,7 +92,10 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const deletes = ctx.deleteStmt().map(e => (
       this.visit(e) as DeleteClause
     ));
-    this.ast.commands = insert.concat(drops).concat(deletes);
+    const updates = ctx.updateQuery().map(e => (
+      this.visit(e) as UpdateClause
+    ));
+    this.ast.commands = insert.concat(drops).concat(deletes).concat(updates);
     this.ast.crossfilters = ctx.crossfilterStmt().map(e => (
       this.visit(e) as CrossFilterIr
     ));
@@ -159,6 +162,14 @@ implements visitor.DIELVisitor<ExpressionValue> {
       astType: AstType.Delete,
       relationName,
       predicate
+    };
+  }
+
+  visitUpdateQuery(ctx: parser.UpdateQueryContext): UpdateClause {
+    const relationName = ctx.IDENTIFIER().text;
+    return {
+      astType: AstType.Update,
+      relationName
     };
   }
 
@@ -714,6 +725,8 @@ implements visitor.DIELVisitor<ExpressionValue> {
         return this.visit(e.selectQuery()) as RelationSelection;
       } else if (e.deleteStmt()) {
         return this.visit(e.deleteStmt()) as DeleteClause;
+      } else if (e.updateQuery()) {
+        return this.visit(e.updateQuery()) as UpdateClause;
       } else {
         return LogInternalError(`Unhandled command`);
       }

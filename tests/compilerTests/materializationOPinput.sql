@@ -5,7 +5,7 @@ create table t1 (a int);
 -- materialized table 
 create table s (sumVal int, countVal int);
 -- initial value
-insert into s select sum(a), count(a) as s from t1;
+insert into s select coalesce(sum(a), 0), count(a) as s from t1;
 -- update
 create trigger t1sum after insert on t1
   begin

@@ -1,4 +1,4 @@
-import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen, DielDataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause, DropType } from "../../parser/dielAstTypes";
+import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen, DielDataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause, DropType, DeleteClause } from "../../parser/dielAstTypes";
 import { RelationSpec, RelationQuery, SqlAst, createSqlAstFromDielAst, TriggerAst } from "./createSqlIr";
 import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
 
@@ -43,6 +43,8 @@ export function generateStringFromSqlIr(sqlAst: SqlAst, replace = false): string
 
 function generateCommand(command: Command) {
   switch (command.astType) {
+    case AstType.Delete:
+      return generateDelete(command as DeleteClause);
     case AstType.Insert:
       return generateInserts(command as InsertionClause);
     case AstType.Drop:
@@ -57,6 +59,14 @@ function generateCommand(command: Command) {
 
 export function generateDrop(command: DropClause) {
   return `DROP ${command.dropType} ${command.dropName};`;
+}
+
+export function generateDelete(command: DeleteClause) {
+  const pred = command.predicate
+    ? `WHERE ${generateExpr(command.predicate)}`
+    : ""
+    ;
+  return `DELETE FROM ${command.relationName} ${pred};`;
 }
 
 // FIXME note that we should probably not use the if not exist as a crutch

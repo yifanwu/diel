@@ -48,6 +48,8 @@ export enum StaticRelationType {
 export enum ProgramType {
   Udf = "Udf",
   Insert = "Insert",
+  Delete = "Delete",
+  Update = "Update"
   // YIFAN TODO TODAY implement drop/delete
 }
 
@@ -149,7 +151,7 @@ export interface OriginalRelation extends RelationBase {
 }
 
 export type Relation = DerivedRelation | OriginalRelation;
-export type Command = RelationSelection | InsertionClause | DropClause | DeleteClause;
+export type Command = RelationSelection | InsertionClause | DropClause | DeleteClause | UpdateClause;
 
 export type ForeignKey = {
   sourceColumn: string, targetRelation: string, targetColumn: string
@@ -253,6 +255,8 @@ export type ExpressionValue = DielAst
   | RelationReference
   | SelectionUnit
   | InsertionClause
+  | DeleteClause
+  | UpdateClause
   | UdfType
   | TemplateVariableAssignmentUnit
   ;
@@ -312,6 +316,7 @@ export enum AstType {
   Drop = "Drop",
   Delete = "Delete",
   Insert = "Insert",
+  Update = "Update",
   Join = "Join",
   RelationSelection = "RelationSelection"
 }
@@ -413,11 +418,16 @@ export interface DropClause extends AstBase {
 }
 
 // LUCIE TODO: need to create this for the corresponding codeGenSQL file!
+// re: implemented! please check.
 export interface DeleteClause extends AstBase {
   relationName: string;
   predicate?: ExprAst; // could be no predicate
 }
 
+export interface UpdateClause extends AstBase {
+  relationName: string;
+  // selection clause??
+}
 
 /**
  * Notes

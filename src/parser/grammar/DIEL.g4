@@ -11,6 +11,7 @@ queries : (
            | registerTypeUdf
            | dropQuery
            | deleteStmt
+           | updateQuery
           )+;
 
 registerTypeUdf
@@ -97,6 +98,7 @@ aProgram
   : insertQuery 
   | selectQuery
   | deleteStmt
+  | updateQuery
   ;
 
 selectQuery
@@ -174,6 +176,15 @@ insertQuery
 insertBody
   : VALUES '(' value (',' value)* ')' # insertBodyDirect
   | selectQuery                       # insertBodySelect
+  ;
+
+updateQuery
+  : UPDATE relation=IDENTIFIER SET
+    updateBody (',' updateBody)* DELIM
+  ;
+    
+updateBody
+  : column=IDENTIFIER '=' '(' selectQuery ')'
   ;
 
 joinClause
@@ -289,6 +300,8 @@ PROGRAM: P R O G R A M;
 AFTER: A F T E R;
 BEGIN: B E G I N;
 END: E N D;
+UPDATE: U P D A T E;
+SET: S E T;
 WITH: W I T H;
 INSERT: I N S E R T;
 INTO: I N T O;
