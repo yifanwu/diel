@@ -21,7 +21,7 @@ import { viewConstraintCheck, checkViewConstraint } from "../compiler/passes/gen
 import { StaticSql } from "../compiler/codegen/staticSql";
 
 import { getPlainSelectQueryAst } from "../compiler/compiler";
-import { getEventTableCacheName, getEventTableCacheReferenceName, getCacheTableFromDerived } from "../compiler/passes/distributeQueries";
+import { getEventTableCacheName, getEventTableCacheReferenceName,  } from "../compiler/passes/distributeQueries";
 import { getRelationReferenceName } from "../compiler/passes/passesHelper";
 
 // ugly global mutable pattern here...

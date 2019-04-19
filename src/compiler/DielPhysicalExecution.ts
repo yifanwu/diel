@@ -64,7 +64,6 @@ export class DielPhysicalExecution {
       const rDef = this.ir.GetRelationDef(distribution.relationName);
       if (isRelationTypeDerived(rDef.relationType)) {
         if (distribution.from !== distribution.to) {
-
           const {cacheTableDef, eventTableDef, cacheReferenceDef} = getCacheTableFromDerived(rDef as DerivedRelation);
           // event table for new data arrival
           addRelationIfOnlyNotExist(astToSpec.relations, cacheTableDef);

@@ -178,7 +178,7 @@ function makeCacheJoinClause(
   return returnVal;
 }
 
-
+// delete me?
 export function getEventTableFromDerived(relation: DerivedRelation) {
   const originalColumns = relation.selection.compositeSelections[0].relation.derivedColumnSelections;
   if (!originalColumns) {
@@ -190,7 +190,7 @@ export function getEventTableFromDerived(relation: DerivedRelation) {
       if (c.expr.exprType === ExprType.Column) {
         columnName = (c.expr as ExprColumnAst).columnName;
       } else {
-        ReportDielUserError(`Must specify alias for view columns if they are not colume selections!
+        ReportDielUserError(`Must specify alias for view columns if they are not column selections!
          You did not for ${relation}, with column ${JSON.stringify(c, null, 2)}`);
       }
     } else {
@@ -211,13 +211,13 @@ export function getEventTableFromDerived(relation: DerivedRelation) {
       defaultValue: null
     };
   });
+
   let createSpec: OriginalRelation = {
     relationType: RelationType.EventTable,
     //  === RelationType.EventView ? RelationType.EventTable : RelationType.Table,
     name: relation.name,
     columns
-  };
-  return createSpec;
+  }
 }
 
 export function getCacheTableFromDerived(relation: DerivedRelation) {
