@@ -6,9 +6,9 @@ import { DIELParser } from "../parser/grammar/DIELParser";
 
 import { DielRemoteAction, RelationObject, DielConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, ExecutionSpec, } from "./runtimeTypes";
 import { OriginalRelation, DerivedRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationIdType } from "../parser/dielAstTypes";
-import { generateSelectionUnit, generateSqlFromDielAst, generateSqlViews, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst, GenerateSqlRelationString } from "../compiler/codegen/codeGenSql";
+import { generateSelectionUnit, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst, GenerateSqlRelationString } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
-import { CompileDiel, CompileAstGivenIr, CompileDerivedAstGivenIr } from "../compiler/DielCompiler";
+import { CompileDiel, CompileDerivedAstGivenIr } from "../compiler/DielCompiler";
 import { log } from "../util/dielUdfs";
 import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo } from "../util/messages";
@@ -16,8 +16,7 @@ import { DielIr } from "../compiler/DielIr";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult, GenerateViewName, CaughtLocalRun } from "./runtimeHelper";
 import { DielPhysicalExecution, LocalDbId } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
-import { CreateDerivedSelectionSqlAstFromDielAst, createSqlAstFromDielAst, CreateUnitSqlFromUnitDiel } from "../compiler/codegen/createSqlIr";
-import { viewConstraintCheck, checkViewConstraint } from "../compiler/passes/generateViewConstraints";
+import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { getPlainSelectQueryAst } from "../compiler/compiler";
 
@@ -64,7 +63,6 @@ export default class DielRuntime {
   ir: DielIr;
   physicalExecution: DielPhysicalExecution;
   dbEngines: Map<DbIdType, DbEngine>;
-  workerDbPaths: string[];
   physicalMetaData: PhysicalMetaData;
   config: DielConfig;
   staticRelationsSent: Set<RelationIdType>;
@@ -77,7 +75,9 @@ export default class DielRuntime {
   protected runtimeOutputs: Map<string, Statement>;
 
   constructor(config: DielConfig) {
-    (<any>window).diel = this; // for debugging
+    if (typeof window !== "undefined") {
+      (<any>window).diel = this; // for debugging
+    }
     // mutate global for logging
     STRICT = config.isStrict ? config.isStrict : false;
     LOGINFO = config.showLog ? config.showLog : false;
@@ -458,9 +458,6 @@ export default class DielRuntime {
       const bufferRaw = await response.arrayBuffer();
       const buffer = new Uint8Array(bufferRaw);
       this.db = new Database(buffer);
-      // debug
-      (<any>window).mainDb = this.db;
-      // FIXME: might have some weird issues with types of DIEL tables?
     }
     return;
   }
@@ -505,13 +502,12 @@ export default class DielRuntime {
     const promises: Promise<any>[] = [];
     instructions.map(i => {
       if (i.dbId === LocalDbId)  {
-        const sqlAst = CreateUnitSqlFromUnitDiel(i.relationDef, false);
-        const sqlStr = GenerateSqlRelationString(sqlAst);
+        // const sqlAst = CreateUnitSqlFromUnitDiel(, false);
+        const sqlStr = GenerateSqlRelationString(i.relationDef);
         CaughtLocalRun(this.db, sqlStr);
       } else {
-        const sqlAst = CreateUnitSqlFromUnitDiel(i.relationDef, true);
         // FIXME: think about replacement logic
-        const sqlStr = GenerateSqlRelationString(sqlAst);
+        const sqlStr = GenerateSqlRelationString(i.relationDef);
         const remoteInstance = this.findRemoteDbEngine(i.dbId);
         if (remoteInstance) {
           const msg: RemoteExecuteMessage = {
@@ -535,7 +531,7 @@ export default class DielRuntime {
     const promises: Promise<any>[] = [];
     this.physicalExecution.astSpecPerDb.forEach((ast, id) => {
       if (id === LocalDbId) {
-        const queries = generateStringFromSqlIr(createSqlAstFromDielAst(ast, false), false);
+        const queries = generateStringFromSqlIr(ast, false);
         for (let s of queries) {
           CaughtLocalRun(this.db, s);
         }
@@ -545,8 +541,8 @@ export default class DielRuntime {
           remoteInstance.setPhysicalExecutionReference(this.physicalExecution);
           const replace = remoteInstance.config.dbType === DbType.Socket;
           const isRemote = true;
-          const sqlAst = createSqlAstFromDielAst(ast, isRemote);
-          const queries = generateStringFromSqlIr(sqlAst, replace);
+          // const sqlAst = createSqlAstFromDielAst(ast, isRemote);
+          const queries = generateStringFromSqlIr(ast, replace);
           if (queries && queries.length > 0) {
             const sql = queries.map(q => q + ";").join("\n");
             const msg: RemoteExecuteMessage = {
@@ -556,7 +552,7 @@ export default class DielRuntime {
             };
             promises.push(remoteInstance.SendMsg(msg, true));
           }
-          const deleteQueryAst = generateCleanUpAstFromSqlAst(sqlAst);
+          const deleteQueryAst = generateCleanUpAstFromSqlAst(ast);
           const deleteQueries = deleteQueryAst.map(d => generateDrop(d)).join("\n");
           console.log(`%c Cleanup queries:\n${deleteQueries}`, "color: blue");
           if ((remoteInstance.config.dbType === DbType.Socket) && deleteQueries) {

@@ -1,21 +1,21 @@
 import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen, DielDataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause, DropType } from "../../parser/dielAstTypes";
-import { SqlOriginalRelation, SqlDerivedRelation, SqlAst, createSqlAstFromDielAst, TriggerAst, SqlRelationType, SqlRelation } from "./createSqlIr";
 import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
+import { SqlAst, SqlRelationType, SqlRelation, SqlOriginalRelation, SqlDerivedRelation, TriggerAst } from "../../parser/sqlAstTypes";
 
-export function generateSqlFromDielAst(ast: DielAst, options?: { replace: boolean; isRemote: boolean}) {
-  const isRemote = options ? options.isRemote ? options.isRemote : false : false;
-  const sqlAst = createSqlAstFromDielAst(ast, isRemote);
-  const replace = options ? options.replace ? options.replace : false : false;
-  return generateStringFromSqlIr(sqlAst, replace);
-}
+// export function generateSqlFromDielAst(ast: DielAst, options?: { replace: boolean; isRemote: boolean}) {
+//   const isRemote = options ? options.isRemote ? options.isRemote : false : false;
+//   const sqlAst = createSqlAstFromDielAst(ast, isRemote);
+//   const replace = options ? options.replace ? options.replace : false : false;
+//   return generateStringFromSqlIr(sqlAst, replace);
+// }
 
 export function generateCleanUpAstFromSqlAst(ast: SqlAst): DropClause[] {
   // basically drop everything
   // triggers etc.
   const tables = ast.relations.map(r => ({
     astType: AstType.Drop,
-    dropType: r.sqlRelationType === SqlRelationType.Table ? DropType.Table : DropType.View,
-    dropName: r.name
+    dropType: r.relationType === SqlRelationType.StaticTable ? DropType.Table : DropType.View,
+    dropName: r.rName
   }));
 
   let triggers = ast.triggers.map(t => ({
@@ -55,8 +55,8 @@ export function generateDrop(command: DropClause) {
 }
 
 export function GenerateSqlRelationString(r: SqlRelation, replace = false): string | null {
-  switch (r.sqlRelationType) {
-    case SqlRelationType.Table:
+  switch (r.relationType) {
+    case SqlRelationType.StaticTable:
       return generateTableSpec(r as SqlOriginalRelation, replace);
     case SqlRelationType.View:
       return generateSqlViews(r as SqlDerivedRelation, replace);
@@ -67,18 +67,18 @@ export function GenerateSqlRelationString(r: SqlRelation, replace = false): stri
 
 // FIXME note that we should probably not use the if not exist as a crutch
 function generateTableSpec(t: SqlOriginalRelation, replace = false): string {
-  const replaceQuery = replace ? `DROP TABLE IF EXISTS ${t.name};` : "";
+  const replaceQuery = replace ? `DROP TABLE IF EXISTS ${t.rName};` : "";
   return `${replaceQuery}
-  CREATE TABLE ${t.name} (
+  CREATE TABLE ${t.rName} (
     ${t.columns.map(c => generateColumnDefinition(c)).join(",\n")}
   )`;
 }
 
 export function generateSqlViews(v: SqlDerivedRelation, replace = false): string {
-  const replaceQuery = replace ? `DROP VIEW IF EXISTS ${v.name};` : "";
+  const replaceQuery = replace ? `DROP VIEW IF EXISTS ${v.rName};` : "";
   return `${replaceQuery}
-  CREATE VIEW ${v.name} AS
-  ${generateSelect(v.query)}
+  CREATE VIEW ${v.rName} AS
+  ${generateSelect(v.selection)}
   `;
 }
 

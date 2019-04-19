@@ -34,7 +34,7 @@ export function CompileAstGivenIr(ir: DielIr, relation: OriginalRelation | Deriv
 
 export function CompileDerivedAstGivenIr(ir: DielIr, view: DerivedRelation) {
   TryToApplyTemplate(view.selection);
-  AddDependency(ir.dependencies.depTree, view);
+  AddDependency(ir.dependencies.depTree, view.selection.compositeSelections, view.rName);
   NormalizeColumnForDerivedRelation(ir, view);
   InferTypeForDerivedRelation(ir, view);
   // assume that this is in place edit

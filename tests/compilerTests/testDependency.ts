@@ -1,9 +1,9 @@
-import { getDielIr } from "../../src/compiler/compiler";
 import { DerivedRelation, Relation } from "../../src/parser/dielAstTypes";
 import { GetAllDerivedViews } from "../../src/compiler/DielIr";
 import { GetDependenciesFromViewList, getOriginalRelationsDependedOn } from "../../src/compiler/passes/dependency";
 import { IsSetIdentical } from "../../src/util/dielUtils";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
+import { getDielIr } from "../../build/src/compiler/compiler";
 
 export function testGetOriginalRelationsDependedOn() {
   const logger = GenerateUnitTestErrorLogger("testGetOriginalRelationsDependedOn", q1);

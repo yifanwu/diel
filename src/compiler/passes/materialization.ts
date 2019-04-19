@@ -1,51 +1,32 @@
-import { RelationConstraints, DerivedRelation, Relation, RelationIdType, RelationType, DielAst, Command, DeleteClause, AstType, InsertionClause, RelationSelection } from "../../parser/dielAstTypes";
+import { RelationIdType, Command, DeleteClause, AstType, InsertionClause, RelationSelection } from "../../parser/dielAstTypes";
 import { getTopologicalOrder } from "./passesHelper";
-import { GetDependenciesFromViewList, getOriginalRelationsDependedOn } from "./dependency";
-import { GetAllDerivedViews } from "../DielIr";
-import { getEventTableFromDerived} from "./distributeQueries";
-import { DielIr } from "../DielIr";
-import { NormalizeColumnSelection } from "./normalizeColumnSelection";
+import { GetOriginalRelationsAViewDependsOn, GetDependenciesFromSqlViewList } from "./dependency";
 import { DependencyTree } from "../../runtime/runtimeTypes";
+import { GetColumnsFromSelection } from "./distributeQueries";
+import { SqlAst, SqlRelationType, SqlDerivedRelation, SqlRelation } from "../../parser/sqlAstTypes";
 
-export function TransformAstForMaterialization(ast: DielAst) {
-  const views = GetAllDerivedViews(ast);
-  const deps = GetDependenciesFromViewList(views);
+/**
+ * For now we wil just set the changes on all original tables
+ * @param ast
+ */
+export function TransformAstForMaterialization(ast: SqlAst) {
+  const deps = GetDependenciesFromSqlViewList(ast.relations.filter(r => r.relationType === SqlRelationType.View) as SqlDerivedRelation[]);
 
   // get topo order
   const topoOrder = getTopologicalOrder(deps);
 
   function getRelationDef(rName: string) {
-    return views.find(v => v.rName === rName);
+    return ast.relations.find(v => v.rName === rName);
   }
   const toMaterialize = getRelationsToMateralize(deps, getRelationDef);
-  // now we need to figure out what EventTables toMaterialize depends on
-  // this needs to recurse down the depTree.
-  // order toMaterialize by topoOrder
 
-  // Get normalized Diel IR
-  let ir = new DielIr(ast);
-  NormalizeColumnSelection(ir);
-
-  // Get a list of original relations for faster lookup for insert clause
-  let originalRelations = [] as string[];
-  ir.GetOriginalRelations().forEach(value => {
-    originalRelations.push(value.rName);
-  });
-  let numTables = originalRelations.length;
-
-  let view: DerivedRelation;
   let originalTables: Set<string>;
   // Materialize by topological order
   topoOrder.forEach(relation => {
     if (toMaterialize.indexOf(relation) !== -1) {
-      view = getRelationDef(relation);
-      // TODO. optimize getting original tables by changning data structure???
-      // currently, it's done by one pass bfs of deptree
-      originalTables = getOriginalRelationsDependedOn(view, deps, originalRelations);
-      // Materialize the view into table
-      changeASTMaterialize(view, ast, originalTables,
-              numTables);
-      numTables += 1;
+      const view = getRelationDef(relation);
+      originalTables = GetOriginalRelationsAViewDependsOn(view.rName, deps);
+      materializeAView(view as SqlDerivedRelation, ast, originalTables);
     }
   });
 }
@@ -53,52 +34,40 @@ export function TransformAstForMaterialization(ast: DielAst) {
 /**
  * Change the derived view ast into program ast in place
  */
-function changeASTMaterialize(view: DerivedRelation,
-  ast: DielAst, originalTables: Set<string>,
-  numTables: number) {
+function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables: Set<string>) {
 
-  // 1. make a view into a table
-  let table = getEventTableFromDerived(view);
-  table.relationType = RelationType.Table;
-
-  // wouldn't view constraints be lost??? LATER
-  table.constraints = {
-    relationNotNull: false,
-    relationHasOneRow: false,
-    primaryKey: [],
-    notNull: [],
-    uniques: [],
-    exprChecks: [],
-    foreignKeys: [],
-  } as RelationConstraints;
-  table.copyFrom = undefined;
+  let table = {
+    relationType: SqlRelationType.StaticTable,
+    rName: view.rName,
+    columns: GetColumnsFromSelection(view.selection)
+  };
 
   // 2. make a program ast
   // 2-1. create insert,delete ast
-  let deleteCommand = makeDeleteCommand(view);
+  let deleteCommand = makeDeleteCommand(view.rName);
   let insertCommand = makeInsertCommand(view);
-  let program = [deleteCommand, insertCommand] as Command[];
 
   // 3. push into programs. (this is supposed to preserve topo order)
-  let existingProgram: Command[];
-  originalTables.forEach(tname => {
-    // 3-1. if the tname already exists in the map, append the program
-    if (ast.programs.has(tname)) {
-      existingProgram = ast.programs.get(tname);
-      existingProgram.push(deleteCommand, insertCommand);
-      ast.programs.set(tname, existingProgram); // replace
+  originalTables.forEach(rName => {
+    // if the tname already exists in the map, append the program
+    const existingTrigger = ast.triggers.find(t => t.afterRelationName === rName);
+    if (existingTrigger) {
+      existingTrigger.commands.push(deleteCommand, insertCommand);
     } else {
-      ast.programs.set(tname, program);
+      ast.triggers.push({
+        tName: `${rName}Trigger`,
+        afterRelationName: rName,
+        commands: [deleteCommand, insertCommand]
+      });
     }
   });
-
 
   // 4. build the final ast. The order of relations sometimes changes
   // since table -> view -> output order.
   let relationIndex = ast.relations.indexOf(view);
-  ast.relations.splice(relationIndex, 1);
-  ast.relations.splice(numTables, 0, table);
-
+  ast.relations[relationIndex] = table;
+  // ast.relations.splice(relationIndex, 1);
+  // ast.relations.splice(numTables, 0, table);
 }
 
 
@@ -107,11 +76,11 @@ function changeASTMaterialize(view: DerivedRelation,
  * e.g) delete from v2;
  * @param view
  */
-function makeDeleteCommand(view: DerivedRelation): Command {
+function makeDeleteCommand(viewName: string): Command {
   let deleteClause: DeleteClause;
   deleteClause = {
     astType: AstType.Delete,
-    relationName: view.rName,
+    relationName: viewName,
     predicate: null
   };
   return deleteClause;
@@ -122,7 +91,7 @@ function makeDeleteCommand(view: DerivedRelation): Command {
  * e.g) insert into v2 select a + 1 as aPrime from v1;
  * @param view
  */
-function makeInsertCommand(view: DerivedRelation): Command {
+function makeInsertCommand(view: SqlDerivedRelation): Command {
   let insertClause: InsertionClause;
   insertClause = {
     astType: AstType.Insert,
@@ -130,7 +99,7 @@ function makeInsertCommand(view: DerivedRelation): Command {
     columns: [],
     selection: {
       astType: AstType.RelationSelection,
-      compositeSelections: view.selection.compositeSelections
+      compositeSelections: view.selection
     } as RelationSelection
   };
   return insertClause;
@@ -143,45 +112,14 @@ function makeInsertCommand(view: DerivedRelation): Command {
  * t1 -> v1 - o2
  * @param ast
  */
-function getRelationsToMateralize(
-  depTree: DependencyTree,
-  getRelationDef: (rName: RelationIdType) => Relation
-): string[] {
-  // originalRelations: OriginalRelation[]; -> t1
-  // views: DerivedRelation[]; -> v1 & o1 & o2 will be
-  // differentiate views and outputs by relationType field
-  // programs: ProgramsIr; -> trigger to update the table will be
-  // dependecy helpers
-  // generateDependenciesByName
-
-  // const materializationInfo: Map<RelationIdType, Set<RelationIdType>> = new Map();
-  // // visit the depTree from Ir, then visit each node;
-  // function findMaterializationKeyorSet(rName: string) {
-  //   if (!materializationInfo.has(rName)) {
-  //     materializationInfo.set(rName, new Set());
-  //   }
-  //   return materializationInfo.get(rName);
-  // }
+function getRelationsToMateralize(depTree: DependencyTree, getRelationDef: (rName: RelationIdType) => SqlRelation): string[] {
   let toMAterialize: RelationIdType[] = [];
   depTree.forEach((nodeDep, relationName) => {
-    // look up current relationName
     const rDef = getRelationDef(relationName);
-    // if the node is a view
-    if (rDef && ((rDef.relationType === RelationType.EventView)
-     || (rDef.relationType === RelationType.View)
-    //  || (rDef.relationType === RelationType.Output)
-     )) {
+    if (rDef && (rDef.relationType === SqlRelationType.View)) {
        // and if the view is dependent on by at least two views/outputs, mark it as to materialize
        if (nodeDep.isDependedBy.length > 1) {
         toMAterialize.push(relationName);
-        // const dependentInputs = findMaterializationKeyorSet(rDef.name);
-        // // check for its dependencies
-        // nodeDep.dependsOn.map(dName => {
-        //   if ((getRelationDef(dName).relationType === RelationType.EventTable)
-        //     || (getRelationDef(dName).relationType === RelationType.Table)) {
-        //       dependentInputs.add(dName);
-        //     }
-        // });
        }
      }
   });

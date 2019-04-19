@@ -16,7 +16,7 @@ function _getViews(xIr: CrossFilterIr): DerivedRelation[] {
   const unfilteredViews: DerivedRelation[] = xIr.charts.map(c => {
     return {
       relationType: RelationType.View,
-      name: `${c.chartName}Unfiltered`,
+      rName: `${c.chartName}Unfiltered`,
       selection: c.selection
     };
   });
@@ -34,7 +34,7 @@ function _getViews(xIr: CrossFilterIr): DerivedRelation[] {
       }]
     };
     return {
-      name: `${c.chartName}Filtered`,
+      rName: `${c.chartName}Filtered`,
       relationType: RelationType.View,
       selection
     };

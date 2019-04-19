@@ -1,8 +1,8 @@
 import { DielIr, IsRelationTypeDerived } from "../DielIr";
-import { OriginalRelation, RelationType, DerivedRelation, DbIdType, RelationIdType, ExprType, ExprColumnAst } from "../../parser/dielAstTypes";
-import { ReportDielUserError, LogInternalError } from "../../util/messages";
-import {  } from "../DielPhysicalExecution";
+import { OriginalRelation, RelationType, DerivedRelation, DbIdType, RelationIdType, ExprType, ExprColumnAst, Relation, Column, DielDataType, CompositeSelection } from "../../parser/dielAstTypes";
+import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
 import { NodeDependencyAugmented } from "../../runtime/runtimeTypes";
+import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation } from "../../parser/sqlAstTypes";
 
 export type SingleDistribution = {
   relationName: RelationIdType,
@@ -15,7 +15,7 @@ export type SingleDistribution = {
 
 type RecursiveEvalResult = {
   relationName: RelationIdType,
-  dbId: DbIdType
+  dbId: DbIdType,
 };
 
 // keeping this functional so we can test it properly, this is why
@@ -53,7 +53,7 @@ export function QueryDistributionRecursiveEval(
     });
     return {
       relationName: node.relationName,
-      dbId: owner
+      dbId: owner,
     };
   } else {
     distributions.push({
@@ -64,7 +64,7 @@ export function QueryDistributionRecursiveEval(
     });
     return {
       relationName: node.relationName,
-      dbId: node.remoteId
+      dbId: node.remoteId,
     };
   }
 }
@@ -81,10 +81,25 @@ export function getShippingInfoFromDistributedEval() {
 
 }
 
-export function getEventTableFromDerived(relation: DerivedRelation) {
-  const originalColumns = relation.selection.compositeSelections[0].relation.derivedColumnSelections;
+
+const InputColumns: Column[] = [
+  {
+    name: "timestep",
+    type: DielDataType.Number,
+    // constraints: {
+    //   primaryKey: true
+    // }
+  },
+  {
+    name: "lineage",
+    type: DielDataType.Number,
+  }
+];
+
+export function GetColumnsFromSelection(selection: CompositeSelection): Column[] {
+  const originalColumns = selection[0].relation.derivedColumnSelections;
   if (!originalColumns) {
-    throw new Error(`query not normalized and cannot be distributed to main`);
+    return LogInternalError(`query not normalized and cannot be distributed to main`);
   }
   const columns = originalColumns.map(c => {
     let columnName: string;
@@ -93,35 +108,83 @@ export function getEventTableFromDerived(relation: DerivedRelation) {
         columnName = (c.expr as ExprColumnAst).columnName;
       } else {
         ReportDielUserError(`Must specify alias for view columns if they are not colume selections!
-         You did not for ${relation}, with column ${JSON.stringify(c, null, 2)}`);
+        You did not for ${JSON.stringify(c, null, 2)}, with column ${JSON.stringify(c, null, 2)}`);
       }
     } else {
       columnName = c.alias;
     }
     if (!c.expr.dataType) {
-      LogInternalError(`Didn't specify the data type in the relation ${relation}!`);
+      LogInternalError(`Didn't specify the data type!`);
     }
+    // FIXME: think about constraints
     return {
       name: columnName,
       type: c.expr.dataType,
-      constraints: {
-        autoincrement: false,
-        notNull: false,
-        unique: false,
-        primaryKey: false
-      },
-      defaultValue: null
     };
   });
-  let createSpec: OriginalRelation = {
-    relationType: RelationType.EventTable,
-    //  === RelationType.EventView ? RelationType.EventTable : RelationType.Table,
-    rName: relation.rName,
-    columns
-  };
-  return createSpec;
+  return columns;
 }
 
+export function GetSqlTableAstFromDielAst(relation: Relation, addTimeColumns?: boolean): SqlOriginalRelation {
+  switch (relation.relationType) {
+    // when we turn an event into a table, the table is dynamic!
+    case RelationType.EventTable: {
+      const i = relation as OriginalRelation;
+      return {
+        relationType: SqlRelationType.DynamicTable,
+        rName: i.rName,
+        columns: addTimeColumns ? i.columns : i.columns.concat(InputColumns)
+      };
+    }
+    case RelationType.ExistingAndImmutable:
+    case RelationType.Table: {
+      const i = relation as OriginalRelation;
+      return {
+        relationType: SqlRelationType.StaticTable,
+        rName: i.rName,
+        columns: i.columns
+      };
+    }
+    // when we turn a view into a table, the table is dynamic!
+    case RelationType.EventView:
+      const derived = relation as DerivedRelation;
+      let createSpec: SqlOriginalRelation = {
+        relationType: SqlRelationType.DynamicTable,
+        rName: relation.rName,
+        columns: GetColumnsFromSelection(derived.selection.compositeSelections)
+      };
+      return createSpec;
+    default:
+      return LogInternalError(`Should all be handled, but ${relation.relationType} was not, for ${relation.rName}`, DielInternalErrorType.UnionTypeNotAllHandled);
+  }
+}
+
+/**
+ * We need the relation, but also additional information about how it should be mapped.
+ * @param relation
+ */
+export function GetSqlViewAstFromDielAst(relation: Relation): SqlDerivedRelation {
+  switch (relation.relationType) {
+    case RelationType.EventTable:
+    case RelationType.Table:
+    case RelationType.ExistingAndImmutable:
+      return LogInternalError(`Cannot make table into views`);
+
+    case RelationType.EventView:
+    case RelationType.Output:
+    case RelationType.DerivedTable:
+    case RelationType.EventView:
+    case RelationType.View: {
+      return {
+        rName: relation.rName,
+        relationType: SqlRelationType.View,
+        selection: (relation as DerivedRelation).selection.compositeSelections
+      };
+    }
+    default:
+      return LogInternalError(`Should all be handled, but ${relation.relationType} was not`, DielInternalErrorType.UnionTypeNotAllHandled);
+  }
+}
 
 // only create tables for what outputs depend on
 // and intersect that too, just just onestep is fine

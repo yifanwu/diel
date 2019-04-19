@@ -257,12 +257,6 @@ export type ExpressionValue = DielAst
   | TemplateVariableAssignmentUnit
   ;
 
-
-export interface ColumnSelection {
-  expr: ExprAst; // the column name is subsumed by the ExprAst...
-  alias?: string;
-}
-
 export interface Column {
   name: string;
   type: DielDataType;
@@ -291,11 +285,6 @@ export enum JoinType {
   CROSS = "Cross"
 }
 
-export interface CompositeSelectionUnit {
-  // sequence of unions and intersections; SQL does not allow parenthesis here, they can create subqueries though
-  op: SetOperator;
-  relation: SelectionUnit;
-}
 
 /**
  * NA is used fort he first relation
@@ -318,6 +307,12 @@ export enum AstType {
 
 interface AstBase {
   astType: AstType;
+}
+
+export interface CompositeSelectionUnit {
+  // sequence of unions and intersections; SQL does not allow parenthesis here, they can create subqueries though
+  op: SetOperator;
+  relation: SelectionUnit;
 }
 
 export type CompositeSelection = CompositeSelectionUnit[];
@@ -343,13 +338,19 @@ export interface SelectionUnit {
   isDistinct?: boolean;
   derivedColumnSelections?: ColumnSelection[];
   // these are filled in the parsing step
-  columnSelections: ColumnSelection[];
+  // they don't have to be popilatd if derivedColumnSelections are
+  columnSelections?: ColumnSelection[];
   baseRelation?: RelationReference;
   joinClauses?: JoinAst[];
   whereClause?: ExprAst;
   groupByClause?: GroupByAst;
   orderByClause?: OrderByAst[];
   limitClause?: ExprAst;
+}
+
+export interface ColumnSelection {
+  expr: ExprAst; // the column name is subsumed by the ExprAst...
+  alias?: string;
 }
 
 // NOTE for LUCIE: here is where latest is being marked
@@ -365,7 +366,7 @@ export interface JoinAst extends AstBase {
   templateSpec?: TemplateVariableAssignments;
   joinType: JoinType;
   relation: RelationReference;
-  alias?: string;
+  // alias?: string;
   predicate?: ExprAst;
 }
 

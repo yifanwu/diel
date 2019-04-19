@@ -1,7 +1,12 @@
 import { DbIdType, RelationIdType, LogicalTimestep, RelationType, Relation } from "../parser/dielAstTypes";
 import { DbSetupConfig } from "./DbEngine";
+import { SqlRelation } from "../parser/sqlAstTypes";
 
-export type ExecutionSpec = {dbId: DbIdType, relationDef: Relation}[];
+export const TIMESTEP_COlUMN_NAME = "timestep";
+
+export const REQUEST_TIMESTEP_COlUMN_NAME = "request_timestep";
+
+export type ExecutionSpec = {dbId: DbIdType, relationDef: SqlRelation}[];
 
 export interface NodeDependencyAugmented extends NodeDependency {
   relationName: string;
@@ -14,6 +19,7 @@ export type NodeDependency = {
   isDependedBy: RelationIdType[]
 };
 
+// this should work for either SQL or DIEL types
 export type DependencyTree = Map<RelationIdType, NodeDependency>;
 
 export interface DependencyInfo {

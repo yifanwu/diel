@@ -1,18 +1,22 @@
-import { DielAst, DerivedRelation, RelationType, createEmptyDielAst, Relation, DbIdType, RelationIdType, LogicalTimestep } from "../parser/dielAstTypes";
+import { DerivedRelation, RelationType, Relation, DbIdType, RelationIdType, LogicalTimestep } from "../parser/dielAstTypes";
 import { DbType, NodeDependencyAugmented, NodeDependency, DependencyTree, ExecutionSpec } from "../runtime/runtimeTypes";
 import { PhysicalMetaData } from "../runtime/DielRuntime";
-import { getEventTableFromDerived, SingleDistribution, QueryDistributionRecursiveEval } from "./passes/distributeQueries";
-import { LogInternalError, DielInternalErrorType } from "../util/messages";
+import { GetSqlViewAstFromDielAst, SingleDistribution, GetSqlTableAstFromDielAst, QueryDistributionRecursiveEval } from "./passes/distributeQueries";
+import { LogInternalError, DielInternalErrorType, LogInfo } from "../util/messages";
 import { SetIntersection } from "../util/dielUtils";
 import { IsRelationTypeDerived, DielIr } from "./DielIr";
+import { SqlAst, CreateEmptySqlAst, SqlRelation, TriggerAst, SqlRelationType } from "../parser/sqlAstTypes";
+import { TransformAstForMaterialization } from "./passes/materialization";
+import { OutputToAsyncDefaultPolicty } from "../runtime/asyncPolicies";
+import { GetOriginalRelationsAViewDependsOn } from "./passes/dependency";
 
 export const LocalDbId = 1;
 
 // local helper function
 // not using a set here because sets do not work well over complex objects...
-function addRelationIfOnlyNotExist(relationDef: Relation[], newDef: Relation) {
-  if (!relationDef.find(r => r.rName === newDef.rName)) {
-    relationDef.push(newDef);
+function addRelationIfOnlyNotExist(relationDef: SqlRelation[], newRelation: SqlRelation) {
+  if (!relationDef.find(r => r.rName === newRelation.rName)) {
+    relationDef.push(newRelation);
     return true;
   }
   return false;
@@ -22,7 +26,7 @@ export class DielPhysicalExecution {
   ir: DielIr; // read only
   augmentedDep: Map<string, NodeDependencyAugmented>;
   metaData: PhysicalMetaData; // read only
-  astSpecPerDb: Map<DbIdType, DielAst>;
+  astSpecPerDb: Map<DbIdType, SqlAst>;
   distributions: SingleDistribution[];
   getEventByTimestep: (step: LogicalTimestep) => RelationIdType;
 
@@ -37,14 +41,14 @@ export class DielPhysicalExecution {
     this.distributedEval();
     // organize it by db-engines so we know how to set it up
     // then construct the definitions
-    this.astSpecPerDb = new Map<DbIdType, DielAst>();
+    this.astSpecPerDb = new Map<DbIdType, SqlAst>();
     this.setAstSpecPerDbIfNotExist(LocalDbId);
     this.getExecutionSpecsFromDistribution(this.distributions);
   }
 
   private setAstSpecPerDbIfNotExist(dbId: DbIdType) {
     if (!this.astSpecPerDb.has(dbId)) {
-      this.astSpecPerDb.set(dbId, createEmptyDielAst());
+      this.astSpecPerDb.set(dbId, CreateEmptySqlAst());
     }
     return this.astSpecPerDb.get(dbId);
   }
@@ -77,44 +81,60 @@ export class DielPhysicalExecution {
     LogInternalError("GetInstructionsToRemoveQuery TODO", DielInternalErrorType.NotImplemented);
   }
 
-  private getExecutionSpecForSingleDistribution(distribution: SingleDistribution): ExecutionSpec {
-    const newRelations: ExecutionSpec = [];
+  /**
+   * Distributed execution core
+   * the logic is as follows:
+   * if the from is a different location from the to,
+   *   then make the destination a table, and the original location
+   * else
+   *   if the relation is static and immutable, do nothing
+   *      else, define it
+   * YIFAN TODO: this needs testing!
+   */
+  private getExecutionSpecForSingleDistribution(distribution: SingleDistribution): ExecutionSpec | null {
     const rDef = this.ir.GetRelationDef(distribution.relationName);
-    if (IsRelationTypeDerived(rDef.relationType)) {
-      if (distribution.from !== distribution.to) {
-        const eventTableDef = getEventTableFromDerived(rDef as DerivedRelation);
-        // if (addRelationIfOnlyNotExist(astToSpec.relations, eventTableDef)) {
-        newRelations.push({dbId: distribution.to, relationDef: eventTableDef});
-        // }
-        // newRelations.push({dbId: distribution.from, relationDef: rDef});
-        // addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
+    // const isLocal = distribution.from === distribution.to;
+    switch (rDef.relationType) {
+      case RelationType.DerivedTable:
+        // same for both cases
+        return [{dbId: distribution.to, relationDef: GetSqlTableAstFromDielAst(rDef)}];
+      // the following two cases should be the same
+      case RelationType.Table:
+      case RelationType.EventTable: {
+        const eventTableDef = GetSqlTableAstFromDielAst(rDef);
+        return [
+          {dbId: distribution.from, relationDef: eventTableDef},
+          {dbId: distribution.to, relationDef: eventTableDef}
+        ];
       }
-      newRelations.push({dbId: distribution.from, relationDef: rDef});
-      // doesn't matter from or to, it's the same
-      // addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
-    } else {
-      // FIXME: figureout why we don't need to check for types here?....
-      // if we are shipping over, we should remove the event and just keep it vanilla table
-      // if ((distribution.to !== LocalDbId) && rDef.relationType === RelationType.EventTable) {
-      //   const newRDef = JSON.parse(JSON.stringify(rDef)) as OriginalRelation;
-      //   newRDef.relationType = RelationType.Table;
-      //   addRelationIfOnlyNotExist(astToSpec.relations, newRDef);
-      // } else {
-      //   addRelationIfOnlyNotExist(astToSpec.relations, rDef);
-      // }
-      // addRelationIfOnlyNotExist(astToSpec.relations, rDef);
-      newRelations.push({dbId: distribution.to, relationDef: rDef});
+      // the following two cases should be the same
+      case RelationType.View:
+      case RelationType.EventView: {
+        const eventViewTable = GetSqlTableAstFromDielAst(rDef);
+        const eventView = GetSqlViewAstFromDielAst(rDef);
+        return [
+          {dbId: distribution.from, relationDef: eventView},
+          {dbId: distribution.to, relationDef: eventViewTable}
+        ];
+      }
+      case RelationType.ExistingAndImmutable: {
+        const newTable = GetSqlTableAstFromDielAst(rDef);
+        return [{dbId: distribution.to, relationDef: newTable}];
+      }
+      case RelationType.Output: {
+        // both from and to must be local, and if they are not, we need to transform to create default policy
+        if ((distribution.from !== distribution.to) || (distribution.from !== LocalDbId)) {
+          return LogInternalError(`Outputs must be local`);
+        }
+        const relationDef = GetSqlViewAstFromDielAst(rDef);
+        return [{dbId: LocalDbId, relationDef}];
+      }
+      default:
+        return LogInternalError(`Union types`, DielInternalErrorType.UnionTypeNotAllHandled);
     }
-    // these are outputs
-    newRelations.push({dbId: LocalDbId, relationDef: this.ir.GetRelationDef(distribution.finalOutputName)});
-    // const astSepcLocal = this.setAstSpecPerDbIfNotExist(LocalDbId);
-    // if (!astSepcLocal.relations.find(r => r.name === distribution.finalOutputName)) {
-    //   astSepcLocal.relations.push();
-    // }
-    return newRelations;
   }
 
-  private addNewRelationsToExistingSpec(newRelations: {dbId: DbIdType, relationDef: Relation}[]): boolean[] {
+  private addNewRelationsToExistingSpec(newRelations: ExecutionSpec): boolean[] {
     return newRelations.map(newR => {
       const astSpec = this.setAstSpecPerDbIfNotExist(newR.dbId);
       return addRelationIfOnlyNotExist(astSpec.relations, newR.relationDef);
@@ -134,20 +154,39 @@ export class DielPhysicalExecution {
         if (!distributions.find(d => d.relationName === r.rName)) {
           // we need to add this to the local one
           // fixme: might be relevant for workers as well
-          this.astSpecPerDb.get(LocalDbId).relations.push(r);
+          this.astSpecPerDb.get(LocalDbId).relations.push(GetSqlTableAstFromDielAst(r));
         }
       }}
     );
     // as well as the commands
     this.astSpecPerDb.get(LocalDbId).commands = this.ir.ast.commands;
     // add user defined programs to main db
-    if (this.astSpecPerDb.get(LocalDbId).programs.size > 0) {
-      LogInternalError("FIXME: need to merge instead of reset");
+    if (this.astSpecPerDb.get(LocalDbId).triggers.length > 0) {
+      LogInternalError("Triggers should not have been defined");
     }
-    this.astSpecPerDb.get(LocalDbId).programs = this.ir.ast.programs;
+    const triggers: TriggerAst[] = [];
+    const programsToAddRaw = this.ir.ast.programs.get("");
+    const programsToAdd = programsToAddRaw ? programsToAddRaw : [];
+    this.ir.ast.programs.forEach((v, input) => {
+      triggers.push({
+        tName: `${input}Trigger`, // inputs are unique since its a map
+        afterRelationName: input,
+        commands: [...programsToAdd, ...v ],
+      });
+    });
+    this.astSpecPerDb.get(LocalDbId).triggers = triggers;
+
+    // materialization pass
+    this.astSpecPerDb.forEach(ast => {
+      TransformAstForMaterialization(ast);
+    });
   }
 
-  // FIXME: double check that the distributions are properly pushed
+  /**
+   * This is where we apply the default async policies
+   * so if any of the relations are remote, we will have the relation 
+   * @param output 
+   */
   distributedEvalForOutput(output: DerivedRelation) {
     const newDistributions: SingleDistribution[] = [];
     const scope = {
@@ -155,9 +194,23 @@ export class DielPhysicalExecution {
       selectRelationEvalOwner: this.selectRelationEvalOwner.bind(this),
       outputName: output.rName
     };
-    this.augmentedDep.get(output.rName).dependsOn.map(dep => {
-      const result = QueryDistributionRecursiveEval(newDistributions, scope, dep);
-      // send all the final views to local
+    const result = QueryDistributionRecursiveEval(newDistributions, scope, output.rName);
+    if (result.dbId !== LocalDbId) {
+      // apply default policy!
+      const eventDeps = SetIntersection(GetOriginalRelationsAViewDependsOn(output.rName, this.ir.dependencies.depTree), new Set(this.ir.GetEventRelationNames()));
+      const v = OutputToAsyncDefaultPolicty(output, eventDeps);
+      // also add the new definitions to the DIEL AST, modify in place?
+      this.ir.DeleteRelation(v.output.rName);
+      this.ir.AddRelation(v.output);
+      this.ir.AddRelation(v.asyncView);
+      newDistributions.push({
+        forRelationName: output.rName,
+        relationName: v.asyncView.rName,
+        from: result.dbId,
+        to: LocalDbId,
+        finalOutputName: output.rName,
+      });
+    } else {
       newDistributions.push({
         forRelationName: output.rName,
         relationName: result.relationName,
@@ -165,7 +218,7 @@ export class DielPhysicalExecution {
         to: LocalDbId,
         finalOutputName: output.rName,
       });
-    });
+    }
     this.distributions = newDistributions.concat(this.distributions);
     return newDistributions;
   }
@@ -175,7 +228,7 @@ export class DielPhysicalExecution {
    */
   distributedEval() {
     // let distributionsForAllOutput: SingleDistribution[] = [];
-    this.ir.GetOutputs().map(this.distributedEvalForOutput);
+    this.ir.GetOutputs().map(this.distributedEvalForOutput.bind(this));
     // return distributionsForAllOutput;
   }
 
@@ -235,8 +288,8 @@ export class DielPhysicalExecution {
 
   }
   /**
-   * The goal of this function is to figure out for a specific engine, for a specific interaction
-   *   what we need to ship.
+   * The goal of this function is to figure out for a specific engine, for a specific interaction what we need to ship.
+   * Note that views might change too, if they are shipped, so the shipping logic is not limited the original tables
    * PERF FIXME: this can be materialized
    * @param dbId
    * @param lineage
@@ -249,7 +302,7 @@ export class DielPhysicalExecution {
     const inputEvent = this.getEventByTimestep(lineage);
     const allInputDeps = this.ir.dependencies.inputDependenciesAll.get(inputEvent);
     const ast = this.astSpecPerDb.get(dbId);
-    const allEvents = new Set(ast.relations.filter(r => r.relationType === RelationType.EventTable).map(r => r.rName));
+    const allEvents = new Set(ast.relations.filter(r => r.relationType === SqlRelationType.DynamicTable).map(r => r.rName));
     // PERF FIXME: this is corase grained
     const deps = SetIntersection(allEvents, allInputDeps);
     const relationsToShip = new Map<RelationIdType, Set<DbIdType>>();

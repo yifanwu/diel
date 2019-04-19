@@ -1,27 +1,24 @@
 import { getSelectionUnitDep, getTopologicalOrder } from "./passesHelper";
-import { RelationType, DerivedRelation, RelationIdType } from "../../parser/dielAstTypes";
+import { RelationType, DerivedRelation, RelationIdType, CompositeSelection } from "../../parser/dielAstTypes";
 import { SetIntersection } from "../../util/dielUtils";
 import { GetAllDerivedViews, DielIr } from "../DielIr";
-import { LogInternalError } from "../../util/messages";
 import { DependencyTree } from "../../runtime/runtimeTypes";
+import { SqlDerivedRelation } from "../../parser/sqlAstTypes";
 
-export function AddDependency(depTree: DependencyTree, view: DerivedRelation) {
+export function AddDependency(depTree: DependencyTree, selection: CompositeSelection, rName: string) {
   // first add dependency one way, then the other way
-  const dependsOn = addDependencyOneWay(depTree, view);
-  addDependencyOtherWay(depTree, dependsOn, view.rName);
+  const dependsOn = addDependencyOneWay(depTree, selection, rName);
+  addDependencyOtherWay(depTree, dependsOn, rName);
 }
 
 // incremental dep tree building
-function addDependencyOneWay(depTree: DependencyTree, view: DerivedRelation) {
+function addDependencyOneWay(depTree: DependencyTree, selection: CompositeSelection, rName: string) {
   let dependsOn: string[] = [];
-  view.selection.compositeSelections.map(c => {
+  selection.map(c => {
     const deps = getSelectionUnitDep(c.relation);
     dependsOn = deps.concat(dependsOn);
   });
-  if (!view.rName) {
-    LogInternalError(`Relation should be named`);
-  }
-  depTree.set(view.rName, {
+  depTree.set(rName, {
     dependsOn,
     isDependedBy: []
   });
@@ -40,10 +37,17 @@ function addDependencyOtherWay(depTree: DependencyTree, dependsOn: RelationIdTyp
   });
 }
 
+// FIXME: clean up relative the function below
+export function GetDependenciesFromSqlViewList(views: SqlDerivedRelation[]) {
+  const depTree: DependencyTree = new Map<string, {dependsOn: string[], isDependedBy: string[]}>();
+  views.map(v => AddDependency(depTree, v.selection, v.rName));
+  return depTree;
+}
+
 export function GetDependenciesFromViewList(views: DerivedRelation[]) {
   const depTree: DependencyTree = new Map<string, {dependsOn: string[], isDependedBy: string[]}>();
   // add one direction
-  views.map(v => AddDependency(depTree, v));
+  views.map(v => AddDependency(depTree, v.selection.compositeSelections, v.rName));
   return depTree;
 }
 
@@ -110,23 +114,27 @@ export function generateDependenciesByName(depTree: DependencyTree, rName: strin
   return allDependencies;
 }
 
+/**
+ * Get the set of relations that the view depends on
+ * needs to iterate until we hit the original tables
+ * @param viewName
+ * @param depTree
+ */
+export function GetOriginalRelationsAViewDependsOn(viewName: string, depTree: DependencyTree): Set<string> {
 
-export function getOriginalRelationsDependedOn(view: DerivedRelation, depTree: DependencyTree,
-  originalRelations: string[]): Set<string> {
-
-   let dep = depTree.get(view.rName);
+  let dep = depTree.get(viewName);
   let tables = new Set<string> ();
   if (dep && dep.dependsOn.length > 0) {
     // breadth first
-    let toVisit = dep.dependsOn.slice(); // clone
-    let visited = [view.rName] as string[];
+    let toVisit = dep.dependsOn.slice();
+    let visited = [viewName] as string[];
     let next: string;
 
      while (toVisit.length > 0) {
       next = toVisit.shift();
-      if (originalRelations.indexOf(next) !== -1) {
+      if (depTree.get(next).dependsOn.length === 0) {
         tables.add(next);
-        visited.push(next); // not necessary
+        visited.push(next);
         continue;
       }
       let children = depTree.get(next).dependsOn;
@@ -135,7 +143,7 @@ export function getOriginalRelationsDependedOn(view: DerivedRelation, depTree: D
           toVisit.push(child);
         }
       });
-      visited.push(next); // not necessary
+      visited.push(next);
     }
   }
   return tables;

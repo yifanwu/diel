@@ -104,6 +104,12 @@ export class DielIr {
     // }
   }
 
+  // THINK: we should probably do relations name?
+  // i think the materialization step wants this as well
+  // public GetDependentInputs(relationName: string) {
+  //   // get all its depdencies
+  // }
+
   public GetRelationColumnType(relationName: string, columnName: string): DielDataType | null {
     const derived = this.allCompositeSelections.get(relationName);
     if (derived) {
@@ -120,6 +126,30 @@ export class DielIr {
           return null;
         }
       }
+    }
+  }
+
+  /**
+   * get/set to avoid modification in place
+   * returns the element removed
+   */
+  public DeleteRelation(relationName: RelationIdType) {
+    const idx = this.ast.relations.findIndex(r => r.rName === relationName);
+    if (idx > -1) {
+      return this.ast.relations.splice(idx, 1);
+    }
+    LogInternalWarning(`Relation ${relationName} to delete was not found`);
+    return null;
+  }
+
+  // get/set
+  public AddRelation(newR: Relation) {
+    // make sure that the name is not found
+    const idx = this.ast.relations.findIndex(r => r.rName === newR.rName);
+    if (idx > -1) {
+      LogInternalError(`The relation you want to add, ${newR.rName}, is already defined`);
+    } else {
+      this.ast.relations.push(newR);
     }
   }
 
