@@ -1,13 +1,16 @@
 import { getDielIr, getDielAst } from "../../src/compiler/compiler";
-import { DielAst } from "../../src/parser/dielAstTypes";
+import { DielAst, UpdateClause } from "../../src/parser/dielAstTypes";
 import { TransformAstForMaterialization } from "../../src/compiler/passes/materialization";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
 import { TestLogger } from "../testTypes";
+import { generateUpdate } from "../../src/compiler/codegen/codeGenSql";
 
 export function testUpdateGrammar() {
   const logger = GenerateUnitTestErrorLogger("testUpdateGrammar");
   let ir = getDielIr(q1);
-  console.log(JSON.stringify(ir.ast.programs.get("t1"), null, 2));
+  let command = ir.ast.programs.get("t1")[0];
+  let sql = generateUpdate(command as UpdateClause);
+  console.log(sql);
 }
 
 

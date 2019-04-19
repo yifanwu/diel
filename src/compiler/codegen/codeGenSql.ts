@@ -1,4 +1,4 @@
-import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen, DielDataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause, DropType, DeleteClause } from "../../parser/dielAstTypes";
+import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen, DielDataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause, DropType, DeleteClause, UpdateClause } from "../../parser/dielAstTypes";
 import { RelationSpec, RelationQuery, SqlAst, createSqlAstFromDielAst, TriggerAst } from "./createSqlIr";
 import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
 
@@ -49,6 +49,8 @@ function generateCommand(command: Command) {
       return generateInserts(command as InsertionClause);
     case AstType.Drop:
       return generateDrop(command as DropClause);
+    case AstType.Update:
+      return generateUpdate(command as UpdateClause);
     case AstType.RelationSelection:
       return generateSelect((command as RelationSelection).compositeSelections);
     default:
@@ -67,6 +69,22 @@ export function generateDelete(command: DeleteClause) {
     : ""
     ;
   return `DELETE FROM ${command.relationName} ${pred};`;
+}
+
+export function generateUpdate(command: UpdateClause) {
+  if (!command) {
+    return "";
+  }
+  const relation = command.relationName;
+  return `
+    UPDATE SET ${command.relationName}
+    ${
+      command.columns.map((c, index) => {
+        let selQuery = generateSelect((command.selection[index] as RelationSelection).compositeSelections);
+        return `${c} = (${selQuery})`;
+      }).join(",\n")
+    }
+  `;
 }
 
 // FIXME note that we should probably not use the if not exist as a crutch
