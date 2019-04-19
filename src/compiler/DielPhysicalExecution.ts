@@ -64,14 +64,22 @@ export class DielPhysicalExecution {
       const rDef = this.ir.GetRelationDef(distribution.relationName);
       if (isRelationTypeDerived(rDef.relationType)) {
         if (distribution.from !== distribution.to) {
+
           const {cacheTableDef, eventTableDef, cacheReferenceDef} = getCacheTableFromDerived(rDef as DerivedRelation);
           // event table for new data arrival
           addRelationIfOnlyNotExist(astToSpec.relations, cacheTableDef);
           // AND data cache
           addRelationIfOnlyNotExist(astToSpec.relations, eventTableDef);
           addRelationIfOnlyNotExist(astToSpec.relations, cacheReferenceDef);
+
           // add the view to the source ast
+          /*
+          const eventTableDef = getCacheTableFromDerived(rDef as DerivedRelation);
+          addRelationIfOnlyNotExist(astToSpec.relations, eventTableDef);
+          */
+
           addRelationIfOnlyNotExist(astFromSpec.relations, rDef);
+
         } else {
           // doesn't matter from or to, it's the same
           addRelationIfOnlyNotExist(astFromSpec.relations, rDef);

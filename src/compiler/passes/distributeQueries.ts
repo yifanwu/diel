@@ -1,7 +1,6 @@
 import { DielIr, isRelationTypeDerived } from "../DielIr";
-import { OriginalRelation, RelationType, DerivedRelation, DbIdType, RelationIdType, ExprType, ExprColumnAst } from "../../parser/dielAstTypes";
-
-
+import { OriginalRelation, RelationType, DerivedRelation, DbIdType, RelationIdType, ExprType, ExprColumnAst, ColumnSelection, DielDataType,
+JoinAst, FunctionType, AstType, JoinType, SetOperator} from "../../parser/dielAstTypes";
 import { ReportDielUserError, LogInternalError } from "../../util/messages";
 import {  } from "../DielPhysicalExecution";
 import { NodeDependencyAugmented } from "./passesHelper";
@@ -93,7 +92,7 @@ export function getEventTableCacheReferenceName(tableName: string) {
 
 interface TypedColumn {
   name: string,
-  type: DataType
+  type: DielDataType
 }
 
 function getEventDerivedColumnSelections(
@@ -120,7 +119,7 @@ function getEventDerivedColumnSelections(
         columnName: "timestep",
         relationName: cacheReferenceName,
         hasStar: false,
-        dataType: DataType.Number,
+        dataType: DielDataType.Number,
       }
     });
     cols.push({
@@ -129,7 +128,7 @@ function getEventDerivedColumnSelections(
         columnName: "timestamp",
         relationName: cacheReferenceName,
         hasStar: false,
-        dataType: DataType.TimeStamp,
+        dataType: DielDataType.TimeStamp,
       }
     });
     cols.push({
@@ -138,7 +137,7 @@ function getEventDerivedColumnSelections(
         columnName: "lineage",
         relationName: cacheReferenceName,
         hasStar: false,
-        dataType: DataType.Number,
+        dataType: DielDataType.Number,
       }
     });
     return cols;
@@ -156,7 +155,7 @@ function makeCacheJoinClause(
       relationName: cacheRelationName
     },
     predicate: {
-      dataType: DataType.Boolean,
+      dataType: DielDataType.Boolean,
       exprType: ExprType.Func,
       functionType: FunctionType.Compare,
       functionReference: "=",
@@ -164,19 +163,61 @@ function makeCacheJoinClause(
           exprType: ExprType.Column,
           relationName: cacheRelationName,
           columnName: dataId, 
-          dataType: DataType.Number,
+          dataType: DielDataType.Number,
           hasStar: false
         }, { 
           exprType: ExprType.Column,
           relationName: referenceRelationName,
           columnName: dataId,
-          dataType: DataType.Number,
+          dataType: DielDataType.Number,
           hasStar: false
         }
       ]
     }
   };
   return returnVal;
+}
+
+
+export function getEventTableFromDerived(relation: DerivedRelation) {
+  const originalColumns = relation.selection.compositeSelections[0].relation.derivedColumnSelections;
+  if (!originalColumns) {
+    throw new Error(`query not normalized and cannot be distributed to main`);
+  }
+  const columns = originalColumns.map(c => {
+    let columnName: string;
+    if (!c.alias) {
+      if (c.expr.exprType === ExprType.Column) {
+        columnName = (c.expr as ExprColumnAst).columnName;
+      } else {
+        ReportDielUserError(`Must specify alias for view columns if they are not colume selections!
+         You did not for ${relation}, with column ${JSON.stringify(c, null, 2)}`);
+      }
+    } else {
+      columnName = c.alias;
+    }
+    if (!c.expr.dataType) {
+      LogInternalError(`Didn't specify the data type in the relation ${relation}!`);
+    }
+    return {
+      name: columnName,
+      type: c.expr.dataType,
+      constraints: {
+        autoincrement: false,
+        notNull: false,
+        unique: false,
+        primaryKey: false
+      },
+      defaultValue: null
+    };
+  });
+  let createSpec: OriginalRelation = {
+    relationType: RelationType.EventTable,
+    //  === RelationType.EventView ? RelationType.EventTable : RelationType.Table,
+    name: relation.name,
+    columns
+  };
+  return createSpec;
 }
 
 export function getCacheTableFromDerived(relation: DerivedRelation) {
@@ -211,28 +252,31 @@ export function getCacheTableFromDerived(relation: DerivedRelation) {
       defaultValue: null
     };
   });
-<<<<<<< HEAD
-  let createSpec: OriginalRelation = {
-    relationType: RelationType.EventTable,
-    //  === RelationType.EventView ? RelationType.EventTable : RelationType.Table,
-    name: relation.name,
-    columns
-=======
+
   let cacheTableDef: OriginalRelation = {
     name: getEventTableCacheName(relation.name),
     relationType: RelationType.Table,
     //  === RelationType.EventView ? RelationType.EventTable : RelationType.Table,
     columns: columns.concat({
       name: "dataId",
-      type: DataType.Number,
+      type: DielDataType.Number,
+      constraints: {
+        autoincrement: false,
+        notNull: false,
+        unique: false,
+        primaryKey: false
+      },
+      defaultValue: null
+
     })
   };
+
   const cacheReferenceDef: OriginalRelation = {
     name: getEventTableCacheReferenceName(relation.name),
     relationType: RelationType.EventTable,
     columns: [{
       name: "dataId",
-      type: DataType.Number,
+      type: DielDataType.Number,
     }]
   };
 
@@ -242,13 +286,14 @@ export function getCacheTableFromDerived(relation: DerivedRelation) {
             columns
   );
  
-  // RYAN TODO
+  // [x] RYAN TODO
   /**
    * create view fetchDataEvent as
      select
        c.item, c.val, e.timestep, e.timestamp, e.request_timestep
     from fetchDataEventCache c join fetchDataEventPointer e on c.dataId  = e.dataId;
    */
+
   const eventTableDef: DerivedRelation = {
     name: relation.name,
     selection: {
@@ -271,10 +316,8 @@ export function getCacheTableFromDerived(relation: DerivedRelation) {
     cacheTableDef,
     cacheReferenceDef,
     eventTableDef
->>>>>>> bootstrap
   };
 }
-
 
 // only create tables for what outputs depend on
 // and intersect that too, just just onestep is fine

@@ -21,13 +21,14 @@ import { viewConstraintCheck, checkViewConstraint } from "../compiler/passes/gen
 import { StaticSql } from "../compiler/codegen/staticSql";
 
 import { getPlainSelectQueryAst } from "../compiler/compiler";
-import { getEventTableCacheName } from "../compiler/passes/distributeQueries";
+import { getEventTableCacheName, getEventTableCacheReferenceName } from "../compiler/passes/distributeQueries";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
 export let LOGINFO = false;
 
 export const INIT_TIMESTEP = 1;
+export const INIT_DATA_ID = 1;
 
 export const SqliteMasterQuery = `
   SELECT sql, name
@@ -78,6 +79,10 @@ export default class DielRuntime {
   protected boundFns: TickBind[];
   protected runtimeOutputs: Map<string, Statement>;
 
+  nextDataID: number;
+  cacheMap: Map<string, number>; // hash to dataid
+  //for now, hash is "event view name : hash of dependent inputs"
+
   constructor(config: DielConfig) {
     (<any>window).diel = this; // for debugging
     // mutate global for logging
@@ -103,6 +108,14 @@ export default class DielRuntime {
     this.runOutput = this.runOutput.bind(this);
     this.BindOutput = this.BindOutput.bind(this);
     this.setup(config.setupCb);
+
+    this.nextDataID = INIT_DATA_ID;
+  }
+
+  getNextDataID() {
+    const toReturn = this.nextDataID;
+    this.nextDataID += 1;
+    return toReturn;
   }
 
   getEventByTimestep(timestep: LogicalTimestep) {
@@ -364,8 +377,10 @@ export default class DielRuntime {
   cachedRemoteInput(view: string, o: RelationObject, lineage: number) {
     // insert into data cache
     const cacheName = getEventTableCacheName(view);
-    const dataId = this.timestep;
-    // increment the dataId (which is just going to be the timestep)
+    // const dataId = this.timestep;
+    // increment the dataId (which is just going to be the timestep) ?
+    const dataId = this.getNextDataID();
+
     // RYAN TODO:
     // (1) REFACTOR newInputHelper's column fetching logic to generate the SQL string
     // (2) cacheMeta look up the hashVal from the allInputs table with the lineage info
@@ -410,8 +425,19 @@ export default class DielRuntime {
     this.db.create_function("log", log);
   }
 
-  hashEventValues(o: RelationObject): string {
-    
+  hashAllDependencies(inputName: string) {
+    var dependencies = this.ir.dependencies.inputDependenciesOutput.get(inputName);
+    var depArray = Array.from(dependencies.values()).sort();
+    var hash = "";
+    depArray.forEach(dependency => {
+      var o: RelationObject = this.ExecuteStringQuery(`select * from ${dependency}`);
+      hash += this.hashEventValues(dependency, o);
+    })
+    return hash
+  }
+
+  hashEventValues(eventName: string, o: RelationObject): string {
+    return eventName + o.map(x => String(x)).join(",");
   }
 
   // FIXME: assume that only the inputName and values are relevant
@@ -430,10 +456,23 @@ export default class DielRuntime {
    * @param timestep
    */
   dispatchEventRequests(inputName: string, timestep: number) {
+
+    const hash = this.hashAllDependencies(inputName);
+
     // look up cache
+    const dataId = this.cacheMap.get(hash);
+
+    if (dataId === undefined) { // cache miss
+    // cache miss: ship
+      this.shipEventsToWorker(inputName, timestep);
+    } else {
     // if cachehit, then this.NewEvent("<cacheTable>", ) // and the dataId found
-    // else, ship
-    this.shipEventsToWorker(inputName, timestep);
+
+      const dataIdObject = this.ExecuteStringQuery(`select ${dataId}`)[0];
+      // TODO: create RelationObject manually.
+
+      this.NewInput(getEventTableCacheReferenceName(inputName), dataIdObject);
+    }
   }
 
   shipEventsToWorker(inputName: string, timestep: number) {
