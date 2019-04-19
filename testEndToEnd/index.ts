@@ -40,10 +40,10 @@ function runTest() {
   // e.g. the ASTs in diel.physicalExecution
 
 // bind custom outputs
-  // diel.BindOutput("allOriginAirports", (o: RelationObject) => {
-  //   // assert the values here!
-  //   console.log("bindoutput!!!", o);
-  // });
+  diel.BindOutput("allOriginAirports", (o: RelationObject) => {
+    // assert the values here!
+    console.log("bindoutput!!!", o);
+  });
 
   // // change runtime values
   // diel.NewInput("zoomScatterItx",

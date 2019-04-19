@@ -1,5 +1,5 @@
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
-import { Database, Statement } from "sql.js";
+import { Database, Statement, QueryResults } from "sql.js";
 
 import { DIELLexer } from "../parser/grammar/DIELLexer";
 import { DIELParser } from "../parser/grammar/DIELParser";
@@ -13,7 +13,7 @@ import { log } from "../util/dielUdfs";
 import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo } from "../util/messages";
 import { DielIr } from "../compiler/DielIr";
-import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult } from "./runtimeHelper";
+import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult, convertRelationObjectToQueryResults } from "./runtimeHelper";
 import { DielPhysicalExecution, LocalDbId } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
 import { CreateDerivedSelectionSqlAstFromDielAst, createSqlAstFromDielAst } from "../compiler/codegen/createSqlIr";
@@ -22,6 +22,7 @@ import { StaticSql } from "../compiler/codegen/staticSql";
 import { getPlainSelectQueryAst } from "../compiler/compiler";
 import { GetDependenciesFromViewList } from "../compiler/passes/dependency";
 import { getTopologicalOrder } from "../compiler/passes/passesHelper";
+import { ConsoleErrorListener } from "../parser/customError";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
@@ -241,7 +242,6 @@ export default class DielRuntime {
   constraintChecking(viewName: string) {
     // TODO. Check view constraint for nested views. currently, it only checks output view.
     console.log("toggle mode: ", this.checkConstraints);
-    console.log("constraint query: ", this.constraintQueries);
 
     // only check if checking mode is turned on
     if (this.checkConstraints) {
@@ -250,13 +250,11 @@ export default class DielRuntime {
       let rel = this.ir.GetRelationDef(viewName) as DerivedRelation;
       const deps = GetDependenciesFromViewList([rel]);
       const topoOrder = getTopologicalOrder(deps);
-      console.log(topoOrder);
 
       // 1-2. evaluate their constraints by topo order
       // if already materialized, no need to evaluate
       for (let relation of topoOrder) {
         if (this.constraintQueries.has(relation)) {
-          console.log(relation);
           let queryObject = this.constraintQueries.get(relation);
           let queries = queryObject.queries;
           // run the entire constraint quries for that view
@@ -619,7 +617,7 @@ export default class DielRuntime {
   }
 
   // ------------------------ debugging related ---------------------------
-  inspectQueryResult(query: string) {
+  inspectQueryResult(query: string): QueryResults {
     let r = this.db.exec(query)[0];
     if (r) {
       console.log(r.columns.join("\t"));
@@ -629,40 +627,62 @@ export default class DielRuntime {
     } else {
       console.log("No results");
     }
+    return r;
   }
-  // used for debugging
-  reportConstraintQueryResult(query: string, viewName: string, constraint: string): boolean {
+
+  /**
+   * Check if the view constraint query is broken. If so, report what records broke them.
+   * @param query
+   * @param viewName
+   * @param constraint
+   */
+  reportConstraintQueryResult(query: string, viewName: string, constraint: string) {
+    function reportBrokenConstraints(qr: QueryResults) {
+      if (qr) {
+        console.log(`%cConstraint Broken!\nview: ${viewName}\nconstraint: ${constraint}`, "background:red; color: white");
+        console.log(qr.columns.join("\t"));
+        console.log(JSON.stringify(qr.values).replace(/\],\[/g, "\n").replace("[[", "").replace("]]", "").replace(/,/g, "\t"));
+      }
+    }
     // 1. test if the views are already materialized!!
 
     // 2. if not materialized, evaluate constraints
-    // 2-1. resolve distributed views
-    console.log(`%cConstraint Broken!\nview: ${viewName}\nconstraint: ${constraint}`, "background:red; color: white");
-    return true;
-
-    let dbID = this.physicalMetaData.relationLocation.get(viewName).dbId;
-    let r;
-    if (dbID === LocalDbId) {
-      r = this.db.exec(query)[0];
-    } else {
-      const executeMessage: RemoteExecuteMessage = {
-        remoteAction: DielRemoteAction.GetResultsByPromise,
-        lineage: this.timestep,
-        sql: query
-      };
-      this.dbEngines.get(dbID).SendMsg(executeMessage).then((value) => {
-        r = value;
+    this.physicalExecution.astSpecPerDb.forEach((ast, id) => {
+      ast.relations.forEach((relation) => {
+        // 2-1. check which db the view is defined in.
+        // correct db only if the relatin is view, event view, output
+        if (relation.name === viewName &&
+          (relation.relationType === RelationType.EventView
+          || relation.relationType === RelationType.View
+          || relation.relationType === RelationType.Output)) {
+              if (id === LocalDbId) {
+                // local db; execute
+                try {
+                  reportBrokenConstraints(this.db.exec(query)[0]);
+                } catch (error) {
+                  LogInternalError(`Error while running view constraint query ${query}`);
+                }
+              } else {
+                // remote db; ship the execute query
+                const remoteInstance = this.findRemoteDbEngine(id);
+                if (remoteInstance) {
+                  const executeMessage: RemoteExecuteMessage = {
+                    remoteAction: DielRemoteAction.GetResultsByPromise,
+                    lineage: this.timestep,
+                    sql: query
+                  };
+                  remoteInstance.SendMsg(executeMessage, true).then((value) => {
+                    if (value.results.length > 0) {
+                      reportBrokenConstraints(convertRelationObjectToQueryResults(value.results));
+                    }
+                  });
+                } else {
+                  LogInternalError(`Remote ${id} is not found!`);
+                }
+              }
+          }
       });
-    }
-    if (r) {
-      console.log(`%cConstraint Broken!\nview: ${viewName}\nconstraint: ${constraint}`, "background:red; color: white");
-      console.log(r.columns.join("\t"));
-      console.log(JSON.stringify(r.values).replace(/\],\[/g, "\n").replace("[[", "").replace("]]", "").replace(/,/g, "\t"));
-      // console.table(r.columns);
-      // console.table(r.values);
-      return true;
-    } else {
-      // console.log("No results");
-      return false;
-    }
+    });
+
   }
 }

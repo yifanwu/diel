@@ -80,3 +80,20 @@ export function SqlJsGetObjectArrayFromQuery(db: Database, query: string) {
 
 //   return fn(params);
 // };
+
+
+export function convertRelationObjectToQueryResults(ro: RelationObject): QueryResults {
+  let qr = {
+    columns: [],
+    values: []
+  } as QueryResults;
+  qr.columns = Object.keys(ro[0]);
+  ro.forEach((array) => {
+    let values: string[] = [];
+    qr.columns.forEach((colname) => {
+      values.push(array[colname] as string);
+    });
+    qr.values.push(values);
+  });
+  return qr;
+}
