@@ -275,6 +275,12 @@ export function getCacheTableFromDerived(relation: DerivedRelation) {
     name: getEventTableCacheReferenceName(relation.name),
     relationType: RelationType.EventTable,
     columns: [{
+      name: "timestep",
+      type: DielDataType.Number,
+    }, {
+      name: "lineage",
+      type: DielDataType.Number,
+    }, {
       name: "dataId",
       type: DielDataType.Number,
     }]

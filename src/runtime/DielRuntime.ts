@@ -21,7 +21,8 @@ import { viewConstraintCheck, checkViewConstraint } from "../compiler/passes/gen
 import { StaticSql } from "../compiler/codegen/staticSql";
 
 import { getPlainSelectQueryAst } from "../compiler/compiler";
-import { getEventTableCacheName, getEventTableCacheReferenceName } from "../compiler/passes/distributeQueries";
+import { getEventTableCacheName, getEventTableCacheReferenceName, getCacheTableFromDerived } from "../compiler/passes/distributeQueries";
+import { getRelationReferenceName } from "../compiler/passes/passesHelper";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
@@ -79,7 +80,9 @@ export default class DielRuntime {
   protected boundFns: TickBind[];
   protected runtimeOutputs: Map<string, Statement>;
 
+  // Ignore for now since using lineage as dataid; may be refactored later
   nextDataID: number;
+
   cacheMap: Map<string, number>; // hash to dataid
   //for now, hash is "event view name : hash of dependent inputs"
 
@@ -112,6 +115,7 @@ export default class DielRuntime {
     this.nextDataID = INIT_DATA_ID;
   }
 
+  // Ignore for now since using lineage as dataid; may be refactored later
   getNextDataID() {
     const toReturn = this.nextDataID;
     this.nextDataID += 1;
@@ -202,12 +206,26 @@ export default class DielRuntime {
       const allInputQuery = `
       insert into allInputs (timestep, inputRelation, timestamp, lineage) values
         (${this.timestep}, '${eventName}', ${Date.now()}, ${lineage});`;
+      const refTable = getEventTableCacheReferenceName(eventName);
+      const cacheTable = getEventTableCacheName(eventName);
+
+      const hash = this.hashAllDependencies(eventName);
+      this.cacheMap.set(hash, lineage);
+      // store current hash in cache
+
       if (columnNames && (columnNames.length > 0)) {
-        finalQuery = `insert into ${eventName} (timestep, lineage, ${columnNames.join(", ")}) values
-          ${values.map(v => `(${this.timestep}, ${lineage}, ${v.join(", ")})`)};`;
-      } else {
-        finalQuery = `insert into ${eventName} (timestep, lineage) values (${this.timestep}, ${lineage});`;
+        const refQuery = `insert into ${refTable} (timestep, lineage, dataid) 
+        values (${this.timestep}, ${lineage}, ${lineage})`
+
+        const cacheQuery = `insert into ${cacheTable} (dataId,
+          ${columnNames.join(", ")} values
+          ${values.map(v => `(${lineage}, ${v.join(", ")})`)};` 
+
+        finalQuery = refQuery + cacheQuery;
+        } else {
+        finalQuery = `insert into ${refTable} (timestep, lineage) values (${this.timestep}, ${lineage});`;
       }
+
       LogInfo(`Tick\n${finalQuery + allInputQuery}`);
       this.db.exec(finalQuery + allInputQuery);
 
@@ -377,9 +395,8 @@ export default class DielRuntime {
   cachedRemoteInput(view: string, o: RelationObject, lineage: number) {
     // insert into data cache
     const cacheName = getEventTableCacheName(view);
-    // const dataId = this.timestep;
+    const dataId = this.timestep;
     // increment the dataId (which is just going to be the timestep) ?
-    const dataId = this.getNextDataID();
 
     // RYAN TODO:
     // (1) REFACTOR newInputHelper's column fetching logic to generate the SQL string
@@ -445,7 +462,7 @@ export default class DielRuntime {
     // fetch the most recent value from this input and hash it
   }
   /**
-   * Note for RYAN
+   * Note for RYAN [x]
    * caching logic here
    * - get all cacheable outputs dependent on this input
    * - for each cacheable output
@@ -468,10 +485,7 @@ export default class DielRuntime {
     } else {
     // if cachehit, then this.NewEvent("<cacheTable>", ) // and the dataId found
 
-      const dataIdObject = this.ExecuteStringQuery(`select ${dataId}`)[0];
-      // TODO: create RelationObject manually.
-
-      this.NewInput(getEventTableCacheReferenceName(inputName), dataIdObject);
+      this.NewInput(getEventTableCacheReferenceName(inputName), dataId);
     }
   }
 
