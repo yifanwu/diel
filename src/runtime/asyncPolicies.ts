@@ -1,14 +1,14 @@
 import { DerivedRelation, RelationType, SetOperator, JoinAst, ExprAst, ExprFunAst, FunctionType, AstType,  ExprType, DielDataType, SelectionUnit, JoinType, CompositeSelectionUnit, RelationSelection } from "../parser/dielAstTypes";
-import { TIMESTEP_COlUMN_NAME, REQUEST_TIMESTEP_COlUMN_NAME } from "./runtimeTypes";
 import { ApplyLatestToDerivedRelation } from "../compiler/passes/syntaxSugar";
 import { LogInternalError } from "../util/messages";
+import { BuiltInColumn } from "../compiler/DielIr";
 
 function getTimestepColumn(relationName: string, request = false) {
   return {
     exprType: ExprType.Column,
     dataType: DielDataType.Number,
     hasStar: false,
-    columnName: request ? REQUEST_TIMESTEP_COlUMN_NAME : TIMESTEP_COlUMN_NAME,
+    columnName: request ? BuiltInColumn.REQUEST_TIMESTEP : BuiltInColumn.TIMESTEP,
     relationName
   };
 }
@@ -81,7 +81,7 @@ function defaultPolicyGetOutputHelper(ast: DerivedRelation, asyncViewName: strin
               functionReference: "max",
               args: [getTimestepColumn(unionedTimestepRelationName)]
             },
-            alias: TIMESTEP_COlUMN_NAME
+            alias: BuiltInColumn.TIMESTEP
           }],
           baseRelation: {
             subquery: unionTimestepRelation,

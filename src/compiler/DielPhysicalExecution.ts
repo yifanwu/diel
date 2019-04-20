@@ -1,10 +1,10 @@
-import { DerivedRelation, RelationType, Relation, DbIdType, RelationIdType, LogicalTimestep } from "../parser/dielAstTypes";
+import { DerivedRelation, RelationType, DbIdType, RelationIdType, LogicalTimestep } from "../parser/dielAstTypes";
 import { DbType, NodeDependencyAugmented, NodeDependency, DependencyTree, ExecutionSpec } from "../runtime/runtimeTypes";
 import { PhysicalMetaData } from "../runtime/DielRuntime";
-import { GetSqlViewAstFromDielAst, SingleDistribution, GetSqlTableAstFromDielAst, QueryDistributionRecursiveEval } from "./passes/distributeQueries";
-import { LogInternalError, DielInternalErrorType, LogInfo } from "../util/messages";
+import { GetSqlDerivedRelationFromDielRelation, SingleDistribution, GetSqlOriginalRelationFromDielRelation, QueryDistributionRecursiveEval } from "./passes/distributeQueries";
+import { LogInternalError, DielInternalErrorType } from "../util/messages";
 import { SetIntersection } from "../util/dielUtils";
-import { IsRelationTypeDerived, DielIr } from "./DielIr";
+import { DielIr } from "./DielIr";
 import { SqlAst, CreateEmptySqlAst, SqlRelation, TriggerAst, SqlRelationType } from "../parser/sqlAstTypes";
 import { TransformAstForMaterialization } from "./passes/materialization";
 import { OutputToAsyncDefaultPolicty } from "../runtime/asyncPolicies";
@@ -26,7 +26,7 @@ export class DielPhysicalExecution {
   ir: DielIr; // read only
   augmentedDep: Map<string, NodeDependencyAugmented>;
   metaData: PhysicalMetaData; // read only
-  astSpecPerDb: Map<DbIdType, SqlAst>;
+  sqlAstSpecPerDb: Map<DbIdType, SqlAst>;
   distributions: SingleDistribution[];
   getEventByTimestep: (step: LogicalTimestep) => RelationIdType;
 
@@ -41,16 +41,16 @@ export class DielPhysicalExecution {
     this.distributedEval();
     // organize it by db-engines so we know how to set it up
     // then construct the definitions
-    this.astSpecPerDb = new Map<DbIdType, SqlAst>();
+    this.sqlAstSpecPerDb = new Map<DbIdType, SqlAst>();
     this.setAstSpecPerDbIfNotExist(LocalDbId);
-    this.getExecutionSpecsFromDistribution(this.distributions);
+    this.getSqlAstSpecsFromDistribution(this.distributions);
   }
 
   private setAstSpecPerDbIfNotExist(dbId: DbIdType) {
-    if (!this.astSpecPerDb.has(dbId)) {
-      this.astSpecPerDb.set(dbId, CreateEmptySqlAst());
+    if (!this.sqlAstSpecPerDb.has(dbId)) {
+      this.sqlAstSpecPerDb.set(dbId, CreateEmptySqlAst());
     }
-    return this.astSpecPerDb.get(dbId);
+    return this.sqlAstSpecPerDb.get(dbId);
   }
 
   // FIXME: need to look into whether this is giving things in the right order
@@ -97,11 +97,12 @@ export class DielPhysicalExecution {
     switch (rDef.relationType) {
       case RelationType.DerivedTable:
         // same for both cases
-        return [{dbId: distribution.to, relationDef: GetSqlTableAstFromDielAst(rDef)}];
+        return [{dbId: distribution.to, relationDef: GetSqlOriginalRelationFromDielRelation(rDef)}];
       // the following two cases should be the same
       case RelationType.Table:
       case RelationType.EventTable: {
-        const eventTableDef = GetSqlTableAstFromDielAst(rDef);
+        const addTimeColumns = (rDef.relationType === RelationType.EventTable) && (distribution.to === LocalDbId);
+        const eventTableDef = GetSqlOriginalRelationFromDielRelation(rDef, addTimeColumns);
         return [
           {dbId: distribution.from, relationDef: eventTableDef},
           {dbId: distribution.to, relationDef: eventTableDef}
@@ -110,23 +111,28 @@ export class DielPhysicalExecution {
       // the following two cases should be the same
       case RelationType.View:
       case RelationType.EventView: {
-        const eventViewTable = GetSqlTableAstFromDielAst(rDef);
-        const eventView = GetSqlViewAstFromDielAst(rDef);
+        const addTimeColumns = (rDef.relationType === RelationType.EventView) && (distribution.to === LocalDbId);
+        const eventViewTable = GetSqlOriginalRelationFromDielRelation(rDef, addTimeColumns);
+        const eventView = GetSqlDerivedRelationFromDielRelation(rDef);
         return [
           {dbId: distribution.from, relationDef: eventView},
           {dbId: distribution.to, relationDef: eventViewTable}
         ];
       }
       case RelationType.ExistingAndImmutable: {
-        const newTable = GetSqlTableAstFromDielAst(rDef);
-        return [{dbId: distribution.to, relationDef: newTable}];
+        if (distribution.to !== distribution.from) {
+          const newTable = GetSqlOriginalRelationFromDielRelation(rDef);
+          return [{dbId: distribution.to, relationDef: newTable}];
+        }
+        return null;
       }
       case RelationType.Output: {
         // both from and to must be local, and if they are not, we need to transform to create default policy
-        if ((distribution.from !== distribution.to) || (distribution.from !== LocalDbId)) {
+        // outputs can also be send to remotes (since they are also local views), but they cannot be sent in
+        if ((distribution.from !== distribution.to) && (distribution.from !== LocalDbId)) {
           return LogInternalError(`Outputs must be local`);
         }
-        const relationDef = GetSqlViewAstFromDielAst(rDef);
+        const relationDef = GetSqlDerivedRelationFromDielRelation(rDef);
         return [{dbId: LocalDbId, relationDef}];
       }
       default:
@@ -141,10 +147,10 @@ export class DielPhysicalExecution {
     });
   }
 
-  private getExecutionSpecsFromDistribution(distributions: SingleDistribution[]) {
+  private getSqlAstSpecsFromDistribution(distributions: SingleDistribution[]) {
     distributions.map(distribution => {
       const newRelations = this.getExecutionSpecForSingleDistribution(distribution);
-      this.addNewRelationsToExistingSpec(newRelations);
+      if (newRelations) this.addNewRelationsToExistingSpec(newRelations);
     });
     // need to add the static tables that are not directly referenced to main
     // find any static table that was not used by outputs...
@@ -154,14 +160,14 @@ export class DielPhysicalExecution {
         if (!distributions.find(d => d.relationName === r.rName)) {
           // we need to add this to the local one
           // fixme: might be relevant for workers as well
-          this.astSpecPerDb.get(LocalDbId).relations.push(GetSqlTableAstFromDielAst(r));
+          this.sqlAstSpecPerDb.get(LocalDbId).relations.push(GetSqlOriginalRelationFromDielRelation(r));
         }
       }}
     );
     // as well as the commands
-    this.astSpecPerDb.get(LocalDbId).commands = this.ir.ast.commands;
+    this.sqlAstSpecPerDb.get(LocalDbId).commands = this.ir.ast.commands;
     // add user defined programs to main db
-    if (this.astSpecPerDb.get(LocalDbId).triggers.length > 0) {
+    if (this.sqlAstSpecPerDb.get(LocalDbId).triggers.length > 0) {
       LogInternalError("Triggers should not have been defined");
     }
     const triggers: TriggerAst[] = [];
@@ -174,10 +180,10 @@ export class DielPhysicalExecution {
         commands: [...programsToAdd, ...v ],
       });
     });
-    this.astSpecPerDb.get(LocalDbId).triggers = triggers;
+    this.sqlAstSpecPerDb.get(LocalDbId).triggers = triggers;
 
     // materialization pass
-    this.astSpecPerDb.forEach(ast => {
+    this.sqlAstSpecPerDb.forEach(ast => {
       TransformAstForMaterialization(ast);
     });
   }
@@ -185,7 +191,7 @@ export class DielPhysicalExecution {
   /**
    * This is where we apply the default async policies
    * so if any of the relations are remote, we will have the relation 
-   * @param output 
+   * @param output
    */
   distributedEvalForOutput(output: DerivedRelation) {
     const newDistributions: SingleDistribution[] = [];
@@ -196,6 +202,7 @@ export class DielPhysicalExecution {
     };
     const result = QueryDistributionRecursiveEval(newDistributions, scope, output.rName);
     if (result.dbId !== LocalDbId) {
+      debugger; // just checking
       // apply default policy!
       const eventDeps = SetIntersection(GetOriginalRelationsAViewDependsOn(output.rName, this.ir.dependencies.depTree), new Set(this.ir.GetEventRelationNames()));
       const v = OutputToAsyncDefaultPolicty(output, eventDeps);
@@ -292,16 +299,16 @@ export class DielPhysicalExecution {
    * Note that views might change too, if they are shipped, so the shipping logic is not limited the original tables
    * PERF FIXME: this can be materialized
    * @param dbId
-   * @param lineage
+   * @param requestTimestep
    */
-  getRelationsToShipForDb(dbId: DbIdType, lineage: LogicalTimestep): {
+  getRelationsToShipForDb(dbId: DbIdType, requestTimestep: LogicalTimestep): {
     deps: Set<RelationIdType>,
     relationsToShip: Map<RelationIdType, Set<DbIdType>>} {
     // a list of the views and their dependencies
     // if input is specified, we will filter dependencies by those relations that depend on the input
-    const inputEvent = this.getEventByTimestep(lineage);
+    const inputEvent = this.getEventByTimestep(requestTimestep);
     const allInputDeps = this.ir.dependencies.inputDependenciesAll.get(inputEvent);
-    const ast = this.astSpecPerDb.get(dbId);
+    const ast = this.sqlAstSpecPerDb.get(dbId);
     const allEvents = new Set(ast.relations.filter(r => r.relationType === SqlRelationType.DynamicTable).map(r => r.rName));
     // PERF FIXME: this is corase grained
     const deps = SetIntersection(allEvents, allInputDeps);
@@ -348,7 +355,7 @@ export class DielPhysicalExecution {
   }
 
   getAstFromDbId(dbId: DbIdType) {
-    return this.astSpecPerDb.get(dbId);
+    return this.sqlAstSpecPerDb.get(dbId);
   }
 
   augmentDepTreeNode(nodDep: NodeDependency, relationName: RelationIdType) {
@@ -405,7 +412,7 @@ export class DielPhysicalExecution {
   }
 
   getRemoteInfoById(remoteId: DbIdType) {
-    return this.astSpecPerDb.get(remoteId);
+    return this.sqlAstSpecPerDb.get(remoteId);
   }
 
   getDbIdByRelationName(rName: string): DbIdType {

@@ -56,8 +56,9 @@ export function applyLatestToSelectionUnit(relation: SelectionUnit): void {
     modifyWhereComplete(relation, relationName);
   }
 
-   // check for joins, and apply the above for latest joint tables
-   // since latest may apply to non baserelations
+  // check for joins, and apply the above for latest joint tables
+  // since latest may apply to non baserelations
+  if (!relation.joinClauses) return;
   for (let i = 0; i < relation.joinClauses.length; i++) {
     if (relation.joinClauses[i].relation.isLatest) {
       let joinRelationName = relation.joinClauses[i].relation.relationName;

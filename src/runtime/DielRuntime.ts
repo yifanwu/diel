@@ -55,7 +55,7 @@ export type PhysicalMetaData = {
   relationLocation: Map<string, TableMetaData>;
 };
 
-export type RelationShippingFuncType = (view: string, o: RelationObject, lineage?: number) => void;
+export type RelationShippingFuncType = (view: string, o: RelationObject, requestTimestep?: number) => void;
 
 export default class DielRuntime {
   timestep: LogicalTimestep;
@@ -127,7 +127,7 @@ export default class DielRuntime {
             remoteAction: DielRemoteAction.ShipRelation,
             relationName: t.relation,
             dbId: t.dbId,
-            lineage: INIT_TIMESTEP
+            requestTimestep: INIT_TIMESTEP
           };
           this.findRemoteDbEngine(t.dbId).SendMsg(msg);
           this.staticRelationsSent.add(t.relation);
@@ -148,18 +148,18 @@ export default class DielRuntime {
   }
 
   // verbose just to make sure that the exported type is kept in sync
-  public NewInputMany: RelationShippingFuncType = (view: string, o: any, lineage?: number) => {
-    lineage = lineage ? lineage : this.timestep;
-    this.newInputHelper(view, o, lineage);
+  public NewInputMany: RelationShippingFuncType = (view: string, o: any, requestTimestep?: number) => {
+    requestTimestep = requestTimestep ? requestTimestep : this.timestep;
+    this.newInputHelper(view, o, requestTimestep);
   }
 
-  public NewInput(i: string, o: any, lineage?: number) {
-    lineage = lineage ? lineage : this.timestep;
-    this.newInputHelper(i, [o], lineage);
+  public NewInput(i: string, o: any, requestTimestep?: number) {
+    requestTimestep = requestTimestep ? requestTimestep : this.timestep;
+    this.newInputHelper(i, [o], requestTimestep);
   }
 
   // FIXME: use AST instead of string manipulation...
-  private newInputHelper(eventName: string, objs: any[], lineage: number) {
+  private newInputHelper(eventName: string, objs: any[], requestTimestep: number) {
     this.timestep++;
     this.eventByTimestep.set(this.timestep, eventName);
     let columnNames: string[] = [];
@@ -184,13 +184,13 @@ export default class DielRuntime {
       });
       let finalQuery: string;
       const allInputQuery = `
-      insert into allInputs (timestep, inputRelation, timestamp, lineage) values
-        (${this.timestep}, '${eventName}', ${Date.now()}, ${lineage});`;
+      insert into allInputs (timestep, inputRelation, timestamp, request_timestep) values
+        (${this.timestep}, '${eventName}', ${Date.now()}, ${requestTimestep});`;
       if (columnNames && (columnNames.length > 0)) {
-        finalQuery = `insert into ${eventName} (timestep, lineage, ${columnNames.join(", ")}) values
-          ${values.map(v => `(${this.timestep}, ${lineage}, ${v.join(", ")})`)};`;
+        finalQuery = `insert into ${eventName} (timestep, request_timestep, ${columnNames.join(", ")}) values
+          ${values.map(v => `(${this.timestep}, ${requestTimestep}, ${v.join(", ")})`)};`;
       } else {
-        finalQuery = `insert into ${eventName} (timestep, lineage) values (${this.timestep}, ${lineage});`;
+        finalQuery = `insert into ${eventName} (timestep, request_timestep) values (${this.timestep}, ${requestTimestep});`;
       }
       LogInfo(`Tick\n${finalQuery + allInputQuery}`);
       this.db.exec(finalQuery + allInputQuery);
@@ -431,7 +431,7 @@ export default class DielRuntime {
         const updateMsg: RemoteUpdateRelationMessage = {
           remoteAction: DielRemoteAction.UpdateRelation,
           relationName: t.relation,
-          lineage: timestep,
+          requestTimestep: timestep,
           sql
         };
         this.dbEngines.get(t.destination).SendMsg(updateMsg);
@@ -512,7 +512,7 @@ export default class DielRuntime {
         if (remoteInstance) {
           const msg: RemoteExecuteMessage = {
             remoteAction: DielRemoteAction.DefineRelations,
-            lineage: INIT_TIMESTEP,
+            requestTimestep: INIT_TIMESTEP,
             sql: sqlStr,
           };
           promises.push(remoteInstance.SendMsg(msg, true));
@@ -529,7 +529,7 @@ export default class DielRuntime {
     LogTmp(`Executing queries to db`);
     // now execute to worker!
     const promises: Promise<any>[] = [];
-    this.physicalExecution.astSpecPerDb.forEach((ast, id) => {
+    this.physicalExecution.sqlAstSpecPerDb.forEach((ast, id) => {
       if (id === LocalDbId) {
         const queries = generateStringFromSqlIr(ast, false);
         for (let s of queries) {
@@ -547,7 +547,7 @@ export default class DielRuntime {
             const sql = queries.map(q => q + ";").join("\n");
             const msg: RemoteExecuteMessage = {
               remoteAction: DielRemoteAction.DefineRelations,
-              lineage: INIT_TIMESTEP,
+              requestTimestep: INIT_TIMESTEP,
               sql,
             };
             promises.push(remoteInstance.SendMsg(msg, true));
@@ -558,7 +558,7 @@ export default class DielRuntime {
           if ((remoteInstance.config.dbType === DbType.Socket) && deleteQueries) {
             const msg: RemoteExecuteMessage = {
               remoteAction: DielRemoteAction.CleanUpQueries,
-              lineage: INIT_TIMESTEP,
+              requestTimestep: INIT_TIMESTEP,
               sql: deleteQueries,
             };
             remoteInstance.SendMsg(msg, false);

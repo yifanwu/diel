@@ -1,8 +1,9 @@
-import { DielIr, IsRelationTypeDerived } from "../DielIr";
+import { DielIr, IsRelationTypeDerived, BuiltInColumn } from "../DielIr";
 import { OriginalRelation, RelationType, DerivedRelation, DbIdType, RelationIdType, ExprType, ExprColumnAst, Relation, Column, DielDataType, CompositeSelection } from "../../parser/dielAstTypes";
 import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
 import { NodeDependencyAugmented } from "../../runtime/runtimeTypes";
 import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation } from "../../parser/sqlAstTypes";
+import { LocalDbId } from "../DielPhysicalExecution";
 
 export type SingleDistribution = {
   relationName: RelationIdType,
@@ -42,7 +43,10 @@ export function QueryDistributionRecursiveEval(
     // derived, need to look at the things it needs, then decide who should own this relation
     // logic that decides the relation
     const dependentRecResults = node.dependsOn.map(depRelation => QueryDistributionRecursiveEval(distributions, scope, depRelation));
-    const owner = scope.selectRelationEvalOwner(new Set(dependentRecResults.map(r => r.dbId)));
+    const owner = node.relationType === RelationType.Output
+      ? LocalDbId
+      : scope.selectRelationEvalOwner(new Set(dependentRecResults.map(r => r.dbId)));
+
     dependentRecResults.map(result => {
       distributions.push({
         relationName: result.relationName,
@@ -82,16 +86,13 @@ export function getShippingInfoFromDistributedEval() {
 }
 
 
-const InputColumns: Column[] = [
+const EventColumns: Column[] = [
   {
-    name: "timestep",
+    name: BuiltInColumn.TIMESTEP,
     type: DielDataType.Number,
-    // constraints: {
-    //   primaryKey: true
-    // }
   },
   {
-    name: "lineage",
+    name: BuiltInColumn.REQUEST_TIMESTEP,
     type: DielDataType.Number,
   }
 ];
@@ -125,7 +126,7 @@ export function GetColumnsFromSelection(selection: CompositeSelection): Column[]
   return columns;
 }
 
-export function GetSqlTableAstFromDielAst(relation: Relation, addTimeColumns?: boolean): SqlOriginalRelation {
+export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTimeColumns?: boolean): SqlOriginalRelation {
   switch (relation.relationType) {
     // when we turn an event into a table, the table is dynamic!
     case RelationType.EventTable: {
@@ -133,7 +134,7 @@ export function GetSqlTableAstFromDielAst(relation: Relation, addTimeColumns?: b
       return {
         relationType: SqlRelationType.DynamicTable,
         rName: i.rName,
-        columns: addTimeColumns ? i.columns : i.columns.concat(InputColumns)
+        columns: addTimeColumns ? i.columns.concat(EventColumns) : i.columns
       };
     }
     case RelationType.ExistingAndImmutable:
@@ -146,12 +147,15 @@ export function GetSqlTableAstFromDielAst(relation: Relation, addTimeColumns?: b
       };
     }
     // when we turn a view into a table, the table is dynamic!
+    case RelationType.DerivedTable:
+    case RelationType.View:
     case RelationType.EventView:
       const derived = relation as DerivedRelation;
+      const originalColumns = GetColumnsFromSelection(derived.selection.compositeSelections);
       let createSpec: SqlOriginalRelation = {
         relationType: SqlRelationType.DynamicTable,
         rName: relation.rName,
-        columns: GetColumnsFromSelection(derived.selection.compositeSelections)
+        columns: addTimeColumns ? originalColumns.concat(EventColumns) : originalColumns
       };
       return createSpec;
     default:
@@ -163,13 +167,19 @@ export function GetSqlTableAstFromDielAst(relation: Relation, addTimeColumns?: b
  * We need the relation, but also additional information about how it should be mapped.
  * @param relation
  */
-export function GetSqlViewAstFromDielAst(relation: Relation): SqlDerivedRelation {
+export function GetSqlDerivedRelationFromDielRelation(relation: Relation): SqlDerivedRelation {
   switch (relation.relationType) {
     case RelationType.EventTable:
     case RelationType.Table:
     case RelationType.ExistingAndImmutable:
       return LogInternalError(`Cannot make table into views`);
 
+    case RelationType.DerivedTable:
+      return {
+        rName: relation.rName,
+        relationType: SqlRelationType.StaticTable,
+        selection: (relation as DerivedRelation).selection.compositeSelections
+      };
     case RelationType.EventView:
     case RelationType.Output:
     case RelationType.DerivedTable:

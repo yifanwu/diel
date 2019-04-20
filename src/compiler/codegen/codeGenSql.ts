@@ -56,6 +56,7 @@ export function generateDrop(command: DropClause) {
 
 export function GenerateSqlRelationString(r: SqlRelation, replace = false): string | null {
   switch (r.relationType) {
+    case SqlRelationType.DynamicTable:
     case SqlRelationType.StaticTable:
       return generateTableSpec(r as SqlOriginalRelation, replace);
     case SqlRelationType.View:

@@ -71,7 +71,7 @@ interface BuiltInColumnType {
   type: DielDataType;
 }
 
-export const BuiltInColumns: BuiltInColumnType[] = [
+export const BuiltInColumnTyppes: BuiltInColumnType[] = [
   {
     column: "rowid",
     type: DielDataType.Number

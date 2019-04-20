@@ -2,10 +2,6 @@ import { DbIdType, RelationIdType, LogicalTimestep, RelationType, Relation } fro
 import { DbSetupConfig } from "./DbEngine";
 import { SqlRelation } from "../parser/sqlAstTypes";
 
-export const TIMESTEP_COlUMN_NAME = "timestep";
-
-export const REQUEST_TIMESTEP_COlUMN_NAME = "request_timestep";
-
 export type ExecutionSpec = {dbId: DbIdType, relationDef: SqlRelation}[];
 
 export interface NodeDependencyAugmented extends NodeDependency {
@@ -69,7 +65,7 @@ export interface DielRemoteMessageId {
   remoteAction: DielRemoteAction;
   relationName?: RelationIdType;
   msgId?: number; // currently only used for fullfilling promises.
-  lineage?: number;
+  requestTimestep?: number;
 }
 export interface DielRemoteReply {
   id: DielRemoteMessageId;
@@ -79,7 +75,7 @@ export interface DielRemoteReply {
 
 interface DielRemoteMessageBase {
   remoteAction: DielRemoteAction;
-  lineage: LogicalTimestep;
+  requestTimestep: LogicalTimestep;
   msgId?: number;
 }
 

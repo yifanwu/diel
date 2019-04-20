@@ -9,7 +9,8 @@ type SelectionUnitFunction<T> = (s: SelectionUnit, optional: SelectionUnitVisito
 
 export enum BuiltInColumn {
   TIMESTEP = "TIMESTEP",
-  TIMESTAMP = "TIMESTAMP"
+  TIMESTAMP = "TIMESTAMP",
+  REQUEST_TIMESTEP = "REQUEST_TIMESTEP"
 }
 
 const DerivedRelationTypes = new Set([RelationType.View, RelationType.EventView, , RelationType.Output, RelationType.DerivedTable]);

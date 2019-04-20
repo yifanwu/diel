@@ -21,6 +21,7 @@ const dbConfigs: DbSetupConfig[] = [
 
 const mainDbPath: string = null;
 
+// const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/simple.diel")];
 const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/flights-remote.diel")];
 
 export const diel = new DielRuntime({

@@ -1,6 +1,6 @@
 import { DielIr, SelectionUnitVisitorFunctionOptions } from "../DielIr";
 import { LogInternalError, ReportDielUserError, DielInternalErrorType } from "../../util/messages";
-import { DielDataType, BuiltInColumns, SelectionUnit, RelationReference, ExprType, ExprFunAst, ExprColumnAst, ExprAst, BuiltInFunc, ExprValAst, ExprParen, DerivedRelation } from "../../parser/dielAstTypes";
+import { DielDataType, BuiltInColumnTyppes, SelectionUnit, RelationReference, ExprType, ExprFunAst, ExprColumnAst, ExprAst, BuiltInFunc, ExprValAst, ExprParen, DerivedRelation } from "../../parser/dielAstTypes";
 
 export function InferType(ir: DielIr) {
   ir.ApplyToImmediateSelectionUnits(inferTypeForSelection, true);
@@ -62,7 +62,7 @@ function getTypeForExpr(ir: DielIr, expr: ExprAst, sUnit: SelectionUnit): DielDa
       }
       const cn = columnExpr.columnName;
       // case 1: check for keywords
-      const special = BuiltInColumns.filter(sc => sc.column === cn)[0];
+      const special = BuiltInColumnTyppes.filter(sc => sc.column === cn)[0];
       if (special) {
         return special.type;
       }

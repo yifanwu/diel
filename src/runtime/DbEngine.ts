@@ -90,7 +90,7 @@ export default class DbEngine {
         // we should block because if it's not ack-ed the rest of the messages cannot be processed properly
         return await this.SendMsg({
           remoteAction: DielRemoteAction.ConnectToDb,
-          lineage: INIT_TIMESTEP,
+          requestTimestep: INIT_TIMESTEP,
           buffer,
         }, true);
       case DbType.Socket:
@@ -102,7 +102,7 @@ export default class DbEngine {
           if (configSocket.message) {
             return await this.SendMsg({
               remoteAction: DielRemoteAction.ConnectToDb,
-              lineage: INIT_TIMESTEP,
+              requestTimestep: INIT_TIMESTEP,
               message: configSocket.message
             }, true);
           }
@@ -129,7 +129,7 @@ export default class DbEngine {
         const id = {
           remoteAction: updateMsg.remoteAction,
           msgId: updateMsg.msgId,
-          lineage: updateMsg.lineage,
+          requestTimestep: updateMsg.requestTimestep,
         };
         const msgToSend = this.extendMsgWithCustom({
           sql: updateMsg.sql,
@@ -156,7 +156,7 @@ export default class DbEngine {
         destinations.forEach(dbId => {
           const shipMsg: RemoteShipRelationMessage = {
             remoteAction: DielRemoteAction.ShipRelation,
-            lineage: this.currentQueueHead,
+            requestTimestep: this.currentQueueHead,
             relationName,
             dbId
           };
@@ -189,7 +189,7 @@ export default class DbEngine {
     this.sanityCheck();
     const id = {
       remoteAction: msg.remoteAction,
-      lineage: msg.lineage,
+      requestTimestep: msg.requestTimestep,
     };
     switch (msg.remoteAction) {
       case DielRemoteAction.ConnectToDb: {
@@ -218,11 +218,11 @@ export default class DbEngine {
       case DielRemoteAction.UpdateRelation: {
         const updateMsg = msg as RemoteUpdateRelationMessage;
         // push this on to the message queue
-        if (this.queueMap.has(updateMsg.lineage)) {
-          this.queueMap.get(updateMsg.lineage).received.add(updateMsg.relationName);
+        if (this.queueMap.has(updateMsg.requestTimestep)) {
+          this.queueMap.get(updateMsg.requestTimestep).received.add(updateMsg.relationName);
         } else {
-          const {deps, relationsToShip} = this.physicalExeuctionRef.getRelationsToShipForDb(this.id, msg.lineage);
-          this.queueMap.set(msg.lineage, {
+          const {deps, relationsToShip} = this.physicalExeuctionRef.getRelationsToShipForDb(this.id, msg.requestTimestep);
+          this.queueMap.set(msg.requestTimestep, {
             receivedValues: [],
             received: new Set([updateMsg.relationName]),
             relationsToShip,
@@ -230,7 +230,7 @@ export default class DbEngine {
           });
         }
         // then process
-        if ((!this.currentQueueHead) || (msg.lineage === this.currentQueueHead)) {
+        if ((!this.currentQueueHead) || (msg.requestTimestep === this.currentQueueHead)) {
           // can actually execute execute
           // figure out the dbname if it's there.
           const msgToSend = this.extendMsgWithCustom({
@@ -239,7 +239,7 @@ export default class DbEngine {
           return this.connection.send(id, msgToSend, isPromise);
         } else {
           // otherwise push on the queue
-          this.queueMap.get(msg.lineage).receivedValues.push(updateMsg);
+          this.queueMap.get(msg.requestTimestep).receivedValues.push(updateMsg);
           return null;
         }
       }
@@ -271,7 +271,7 @@ export default class DbEngine {
               remoteAction: DielRemoteAction.ShipRelation,
               relationName: t.relation,
               dbId: t.destination,
-              lineage: msg.lineage,
+              requestTimestep: msg.requestTimestep,
             };
             this.SendMsg(staticMsg);
           });
@@ -313,11 +313,11 @@ export default class DbEngine {
         }
         case DielRemoteAction.ShipRelation: {
           const view = msg.id.relationName;
-          if (!view || !msg.id.lineage) {
-            LogInternalError(`Both view and lineage should be defined for sharing views! However, I got ${JSON.stringify(msg.id, null, 2)}`);
+          if (!view || !msg.id.requestTimestep) {
+            LogInternalError(`Both view and request_timestep should be defined for sharing views! However, I got ${JSON.stringify(msg.id, null, 2)}`);
           }
           if (msg.results.length > 0) {
-            this.relationShippingCallback(view, msg.results, msg.id.lineage);
+            this.relationShippingCallback(view, msg.results, msg.id.requestTimestep);
           }
           break;
         }
@@ -375,7 +375,7 @@ export default class DbEngine {
   async getMetaData(id: DbIdType): Promise<{id: DbIdType, data: RelationObject}> {
     const promise = this.SendMsg({
       remoteAction: DielRemoteAction.GetResultsByPromise,
-      lineage: INIT_TIMESTEP, // might change later because we can load new databases later?
+      requestTimestep: INIT_TIMESTEP, // might change later because we can load new databases later?
       sql: SqliteMasterQuery
     }, true);
     const data = await promise;

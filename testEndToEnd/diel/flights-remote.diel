@@ -12,8 +12,8 @@ CREATE EVENT TABLE originSelectionEvent (
 );
 
 create output currentOriginSelection AS
-  select origin, timestep from originSelectionEvent
-    where timestep = (select max(timestep) from originSelectionEvent);
+  select origin, timestep
+  from LATEST originSelectionEvent;
 
 create event table panZoomEvent (
   minDelay number,
@@ -22,10 +22,7 @@ create event table panZoomEvent (
 
 create view currentPanZoom as 
   select minDelay, maxDelay
-  from panZoomEvent
-  where timestep = (
-      select max(timestep) from panZoomEvent
-    );
+  from LATEST panZoomEvent;
 
 create output allPastSelections AS
   select distinct origin from originSelectionEvent order by timestep;
@@ -58,7 +55,7 @@ insert into __scales (component, dimension, outputName, x, y) values ('flight', 
 create output delayDistanceByOrigin AS
   select *
   from delayDistanceByOriginEvent e
-  join currentOriginSelection s on e.lineage = s.timestep;
+  join currentOriginSelection s on e.request_timestep = s.timestep;
 
 ----------------------------------------------------------------------------------
 
@@ -116,15 +113,13 @@ create output flightDistribution AS
     delayBin,
     count,
     'all' as series
-  from flightDistributionEvent
-  where timestep = (select max(timestep) from flightDistributionEvent)
+  from LATEST flightDistributionEvent
   UNION
   select
     delayBin,
     count,
     'airport'
-  from flightDistributionByAirportEvent
-  where timestep = (select max(timestep) from flightDistributionByAirportEvent);
+  from LATEST flightDistributionByAirportEvent;
 
 -------
 
@@ -133,13 +128,12 @@ CREATE EVENT TABLE zoomScatterItx(
 );
 
 create view currentZoomScaterItx AS
-select * from zoomScatterItx
-  where timestep = (select max(timestep) from zoomScatterItx);
+select * from LATEST zoomScatterItx;
 
 insert into __scales (component, dimension, outputName, x, y) values ('flights', 2, 'delayByDistance', 'delay', 'distance');
 CREATE OUTPUT delayByDistance AS
-  select * from delayByDistanceEvent
-  where timestep = (select max(timestep) from delayByDistanceEvent);
+  select *
+  from LATEST delayByDistanceEvent;
 
 CREATE EVENT VIEW delayByDistanceEvent AS
   SELECT delay, distance
