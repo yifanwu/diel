@@ -1,24 +1,23 @@
 import { DerivedRelation, Relation } from "../../src/parser/dielAstTypes";
-import { GetAllDerivedViews } from "../../src/compiler/DielIr";
-import { GetDependenciesFromViewList, getOriginalRelationsDependedOn } from "../../src/compiler/passes/dependency";
 import { IsSetIdentical } from "../../src/util/dielUtils";
+import { ParsePlainDielAst } from "../../src/compiler/compiler";
+import { GetOriginalRelations, GetAllDerivedViews } from "../../src/compiler/DielAstGetters";
+import { GetDepTreeFromDerivedRelations, DeriveOriginalRelationsAViewDependsOn } from "../../src/compiler/passes/dependency";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
-import { getDielIr } from "../../build/src/compiler/compiler";
 
 export function testGetOriginalRelationsDependedOn() {
   const logger = GenerateUnitTestErrorLogger("testGetOriginalRelationsDependedOn", q1);
-  let ir = getDielIr(q1);
-  let ast = ir.ast;
+  let ast = ParsePlainDielAst(q1);
   const views = GetAllDerivedViews(ast);
-  const deps = GetDependenciesFromViewList(views);
+  const deps = GetDepTreeFromDerivedRelations(views);
 
   let originalRelations = [] as string[];
-  ir.GetOriginalRelations().forEach(function(value: Relation) {
+  GetOriginalRelations(ast).forEach(function(value: Relation) {
     originalRelations.push(value.rName);
   });
 
   views.forEach(function(view: DerivedRelation) {
-    let dependedTables = getOriginalRelationsDependedOn(view, deps, originalRelations);
+    let dependedTables = DeriveOriginalRelationsAViewDependsOn(deps, view.rName);
     if (!IsSetIdentical(answer.get(view.rName), dependedTables)) {
       logger.error(`Two sets are not the same.`, {expected: answer.get(view.rName), got: dependedTables});
     }

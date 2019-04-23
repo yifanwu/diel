@@ -108,7 +108,8 @@ function getColumnTypeFromCompositionSelection(s: CompositeSelection, columnName
 }
 
 // the two types are interchangeable for access purposes.
-function getColumnTypeFromRelation(relation: Relation, columnName: string): DielDataType | null {
+// exported for tests!
+export function getColumnTypeFromRelation(relation: Relation, columnName: string): DielDataType | null {
   // case 1: derived
   if (IsRelationTypeDerived(relation.relationType)) {
     return getColumnTypeFromCompositionSelection((relation as DerivedRelation).selection.compositeSelections, columnName);

@@ -1,24 +1,33 @@
-import { DependencyTree, getTopologicalOrder, NodeDependencyAugmented } from "../src/compiler/passes/passesHelper";
+import { getTopologicalOrder } from "../src/compiler/passes/passesHelper";
 import { SingleDistribution, QueryDistributionRecursiveEval } from "../src/compiler/passes/distributeQueries";
-import { RelationType, RelationIdType, DbIdType  } from "../src/parser/dielAstTypes";
+import { DbIdType, RelationNameType  } from "../src/parser/dielAstTypes";
 import { LocalDbId } from "../src/compiler/DielPhysicalExecution";
 import { BgGreen, Reset } from "../src/util/messages";
+import { DependencyTree, NodeDependencyAugmented } from "../src/runtime/runtimeTypes";
 
 export function testTopologicalSort() {
   const depTree: DependencyTree = new Map([
     ["v1", {
+      relationName: "v1",
+      isDynamic: false,
       dependsOn: ["v2"],
       isDependedBy: []
     }],
     ["v2", {
+      relationName: "v2",
+      isDynamic: false,
       dependsOn: ["v3"],
       isDependedBy: ["v1"]
     }],
     ["v3", {
+      relationName: "v3",
+      isDynamic: false,
       dependsOn: ["v4"],
       isDependedBy: ["v2"]
     }],
     ["v4", {
+      relationName: "v4",
+      isDynamic: false,
       dependsOn: [],
       isDependedBy: ["v3"]
     }],
@@ -32,37 +41,39 @@ export function testTopologicalSort() {
 
 export function testDistributionLogc() {
   // set up
-  const augmentedDep = new Map<RelationIdType, NodeDependencyAugmented>();
+  const augmentedDep = new Map<RelationNameType, NodeDependencyAugmented>();
   const depI1: NodeDependencyAugmented = {
     relationName: "i1",
     remoteId: LocalDbId,
-    relationType: RelationType.EventTable,
     dependsOn: [],
+    isDynamic: true,
     isDependedBy: ["v1"]
   };
   const depI2: NodeDependencyAugmented = {
     relationName: "i2",
     remoteId: LocalDbId,
-    relationType: RelationType.EventTable,
+    isDynamic: true,
     dependsOn: [],
     isDependedBy: ["v1"]
   };
   const depR1: NodeDependencyAugmented = {
     relationName: "r1",
     remoteId: 2,
-    relationType: RelationType.ExistingAndImmutable,
+    isDynamic: false,
     dependsOn: [],
     isDependedBy: ["v1"]
   };
   const depV1: NodeDependencyAugmented = {
     relationName: "v1",
-    relationType: RelationType.EventView,
+    remoteId: LocalDbId,
+    isDynamic: false,
     dependsOn: ["i1", "i2", "r1"],
     isDependedBy: ["o1"]
   };
   const depO1: NodeDependencyAugmented = {
     relationName: "o1",
-    relationType: RelationType.Output,
+    remoteId: LocalDbId,
+    isDynamic: false,
     dependsOn: ["i1", "i2", "r1"],
     isDependedBy: []
   };
@@ -128,11 +139,12 @@ export function testDistributionLogc() {
   console.log(`${BgGreen}Passed testDistributionLogc!${Reset}`);
 }
 
+// @LUCIE care to take a stab?
+
 export function testDistributionLogcComplex() {
   // TODO
 }
 
 export function testDependencyGraph() {
   // TODO
-  // maybe sahana?
 }

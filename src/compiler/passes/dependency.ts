@@ -126,6 +126,13 @@ export function DeriveOriginalRelationsAViewDependsOn(depTree: DependencyTree, v
   return tables;
 }
 
+export function GetDepTreeFromDerivedRelations(relations: DerivedRelation[]) {
+  const depTree = new Map<RelationNameType, NodeDependency>();
+  const isDynamic = (rName: string) => false; // dummy
+  relations.map(v => AddSingleDependency(depTree, v.selection.compositeSelections, v.rName, isDynamic));
+  return depTree;
+}
+
 // ------------- BEGIN SETTER --------------------
 export function AddDepTree(ast: DielAst) {
   const isDynamic = (rName: string) => {
