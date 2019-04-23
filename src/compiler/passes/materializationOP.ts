@@ -1,10 +1,11 @@
-import { CompositeSelection, ExprColumnAst, ColumnSelection, ExprFunAst, RelationConstraints, DerivedRelation, Relation, RelationIdType, RelationType, DielAst, OriginalRelation, Command, ProgramsIr, BuiltInUdfTypes, DeleteClause, AstType, InsertionClause, RelationSelection, ExprType, ExprAst, ExprParen, ExprRelationAst } from "../../parser/dielAstTypes";
+import { CompositeSelection, ExprColumnAst, ColumnSelection, ExprFunAst, RelationConstraints, DerivedRelation, Relation, RelationIdType, RelationType, DielAst, OriginalRelation, Command, ProgramsIr, BuiltInUdfTypes, DeleteClause, AstType, InsertionClause, RelationSelection, ExprType, ExprAst, ExprParen, ExprRelationAst, SelectionUnit, FunctionType, DielDataType } from "../../parser/dielAstTypes";
 import { DependencyTree, getTopologicalOrder, getRelationsToMateralize } from "./passesHelper";
 import { GetDependenciesFromViewList, getOriginalRelationsDependedOn } from "./dependency";
 import { GetAllDerivedViews } from "../DielIr";
 import { getEventTableFromDerived} from "./distributeQueries";
 import { DielIr } from "../DielIr";
 import { NormalizeColumnSelection } from "./normalizeColumnSelection";
+import { DataTypeContext } from "../../parser/grammar/DIELParser";
 
 export function TransformAstForMaterializationOP(ast: DielAst) {
   const views = GetAllDerivedViews(ast);
@@ -134,6 +135,7 @@ function hasAggregate(view: DerivedRelation): boolean {
 
 // change the column names to new.
 function changeColNameToNew(expr: ExprAst, tableName: string) {
+  if (!expr) return;
   let typedExpr;
   if (expr.exprType === ExprType.Column) {
     typedExpr = expr as ExprColumnAst;
@@ -168,22 +170,30 @@ function makeInsertProgramCommand(view: DerivedRelation, tableName: string): Com
     selUnit.relation.columnSelections.map(colSel => changeColNameToNew(colSel.expr, tableName));
     selUnit.relation.derivedColumnSelections.map(colSel => changeColNameToNew(colSel.expr, tableName));
 
-    // 1-3. ??? if there is a join, make the first one into a base relation?
+    // 1-3. handle join clauses.
     selUnit.relation.joinClauses.map((joinClause, index) => {
-      // ??? is this right...?
-      if (!joinClause.predicate) {
-        if (joinClause.relation.relationName === tableName) {
-          delete selUnit.relation.joinClauses[index];
-        }
+      if (joinClause.predicate) { // check all join's predcate for new
+        changeColNameToNew(joinClause.predicate, tableName);
+      }
+      if (joinClause.relation.relationName === tableName) {
+        // change join clause to where clause
+        appendToWhereClause(joinClause.predicate, selUnit.relation);
+        selUnit.relation.joinClauses.splice(index, 1); // delete
       }
     });
+
+    // 1-4. if there is a join, make the first one into a base relation?
     if (selUnit.relation.joinClauses.length > 0 && !selUnit.relation.baseRelation) {
       selUnit.relation.baseRelation = selUnit.relation.joinClauses[0].relation;
-      delete selUnit.relation.joinClauses[0];
+      // change that join clause predicate to where clause
+      appendToWhereClause(selUnit.relation.joinClauses[0].predicate, selUnit.relation);
+      selUnit.relation.joinClauses.splice(0, 1); // delete
     }
 
-    // 1-4. check for where clause for table name
+    // 1-5. check where clause for new
     changeColNameToNew(selUnit.relation.whereClause, tableName);
+
+    // ??? don't need to check for groupby, orderby since it's handled by update
   });
 
   let insertClause: InsertionClause;
@@ -197,6 +207,27 @@ function makeInsertProgramCommand(view: DerivedRelation, tableName: string): Com
     } as RelationSelection
   };
   return insertClause;
+}
+
+/**
+ * Takes in join clause and append to existing where clause
+ */
+function appendToWhereClause(joinExpr: ExprAst, selUnit: SelectionUnit) {
+  if (!joinExpr) return;
+  if (!selUnit.whereClause) {
+    // replace
+    selUnit.whereClause = joinExpr;
+  } else {
+    // append: joinExpr and (existing whereclause)
+    // ??? is this okay
+    selUnit.whereClause = {
+      exprType: ExprType.Func,
+      functionType: FunctionType.Logic,
+      functionReference: "and",
+      dataType: DielDataType.Boolean,
+      args: [joinExpr, selUnit.whereClause]
+    };
+  }
 }
 
 function makeUpdateProgramCommand(view: DerivedRelation): Command {
@@ -239,21 +270,6 @@ function translateConstraints(view: DerivedRelation, table: OriginalRelation) {
   }
 }
 
-
-/**
- * Create AST for DeleteClause
- * e.g) delete from v2;
- * @param view
- */
-function makeDeleteCommand(view: DerivedRelation): Command {
-  let deleteClause: DeleteClause;
-  deleteClause = {
-    astType: AstType.Delete,
-    relationName: view.name,
-    predicate: null
-  };
-  return deleteClause;
-}
 
 /**
  * Create AST for InsertClause
