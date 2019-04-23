@@ -1,4 +1,4 @@
-import { getDielAst } from "../../src/compiler/compiler";
+import { ParsePlainDielAst } from "../../src/compiler/compiler";
 import { DielAst } from "../../src/parser/dielAstTypes";
 import { applyLatestToAst } from "../../src/compiler/passes/syntaxSugar";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
@@ -9,7 +9,7 @@ export function assertLatestSyntax() {
   for (let test of tests) {
     let query = test[0];
     let answer = test[1];
-    let ast = getDielAst(query);
+    let ast = ParsePlainDielAst(query);
     applyLatestToAst(ast);
     compareAST(answer, ast, logger);
   }
@@ -17,7 +17,7 @@ export function assertLatestSyntax() {
 }
 
 function compareAST(q1: string, ast2: DielAst, logger: TestLogger) {
-  let ast1 = getDielAst(q1);
+  let ast1 = ParsePlainDielAst(q1);
   let pretty1 = JSON.stringify(ast1, null, 2);
   let pretty2 = JSON.stringify(ast2, null, 2);
 
