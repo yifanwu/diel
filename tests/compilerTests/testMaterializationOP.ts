@@ -36,10 +36,13 @@ export function testMaterializationOpLevel() {
 // Q: when do you update vs insert?
 // update when there is aggregate function or groupby clause
 
-// LATER:
-// if we insert, we need to create another trigger program for delete..
+// General principle for insert
+// 1. initializing insert, just copy the select statemet from the view, like in view level materialization
+// 2. for program insert,
+//    delete new table if its the base relation.
+//    make the first join relation the base relation
+//    copy the predicate of the deleted join into where clause.
 
-let q = `create view v1 as select a from t1 where (a > 10) and (a < 20);`;
 
 // 1. most basic test--insert instead of update?
 let q1 =

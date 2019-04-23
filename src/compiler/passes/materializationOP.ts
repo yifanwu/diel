@@ -7,6 +7,9 @@ import { DielIr } from "../DielIr";
 import { NormalizeColumnSelection } from "./normalizeColumnSelection";
 import { DataTypeContext } from "../../parser/grammar/DIELParser";
 
+/**
+ * Materialization in the operator level
+ */
 export function TransformAstForMaterializationOP(ast: DielAst) {
   const views = GetAllDerivedViews(ast);
   const deps = GetDependenciesFromViewList(views);
@@ -65,7 +68,7 @@ function changeASTMaterializeOP(view: DerivedRelation,
   let table = getEventTableFromDerived(view);
   table.relationType = RelationType.Table;
 
-  // 1-1. translate constraints
+  // 1-1. translate view constraints into table constraints
   translateConstraints(view, table);
   table.copyFrom = undefined;
 
@@ -91,7 +94,7 @@ function changeASTMaterializeOP(view: DerivedRelation,
     if (ast.programs.has(tname)) {
       let existingProgram = ast.programs.get(tname);
       existingProgram.push(programCommand);
-      ast.programs.set(tname, existingProgram); // replace
+      ast.programs.set(tname, existingProgram);
     } else {
       ast.programs.set(tname, [programCommand]);
     }
@@ -107,7 +110,6 @@ function changeASTMaterializeOP(view: DerivedRelation,
 /**
  * Check if the view has aggregate function or groupby clause.
  * return true if it has those.
- * @param view
  */
 function hasAggregate(view: DerivedRelation): boolean {
   let ret: boolean = false;
@@ -115,25 +117,31 @@ function hasAggregate(view: DerivedRelation): boolean {
   // for now, ast says they are "custom" functions.
   const aggregateFunc = ["sum", "min", "max", "avg", "count"];
 
-  view.selection.compositeSelections.map((selUnit) => {
+  for (let selUnit of view.selection.compositeSelections)  {
     // 1. check if it has group by clause
     if (selUnit.relation.groupByClause
       && selUnit.relation.groupByClause.selections.length > 0) {
         ret = true;
+        return ret;
     }
     // 2. check for built in functions, like count(), sum()
-    selUnit.relation.derivedColumnSelections.map((columnsel) => {
-      if (columnsel.expr.exprType === ExprType.Func) {
-        let expr = columnsel.expr as ExprFunAst;
+    for (let columnSel of selUnit.relation.derivedColumnSelections) {
+      if (columnSel.expr.exprType === ExprType.Func) {
+        let expr = columnSel.expr as ExprFunAst;
         let ref = expr.functionReference.toLowerCase();
-        ret = aggregateFunc.indexOf(ref) !== -1 ? true : ret;
+        if (aggregateFunc.indexOf(ref) !== -1) {
+          return true;
+        }
       }
-    });
-  });
+    }
+  }
   return ret;
 }
 
-// change the column names to new.
+/**
+ * Change the column names to new, if it matches the tablename.
+ * Convert nested expressions, too.
+ */
 function changeColNameToNew(expr: ExprAst, tableName: string) {
   if (!expr) return;
   let typedExpr;
@@ -154,8 +162,10 @@ function changeColNameToNew(expr: ExprAst, tableName: string) {
   }
 }
 
+/**
+ * Convert the view into a program for insert.
+ */
 function makeInsertProgramCommand(view: DerivedRelation, tableName: string): Command {
-  let viewName = view.name;
   // create a copy, as we will need the original view for creating multiple programs
   let compSel = JSON.parse(JSON.stringify(view.selection.compositeSelections)) as CompositeSelection;
 
@@ -235,8 +245,6 @@ function makeUpdateProgramCommand(view: DerivedRelation): Command {
 }
 /**
  * Translate view constraints to table constraints.
- * @param view
- * @param table
  */
 function translateConstraints(view: DerivedRelation, table: OriginalRelation) {
   if (view.constraints) {
@@ -274,7 +282,6 @@ function translateConstraints(view: DerivedRelation, table: OriginalRelation) {
 /**
  * Create AST for InsertClause
  * e.g) insert into v2 select a + 1 as aPrime from v1;
- * @param view
  */
 function makeInsertCommand(view: DerivedRelation): Command {
   let insertClause: InsertionClause;
