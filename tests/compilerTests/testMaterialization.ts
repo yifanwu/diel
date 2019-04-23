@@ -4,52 +4,35 @@ import { TransformAstForMaterialization } from "../../src/compiler/passes/materi
 import { GenerateUnitTestErrorLogger } from "../testHelper";
 import { TestLogger } from "../testTypes";
 
-let jsonDiff = require("json-diff");
-
-
 export function testMaterialization() {
+  const logger = GenerateUnitTestErrorLogger("assertBasicMaterialization");
   for (let test of tests) {
     let query = test[0];
     let answer = test[1];
-    const logger = GenerateUnitTestErrorLogger("assertBasicMaterialization", query);
-    let ast = getDielAst(query);
+    let ast = getDielIr(query).ast;
     TransformAstForMaterialization(ast);
-    compareAST(answer, ast, logger, true);
+    compareAST(answer, ast, logger);
   }
+  logger.pass();
 }
 
 
-function compareAST(query: string, ast2: DielAst, logger: TestLogger, logdiff: boolean) {
+function compareAST(query: string, ast2: DielAst, logger: TestLogger) {
   let ir1 = getDielIr(query);
   let ast1 = ir1.ast;
 
   let pretty1 = JSON.stringify(ast1, null, 2);
   let pretty2 = JSON.stringify(ast2, null, 2);
 
-  let diff = jsonDiff.diff(pretty1, pretty2);
-
-  // console.log("============ Result ==============");
-
-  // compare the programs!!!!!!!!!
   let map1 = JSON.stringify(Array.from(ast1.programs));
   let map2 = JSON.stringify(Array.from(ast2.programs));
 
   if (map1 !== map2) {
-    console.log("map1", map1);
-    console.log("map2", map2);
-    console.log("\x1b[34m Failed. Programs not the same \x1b[0m");
-    return;
+    logger.error(`${map1} is not the same as ${map2}.`);
   }
 
-  if (diff !== undefined) {
-    if (logdiff) {
-    console.log(JSON.parse(diff.__old));
-    console.log(JSON.parse(diff.__new));
-    }
-    logger.error("\x1b[34m Failed \x1b[0m");
-
-  } else {
-    logger.pass();
+  if (pretty1 !== pretty2) {
+    logger.error(`${pretty1} is not the same as ${pretty2}.`);
   }
 }
 
@@ -305,43 +288,4 @@ create output o3 as select v2Prime from v2;
 `
 ;
 
-// 8. FOR LATER! how do you handle view constraints..?
-
-let view_constraint_query = `
-create table t1 (a integer);
-
-create view v1 as
-select a + 1 as aPrime, a+2 as aPPrime from LATEST t1
-where aPrime > 10
-group by aPPrime
-order by count DESC
-limit 10;
-
-create output o1 as select aPrime from v1 where aPrime = a;
-create output o2 as select aPrime from v1 where aPrime = a;
-
-`;
-
-let view_constraint_answer = `
-create table t1 (a integer);
-
-create table v1 (aPrime integer, aPPrime integer);
-create program after (t1)
-	begin
-		delete from v1;
-    insert into v1
-        select a + 1 as aPrime, a+2 as aPPrime from LATEST t1
-        where aPrime > 10
-        group by aPPrime
-        order by count DESC
-        limit 10
-        constrain check (aPrime > 10);
-  end;
-
-create output o1 as select aPrime from v1 where aPrime = a;
-create output o2 as select aPrime from v1 where aPrime = a;
-
-`;
-
 let tests = [[q1, a1], [q2, a2], [q3, a3], [q4, a4], [q5, a5], [q6, a6], [q7, a7]];
-// let tests = [[q1, a1]];

@@ -43,6 +43,7 @@ function runTest() {
   // bind custom outputs
   diel.BindOutput("allOriginAirports", (o: RelationObject) => {
     // assert the values here!
+    console.log("bindoutput!!!", o);
   });
 
   debugger;

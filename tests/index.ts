@@ -9,7 +9,9 @@ import { assertFunctionParsing } from "./parserTests/functionTest";
 import { assertLatestSyntax } from "./compilerTests/testSyntaxSugar";
 import { codeGenBasicSQLTest } from "./sqlCodeGenTest";
 import { testGetOriginalRelationsDependedOn } from "./compilerTests/testDependency";
-
+import { testMaterializedViewConstraint } from "./compilerTests/testConstraintMaterializedView";
+import { assertCheckViewConstraintTest } from "./compilerTests/testViewConstraints";
+import { testMaterialization } from "./compilerTests/testMaterialization";
 // import { PrintCode } from "../src/util/messages";
 
 
@@ -37,6 +39,7 @@ assertLatestSyntax();
 testTopologicalSort();
 
 // @LUCIE the following test is failing
+// re: I didn't create the below test, but did you want me to take a look..?
 // assertBasicConstraints();
 codeGenBasicSQLTest();
 assertBasicOperators();
@@ -47,3 +50,7 @@ assertMultiplyType();
 const ir = getDielIr(q);
 assertBasicNormalizationOfRelation(ir, q);
 assertFunctionParsing(ir, q);
+
+testMaterializedViewConstraint();
+assertCheckViewConstraintTest();
+testMaterialization();

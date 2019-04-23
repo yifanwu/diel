@@ -1,5 +1,5 @@
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
-import { Database, Statement } from "sql.js";
+import { Database, Statement, QueryResults } from "sql.js";
 
 import { DIELLexer } from "../parser/grammar/DIELLexer";
 import { DIELParser } from "../parser/grammar/DIELParser";
@@ -12,14 +12,14 @@ import { CompileDiel, CompileDerivedAstGivenAst } from "../compiler/DielCompiler
 import { log } from "../util/dielUdfs";
 import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo } from "../util/messages";
-import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult, GenerateViewName, CaughtLocalRun } from "./runtimeHelper";
+import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult, GenerateViewName, CaughtLocalRun, convertRelationObjectToQueryResults } from "./runtimeHelper";
 import { DielPhysicalExecution, LocalDbId } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
 import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { getPlainSelectQueryAst } from "../compiler/compiler";
 import { GetSqlRelationFromAst, GetDynamicRelationsColumns } from "../compiler/codegen/SqlAstGetters";
-import { SqlOriginalRelation } from "../parser/sqlAstTypes";
+import { SqlOriginalRelation, SqlRelationType } from "../parser/sqlAstTypes";
 import { DeriveDependentRelations } from "../compiler/passes/dependency";
 import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation, BuiltInColumn } from "../compiler/DielAstGetters";
 
@@ -93,7 +93,7 @@ export default class DielRuntime {
     this.eventByTimestep = new Map();
     this.visitor = new Visitor();
     this.constraintQueries = new Map();
-    this.checkConstraints = false;
+    this.checkConstraints = true;
     this.dbEngines = new Map();
     this.runtimeOutputs = new Map();
     this.physicalMetaData = {
@@ -226,7 +226,9 @@ export default class DielRuntime {
    * Check view constraints afresh and report if broken
    */
   constraintChecking(viewName: string) {
+    // TODO. Check view constraint for nested views. currently, it only checks output view.
     console.log("toggle mode: ", this.checkConstraints);
+
     // only check if checking mode is turned on
     if (this.checkConstraints) {
       if (this.constraintQueries.has(viewName)) {
@@ -614,7 +616,7 @@ export default class DielRuntime {
   }
 
   // ------------------------ debugging related ---------------------------
-  inspectQueryResult(query: string) {
+  inspectQueryResult(query: string): QueryResults {
     let r = this.db.exec(query)[0];
     if (r) {
       console.log(r.columns.join("\t"));
@@ -624,20 +626,59 @@ export default class DielRuntime {
     } else {
       console.log("No results");
     }
+    return r;
   }
-  // used for debugging
-  reportConstraintQueryResult(query: string, viewName: string, constraint: string): boolean {
-    let r = this.db.exec(query)[0];
-    if (r) {
-      console.log(`%cConstraint Broken!\nview: ${viewName}\nconstraint: ${constraint}`, "background:red; color: white");
-      console.log(r.columns.join("\t"));
-      console.log(JSON.stringify(r.values).replace(/\],\[/g, "\n").replace("[[", "").replace("]]", "").replace(/,/g, "\t"));
-      // console.table(r.columns);
-      // console.table(r.values);
-      return true;
-    } else {
-      // console.log("No results");
-      return false;
+
+  /**
+   * Check if the view constraint query is broken. If so, report what records broke them.
+   * @param query
+   * @param viewName
+   * @param constraint
+   */
+  reportConstraintQueryResult(query: string, viewName: string, constraint: string) {
+    function reportBrokenConstraints(qr: QueryResults) {
+      if (qr) {
+        console.log(`%cConstraint Broken!\nview: ${viewName}\nconstraint: ${constraint}`, "background:red; color: white");
+        console.log(qr.columns.join("\t"));
+        console.log(JSON.stringify(qr.values).replace(/\],\[/g, "\n").replace("[[", "").replace("]]", "").replace(/,/g, "\t"));
+      }
     }
+    // 1. test if the views are already materialized!!
+
+    // 2. if not materialized, evaluate constraints
+    this.physicalExecution.sqlAstSpecPerDb.forEach((ast, id) => {
+      ast.relations.forEach((relation) => {
+        // 2-1. check which db the view is defined in.
+        // correct db only if the relatin is view, event view, output
+        if (relation.rName === viewName && relation.relationType === SqlRelationType.View) {
+              if (id === LocalDbId) {
+                // local db; execute
+                try {
+                  reportBrokenConstraints(this.db.exec(query)[0]);
+                } catch (error) {
+                  LogInternalError(`Error while running view constraint query ${query}`);
+                }
+              } else {
+                // remote db; ship the execute query
+                const remoteInstance = this.findRemoteDbEngine(id);
+                if (remoteInstance) {
+                  const executeMessage: RemoteExecuteMessage = {
+                    remoteAction: DielRemoteAction.GetResultsByPromise,
+                    requestTimestep: this.timestep,
+                    sql: query
+                  };
+                  remoteInstance.SendMsg(executeMessage, true).then((value) => {
+                    if (value.results.length > 0) {
+                      reportBrokenConstraints(convertRelationObjectToQueryResults(value.results));
+                    }
+                  });
+                } else {
+                  LogInternalError(`Remote ${id} is not found!`);
+                }
+              }
+          }
+      });
+    });
+
   }
 }

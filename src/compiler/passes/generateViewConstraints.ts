@@ -1,11 +1,11 @@
 import { DielDataType, RelationType, DerivedRelation, CompositeSelection, SelectionUnit, ColumnSelection, RelationSelection, RelationReference, GroupByAst, ExprStarAst } from "../../parser/dielAstTypes";
 import {GetSqlStringFromExpr, SqlStrFromSelectionUnit, SqlStrFromSelectionUnitBody} from "../../compiler/codegen/codeGenSql";
 import { DielAst, RelationConstraints, ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst } from "../../parser/dielAstTypes";
-
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as lexer from "../../parser/grammar/DIELLexer";
 import * as parser from "../../parser/grammar/DIELParser";
 import Visitor from "../../parser/generateAst";
+import { GetAllDerivedViews } from "../DielAstGetters";
 
 export function generateViewConstraintCheckQuery(query: string): Map<string, string[][]> {
   let ast = checkValidView(query);
@@ -43,33 +43,29 @@ export function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
   const ret = new Map<string, string[][]>();
 
   // Handling multiple view statements
-  for ( let i = 0; i < ast.relations.length; i++) {
-    let view = ast.relations[i] as DerivedRelation;
-    if (view.relationType !== RelationType.View
-        && view.relationType !== RelationType.EventView
-        && view.relationType !== RelationType.Output) {
-      continue;
-    }
+  const views = GetAllDerivedViews(ast);
+
+  for (let view of views) {
     let viewConstraint = view.constraints;
     let queries = [] as string[][];
     let selClause;
 
     // Only when there is a constraint on view
     if (viewConstraint) {
-      let composite_selections = view.selection.compositeSelections as CompositeSelection;
+      let compositeSelections = view.selection.compositeSelections as CompositeSelection;
 
       // 1. handle null constraint
-      selClause = getSelectClauseAST(composite_selections);
+      selClause = getSelectClauseAST(compositeSelections);
       let nullQueries = getNullQuery(viewConstraint, selClause);
       queries = queries.concat(nullQueries);
 
       // 2. handle unique constraint
-      selClause = getSelectClauseAST(composite_selections);
+      selClause = getSelectClauseAST(compositeSelections);
       let uniqueQueries = getUniqueQuery(viewConstraint, selClause);
       queries = queries.concat(uniqueQueries);
 
       // 3. handle check constraint
-      selClause = getSelectClauseAST(composite_selections);
+      selClause = getSelectClauseAST(compositeSelections);
       let checkQueries = getCheckQuery(viewConstraint, selClause);
       queries = queries.concat(checkQueries);
     }
@@ -163,7 +159,6 @@ function getNullQuery(viewConstraint: RelationConstraints, selUnit: SelectionUni
       let cname = notNullColumns[i];
 
 
-      // console.log(generateExpr(originalAST));
       let whichConstraint = cname + " NOT NULL";
 
       const whereClauseArg: ExprColumnAst = {
@@ -273,7 +268,6 @@ function getUniqueQuery (viewConstraints: RelationConstraints, selUnit: Selectio
   }
   return ret;
 }
-
 
 
 

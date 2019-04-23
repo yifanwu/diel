@@ -4,7 +4,7 @@ import { DependencyTree } from "../../runtime/runtimeTypes";
 import { GetColumnsFromSelection } from "./distributeQueries";
 import { SqlAst, SqlRelationType, SqlDerivedRelation, SqlRelation } from "../../parser/sqlAstTypes";
 import { LogInternalError } from "../../util/messages";
-import { Command, DeleteClause, AstType, InsertionClause, RelationSelection, RelationNameType } from "../../parser/dielAstTypes";
+import { Command, DeleteClause, AstType, InsertionClause, RelationSelection, RelationNameType, DerivedRelation, OriginalRelation, RelationConstraints } from "../../parser/dielAstTypes";
 
 /**
  * For now we wil just set the changes on all original tables
@@ -77,6 +77,43 @@ function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables:
   // since table -> view -> output order.
   let relationIndex = ast.relations.indexOf(view);
   ast.relations[relationIndex] = table;
+}
+
+/**
+ * Translate view constraints to table constraints.
+ * @param view
+ * @param table
+ */
+function translateConstraints(view: DerivedRelation, table: OriginalRelation) {
+  if (view.constraints) {
+    // 1. translate column constraints
+    table.columns.forEach(c => {
+      // 1-1. Handle NOT NULL constraint
+      if (view.constraints.notNull.indexOf(c.cName) !== -1) {
+        c.constraints.notNull = true;
+      }
+      // 1-2. Handle UNIQUE column constraint
+      view.constraints.uniques.forEach(array => {
+        if (array.length === 1 && array[0] === c.cName) {
+          c.constraints.unique = true;
+        }
+      });
+      // 1-3. No need to translate check constraints
+      // they are directly copied in step 2, at the end.
+    });
+    // 2. copy relation constraints
+    table.constraints = view.constraints;
+  } else {
+    table.constraints = {
+      relationNotNull: false,
+      relationHasOneRow: false,
+      primaryKey: [],
+      notNull: [],
+      uniques: [],
+      exprChecks: [],
+      foreignKeys: [],
+    } as RelationConstraints;
+  }
 }
 
 

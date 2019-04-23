@@ -1,6 +1,6 @@
 import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
 import { SqlAst, SqlRelationType, SqlRelation, SqlOriginalRelation, SqlDerivedRelation, TriggerAst } from "../../parser/sqlAstTypes";
-import { DropClause, AstType, DropType, Command, InsertionClause, RelationSelection, CompositeSelection, SetOperator, CompositeSelectionUnit, SelectionUnit, RelationReference, ColumnSelection, JoinType, JoinAst, ExprAst, ExprType, ExprValAst, DielDataType, ExprColumnAst, ExprRelationAst, ExprParen, ExprFunAst, FunctionType, BuiltInFunc, GroupByAst, OrderByAst, Order, Column, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, ExprStarAst } from "../../parser/dielAstTypes";
+import { DropClause, AstType, DropType, Command, InsertionClause, RelationSelection, CompositeSelection, SetOperator, CompositeSelectionUnit, SelectionUnit, RelationReference, ColumnSelection, JoinType, JoinAst, ExprAst, ExprType, ExprValAst, DielDataType, ExprColumnAst, ExprRelationAst, ExprParen, ExprFunAst, FunctionType, BuiltInFunc, GroupByAst, OrderByAst, Order, Column, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, ExprStarAst, DeleteClause } from "../../parser/dielAstTypes";
 
 // export function generateSqlFromDielAst(ast: DielAst, options?: { replace: boolean; isRemote: boolean}) {
 //   const isRemote = options ? options.isRemote ? options.isRemote : false : false;
@@ -38,6 +38,8 @@ export function generateStringFromSqlIr(sqlAst: SqlAst, replace = false): string
 
 function generateCommand(command: Command): string {
   switch (command.astType) {
+    case AstType.Delete:
+      return generateDelete(command as DeleteClause);
     case AstType.Insert:
       return generateInserts(command as InsertionClause);
     case AstType.Drop:
@@ -52,6 +54,14 @@ function generateCommand(command: Command): string {
 
 export function generateDrop(command: DropClause) {
   return `DROP ${command.dropType} ${command.dropName};`;
+}
+
+export function generateDelete(command: DeleteClause) {
+  const pred = command.predicate
+    ? `WHERE ${GetSqlStringFromExpr(command.predicate)}`
+    : ""
+    ;
+  return `DELETE FROM ${command.relationName} ${pred};`;
 }
 
 export function GenerateSqlRelationString(r: SqlRelation, replace = false): string {
