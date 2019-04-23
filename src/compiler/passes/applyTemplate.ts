@@ -1,6 +1,6 @@
 import { ReportDielUserError, LogInternalWarning, LogInternalError, DielInternalErrorType } from "../../util/messages";
-import { ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprRelationAst, OriginalRelation, JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType  } from "../../parser/dielAstTypes";
-import { DielIr } from "../DielIr";
+import { ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprRelationAst, OriginalRelation, JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType, DielAst, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery  } from "../../parser/dielAstTypes";
+import { GetAllDielDefinedOriginalRelations, GetAllDerivedViews } from "../DielAstGetters";
 
 /**
  * Find all the top level selections for:
@@ -15,10 +15,10 @@ import { DielIr } from "../DielIr";
  * - dynamicTables
  * @param ast diel ast
  */
-export function ApplyTemplates(ir: DielIr) {
+export function ApplyTemplates(ast: DielAst) {
   // note: i think the concat should be fine with modifying in place?
-  ir.GetAllDerivedViews().map(r => TryToApplyTemplate(r.selection));
-  ir.ast.crossfilters.map(x => {
+  GetAllDerivedViews(ast).map(r => TryToApplyTemplate(r.selection));
+  ast.crossfilters.map(x => {
     x.charts.map(c => {
       TryToApplyTemplate(c.predicate);
       TryToApplyTemplate(c.selection);
@@ -27,17 +27,17 @@ export function ApplyTemplates(ir: DielIr) {
 
   // defined here since it needs to access the global definition
   // and the copy pass
-  ir.GetDielDefinedOriginalRelation().map(r => TryToCopyRelationSpec(ir, r));
+  GetAllDielDefinedOriginalRelations(ast).map(r => TryToCopyRelationSpec(ast, r));
 }
 
-export function TryToCopyRelationSpec(ir: DielIr, r: OriginalRelation): void {
+export function TryToCopyRelationSpec(ast: DielAst, r: OriginalRelation): void {
   if (r.copyFrom) {
     // make sure it's not copying from itself
     if (r.copyFrom === r.rName) {
       ReportDielUserError(`You cannot copy ${r.rName} from itself!`);
     }
     // find the relation
-    const sourceRelation = ir.GetDielDefinedOriginalRelation().filter(r => r.rName === r.copyFrom);
+    const sourceRelation = GetAllDielDefinedOriginalRelations(ast).filter(r => r.rName === r.copyFrom);
     if (sourceRelation.length === 0) {
       ReportDielUserError(`The relation definition you are trying to copy from, ${r.copyFrom}, does not exist`);
     } else {
@@ -69,13 +69,16 @@ export function TryToApplyTemplate(ast: RelationSelection | JoinAst): void {
     _visitJoinAst(ast as JoinAst);
   }
 
-  function _changeString(inStr: string): string {
+  function _changeString(inStr: string | undefined): string | undefined {
     if (!inStr) {
       return inStr;
     }
     if ((inStr[0] === "{") && (inStr[inStr.length - 1] === "}")) {
       const varName = inStr.slice(1, inStr.length - 1);
-      return ast.templateSpec.get(varName);
+      const varValue = ast.templateSpec!.get(varName);
+      if (varValue) return varValue;
+      LogInternalError(`${varName} was not found`);
+      return undefined;
     } else {
       return inStr;
     }
@@ -95,8 +98,10 @@ export function TryToApplyTemplate(ast: RelationSelection | JoinAst): void {
     if (e) {
       if (e.exprType === ExprType.Column) {
         const c = e as ExprColumnAst;
-        c.columnName = _changeString(c.columnName);
-        c.relationName = _changeString(c.relationName);
+        const newCName = _changeString(c.columnName);
+        if (newCName) c.columnName = newCName;
+        const newRName = _changeString(c.relationName);
+        if (newRName) c.relationName = newRName;
       } else if (e.exprType === ExprType.Func) {
         const f = e as ExprFunAst;
         // recursive!
@@ -111,9 +116,22 @@ export function TryToApplyTemplate(ast: RelationSelection | JoinAst): void {
     }
   }
 
-  function _visitRelationReference(r: RelationReference): void {
-    r.relationName = _changeString(r.relationName);
-    if (r.subquery) _visitSelection(r.subquery);
+  function _visitRelationReference(ref: RelationReference): void {
+    switch (ref.relationReferenceType) {
+      case RelationReferenceType.Direct: {
+        const r = ref as RelationReferenceDirect;
+        r.relationName = _changeString(r.relationName);
+        return;
+      }
+      case RelationReferenceType.Subquery: {
+        const r = ref as RelationReferenceSubquery;
+        if (r.subquery) _visitSelection(r.subquery);
+        return;
+      }
+      default:
+        LogInternalError(``);
+        return;
+    }
   }
 
   function _visitJoinAst(j: JoinAst): void {
@@ -127,12 +145,14 @@ export function TryToApplyTemplate(ast: RelationSelection | JoinAst): void {
 
   function _visitCompositeSelectionUnit(ast: CompositeSelectionUnit): void {
     ast.relation.columnSelections.map(c => _visitColumnSelection(c));
-    _visitRelationReference(ast.relation.baseRelation);
-    ast.relation.joinClauses.map(j => _visitJoinAst(j));
+    if (ast.relation.baseRelation) _visitRelationReference(ast.relation.baseRelation);
+    if (ast.relation.joinClauses) ast.relation.joinClauses.map(j => _visitJoinAst(j));
     if (ast.relation.whereClause) _visitExprAst(ast.relation.whereClause);
-    ast.relation.groupByClause.selections.map(c => _visitExprAst(c));
-    if (ast.relation.groupByClause.predicate) {
-      _visitExprAst(ast.relation.groupByClause.predicate);
+    if (ast.relation.groupByClause) {
+      ast.relation.groupByClause.selections.map(c => _visitExprAst(c));
+      if (ast.relation.groupByClause.predicate) {
+        _visitExprAst(ast.relation.groupByClause.predicate);
+      }
     }
     if (ast.relation.orderByClause) ast.relation.orderByClause.map(c => _visitOrderByAst(c));
     if (ast.relation.limitClause) _visitExprAst(ast.relation.limitClause);

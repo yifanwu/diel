@@ -1,21 +1,23 @@
-import { DielIr, IsRelationTypeDerived, BuiltInColumn } from "../DielIr";
-import { OriginalRelation, RelationType, DerivedRelation, DbIdType, RelationIdType, ExprType, ExprColumnAst, Relation, Column, DielDataType, CompositeSelection } from "../../parser/dielAstTypes";
-import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
-import { NodeDependencyAugmented } from "../../runtime/runtimeTypes";
+import { BuiltInColumn, GetAllOutputs } from "../DielAstGetters";
+import { LogInternalError, DielInternalErrorType } from "../../util/messages";
+import { NodeDependencyAugmented, DependencyTree } from "../../runtime/runtimeTypes";
 import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation } from "../../parser/sqlAstTypes";
 import { LocalDbId } from "../DielPhysicalExecution";
+import { RelationNameType, DbIdType, Column, DielDataType, CompositeSelection, Relation, RelationType, OriginalRelation, DielAst } from "../../parser/dielAstTypes";
+import { DerivedRelation } from "../..";
 
 export type SingleDistribution = {
-  relationName: RelationIdType,
-  from: DbIdType,
-  to: DbIdType
+  relationName: RelationNameType,
+  // the first passes they might not be filled...
+  from: DbIdType | null,
+  to: DbIdType | null,
   // this is the relation that needs this relation being sent
-  forRelationName: RelationIdType,
-  finalOutputName: RelationIdType
+  forRelationName: RelationNameType,
+  finalOutputName: RelationNameType
 };
 
 type RecursiveEvalResult = {
-  relationName: RelationIdType,
+  relationName: RelationNameType,
   dbId: DbIdType,
 };
 
@@ -24,36 +26,41 @@ type RecursiveEvalResult = {
 export function QueryDistributionRecursiveEval(
   distributions: SingleDistribution[],
   scope: {
-    augmentedDep: Map<RelationIdType, NodeDependencyAugmented>,
+    augmentedDep: Map<RelationNameType, NodeDependencyAugmented>,
     selectRelationEvalOwner: (dbIds: Set<DbIdType>) => DbIdType,
-    outputName: RelationIdType,
+    outputName: RelationNameType,
   },
-  relationId: RelationIdType): RecursiveEvalResult {
+  relationId: RelationNameType): RecursiveEvalResult | null {
   // find where rel lives, need to access metadata, or just have it augmented with the metadata already?
   // base case
   const node = scope.augmentedDep.get(relationId);
   if (!node) {
-    LogInternalError(`Relation ${relationId} not found!`);
+    return LogInternalError(`Relation ${relationId} not found!`);
   }
   const sharedPartialDistributionObj = {
     forRelationName: node.relationName,
     finalOutputName: scope.outputName,
   };
-  if (IsRelationTypeDerived(node.relationType)) {
+
+  if (node.dependsOn.length > 0) {
     // derived, need to look at the things it needs, then decide who should own this relation
     // logic that decides the relation
-    const dependentRecResults = node.dependsOn.map(depRelation => QueryDistributionRecursiveEval(distributions, scope, depRelation));
-    const owner = node.relationType === RelationType.Output
+    const dependentRecResults = node.dependsOn
+      .map(depRelation => QueryDistributionRecursiveEval(distributions, scope, depRelation));
+    // if the results is the output
+    const owner = node.relationName === scope.outputName
       ? LocalDbId
-      : scope.selectRelationEvalOwner(new Set(dependentRecResults.map(r => r.dbId)));
+      : scope.selectRelationEvalOwner(new Set(dependentRecResults.filter(d => d).map(r => r!.dbId)));
 
     dependentRecResults.map(result => {
-      distributions.push({
-        relationName: result.relationName,
-        from: result.dbId,
-        to: owner,
-        ...sharedPartialDistributionObj
-      });
+      if (result) {
+        distributions.push({
+          relationName: result.relationName,
+          from: result.dbId,
+          to: owner,
+          ...sharedPartialDistributionObj
+        });
+      }
     });
     return {
       relationName: node.relationName,
@@ -66,6 +73,9 @@ export function QueryDistributionRecursiveEval(
       to: node.remoteId,
       ...sharedPartialDistributionObj
     });
+    if (!node.remoteId) {
+      return LogInternalError(`Node should be assinged here`);
+    }
     return {
       relationName: node.relationName,
       dbId: node.remoteId,
@@ -85,54 +95,37 @@ export function getShippingInfoFromDistributedEval() {
 
 }
 
-
 const EventColumns: Column[] = [
   {
-    name: BuiltInColumn.TIMESTEP,
-    type: DielDataType.Number,
+    cName: BuiltInColumn.TIMESTEP,
+    dataType: DielDataType.Number,
   },
   {
-    name: BuiltInColumn.REQUEST_TIMESTEP,
-    type: DielDataType.Number,
+    cName: BuiltInColumn.REQUEST_TIMESTEP,
+    dataType: DielDataType.Number,
   }
 ];
 
-export function GetColumnsFromSelection(selection: CompositeSelection): Column[] {
+export function GetColumnsFromSelection(selection: CompositeSelection): Column[] | null {
   const originalColumns = selection[0].relation.derivedColumnSelections;
   if (!originalColumns) {
     return LogInternalError(`query not normalized and cannot be distributed to main`);
   }
-  const columns = originalColumns.map(c => {
-    let columnName: string;
-    if (!c.alias) {
-      if (c.expr.exprType === ExprType.Column) {
-        columnName = (c.expr as ExprColumnAst).columnName;
-      } else {
-        ReportDielUserError(`Must specify alias for view columns if they are not colume selections!
-        You did not for ${JSON.stringify(c, null, 2)}, with column ${JSON.stringify(c, null, 2)}`);
-      }
-    } else {
-      columnName = c.alias;
-    }
-    if (!c.expr.dataType) {
-      LogInternalError(`Didn't specify the data type!`);
-    }
-    // FIXME: think about constraints
-    return {
-      name: columnName,
-      type: c.expr.dataType,
-    };
-  });
+  const columns = originalColumns.map(c => ({
+    cName: c.alias,
+    type: c.expr.dataType,
+  }));
   return columns;
 }
 
-export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTimeColumns?: boolean): SqlOriginalRelation {
+export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTimeColumns?: boolean): SqlOriginalRelation | null {
   switch (relation.relationType) {
     // when we turn an event into a table, the table is dynamic!
     case RelationType.EventTable: {
       const i = relation as OriginalRelation;
       return {
-        relationType: SqlRelationType.DynamicTable,
+        relationType: SqlRelationType.Table,
+        isDynamic: true,
         rName: i.rName,
         columns: addTimeColumns ? i.columns.concat(EventColumns) : i.columns
       };
@@ -141,7 +134,7 @@ export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTi
     case RelationType.Table: {
       const i = relation as OriginalRelation;
       return {
-        relationType: SqlRelationType.StaticTable,
+        relationType: SqlRelationType.Table,
         rName: i.rName,
         columns: i.columns
       };
@@ -152,8 +145,12 @@ export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTi
     case RelationType.EventView:
       const derived = relation as DerivedRelation;
       const originalColumns = GetColumnsFromSelection(derived.selection.compositeSelections);
+      if (!originalColumns) {
+        return LogInternalError(`Original columns not defined for ${relation.rName}`);
+      }
       let createSpec: SqlOriginalRelation = {
-        relationType: SqlRelationType.DynamicTable,
+        relationType: SqlRelationType.Table,
+        isDynamic: true,
         rName: relation.rName,
         columns: addTimeColumns ? originalColumns.concat(EventColumns) : originalColumns
       };
@@ -167,7 +164,7 @@ export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTi
  * We need the relation, but also additional information about how it should be mapped.
  * @param relation
  */
-export function GetSqlDerivedRelationFromDielRelation(relation: Relation): SqlDerivedRelation {
+export function GetSqlDerivedRelationFromDielRelation(relation: Relation): SqlDerivedRelation | null {
   switch (relation.relationType) {
     case RelationType.EventTable:
     case RelationType.Table:
@@ -177,7 +174,7 @@ export function GetSqlDerivedRelationFromDielRelation(relation: Relation): SqlDe
     case RelationType.DerivedTable:
       return {
         rName: relation.rName,
-        relationType: SqlRelationType.StaticTable,
+        relationType: SqlRelationType.Table,
         selection: (relation as DerivedRelation).selection.compositeSelections
       };
     case RelationType.EventView:
@@ -198,9 +195,15 @@ export function GetSqlDerivedRelationFromDielRelation(relation: Relation): SqlDe
 
 // only create tables for what outputs depend on
 // and intersect that too, just just onestep is fine
-export function findOutputDep(ir: DielIr) {
-  const depTree = ir.dependencies.depTree;
+export function findOutputDep(ast: DielAst, depTree: DependencyTree) {
   const outputDep = new Set<string>();
-  ir.GetOutputs().map(o => depTree.get(o.rName).dependsOn.map(d => outputDep.add(d)));
+  GetAllOutputs(ast).map(o => {
+    const dep = depTree.get(o.rName);
+    if (dep) {
+      dep.dependsOn.map(d => outputDep.add(d));
+    } else {
+      LogInternalError(`Dep for ${o.rName} not found`, DielInternalErrorType.RelationNotFound);
+    }
+  });
   return outputDep;
 }

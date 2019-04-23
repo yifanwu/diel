@@ -1,16 +1,19 @@
-import { RelationIdType, Command, DeleteClause, AstType, InsertionClause, RelationSelection } from "../../parser/dielAstTypes";
 import { getTopologicalOrder } from "./passesHelper";
-import { GetOriginalRelationsAViewDependsOn, GetDependenciesFromSqlViewList } from "./dependency";
+import { DeriveOriginalRelationsAViewDependsOn, DeriveDepTreeFromSqlRelations } from "./dependency";
 import { DependencyTree } from "../../runtime/runtimeTypes";
 import { GetColumnsFromSelection } from "./distributeQueries";
 import { SqlAst, SqlRelationType, SqlDerivedRelation, SqlRelation } from "../../parser/sqlAstTypes";
+import { LogInternalError } from "../../util/messages";
+import { Command, DeleteClause, AstType, InsertionClause, RelationSelection, RelationNameType } from "../../parser/dielAstTypes";
 
 /**
  * For now we wil just set the changes on all original tables
  * @param ast
  */
 export function TransformAstForMaterialization(ast: SqlAst) {
-  const deps = GetDependenciesFromSqlViewList(ast.relations.filter(r => r.relationType === SqlRelationType.View) as SqlDerivedRelation[]);
+  const dynamic = new Set(ast.relations.filter(r => r.isDynamic).map(r => r.rName));
+  const views = ast.relations.filter(r => r.relationType === SqlRelationType.View) as SqlDerivedRelation[];
+  const deps = DeriveDepTreeFromSqlRelations(views, dynamic);
 
   // get topo order
   const topoOrder = getTopologicalOrder(deps);
@@ -25,8 +28,12 @@ export function TransformAstForMaterialization(ast: SqlAst) {
   topoOrder.forEach(relation => {
     if (toMaterialize.indexOf(relation) !== -1) {
       const view = getRelationDef(relation);
-      originalTables = GetOriginalRelationsAViewDependsOn(view.rName, deps);
-      materializeAView(view as SqlDerivedRelation, ast, originalTables);
+      if (!view) {
+        LogInternalError(`${relation} was not found!`);
+      } else {
+        originalTables = DeriveOriginalRelationsAViewDependsOn(deps, view.rName);
+        materializeAView(view as SqlDerivedRelation, ast, originalTables);
+      }
     }
   });
 }
@@ -35,11 +42,15 @@ export function TransformAstForMaterialization(ast: SqlAst) {
  * Change the derived view ast into program ast in place
  */
 function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables: Set<string>) {
-
+  const columns = GetColumnsFromSelection(view.selection);
+  if (!columns) {
+    LogInternalError(`Columsn for ${view.selection} undefined`);
+    return;
+  }
   let table = {
-    relationType: SqlRelationType.StaticTable,
+    relationType: SqlRelationType.Table,
     rName: view.rName,
-    columns: GetColumnsFromSelection(view.selection)
+    columns
   };
 
   // 2. make a program ast
@@ -66,8 +77,6 @@ function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables:
   // since table -> view -> output order.
   let relationIndex = ast.relations.indexOf(view);
   ast.relations[relationIndex] = table;
-  // ast.relations.splice(relationIndex, 1);
-  // ast.relations.splice(numTables, 0, table);
 }
 
 
@@ -81,7 +90,7 @@ function makeDeleteCommand(viewName: string): Command {
   deleteClause = {
     astType: AstType.Delete,
     relationName: viewName,
-    predicate: null
+    predicate: undefined
   };
   return deleteClause;
 }
@@ -112,8 +121,8 @@ function makeInsertCommand(view: SqlDerivedRelation): Command {
  * t1 -> v1 - o2
  * @param ast
  */
-function getRelationsToMateralize(depTree: DependencyTree, getRelationDef: (rName: RelationIdType) => SqlRelation): string[] {
-  let toMAterialize: RelationIdType[] = [];
+function getRelationsToMateralize(depTree: DependencyTree, getRelationDef: (rName: RelationNameType) => SqlRelation | undefined ): string[] {
+  let toMAterialize: RelationNameType[] = [];
   depTree.forEach((nodeDep, relationName) => {
     const rDef = getRelationDef(relationName);
     if (rDef && (rDef.relationType === SqlRelationType.View)) {

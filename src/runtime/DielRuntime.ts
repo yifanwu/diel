@@ -5,20 +5,23 @@ import { DIELLexer } from "../parser/grammar/DIELLexer";
 import { DIELParser } from "../parser/grammar/DIELParser";
 
 import { DielRemoteAction, RelationObject, DielConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, ExecutionSpec, } from "./runtimeTypes";
-import { OriginalRelation, DerivedRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationIdType } from "../parser/dielAstTypes";
-import { generateSelectionUnit, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst, GenerateSqlRelationString } from "../compiler/codegen/codeGenSql";
+import { OriginalRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationNameType, DerivedRelation, DielAst } from "../parser/dielAstTypes";
+import { SqlStrFromSelectionUnit, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst, GenerateSqlRelationString } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
-import { CompileDiel, CompileDerivedAstGivenIr } from "../compiler/DielCompiler";
+import { CompileDiel, CompileDerivedAstGivenAst } from "../compiler/DielCompiler";
 import { log } from "../util/dielUdfs";
 import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo } from "../util/messages";
-import { DielIr } from "../compiler/DielIr";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult, GenerateViewName, CaughtLocalRun } from "./runtimeHelper";
 import { DielPhysicalExecution, LocalDbId } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
 import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { getPlainSelectQueryAst } from "../compiler/compiler";
+import { GetSqlRelationFromAst, GetDynamicRelationsColumns } from "../compiler/codegen/SqlAstGetters";
+import { SqlOriginalRelation } from "../parser/sqlAstTypes";
+import { DeriveDependentRelations } from "../compiler/passes/dependency";
+import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation } from "../compiler/DielAstGetters";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
@@ -59,13 +62,13 @@ export type RelationShippingFuncType = (view: string, o: RelationObject, request
 
 export default class DielRuntime {
   timestep: LogicalTimestep;
-  eventByTimestep: Map<LogicalTimestep, RelationIdType>;
-  ir: DielIr;
+  eventByTimestep: Map<LogicalTimestep, RelationNameType>;
+  ast: DielAst;
   physicalExecution: DielPhysicalExecution;
   dbEngines: Map<DbIdType, DbEngine>;
   physicalMetaData: PhysicalMetaData;
   config: DielConfig;
-  staticRelationsSent: Set<RelationIdType>;
+  staticRelationsSent: Set<RelationNameType>;
   db: Database;
   scales: RelationObject;
   visitor: Visitor;
@@ -73,6 +76,7 @@ export default class DielRuntime {
   checkConstraints: boolean;
   protected boundFns: TickBind[];
   protected runtimeOutputs: Map<string, Statement>;
+  private runtimeEvents: Map<string, (d: RelationObject) => string>
 
   constructor(config: DielConfig) {
     if (typeof window !== "undefined") {
@@ -107,7 +111,7 @@ export default class DielRuntime {
     return this.eventByTimestep.get(timestep);
   }
 
-  public BindOutput(outputName: string, reactFn: ReactFunc) {
+  public BindOutput(outputName: string, reactFn: ReactFunc): void {
     if (!this.runtimeOutputs.has(outputName)) {
       ReportUserRuntimeError(`output not defined ${outputName}, from current outputs of: [${Array.from(this.runtimeOutputs.keys()).join(", ")}]`);
     }
@@ -119,19 +123,20 @@ export default class DielRuntime {
     // static triggers should be done just once...
     if (staticTriggers && (staticTriggers.length > 0)) {
       console.log(`Sending triggers for async static output: ${outputName}`, staticTriggers);
-        staticTriggers.map(t => {
-          if (this.staticRelationsSent.has(t.relation)) {
-            return; // skip
-          }
+        for (let i = 0; i < staticTriggers.length; i++) {
+          const t = staticTriggers[i];
+          if (this.staticRelationsSent.has(t.relation)) continue;
           const msg: RemoteShipRelationMessage = {
             remoteAction: DielRemoteAction.ShipRelation,
             relationName: t.relation,
             dbId: t.dbId,
             requestTimestep: INIT_TIMESTEP
           };
-          this.findRemoteDbEngine(t.dbId).SendMsg(msg);
+          const rDb = this.findRemoteDbEngine(t.dbId);
+          if (!rDb) return LogInternalError(`${t.dbId} not found`);
+          rDb.SendMsg(msg);
           this.staticRelationsSent.add(t.relation);
-      });
+      }
     }
   }
 
@@ -158,20 +163,16 @@ export default class DielRuntime {
     this.newInputHelper(i, [o], requestTimestep);
   }
 
+  // also cache parts of the logic
   // FIXME: use AST instead of string manipulation...
   private newInputHelper(eventName: string, objs: any[], requestTimestep: number) {
     this.timestep++;
     this.eventByTimestep.set(this.timestep, eventName);
-    let columnNames: string[] = [];
-    const eventDefinition = this.ir.GetEventByName(eventName);
-    if (eventDefinition) {
-      if (eventDefinition.relationType === RelationType.EventTable) {
-        columnNames = (eventDefinition as OriginalRelation).columns.map(c => c.name);
-      } else {
-        columnNames = (eventDefinition as DerivedRelation)
-          .selection.compositeSelections[0]
-          .relation.derivedColumnSelections.map(c => c.alias);
-      }
+    // we should get the definition from the local SQL definitions...
+    const localSqlAst = this.physicalExecution.getAstFromDbId(LocalDbId);
+    const sqlRelation = GetSqlRelationFromAst(localSqlAst, eventName);
+    if (!sqlRelation) return ReportUserRuntimeError(`Event ${eventName} is not defined`);
+    const columnNames = GetDynamicRelationsColumns(sqlRelation as SqlOriginalRelation);
       const values = objs.map(o => {
         return columnNames.map(cName => {
           const raw = o[cName];
@@ -195,16 +196,16 @@ export default class DielRuntime {
       LogInfo(`Tick\n${finalQuery + allInputQuery}`);
       this.db.exec(finalQuery + allInputQuery);
 
-      const inputDep = this.ir.dependencies.inputDependenciesOutput.get(eventName);
+      const inputDep = DeriveDependentRelations(this.ast.depTree, eventName);
+      if (!inputDep) {
+        return LogInternalWarning(`Input ${eventName} as not dependencies`);
+      }
       this.boundFns.map(b => {
         if (inputDep.has(b.outputName)) {
           this.runOutput(b);
         }
       });
       this.shipWorkerInput(eventName, this.timestep);
-    } else {
-      ReportUserRuntimeError(`Event ${eventName} is not defined`);
-    }
   }
 
   /**
@@ -221,17 +222,6 @@ export default class DielRuntime {
     return;
   }
 
-  // tick() {
-  //   const boundFns = this.boundFns;
-  //   const runOutput = this.runOutput;
-  //   const dependencies = this.ir.dependencies.inputDependenciesOutput;
-  //   const shipWorkerInput = this.shipWorkerInput;
-  //   return (input: string, step: LogicalTimestep) => {
-  //     // note for Lucie: add constraint checking
-  //     console.log(`%c tick ${input}`, "color: blue");
-  //   };
-  // }
-
   /**
    * Check view constraints afresh and report if broken
    */
@@ -239,14 +229,15 @@ export default class DielRuntime {
     console.log("toggle mode: ", this.checkConstraints);
     // only check if checking mode is turned on
     if (this.checkConstraints) {
-      console.log(this.constraintQueries);
       if (this.constraintQueries.has(viewName)) {
         let queryObject = this.constraintQueries.get(viewName);
-        let queries = queryObject.queries;
-        // run the entire constraint quries for that view
-        queries.map(ls => {
-          this.reportConstraintQueryResult(ls[0], viewName, ls[1]);
-        });
+        if (queryObject) {
+          let queries = queryObject.queries;
+          // run the entire constraint quries for that view
+          queries.map(ls => {
+            this.reportConstraintQueryResult(ls[0], viewName, ls[1]);
+          });
+        }
       }
     }
   }
@@ -264,7 +255,7 @@ export default class DielRuntime {
     }
   }
 
-  simpleGetLocal(view: string): RelationObject {
+  simpleGetLocal(view: string): RelationObject | null {
     const s = this.runtimeOutputs.get(view);
     if (s) {
       s.bind({});
@@ -275,10 +266,10 @@ export default class DielRuntime {
       if (r.length > 0) {
         return r;
       } else {
-        ReportUserRuntimeWarning(`${view} did not return any results.`);
+        return ReportUserRuntimeWarning(`${view} did not return any results.`);
       }
     } else {
-      ReportUserRuntimeError(`${view} does not exist.`);
+      return ReportUserRuntimeError(`${view} does not exist.`);
     }
     return null;
   }
@@ -289,9 +280,9 @@ export default class DielRuntime {
     await this.setupRemotes();
     await this.initialCompile();
     this.setupUDFs();
-    this.physicalExecution = new DielPhysicalExecution(this.ir, this.physicalMetaData, this.getEventByTimestep.bind(this));
+    this.physicalExecution = new DielPhysicalExecution(this.ast, this.physicalMetaData, this.getEventByTimestep.bind(this));
     await this.executeToDBs();
-    this.ir.GetOutputs().map(o => this.setupNewOutput(o));
+    GetAllOutputs(this.ast).map(o => this.setupNewOutput(o));
     this.scales = ParseSqlJsWorkerResult(this.db.exec("select * from __scales"));
     loadPage();
   }
@@ -344,7 +335,7 @@ export default class DielRuntime {
     const p = new DIELParser(new CommonTokenStream(new DIELLexer(inputStream)));
     const tree = p.queries();
     let ast = this.visitor.visitQueries(tree);
-    this.ir = CompileDiel(new DielIr(ast));
+    this.ast = CompileDiel(ast);
 
     // get sql for views constraints
     checkViewConstraint(ast).forEach((queries: string[][], viewName: string) => {
@@ -416,7 +407,8 @@ export default class DielRuntime {
         // if (!rDef.columns) {
         //   LogInternalError(`Columns for ${t.relation} not defined, it looks like ${JSON.stringify(rDef, null, 2)}`);
         // }
-        const columns = this.ir.GetColumnsFromRelationName(t.relation);
+        const rDef = GetRelationDef(this.ast, t.relation);
+        const columns = DeriveColumnsFromRelation(rDef);
         const shareQuery = `select ${columns.map(c => c.columnName).join(", ")} from ${t.relation}`;
         let tableRes = this.db.exec(shareQuery)[0];
         if ((!tableRes) || (!tableRes.values)) {
@@ -488,7 +480,7 @@ export default class DielRuntime {
    * returns the results as an array of objects (sql.js)
    */
   ExecuteSqlAst(ast: SelectionUnit): RelationObject {
-    const queryString = generateSelectionUnit(ast);
+    const queryString = SqlStrFromSelectionUnit(ast);
     return this.ExecuteStringQuery(queryString);
   }
 
@@ -515,7 +507,8 @@ export default class DielRuntime {
             requestTimestep: INIT_TIMESTEP,
             sql: sqlStr,
           };
-          promises.push(remoteInstance.SendMsg(msg, true));
+          const mPromise = remoteInstance.SendMsg(msg, true);
+          promises.push(mPromise);
         }
       }
     });
@@ -550,7 +543,8 @@ export default class DielRuntime {
               requestTimestep: INIT_TIMESTEP,
               sql,
             };
-            promises.push(remoteInstance.SendMsg(msg, true));
+            const mPromise = remoteInstance.SendMsg(msg, true);
+            if (mPromise) promises.push(mPromise);
           }
           const deleteQueryAst = generateCleanUpAstFromSqlAst(ast);
           const deleteQueries = deleteQueryAst.map(d => generateDrop(d)).join("\n");
@@ -614,9 +608,9 @@ export default class DielRuntime {
    * #OPTIMIZE: In the future, we can skip some of the compiling steps if its already normalized
    */
   public async AddViewByAst(derived: DerivedRelation) {
-    const compiledAst = CompileDerivedAstGivenIr(this.ir, derived);
+    const compiledAst = CompileDerivedAstGivenAst(this.ast, derived);
     const instructions = this.physicalExecution.GetInstructionsToAddOutput(compiledAst);
-    await this.incrementalExecuteToDb(instructions);
+    if (instructions) await this.incrementalExecuteToDb(instructions);
   }
 
   // ------------------------ debugging related ---------------------------

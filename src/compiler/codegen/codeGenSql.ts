@@ -1,6 +1,6 @@
-import { ExprAst, ExprType, ExprValAst, ExprColumnAst, ExprRelationAst, ExprFunAst, FunctionType, BuiltInFunc, ExprParen, DielDataType, DielAst, Command, Column, CompositeSelectionUnit, InsertionClause, RelationSelection, JoinAst, SelectionUnit, ColumnSelection, OrderByAst, RelationReference, SetOperator, JoinType, AstType, Order, GroupByAst, DropClause, DropType } from "../../parser/dielAstTypes";
 import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
 import { SqlAst, SqlRelationType, SqlRelation, SqlOriginalRelation, SqlDerivedRelation, TriggerAst } from "../../parser/sqlAstTypes";
+import { DropClause, AstType, DropType, Command, InsertionClause, RelationSelection, CompositeSelection, SetOperator, CompositeSelectionUnit, SelectionUnit, RelationReference, ColumnSelection, JoinType, JoinAst, ExprAst, ExprType, ExprValAst, DielDataType, ExprColumnAst, ExprRelationAst, ExprParen, ExprFunAst, FunctionType, BuiltInFunc, GroupByAst, OrderByAst, Order, Column, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, ExprStarAst } from "../../parser/dielAstTypes";
 
 // export function generateSqlFromDielAst(ast: DielAst, options?: { replace: boolean; isRemote: boolean}) {
 //   const isRemote = options ? options.isRemote ? options.isRemote : false : false;
@@ -14,7 +14,7 @@ export function generateCleanUpAstFromSqlAst(ast: SqlAst): DropClause[] {
   // triggers etc.
   const tables = ast.relations.map(r => ({
     astType: AstType.Drop,
-    dropType: r.relationType === SqlRelationType.StaticTable ? DropType.Table : DropType.View,
+    dropType: r.relationType === SqlRelationType.Table ? DropType.Table : DropType.View,
     dropName: r.rName
   }));
 
@@ -31,12 +31,12 @@ export function generateStringFromSqlIr(sqlAst: SqlAst, replace = false): string
   // if remoteType is server, then we need to drop the old ones if we want to make a new one
   // we need to architect this properly to scale, but a quick fix for now
   const relations = sqlAst.relations.map(t => GenerateSqlRelationString(t, replace));
-  let triggers = sqlAst.triggers.map(t => generateTrigger(t, replace));
+  let triggers = sqlAst.triggers.map(t => generateTrigger({ trigger: t, replace }));
   let commands = sqlAst.commands.map(c => generateCommand(c));
   return relations.concat(triggers).concat(commands);
 }
 
-function generateCommand(command: Command) {
+function generateCommand(command: Command): string {
   switch (command.astType) {
     case AstType.Insert:
       return generateInserts(command as InsertionClause);
@@ -46,7 +46,7 @@ function generateCommand(command: Command) {
       return generateSelect((command as RelationSelection).compositeSelections);
     default:
       LogInternalError(`Other AstTypes ${command.astType} not handled`, DielInternalErrorType.UnionTypeNotAllHandled);
-      return null;
+      return "";
   }
 }
 
@@ -54,15 +54,15 @@ export function generateDrop(command: DropClause) {
   return `DROP ${command.dropType} ${command.dropName};`;
 }
 
-export function GenerateSqlRelationString(r: SqlRelation, replace = false): string | null {
+export function GenerateSqlRelationString(r: SqlRelation, replace = false): string {
   switch (r.relationType) {
-    case SqlRelationType.DynamicTable:
-    case SqlRelationType.StaticTable:
+    case SqlRelationType.Table:
       return generateTableSpec(r as SqlOriginalRelation, replace);
     case SqlRelationType.View:
       return generateSqlViews(r as SqlDerivedRelation, replace);
     default:
-      return LogInternalError("Not all Sql relation types are handled", DielInternalErrorType.UnionTypeNotAllHandled);
+      LogInternalError("Not all Sql relation types are handled", DielInternalErrorType.UnionTypeNotAllHandled);
+      return "";
   }
 }
 
@@ -83,8 +83,8 @@ export function generateSqlViews(v: SqlDerivedRelation, replace = false): string
   `;
 }
 
-export function generateSelect(v: CompositeSelectionUnit[]): string {
-  return v.map(c => generateCompositeSelectionUnit(c)).join("\n");
+export function generateSelect(v: CompositeSelection): string {
+  return v.map(c => GetSqlStringFromCompositeSelectionUnit(c)).join("\n");
 }
 
 const setOperatorToString = new Map([
@@ -95,61 +95,56 @@ const setOperatorToString = new Map([
   [SetOperator.INTERSECT, "INTERSECT"],
 ]);
 
-export function generateCompositeSelectionUnit(c: CompositeSelectionUnit): string {
+export function GetSqlStringFromCompositeSelectionUnit(c: CompositeSelectionUnit): string {
   const op = setOperatorToString.get(c.op);
-  const query = generateSelectionUnit(c.relation);
+  const query = SqlStrFromSelectionUnit(c.relation);
   // the replace is a temporay patch to make the results look better
   return `${op} ${query}`.replace(/  \n[  \n]+/g, " ");
 }
 
-export function generateSelectionUnit(v: SelectionUnit): string {
-  const selection = generateColumnSelection(v.columnSelections);
+export function SqlStrFromSelectionUnit(v: SelectionUnit): string {
+  const selection = generateColumnSelection(v.derivedColumnSelections);
   // const selection = original
   //   ? generateColumnSelection(v.columnSelections)
     // : generateColumnSelection(v.derivedColumnSelections)
     // ;
   return `SELECT ${v.isDistinct ? "DISTINCT" : ""} ${selection}
-    ${generateSelectionUnitBody(v)}
+    ${SqlStrFromSelectionUnitBody(v)}
   `;
 }
-
-/** For view constraint composite selection */
-export function generateViewConstraintSelection(v: SelectionUnit): string {
-  let ret = `SELECT ${generateColumnSelection(v.columnSelections)}
-  FROM
-  (
-    ${generateSelectionUnit(v.baseRelation.subquery.compositeSelections[0].relation)}
-  )
-  ${generateWhere(v.whereClause)}
-  ${generateGroupBy(v.groupByClause)}`;
-  return ret;
-}
-
 
 /**
  * this is exported so that the codeDiv can use it
  * need to be cleaner for the future
  * @param v
  */
-export function generateSelectionUnitBody(v: SelectionUnit) {
-  return `${v.baseRelation ? `FROM ${generateRelationReference(v.baseRelation)}` : ""}
+export function SqlStrFromSelectionUnitBody(v: SelectionUnit) {
+  const w = (v.whereClause) ? generateWhere(v.whereClause) : "";
+  return `${v.baseRelation ? `FROM ${SqlStrFromRelationReference(v.baseRelation)}` : ""}
   ${v.joinClauses ? v.joinClauses.map(j => generateJoin(j)).join("\n") : ""}
-  ${generateWhere(v.whereClause)}
+  ${w}
   ${generateGroupBy(v.groupByClause)}
   ${generateOrderBy(v.orderByClause)}
   ${generateLimit(v.limitClause)}`;
 }
 
-export function generateRelationReference(r: RelationReference): string {
+export function SqlStrFromRelationReference(ref: RelationReference): string {
   // here there will be no stars..
   let query = "";
-  if (r.relationName) {
-    query += r.relationName;
-  } else {
-    query += `(${generateSelect(r.subquery.compositeSelections)})`;
+  switch (ref.relationReferenceType) {
+    case RelationReferenceType.Direct: {
+      const r = ref as RelationReferenceDirect;
+      query += r.relationName;
+    }
+    case RelationReferenceType.Subquery: {
+      const r = ref as RelationReferenceSubquery;
+      query += `(${generateSelect(r.subquery.compositeSelections)})`;
+    }
+    default:
+      LogInternalError(``);
   }
-  if (r.alias) {
-    query += ` AS ${r.alias}`;
+  if (ref.alias) {
+    query += ` AS ${ref.alias}`;
   }
   return query;
 }
@@ -165,7 +160,7 @@ function generateColumnSelection(s: ColumnSelection[]): string {
   }
   return `${s.map(c => {
     const alias = c.alias ? ` AS ${c.alias}` : "";
-    return generateExpr(c.expr) + alias;
+    return GetSqlStringFromExpr(c.expr) + alias;
   }).join(", ")}`;
 }
 
@@ -179,19 +174,19 @@ function generateJoin(j: JoinAst): string {
   if (!j) return "";
   const op = joinOpToString.get(j.joinType);
   const pred = j.predicate
-    ? `ON ${generateExpr(j.predicate)}`
+    ? `ON ${GetSqlStringFromExpr(j.predicate)}`
     : ""
     ;
-  return `${op} ${generateRelationReference(j.relation)} ${pred}`;
+  return `${op} ${SqlStrFromRelationReference(j.relation)} ${pred}`;
 }
 
-function generateWhere(e: ExprAst): string {
+function generateWhere(e: ExprAst | undefined): string {
   if (!e) return "";
-  return `WHERE ${generateExpr(e)}`;
+  return `WHERE ${GetSqlStringFromExpr(e)}`;
 }
 
 // recursive fun...
-export function generateExpr(e: ExprAst): string {
+export function GetSqlStringFromExpr(e: ExprAst): string | null {
   switch (e.exprType) {
     case ExprType.Val:
       const v = e as ExprValAst;
@@ -200,19 +195,22 @@ export function generateExpr(e: ExprAst): string {
         return `'${str}'`;
       }
       return str;
-    case ExprType.Column:
+    case ExprType.Star: {
+      const s = e as ExprStarAst;
+      const prefix = s.relationName ? `${s.relationName}.` : "";
+      return `${prefix}*`;
+    }
+    case ExprType.Column: {
       const c = e as ExprColumnAst;
       const prefix = c.relationName ? `${c.relationName}.` : "";
-      if (c.hasStar) {
-        return `${prefix}*`;
-      }
       return `${prefix}${c.columnName}`;
+    }
     case ExprType.Relation:
       const r = e as ExprRelationAst;
       return `(${generateSelect(r.selection.compositeSelections)})`;
     case ExprType.Parenthesis:
       const p = e as ExprParen;
-      return `(${generateExpr(p.content)})`;
+      return `(${GetSqlStringFromExpr(p.content)})`;
     case ExprType.Func:
       const f = e as ExprFunAst;
       // this is functions
@@ -224,15 +222,15 @@ export function generateExpr(e: ExprAst): string {
           if (f.args.length !== 2) {
             ReportDielUserError(`Function ${f.functionReference} should have 2 arguemnts`);
           }
-          return `${generateExpr(f.args[0])} ${f.functionReference} ${generateExpr(f.args[1])}`;
+          return `${GetSqlStringFromExpr(f.args[0])} ${f.functionReference} ${GetSqlStringFromExpr(f.args[1])}`;
         case FunctionType.BuiltIn:
           switch (f.functionReference) {
             case BuiltInFunc.ConcatStrings:
-              return f.args.map(a => generateExpr(a)).join(" || ");
+              return f.args.map(a => GetSqlStringFromExpr(a)).join(" || ");
             case BuiltInFunc.IfThisThen:
-              const whenCond = generateExpr(f.args[0]);
-              const thenExpr = generateExpr(f.args[1]);
-              const elseExpr = generateExpr(f.args[2]);
+              const whenCond = GetSqlStringFromExpr(f.args[0]);
+              const thenExpr = GetSqlStringFromExpr(f.args[1]);
+              const elseExpr = GetSqlStringFromExpr(f.args[2]);
               return `CASE WHEN ${whenCond} THEN ${thenExpr} ELSE ${elseExpr} END`;
             case BuiltInFunc.ValueIsNotNull:
             case BuiltInFunc.ValueIsNull:
@@ -240,13 +238,13 @@ export function generateExpr(e: ExprAst): string {
               if (f.args.length !== 1) {
                 LogInternalError(`Is or Not Null filters should only have one argument`);
               }
-              return `${generateExpr(f.args[0])} ${f.functionReference}`;
+              return `${GetSqlStringFromExpr(f.args[0])} ${f.functionReference}`;
             default:
               // the rest should work with their references
-              return `${f.functionReference} (${f.args.map(a => generateExpr(a)).join(", ")})`;
+              return `${f.functionReference} (${f.args.map(a => GetSqlStringFromExpr(a)).join(", ")})`;
           }
         case FunctionType.Custom:
-          return `${f.functionReference} (${f.args.map(a => generateExpr(a)).join(", ")})`;
+          return `${f.functionReference} (${f.args.map(a => GetSqlStringFromExpr(a)).join(", ")})`;
         default:
           LogInternalError(`FunctionType type ${f.functionType} not handled`, DielInternalErrorType.UnionTypeNotAllHandled);
           return null;
@@ -257,19 +255,19 @@ export function generateExpr(e: ExprAst): string {
   }
 }
 
-function generateGroupBy(g: GroupByAst): string {
+function generateGroupBy(g: GroupByAst | undefined): string {
   if (!g) return "";
-  const groups = g.selections.map(sI => generateExpr(sI)).join(", ");
+  const groups = g.selections.map(sI => GetSqlStringFromExpr(sI)).join(", ");
   if (g.predicate) {
-    return `GROUP BY ${groups} HAVING ${generateExpr(g.predicate)}`;
+    return `GROUP BY ${groups} HAVING ${GetSqlStringFromExpr(g.predicate)}`;
   } else {
     return `GROUP BY ${groups}`;
   }
 }
 
-function generateOrderBy(o: OrderByAst[]): string {
+function generateOrderBy(o: OrderByAst[] | undefined): string {
   if (!o) return "";
-  const orders = o.map(i => `${generateExpr(i.selection)} ${generateOrder(i.order)}`);
+  const orders = o.map(i => `${GetSqlStringFromExpr(i.selection)} ${generateOrder(i.order)}`);
   return `ORDER BY ${orders.join(", ")}`;
 }
 
@@ -280,12 +278,12 @@ function generateOrder(order: Order): string {
     : "DESC";
 }
 
-function generateLimit(e: ExprAst): string {
+function generateLimit(e: ExprAst | undefined): string {
   if (!e) return "";
-  return `LIMIT ${generateExpr(e)}`;
+  return `LIMIT ${GetSqlStringFromExpr(e)}`;
 }
 
-function generateTrigger(trigger: TriggerAst, replace = false): string {
+function generateTrigger({ trigger, replace = false }: { trigger: TriggerAst; replace?: boolean; }): string {
   const replaceQuery = replace ? `DROP TRIGGER IF EXISTS ${trigger.tName};` : "";
   let program = `${replaceQuery}
   CREATE TRIGGER ${trigger.tName} AFTER INSERT ON ${trigger.afterRelationName}\nBEGIN\n`;
@@ -321,7 +319,9 @@ function generateInserts(i: InsertionClause): string {
     : "";
   const values = i.values
     ? `VALUES (${i.values.map(v => generateInsertClauseStringForValue(v)).join(", ")})`
-    : generateSelect(i.selection.compositeSelections);
+    : i.selection
+      ? generateSelect(i.selection.compositeSelections)
+      : "";
   return `INSERT INTO ${i.relation} ${columns} ${values}`;
 }
 
@@ -333,11 +333,11 @@ const TypeConversionLookUp = new Map<DielDataType, string>([
 ]);
 
 function generateColumnDefinition(c: Column): string {
-  const typeStr = TypeConversionLookUp.get(c.type);
+  const typeStr = TypeConversionLookUp.get(c.dataType);
   if (!typeStr) {
-    LogInternalError(`data type ${c.type} is not mapped tos tring`);
+    LogInternalError(`data type ${c.dataType} is not mapped tos tring`);
   }
-  const plainQuery = `${c.name} ${typeStr}`;
+  const plainQuery = `${c.cName} ${typeStr}`;
   if (!c.constraints) {
     // LogInternalError(`Constraints for column ${c.name} is not defined`);
     return plainQuery;
@@ -346,6 +346,6 @@ function generateColumnDefinition(c: Column): string {
   const unique = c.constraints.unique ? "UNIQUE" : "";
   const primary = c.constraints.primaryKey ? "PRIMARY KEY" : "";
   const autoincrement = c.constraints.autoincrement ? "AUTOINCREMENT" : "";
-  const defaultVal = c.defaultValue ? `DEFAULT ${generateExpr(c.defaultValue)}` : "";
+  const defaultVal = c.defaultValue ? `DEFAULT ${GetSqlStringFromExpr(c.defaultValue)}` : "";
   return `${plainQuery} ${notNull} ${unique} ${primary} ${autoincrement} ${defaultVal}`;
 }

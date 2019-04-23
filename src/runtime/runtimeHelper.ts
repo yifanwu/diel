@@ -1,16 +1,29 @@
 import { Database, QueryResults } from "sql.js";
 import { RelationObject } from "./runtimeTypes";
-import { RelationSelection } from "../parser/dielAstTypes";
+import { RelationSelection, ExprAst, ExprType, ExprColumnAst } from "../parser/dielAstTypes";
 import { LogInternalError } from "../util/messages";
-// import { SelectionUnit } from "../parser/dielAstTypes";
+import { GetRelationReferenceName } from "../compiler/passes/passesHelper";
 
-// export function generateViewNameForSelect(ast: SelectionUnit) {
-// }
+function getNameFromExpr(e: ExprAst): string | undefined {
+  switch (e.exprType) {
+    case ExprType.Column:
+      return (e as ExprColumnAst).columnName;
+    default:
+      return "";
+  }
+}
 
 export function GenerateViewName(q: RelationSelection) {
   const hash = Math.floor(Math.random() * 1000).toString();
-  if (q.compositeSelections)
-    return `${q.compositeSelections[0].relation.columnSelections.map(c => c.alias).join("-")}-${hash}`;
+  if (q.compositeSelections) {
+    const hintRel = q.compositeSelections[0].relation.baseRelation
+      ? "-" + GetRelationReferenceName(q.compositeSelections[0].relation.baseRelation)
+      : "";
+    const hintCol = q.compositeSelections[0].relation.columnSelections
+                  .map(c => c.alias ? c.alias : getNameFromExpr(c.expr))
+                  .join("-");
+    return `${hash}${hintCol}${hintRel}`;
+  }
   return hash;
 }
 
@@ -27,16 +40,17 @@ export function CaughtLocalRun(db: Database, s: string) {
  * returns all the SQL that defines tables in this DB
  *   so that we can add to IR parsing (for type inference and other processing needs)
  */
-export function getExistingTableDefinitions(isWorker: boolean, db?: Database): string {
+export function getExistingTableDefinitions(isWorker: boolean, db: Database): string {
   let queries = "";
   const q = `SELECT name, sql FROM sqlite_master WHERE type='table'`;
 
   if (isWorker) {
     throw new Error(`not yet implemented`);
   } else {
+    const done = () => { console.log("done"); }
     db.each(q, (o: any) => {
       queries += queries + o.sql;
-    }, null);
+    }, done);
   }
   return queries;
 }

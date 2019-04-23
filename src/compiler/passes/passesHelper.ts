@@ -1,65 +1,20 @@
-import { ExprType, ExprRelationAst, ExprFunAst, ExprAst, ExprParen,  DbIdType, RelationIdType, SelectionUnit, RelationReference } from "../../parser/dielAstTypes";
-import { LogInternalError } from "../../util/messages";
+import { LogInternalError, DielInternalErrorType } from "../../util/messages";
 import { DependencyTree } from "../../runtime/runtimeTypes";
+import { RelationReference, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery } from "../../parser/dielAstTypes";
 
 /**
  * If there is a subquery, then use alias, otherwise use the original relation name
  * @param r relation reference
  */
-export function getRelationReferenceName(r: RelationReference) {
-  const n = r.subquery ? r.alias : r.relationName;
-  if (!n) {
-    LogInternalError(`RelationReference either does not have an alias or name:\n ${JSON.stringify(r)}`);
-  }
-  return n;
-}
-
-function getRelationReferenceDep(r: RelationReference): string[] {
-  if (r.relationName) {
-    return [r.relationName];
-  } else {
-    // subquery!
-    return r.subquery.compositeSelections.reduce((acc, c) => acc.concat(getSelectionUnitDep(c.relation)), []);
-  }
-}
-
-function getExprDep(depAcc: string[], e: ExprAst): void {
-  if (!e) {
-    debugger;
-  }
-  switch (e.exprType) {
-    case ExprType.Relation:
-      const relationExpr = e as ExprRelationAst;
-      relationExpr.selection.compositeSelections.map(newE => {
-        depAcc.push(...getSelectionUnitDep(newE.relation));
-      });
-      break;
-    case ExprType.Func:
-      const whereFuncExpr = (e as ExprFunAst);
-      whereFuncExpr.args.map(newE => {
-        getExprDep(depAcc, newE);
-      });
-      break;
-    case ExprType.Parenthesis:
-      getExprDep(depAcc, (e as ExprParen).content);
-      break;
+export function GetRelationReferenceName(r: RelationReference): string | null {
+  switch (r.relationReferenceType) {
+    case RelationReferenceType.Direct:
+      return (r as RelationReferenceDirect).relationName;
+    case RelationReferenceType.Subquery:
+      return (r as RelationReferenceSubquery).alias;
     default:
-      return;
-      // do nothing for now
+      return LogInternalError(``, DielInternalErrorType.UnionTypeNotAllHandled);
   }
-}
-
-// recursive!
-export function getSelectionUnitDep(s: SelectionUnit): string[] {
-  let deps = getRelationReferenceDep(s.baseRelation);
-  // the predicates on joins might have dependencies too... #FIXMELATER
-  s.joinClauses.map(j => {
-    deps = deps.concat(getRelationReferenceDep(j.relation));
-  });
-  if (s.whereClause) {
-    getExprDep(deps, s.whereClause);
-  }
-  return deps;
 }
 
 
@@ -97,15 +52,20 @@ export function getTopologicalOrder(depTree: DependencyTree) {
       return;
     }
     const idx = visitedStringToNumber.get(relation);
-    if (visitedArray[idx].visited) {
+    if (idx && visitedArray[idx].visited) {
       return;
     }
     // ugh of vs in
-    for (let d of depTree.get(relation).dependsOn) {
-      topoVisit(d);
+    const node = depTree.get(relation);
+    if (node) {
+      for (let d of node.dependsOn) {
+        topoVisit(d);
+      }
     }
-    visitedArray[idx].visited = true;
-    topoSorted.push(relation);
+    if (idx) {
+      visitedArray[idx].visited = true;
+      topoSorted.push(relation);
+    }
   }
   // there are no dangling leaves; they will just have no dependencies
   return topoSorted;

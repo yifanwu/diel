@@ -1,17 +1,14 @@
-import { Column, RelationConstraints, CompositeSelectionUnit, Command } from "./dielAstTypes";
+import { Column, RelationConstraints, CompositeSelectionUnit, Command, CompositeSelection, HasDefault } from "./dielAstTypes";
 
-// this is actually still not just SQL
-// since we differentiate static and dynamic
-// this is more an overloaded lable for the event processing system than the actual SQL logic itself.
-export enum SqlRelationType {
+export const enum SqlRelationType {
   View = "View",
-  StaticTable = "StaticTable",
-  DynamicTable = "DynamicTable"
+  Table = "Table",
 }
 
 interface SqlRelationBase {
   rName: string;
   relationType: SqlRelationType;
+  isDynamic?: HasDefault<boolean>;
 }
 
 export interface SqlOriginalRelation extends SqlRelationBase {
@@ -19,9 +16,8 @@ export interface SqlOriginalRelation extends SqlRelationBase {
   constraints?: RelationConstraints;
 }
 
-
 export interface SqlDerivedRelation extends SqlRelationBase {
-  selection: CompositeSelectionUnit[];
+  selection: CompositeSelection;
 }
 
 export type SqlRelation = SqlDerivedRelation | SqlOriginalRelation;
@@ -45,12 +41,8 @@ export interface SqlAst {
 
 export function CreateEmptySqlAst(): SqlAst {
   return {
-    // originalRelations: [],
     relations: [],
-    // views: [],
-    // inserts: [],
     commands: [],
-    // drops: []
     triggers: [],
   };
 }

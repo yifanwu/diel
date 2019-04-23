@@ -1,85 +1,10 @@
-import { getSelectionUnitDep, getTopologicalOrder } from "./passesHelper";
-import { RelationType, DerivedRelation, RelationIdType, CompositeSelection } from "../../parser/dielAstTypes";
-import { SetIntersection } from "../../util/dielUtils";
-import { GetAllDerivedViews, DielIr } from "../DielIr";
-import { DependencyTree } from "../../runtime/runtimeTypes";
+import { GetAllDerivedViews, IsRelationEvent } from "../DielAstGetters";
+import { DependencyTree, NodeDependency } from "../../runtime/runtimeTypes";
 import { SqlDerivedRelation } from "../../parser/sqlAstTypes";
+import { LogInternalError } from "../../util/messages";
+import { RelationNameType, DielAst, RelationType, CompositeSelection, SelectionUnit, RelationReference, ExprAst, ExprType, ExprRelationAst, ExprFunAst, ExprParen, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, DerivedRelation } from "../../parser/dielAstTypes";
 
-export function AddDependency(depTree: DependencyTree, selection: CompositeSelection, rName: string) {
-  // first add dependency one way, then the other way
-  const dependsOn = addDependencyOneWay(depTree, selection, rName);
-  addDependencyOtherWay(depTree, dependsOn, rName);
-}
-
-// incremental dep tree building
-function addDependencyOneWay(depTree: DependencyTree, selection: CompositeSelection, rName: string) {
-  let dependsOn: string[] = [];
-  selection.map(c => {
-    const deps = getSelectionUnitDep(c.relation);
-    dependsOn = deps.concat(dependsOn);
-  });
-  depTree.set(rName, {
-    dependsOn,
-    isDependedBy: []
-  });
-  return dependsOn;
-}
-
-function addDependencyOtherWay(depTree: DependencyTree, dependsOn: RelationIdType[], viewName: RelationIdType) {
-  dependsOn.map(dO => {
-    if (dO) { // avoid the case when its null
-      // it's possible that these don't exist, if they are the leaves
-      if (!depTree.has(dO)) {
-        depTree.set(dO, {dependsOn: [], isDependedBy: []});
-      }
-      depTree.get(dO).isDependedBy.push(viewName);
-    }
-  });
-}
-
-// FIXME: clean up relative the function below
-export function GetDependenciesFromSqlViewList(views: SqlDerivedRelation[]) {
-  const depTree: DependencyTree = new Map<string, {dependsOn: string[], isDependedBy: string[]}>();
-  views.map(v => AddDependency(depTree, v.selection, v.rName));
-  return depTree;
-}
-
-export function GetDependenciesFromViewList(views: DerivedRelation[]) {
-  const depTree: DependencyTree = new Map<string, {dependsOn: string[], isDependedBy: string[]}>();
-  // add one direction
-  views.map(v => AddDependency(depTree, v.selection.compositeSelections, v.rName));
-  return depTree;
-}
-
-export function ApplyDependencies(ir: DielIr) {
-  let depTree = GetDependenciesFromViewList(GetAllDerivedViews(ir.ast));
-
-  const topologicalOrder = getTopologicalOrder(depTree);
-  const {inputDependenciesOutput, inputDependenciesAll} = generateDependenciesByInput(depTree, ir);
-  ir.dependencies = {
-    depTree,
-    topologicalOrder,
-    inputDependenciesOutput, // RYAN & CACHING
-    inputDependenciesAll
-  };
-}
-
-// this is sort of a transitive closure step
-function generateDependenciesByInput(depTree: DependencyTree, ir: DielIr) {
-  const inputDependenciesOutput = new Map<string, Set<string>>();
-  const inputDependenciesAll = new Map<string, Set<string>>();
-  const outputSet = new Set(ir.GetAllDerivedViews().filter(v => v.relationType === RelationType.Output).map(o => o.rName));
-  ir.GetEventRelationNames().map(i => {
-    const allDependencies = generateDependenciesByName(depTree, i);
-    const inputDependencyValues = SetIntersection<string>(allDependencies, outputSet);
-    inputDependenciesOutput.set(i, inputDependencyValues);
-    inputDependenciesAll.set(i, allDependencies);
-  });
-  return {
-    inputDependenciesOutput,
-    inputDependenciesAll
-  };
-}
+// ------------ BEGIN DERIVERS ------------------
 
 /**
  * return the set of the relations that depent on the table passed in
@@ -88,30 +13,39 @@ function generateDependenciesByInput(depTree: DependencyTree, ir: DielIr) {
  * @param rName
  * @param depndsOn the boolean is defaulted to true, if it's false, it's the other direction.
  */
-export function generateDependenciesByName(depTree: DependencyTree, rName: string): Set<string> {
+export function DeriveDependentRelations(depTree: DependencyTree, rName: RelationNameType): Set<string> {
   const allDependencies = new Set<string>();
   oneStep(rName, allDependencies);
   // recursively checks for dependencies
-  function oneStep(rName: string, affectedRelations: Set<string>) {
+  function oneStep(rName: string, newDependencies: Set<string>) {
     // search through dependency
-    let oldSet = new Set(affectedRelations);
+    let oldSet = new Set(newDependencies);
     for (let [key, value] of depTree) {
       const found = value.dependsOn.filter(d => d === rName);
       if (found.length > 0) {
-        affectedRelations.add(key);
+        newDependencies.add(key);
       }
     }
     // set difference
-    const diff = new Set([...affectedRelations].filter(x => !oldSet.has(x)));
+    const diff = new Set([...newDependencies].filter(x => !oldSet.has(x)));
     if (diff.size > 0) {
       // need to run this on more dependencies
       diff.forEach((v) => {
-        oneStep(v, affectedRelations);
+        oneStep(v, newDependencies);
       });
     }
-    return affectedRelations;
+    return newDependencies;
   }
   return allDependencies;
+}
+
+export function DeriveDepTreeFromSqlRelations(views: SqlDerivedRelation[], dynamic: Set<RelationNameType>): DependencyTree {
+  const depTree: DependencyTree = new Map<RelationNameType, NodeDependency>();
+  const isDynamic = (rName: RelationNameType) => {
+    return dynamic.has(rName);
+  };
+  views.map(v => AddSingleDependency(depTree, v.selection, v.rName, isDynamic));
+  return depTree;
 }
 
 /**
@@ -120,7 +54,7 @@ export function generateDependenciesByName(depTree: DependencyTree, rName: strin
  * @param viewName
  * @param depTree
  */
-export function GetOriginalRelationsAViewDependsOn(viewName: string, depTree: DependencyTree): Set<string> {
+export function DeriveOriginalRelationsAViewDependsOn(depTree: DependencyTree, viewName: string): Set<string> | null {
 
   let dep = depTree.get(viewName);
   let tables = new Set<string> ();
@@ -128,23 +62,165 @@ export function GetOriginalRelationsAViewDependsOn(viewName: string, depTree: De
     // breadth first
     let toVisit = dep.dependsOn.slice();
     let visited = [viewName] as string[];
-    let next: string;
 
+    let next: string | undefined;
      while (toVisit.length > 0) {
-      next = toVisit.shift();
-      if (depTree.get(next).dependsOn.length === 0) {
-        tables.add(next);
-        visited.push(next);
-        continue;
-      }
-      let children = depTree.get(next).dependsOn;
-      children.forEach(child => {
-        if (toVisit.indexOf(next) === -1 && visited.indexOf(next) === -1) {
-          toVisit.push(child);
+       next = toVisit.shift();
+      if (next) {
+        const dep = depTree.get(next);
+        if (!dep) {
+          return LogInternalError(`Dependency ${dep} not found`);
         }
-      });
-      visited.push(next);
+        if (dep.isDynamic) {
+          tables.add(next);
+          visited.push(next);
+          if (dep.dependsOn.length !== 0) {
+            LogInternalError(`dynamic tables should have zero dependencies!`);
+          }
+          continue;
+        } else {
+          let children = dep.dependsOn;
+          children.forEach(child => {
+            if (toVisit.indexOf(next) === -1 && visited.indexOf(next) === -1) {
+              toVisit.push(child);
+            }
+          });
+          visited.push(next);
+        }
+      }
     }
   }
   return tables;
+}
+
+// ------------- BEGIN SETTER --------------------
+export function AddDepTree(ast: DielAst) {
+  const isDynamic = (rName: string) => {
+    const found = ast.relations.find(r => r.rName === rName);
+    return (found && found.relationType === RelationType.EventTable) ? true : false;
+  };
+  GetAllDerivedViews(ast).map(v => AddSingleDependency(ast.depTree, v.selection.compositeSelections, v.rName, isDynamic));
+}
+
+export function AddSingleDependencyByDerivedRelation(ast: DielAst, view: DerivedRelation) {
+  const isDynamic = (rName: string) => {
+    return IsRelationEvent(ast, rName);
+  };
+  AddSingleDependency(ast.depTree, view.selection.compositeSelections, view.rName, isDynamic);
+}
+
+// CompositeSelection |CompositeSelectionFinal
+// the relation is dynamic if it's an event view
+export function AddSingleDependency (
+  depTree: DependencyTree,
+  selection: CompositeSelection,
+  rName: string,
+  isDynamic: (rName: string) => boolean
+  ) {
+  // first add dependency one way, then the other way
+  const dependsOn = addDependencyOneWay(depTree, selection, rName, isDynamic);
+  addDependencyOtherWay(depTree, dependsOn, rName, isDynamic);
+}
+
+// CompositeSelection |CompositeSelectionFinal
+// incremental dep tree building
+function addDependencyOneWay(depTree: DependencyTree, selection: CompositeSelection, rName: string,
+  isDynamic: (rName: string) => boolean
+) {
+  let dependsOn: string[] = [];
+  selection.map(c => {
+    const deps = getSelectionUnitDep(c.relation);
+    dependsOn = deps.concat(dependsOn);
+  });
+  depTree.set(rName, {
+    relationName: rName,
+    isDynamic: isDynamic(rName),
+    dependsOn,
+    isDependedBy: []
+  });
+  return dependsOn;
+}
+
+// recursive!
+// SelectionUnit | SelectionUnitFinal
+function getSelectionUnitDep(s: SelectionUnit): string[] {
+  if (!s.baseRelation) {
+    return [];
+  }
+  const depsRaw = getRelationReferenceDep(s.baseRelation);
+  let deps = depsRaw ? depsRaw : [];
+  // the predicates on joins might have dependencies too... #FIXMELATER
+  if (s.joinClauses) s.joinClauses.map(j => {
+    const joinDepsRaw = getRelationReferenceDep(j.relation);
+    if (joinDepsRaw) deps = deps.concat(joinDepsRaw);
+  });
+  if (s.whereClause) {
+    getExprDep(deps, s.whereClause);
+  }
+  return deps;
+}
+
+function getRelationReferenceDep(ref: RelationReference): string[] | null {
+  switch (ref.relationReferenceType) {
+    case RelationReferenceType.Direct: {
+      const r = ref as RelationReferenceDirect;
+      return [r.relationName];
+    }
+    case RelationReferenceType.Subquery: {
+      const r = ref as RelationReferenceSubquery;
+      const acc: string[] = [];
+      r.subquery.compositeSelections.map(c => acc.concat(getSelectionUnitDep(c.relation)), []);
+      return acc;
+    }
+  }
+}
+
+function getExprDep(depAcc: string[], e: ExprAst): void {
+  if (!e) {
+    debugger;
+  }
+  switch (e.exprType) {
+    case ExprType.Relation:
+      const relationExpr = e as ExprRelationAst;
+      relationExpr.selection.compositeSelections.map(newE => {
+        depAcc.push(...getSelectionUnitDep(newE.relation));
+      });
+      break;
+    case ExprType.Func:
+      const whereFuncExpr = (e as ExprFunAst);
+      whereFuncExpr.args.map(newE => {
+        getExprDep(depAcc, newE);
+      });
+      break;
+    case ExprType.Parenthesis:
+      getExprDep(depAcc, (e as ExprParen).content);
+      break;
+    default:
+      return;
+      // do nothing for now
+  }
+}
+
+function addDependencyOtherWay(depTree: DependencyTree,
+dependsOn: RelationNameType[],
+viewName: RelationNameType,
+isDynamic: (rName: string) => boolean
+) {
+dependsOn.map(dO => {
+  if (dO) {
+    // avoid the case when its null
+    // it's possible that these don't exist, if they are the leaves
+    const dep = depTree.get(dO);
+    if (!dep) {
+      depTree.set(dO, {
+        relationName: dO,
+        dependsOn: [],
+        isDependedBy: [viewName],
+        isDynamic: isDynamic(dO),
+      });
+    } else {
+      dep.isDependedBy.push(dO);
+    }
+  }
+});
 }

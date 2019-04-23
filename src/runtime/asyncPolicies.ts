@@ -1,13 +1,12 @@
-import { DerivedRelation, RelationType, SetOperator, JoinAst, ExprAst, ExprFunAst, FunctionType, AstType,  ExprType, DielDataType, SelectionUnit, JoinType, CompositeSelectionUnit, RelationSelection } from "../parser/dielAstTypes";
+import { RelationType, SetOperator, JoinAst, ExprAst, ExprFunAst, FunctionType, AstType,  ExprType, DielDataType, JoinType, CompositeSelectionUnit, RelationSelection, DerivedRelation, SelectionUnit, ExprColumnAst, RelationReferenceType } from "../parser/dielAstTypes";
 import { ApplyLatestToDerivedRelation } from "../compiler/passes/syntaxSugar";
 import { LogInternalError } from "../util/messages";
-import { BuiltInColumn } from "../compiler/DielIr";
+import { BuiltInColumn } from "../compiler/DielAstGetters";
 
-function getTimestepColumn(relationName: string, request = false) {
+function getTimestepColumn(relationName: string, request = false): ExprColumnAst {
   return {
     exprType: ExprType.Column,
     dataType: DielDataType.Number,
-    hasStar: false,
     columnName: request ? BuiltInColumn.REQUEST_TIMESTEP : BuiltInColumn.TIMESTEP,
     relationName
   };
@@ -27,8 +26,11 @@ function defaultPolicyGetOutputHelper(ast: DerivedRelation, asyncViewName: strin
         compositeSelections: [{
           op: SetOperator.NA,
           relation: {
+            isDistinct: false,
+            columnSelections: [], // placeholder
             derivedColumnSelections,
             baseRelation: {
+              relationReferenceType: RelationReferenceType.Direct,
               isLatest: true,
               relationName: asyncViewName
             }
@@ -41,11 +43,14 @@ function defaultPolicyGetOutputHelper(ast: DerivedRelation, asyncViewName: strin
     let timeStepSelections: SelectionUnit[] = [];
     eventDeps.forEach(e => {
       timeStepSelections.push({
+        isDistinct: false,
         derivedColumnSelections: [{
-          expr: getTimestepColumn(e)
+          expr: getTimestepColumn(e),
+          alias:  BuiltInColumn.TIMESTEP,
         }],
         baseRelation: {
-          relationName: e
+          relationReferenceType: RelationReferenceType.Direct,
+          relationName: e,
         }
       });
     });
@@ -84,6 +89,7 @@ function defaultPolicyGetOutputHelper(ast: DerivedRelation, asyncViewName: strin
             alias: BuiltInColumn.TIMESTEP
           }],
           baseRelation: {
+            relationReferenceType: RelationReferenceType.Subquery,
             subquery: unionTimestepRelation,
             alias: unionedTimestepRelationName
           }
@@ -94,6 +100,7 @@ function defaultPolicyGetOutputHelper(ast: DerivedRelation, asyncViewName: strin
       astType: AstType.Join,
       joinType: JoinType.Inner,
       relation: {
+        relationReferenceType: RelationReferenceType.Subquery,
         subquery: maxColumnSelection,
         alias: maxTimeStepRelationName
       },
@@ -115,6 +122,7 @@ function defaultPolicyGetOutputHelper(ast: DerivedRelation, asyncViewName: strin
           relation: {
             derivedColumnSelections,
             baseRelation: {
+              relationReferenceType: RelationReferenceType.Direct,
               relationName: asyncViewName
             },
             joinClauses

@@ -4,7 +4,7 @@ import { LogInternalError, ReportDielUserError, LogInternalWarning, DielInternal
 import { LocalDbId, DielPhysicalExecution } from "../compiler/DielPhysicalExecution";
 import { IsSetIdentical } from "../util/dielUtils";
 import { ConnectionWrapper } from "./ConnectionWrapper";
-import { LogicalTimestep, RelationIdType, DbIdType } from "../parser/dielAstTypes";
+import { LogicalTimestep, RelationNameType, DbIdType } from "../parser/dielAstTypes";
 
 async function connectToSocket(url: string): Promise<WebSocket> {
   return new Promise<WebSocket>(function(resolve, reject) {
@@ -41,13 +41,13 @@ export default class DbEngine {
   totalMsgCount: number;
   msgCountTimeStamp: number;
   // for execution
-  currentQueueHead: LogicalTimestep;
+  currentQueueHead: LogicalTimestep | null;
   physicalExeuctionRef: DielPhysicalExecution;
   queueMap: Map<LogicalTimestep, {
-    deps: Set<RelationIdType>;
-    received: Set<RelationIdType>;
+    deps: Set<RelationNameType>;
+    received: Set<RelationNameType>;
     receivedValues: RemoteUpdateRelationMessage[];
-    relationsToShip: Map<RelationIdType, Set<DbIdType>>;
+    relationsToShip: Map<RelationNameType, Set<DbIdType>>;
   }>;
   config: DbSetupConfig;
   // meta data
@@ -118,14 +118,19 @@ export default class DbEngine {
     }
   }
 
-  private nextQueue() {
-    this.queueMap.delete(this.currentQueueHead);
+  private nextQueue(): void {
+    if (this.currentQueueHead) this.queueMap.delete(this.currentQueueHead);
     this.currentQueueHead = null;
     // if there is more in the queue to address, deal with them
     if (this.queueMap.size > 0) {
       this.currentQueueHead = Math.min(...this.queueMap.keys());
       // also load the next queue's results in
-      this.queueMap.get(this.currentQueueHead).receivedValues.map(updateMsg => {
+      const currentQueueMap = this.queueMap.get(this.currentQueueHead)
+      if (!currentQueueMap) {
+        LogInternalError(`CurrentQueneMap not defined`);
+        return;
+      }
+      currentQueueMap.receivedValues.map(updateMsg => {
         const id = {
           remoteAction: updateMsg.remoteAction,
           msgId: updateMsg.msgId,
@@ -151,19 +156,24 @@ export default class DbEngine {
       return LogInternalError(`Queue should contain current head ${this.currentQueueHead}, but it contains ${this.queueMap.keys()}!`);
     }
     // coarse grained
-    if (IsSetIdentical(currentItem.received, currentItem.deps)) {
-      currentItem.relationsToShip.forEach((destinations, relationName) => {
-        destinations.forEach(dbId => {
-          const shipMsg: RemoteShipRelationMessage = {
-            remoteAction: DielRemoteAction.ShipRelation,
-            requestTimestep: this.currentQueueHead,
-            relationName,
-            dbId
-          };
-          this.SendMsg(shipMsg);
+    const currentQueueHead = this.currentQueueHead;
+    if (currentQueueHead) {
+      return LogInternalError(`Curretn quene head shoudl be defined!`);
+    } else {
+      if (IsSetIdentical(currentItem.received, currentItem.deps)) {
+        currentItem.relationsToShip.forEach((destinations, relationName) => {
+          destinations.forEach(dbId => {
+            const shipMsg: RemoteShipRelationMessage = {
+              remoteAction: DielRemoteAction.ShipRelation,
+              requestTimestep: currentQueueHead,
+              relationName,
+              dbId
+            };
+            this.SendMsg(shipMsg);
+          });
         });
-      });
-      this.nextQueue();
+        this.nextQueue();
+      }
     }
     // need to keep on waiting
     return null;
@@ -201,7 +211,7 @@ export default class DbEngine {
           };
           return this.connection.send(id, msgToSend, isPromise);
         } else {
-          const message = opMsg.message;
+          const message = opMsg.message ? opMsg.message : "";
           const msgToSend = {
             message
           };
@@ -219,15 +229,23 @@ export default class DbEngine {
         const updateMsg = msg as RemoteUpdateRelationMessage;
         // push this on to the message queue
         if (this.queueMap.has(updateMsg.requestTimestep)) {
-          this.queueMap.get(updateMsg.requestTimestep).received.add(updateMsg.relationName);
+          const requestTimestepQueue = this.queueMap.get(updateMsg.requestTimestep);
+          if (!requestTimestepQueue) {
+            return LogInternalError(``);
+          }
+          requestTimestepQueue.received.add(updateMsg.relationName);
         } else {
-          const {deps, relationsToShip} = this.physicalExeuctionRef.getRelationsToShipForDb(this.id, msg.requestTimestep);
+          const rToShip = this.physicalExeuctionRef.getRelationsToShipForDb(this.id, msg.requestTimestep);
+          if (!rToShip) {
+            return LogInternalError(``);
+          }
           this.queueMap.set(msg.requestTimestep, {
             receivedValues: [],
             received: new Set([updateMsg.relationName]),
-            relationsToShip,
-            deps
+            relationsToShip: rToShip.relationsToShip,
+            deps: rToShip.deps
           });
+
         }
         // then process
         if ((!this.currentQueueHead) || (msg.requestTimestep === this.currentQueueHead)) {
@@ -239,7 +257,11 @@ export default class DbEngine {
           return this.connection.send(id, msgToSend, isPromise);
         } else {
           // otherwise push on the queue
-          this.queueMap.get(msg.requestTimestep).receivedValues.push(updateMsg);
+          const requestTimestepQueue = this.queueMap.get(updateMsg.requestTimestep);
+          if (!requestTimestepQueue) {
+            return LogInternalError(`requestTimestepQuee null`);
+          }
+          requestTimestepQueue.receivedValues.push(updateMsg);
           return null;
         }
       }
@@ -300,7 +322,7 @@ export default class DbEngine {
   }
 
   getHandleMsgForRemote() {
-    const handleMsg = (msg: DielRemoteReply) => {
+    const handleMsg = (msg: DielRemoteReply): void => {
       // if this is socket we need to unpack all, but if this is worker, then we just need to unpack id... so annoying
       switch (msg.id.remoteAction) {
         case DielRemoteAction.UpdateRelation: {
@@ -315,6 +337,7 @@ export default class DbEngine {
           const view = msg.id.relationName;
           if (!view || !msg.id.requestTimestep) {
             LogInternalError(`Both view and request_timestep should be defined for sharing views! However, I got ${JSON.stringify(msg.id, null, 2)}`);
+            return;
           }
           if (msg.results.length > 0) {
             this.relationShippingCallback(view, msg.results, msg.id.requestTimestep);
@@ -372,7 +395,7 @@ export default class DbEngine {
   /**
    * SqlitemasterQuery returns sql and name
    */
-  async getMetaData(id: DbIdType): Promise<{id: DbIdType, data: RelationObject}> {
+  async getMetaData(id: DbIdType): Promise<{id: DbIdType, data: RelationObject | null}> {
     const promise = this.SendMsg({
       remoteAction: DielRemoteAction.GetResultsByPromise,
       requestTimestep: INIT_TIMESTEP, // might change later because we can load new databases later?
@@ -381,7 +404,7 @@ export default class DbEngine {
     const data = await promise;
     return {
       id,
-      data: data.results
+      data: data ? data.results : null
     };
   }
 }

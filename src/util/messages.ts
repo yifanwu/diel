@@ -60,14 +60,16 @@ export function ReportDielBasicParsingError(m: string) {
   if (STRICT) throw new Error();
 }
 
-export function ReportUserRuntimeWarning(m: string) {
+export function ReportUserRuntimeWarning(m: string): null {
   console.log(`${FgMagenta}[User Error]%s${Reset}`, m);
+  return null;
 }
 
 // note that this is in browser
-export function ReportUserRuntimeError(m: string) {
+export function ReportUserRuntimeError(m: string): null {
   if (STRICT) throw new Error(m);
   console.log(`${BgYellow}[User Error]%s${Reset}`, m);
+  return null;
 }
 
 // both warning and error

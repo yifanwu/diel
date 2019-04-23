@@ -1,7 +1,8 @@
-import {ReportDielUserError} from "../../util/messages";
-import { ExprAst, ExprType, ExprRelationAst, FunctionType, ExprFunAst, SetOperator, DielDataType, DerivedRelation } from "../../../src/parser/dielAstTypes";
+import {ReportDielUserError, LogInternalError} from "../../util/messages";
+import { ExprAst, ExprType, ExprRelationAst, FunctionType, ExprFunAst, SetOperator, DielDataType, DerivedRelation, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, RelationReference } from "../../../src/parser/dielAstTypes";
 import { SelectionUnit, DielAst, AstType, RelationSelection } from "../../parser/dielAstTypes";
-import { GetAllDerivedViews, GetAllPrograms } from "../DielIr";
+import { GetAllDerivedViews, GetAllPrograms,  } from "../DielAstGetters";
+import { WalkThroughSelectionUnits } from "../DielAstVisitors";
 
 /**
  * This function traverses the places where `RelationReference` might be called
@@ -9,26 +10,47 @@ import { GetAllDerivedViews, GetAllPrograms } from "../DielIr";
  * @param ast
  */
 export function applyLatestToAst(ast: DielAst): void {
-  // first go through the derivedrelations
-  const derived = GetAllDerivedViews(ast);
-  derived.map(d => {d.selection.compositeSelections.map(c => {
-    applyLatestToSelectionUnit(c.relation);
-  });
-  });
-  // also need to check programs and commands
-  GetAllPrograms(ast).map(c => {
-  if (c.astType === AstType.RelationSelection) {
-    (c as RelationSelection).compositeSelections.map(c => {
-    applyLatestToSelectionUnit(c.relation);
-    });
-  }
-  });
+  // TODO: check
+  WalkThroughSelectionUnits(ast, applyLatestToSelectionUnit);
+  // // first go through the derivedrelations
+  // const derived = GetAllDerivedViews(ast);
+  // derived.map(d => {d.selection.compositeSelections.map(c => {
+  //   applyLatestToSelectionUnit(c.relation);
+  // });
+  // });
+  // // also need to check programs and commands
+  // ast.programs.forEach(c => {
+  // if (c.astType === AstType.RelationSelection) {
+  //   (c as RelationSelection).compositeSelections.map(c => {
+  //   applyLatestToSelectionUnit(c.relation);
+  //   });
+  // }
+  // });
 
 }
 
 export function ApplyLatestToDerivedRelation(derived: DerivedRelation) {
   derived.selection.compositeSelections.map(s => applyLatestToSelectionUnit(s.relation));
   return derived;
+}
+
+// IN PLACE
+function applyLatestToRelationReference(ref: RelationReference, selection: SelectionUnit): void {
+  switch (ref.relationReferenceType) {
+    case RelationReferenceType.Direct: {
+      const r = ref as RelationReferenceDirect;
+      let relationName = r.relationName;
+      // we will be doing a rewrite!
+      modifyWhereComplete(selection, relationName);
+      return;
+    }
+    case RelationReferenceType.Subquery: {
+      return ReportDielUserError("Latest should be used with a simple named relation");
+    }
+    default:
+      LogInternalError(``);
+      return;
+  }
 }
 
 /**
@@ -42,33 +64,12 @@ export function ApplyLatestToDerivedRelation(derived: DerivedRelation) {
  * @param relation
  */
 export function applyLatestToSelectionUnit(relation: SelectionUnit): void {
-
-  if (relation.baseRelation.isLatest) {
-    if (relation.baseRelation.subquery !== undefined) {
-      // report error
-      return ReportDielUserError("Latest should be used with a simple named relation");
-    }
-    let relationName = relation.baseRelation.relationName;
-    // 1. set base relation's isLastest to false
-    relation.baseRelation.isLatest = false;
-
-    // 2. change where clause for base relation
-    modifyWhereComplete(relation, relationName);
-  }
-
-  // check for joins, and apply the above for latest joint tables
-  // since latest may apply to non baserelations
+  if (!relation.baseRelation) return;
+  applyLatestToRelationReference(relation.baseRelation, relation);
   if (!relation.joinClauses) return;
   for (let i = 0; i < relation.joinClauses.length; i++) {
-    if (relation.joinClauses[i].relation.isLatest) {
-      let joinRelationName = relation.joinClauses[i].relation.relationName;
-      // 4-1. set isLatest to false
-      relation.joinClauses[i].relation.isLatest = false;
-      // 4-2. change where clause for base relation
-      modifyWhereComplete(relation, joinRelationName);
-    }
+    applyLatestToRelationReference(relation.joinClauses[i].relation, relation);
   }
-
 }
 
 /**
@@ -85,7 +86,6 @@ function modifyWhereComplete(relation: SelectionUnit, relationName: string): voi
   // 2-1. create exprast for relation.timestep
   let lhsExpr = {
     exprType: ExprType.Column,
-    dataType: DielDataType.TBD,
     hasStar: false,
     columnName: "timestep",
     relationName: relationName
@@ -148,14 +148,12 @@ function createSubquery(relationName: string): ExprAst {
                 alias: null,
                 expr: {
                   exprType: ExprType.Func,
-                  dataType: DielDataType.TBD,
+                  // dataType: DielDataType.TBD,
                   functionType: FunctionType.Custom,
                   functionReference: "max",
                   args: [
                     {
                       exprType: ExprType.Column,
-                      dataType: DielDataType.TBD,
-                      hasStar: false,
                       columnName: "timestep"
                     }
                   ]
