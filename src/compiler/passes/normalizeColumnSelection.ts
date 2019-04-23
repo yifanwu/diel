@@ -1,6 +1,5 @@
 import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
-import { ExprType, ExprColumnAst, SelectionUnit, ColumnSelection, RelationReference, DerivedRelation, DielAst, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, ExprFunAst, ExprStarAst, ExprAst } from "../../parser/dielAstTypes";
-import { GetRelationReferenceName } from "../passes/passesHelper";
+import { ExprType, ExprColumnAst, SelectionUnit, ColumnSelection, RelationReference, DerivedRelation, DielAst, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, ExprFunAst, ExprStarAst, ExprAst, ExprParen } from "../../parser/dielAstTypes";
 import { WalkThroughSelectionUnits } from "../DielAstVisitors";
 import { SimpleColumn, BuiltInColumn, GetRelationDef, IsRelationEvent, BuiltInColumnDataTypes, DeriveColumnsFromRelation, DeriveColumnsFromSelectionUnit } from "../DielAstGetters";
 
@@ -27,6 +26,8 @@ export function NormalizeColumnSelection(ast: DielAst) {
 // }
 
 
+
+
 function columnsFromRelationReference(ast: DielAst, ref: RelationReference): SimpleColumn[] | null {
   switch (ref.relationReferenceType) {
     case RelationReferenceType.Direct: {
@@ -47,14 +48,14 @@ function columnsFromRelationReference(ast: DielAst, ref: RelationReference): Sim
 
 function columnsFromLocalSelectionUnit(ast: DielAst, s: SelectionUnit, refName: string): SimpleColumn[] | null {
 
-  if (refName === GetRelationReferenceName(s.baseRelation)) {
+  if (refName === s.baseRelation.alias) {
     const baseResult = columnsFromRelationReference(ast, s.baseRelation);
     if (baseResult) return baseResult;
   }
   if (s.joinClauses) {
     for (let i = 0; i < s.joinClauses.length; i ++) {
       const joinRef = s.joinClauses[i];
-      if (refName === GetRelationReferenceName(joinRef.relation)) {
+      if (refName === joinRef.relation.alias) {
         const joinResult = columnsFromRelationReference(ast, joinRef.relation);
         if (joinResult) {
           return joinResult;
@@ -81,20 +82,18 @@ function starCase(ast: DielAst, s: SelectionUnit, currentColumnExpr: ExprStarAst
     return populatedColumns;
   } else {
     // case 2: find all the relations
-    const populatedColumnsFromBase: ExprAst[] = columnsFromRelationReference(ast, s.baseRelation)
+    const populatedColumnsFromBase: ExprColumnAst[] = columnsFromRelationReference(ast, s.baseRelation)
       .map(newColumn => ({
         exprType: ExprType.Column,
         dataType: newColumn.dataType,
-        hasStar: false,
         columnName: newColumn.columnName,
-        relationName: GetRelationReferenceName(s.baseRelation)
+        relationName: s.baseRelation.alias
       }));
-    let populatedColumnsFromJoins: ExprAst[] = [];
+    let populatedColumnsFromJoins: ExprColumnAst[] = [];
     s.joinClauses.map(j => {
-      const relationName = GetRelationReferenceName(j.relation);
-      const newColumns: ExprAst[] = columnsFromRelationReference(ast, j.relation).map(c => ({
+      const relationName = j.relation.alias;
+      const newColumns: ExprColumnAst[] = columnsFromRelationReference(ast, j.relation).map(c => ({
         exprType: ExprType.Column,
-        hasStar: false,
         columnName: c.columnName,
         relationName: relationName,
       }));
@@ -188,10 +187,12 @@ function normalizeExpr(ast: DielAst, s: SelectionUnit, e: ExprAst): ExprAst[] {
     case ExprType.Val:
       // no change, we can copy by reference
       return [e];
-    case ExprType.Relation:
+
     case ExprType.Parenthesis: {
-      LogInternalError(`Shouldn't select with parens`);
+      // keep going
+      return normalizeExpr(ast, s, (e as ExprParen).content);
     }
+    case ExprType.Relation:
     default:
       // might be slow? #FIXME
       // return [JSON.parse(JSON.stringify(c))];
@@ -210,7 +211,7 @@ function normalizeExpr(ast: DielAst, s: SelectionUnit, e: ExprAst): ExprAst[] {
 function normalizeFuncExpr(ast: DielAst, s: SelectionUnit, e: ExprFunAst) {
   let newArgs: ExprAst[] = [];
   for (let i = 0; i < e.args.length; i ++) {
-    const a = newArgs[i];
+    const a = e.args[i];
     newArgs = newArgs.concat(normalizeExpr(ast, s, a));
   }
   e.args = newArgs;

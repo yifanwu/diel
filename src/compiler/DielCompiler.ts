@@ -1,7 +1,7 @@
 import { IsRelationTypeDerived } from "./DielAstGetters";
 import { ApplyTemplates, TryToApplyTemplate, TryToCopyRelationSpec } from "./passes/applyTemplate";
 import { ApplyCrossfilter } from "./passes/applyCrossfilter";
-import { AddDepTree, AddSingleDependencyByDerivedRelation } from "./passes/dependency";
+import { AddDepTree, AddSingleDependencyByDerivedRelation, ArrangeInTopologicalOrder } from "./passes/dependency";
 import { NormalizeConstraints, NormalizeConstraintsForSingleOriginalRelation } from "./passes/normalizeConstraints";
 import { NormalizeColumnSelection, NormalizeColumnForDerivedRelation } from "./passes/normalizeColumnSelection";
 import { InferType, InferTypeForDerivedRelation } from "./passes/inferType";
@@ -19,6 +19,7 @@ export function CompileDiel(ast: DielAst) {
   ApplyCrossfilter(ast);
   NormalizeAlias(ast);
   AddDepTree(ast);
+  ArrangeInTopologicalOrder(ast);
   NormalizeConstraints(ast);
   NormalizeColumnSelection(ast);
   InferType(ast);

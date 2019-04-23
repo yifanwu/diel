@@ -120,7 +120,7 @@ export function SqlStrFromSelectionUnit(v: SelectionUnit): string {
  */
 export function SqlStrFromSelectionUnitBody(v: SelectionUnit) {
   const w = (v.whereClause) ? generateWhere(v.whereClause) : "";
-  return `${v.baseRelation ? `FROM ${SqlStrFromRelationReference(v.baseRelation)}` : ""}
+  return `${v.baseRelation ? `FROM ${sqlStrFromRelationReference(v.baseRelation)}` : ""}
   ${v.joinClauses ? v.joinClauses.map(j => generateJoin(j)).join("\n") : ""}
   ${w}
   ${generateGroupBy(v.groupByClause)}
@@ -128,17 +128,19 @@ export function SqlStrFromSelectionUnitBody(v: SelectionUnit) {
   ${generateLimit(v.limitClause)}`;
 }
 
-export function SqlStrFromRelationReference(ref: RelationReference): string {
+function sqlStrFromRelationReference(ref: RelationReference): string {
   // here there will be no stars..
   let query = "";
   switch (ref.relationReferenceType) {
     case RelationReferenceType.Direct: {
       const r = ref as RelationReferenceDirect;
       query += r.relationName;
+      break;
     }
     case RelationReferenceType.Subquery: {
       const r = ref as RelationReferenceSubquery;
       query += `(${generateSelect(r.subquery.compositeSelections)})`;
+      break;
     }
     default:
       LogInternalError(``);
@@ -177,7 +179,7 @@ function generateJoin(j: JoinAst): string {
     ? `ON ${GetSqlStringFromExpr(j.predicate)}`
     : ""
     ;
-  return `${op} ${SqlStrFromRelationReference(j.relation)} ${pred}`;
+  return `${op} ${sqlStrFromRelationReference(j.relation)} ${pred}`;
 }
 
 function generateWhere(e: ExprAst | undefined): string {

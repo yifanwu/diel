@@ -248,7 +248,7 @@ implements visitor.DIELVisitor<ExpressionValue> {
 
   visitUnitExprColumn(ctx: parser.UnitExprColumnContext): ExprColumnAst | ExprStarAst {
     const hasStar = ctx.STAR() ? true : false;
-    const columnName = ctx._column.text;
+    const columnName = ctx._column ? ctx._column.text : undefined;
     const relationName = ctx._relation ? ctx._relation.text : undefined;
     if (hasStar) {
       return {

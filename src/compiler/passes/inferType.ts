@@ -1,5 +1,5 @@
 import { LogInternalError, ReportDielUserError, DielInternalErrorType } from "../../util/messages";
-import { DielDataType, BuiltInColumnTyppes, SelectionUnit, RelationReference, ExprType, ExprFunAst, ExprColumnAst, ExprAst, BuiltInFunc, ExprValAst, ExprParen, DerivedRelation, DielAst, RelationReferenceType, RelationReferenceSubquery, Relation, OriginalRelation, CompositeSelection } from "../../parser/dielAstTypes";
+import { DielDataType, BuiltInColumnTyppes, SelectionUnit, RelationReference, ExprType, ExprFunAst, ExprColumnAst, ExprAst, BuiltInFunc, ExprValAst, ExprParen, DerivedRelation, DielAst, RelationReferenceType, RelationReferenceSubquery, Relation, OriginalRelation, CompositeSelection, RelationReferenceDirect } from "../../parser/dielAstTypes";
 import { GetRelationDef, IsRelationTypeDerived } from "../DielAstGetters";
 import { WalkThroughSelectionUnits } from "../DielAstVisitors";
 
@@ -81,7 +81,8 @@ function getTypeForExpr(ast: DielAst, expr: ExprAst, sUnit: SelectionUnit): Diel
         }
       }
       // FIXME: should pass some metadata for debugging
-      ReportDielUserError(`Expr type not found`);
+      debugger;
+      ReportDielUserError(`type not found for column`);
     case ExprType.Parenthesis:
       const parenExpr = expr as ExprParen;
       // unpack
@@ -124,7 +125,9 @@ function getColumnTypeFromRelation(relation: Relation, columnName: string): Diel
 function getColumnTypeFromReference(ast: DielAst, columnName: string, ref: RelationReference): DielDataType | null {
   switch (ref.relationReferenceType) {
     case RelationReferenceType.Direct: {
-      const rDef = GetRelationDef(ast, ref.alias);
+      const r = ref as RelationReferenceDirect;
+      // we need the original name, not alias!
+      const rDef = GetRelationDef(ast, r.relationName);
       return getColumnTypeFromRelation(rDef, columnName);
     }
     case RelationReferenceType.Subquery: {

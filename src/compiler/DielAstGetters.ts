@@ -38,6 +38,47 @@ export function IsRelationTypeDerived(rType: RelationType) {
 
 // --------------- BEGIN GETTERS --------------------
 
+
+export function DeriveColumnsFromRelation(r: Relation): SimpleColumn[] {
+  if (IsRelationTypeDerived(r.relationType)) {
+    const d = r as DerivedRelation;
+    return DeriveColumnsFromSelectionUnit(d.selection.compositeSelections[0].relation);
+  } else {
+    const o = r as OriginalRelation;
+    return o.columns.map(c => ({
+      columnName: c.cName,
+      dataType: c.dataType
+    }));
+  }
+}
+
+export function DeriveColumnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[] | null {
+  const columns: SimpleColumn[] = [];
+  if (!su.derivedColumnSelections) return LogInternalError(`These should be defined already! Might not be visiting from topoligical order.`);
+  for (let i = 0; i < su.derivedColumnSelections.length; i ++) {
+    const column = su.derivedColumnSelections[i];
+    switch (column.expr.exprType) {
+      case ExprType.Column:
+        const columnExpr = column.expr as ExprColumnAst;
+        columns.push({
+          columnName: columnExpr.columnName,
+          dataType: columnExpr.dataType
+        });
+        break;
+      case ExprType.Func:
+        const functionExpr = column.expr as ExprFunAst;
+        columns.push({
+          columnName: column.alias,
+          dataType: functionExpr.dataType
+        });
+        break;
+      default:
+        return LogInternalError(`${column.expr.exprType} Not handled`, DielInternalErrorType.UnionTypeNotAllHandled);
+    }
+  }
+  return columns;
+}
+
 export function GetAllDerivedViews(ast: DielAst): DerivedRelation[] {
   return ast.relations.filter(r => IsRelationTypeDerived(r.relationType)) as DerivedRelation[];
 }
@@ -49,7 +90,6 @@ export function GetAllPrograms(ast: DielAst | DielAst) {
 export function GetAllDielDefinedOriginalRelations(ast: DielAst): OriginalRelation[] {
   return ast.relations.filter(r => (r.relationType === RelationType.EventTable)
                                 || (r.relationType === RelationType.Table)
-                                || (r.relationType === RelationType.DerivedTable)
                                 ) as OriginalRelation[];
 }
 
@@ -74,42 +114,6 @@ export function GetRelationDef(ast: DielAst, rName: string): Relation | null {
 // --------------- BEGIN DERIVERS --------------------
 
 
-export function DeriveColumnsFromRelation(r: Relation): SimpleColumn[] {
-  if (IsRelationTypeDerived(r.relationType)) {
-    const d = r as DerivedRelation;
-    return DeriveColumnsFromSelectionUnit(d.selection.compositeSelections[0].relation);
-  } else {
-    const o = r as OriginalRelation;
-    return o.columns.map(c => ({
-      columnName: c.cName,
-      dataType: c.dataType
-    }));
-  }
-}
-
-export function DeriveColumnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[] | null {
-  const columns: SimpleColumn[] = [];
-  for (let i = 0; i < su.derivedColumnSelections.length; i ++) {
-    const column = su.derivedColumnSelections[i];
-    switch (column.expr.exprType) {
-      case ExprType.Column:
-        const columnExpr = column.expr as ExprColumnAst;
-        columns.push({
-          columnName: columnExpr.columnName,
-          dataType: columnExpr.dataType
-        });
-      case ExprType.Func:
-        const functionExpr = column.expr as ExprFunAst;
-        columns.push({
-          columnName: column.alias,
-          dataType: functionExpr.dataType
-        });
-      default:
-        return LogInternalError(`${column.expr.exprType} Not handled`, DielInternalErrorType.UnionTypeNotAllHandled);
-    }
-  }
-  return columns;
-}
 
 // -------------- CHERS ---------------
 

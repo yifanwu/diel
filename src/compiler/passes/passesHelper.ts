@@ -1,22 +1,5 @@
 import { LogInternalError, DielInternalErrorType } from "../../util/messages";
 import { DependencyTree } from "../../runtime/runtimeTypes";
-import { RelationReference, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery } from "../../parser/dielAstTypes";
-
-/**
- * If there is a subquery, then use alias, otherwise use the original relation name
- * @param r relation reference
- */
-export function GetRelationReferenceName(r: RelationReference): string | null {
-  switch (r.relationReferenceType) {
-    case RelationReferenceType.Direct:
-      return (r as RelationReferenceDirect).relationName;
-    case RelationReferenceType.Subquery:
-      return (r as RelationReferenceSubquery).alias;
-    default:
-      return LogInternalError(``, DielInternalErrorType.UnionTypeNotAllHandled);
-  }
-}
-
 
 export function getTopologicalOrder(depTree: DependencyTree) {
   // lots of redundancy for access
@@ -52,7 +35,7 @@ export function getTopologicalOrder(depTree: DependencyTree) {
       return;
     }
     const idx = visitedStringToNumber.get(relation);
-    if (idx && visitedArray[idx].visited) {
+    if ((idx > -1) && visitedArray[idx].visited) {
       return;
     }
     // ugh of vs in
@@ -62,7 +45,10 @@ export function getTopologicalOrder(depTree: DependencyTree) {
         topoVisit(d);
       }
     }
-    if (idx) {
+    if (idx > -1) {
+      if (topoSorted.find(t => t === relation)) {
+        LogInternalError(`Shouldn't be added again, ${relation}`);
+      }
       visitedArray[idx].visited = true;
       topoSorted.push(relation);
     }

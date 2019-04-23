@@ -84,12 +84,11 @@ export function applyLatestToSelectionUnit(relation: SelectionUnit): void {
 function modifyWhereComplete(relation: SelectionUnit, relationName: string): void {
   let originalWhere = relation.whereClause;
   // 2-1. create exprast for relation.timestep
-  let lhsExpr = {
+  let lhsExpr: ExprAst = {
     exprType: ExprType.Column,
-    hasStar: false,
     columnName: "timestep",
     relationName: relationName
-  } as ExprAst;
+  };
 
   // 2-2. create exprast for subquery (select max(timestep) from relation)
   let rhsExpr = createSubquery(relationName);

@@ -160,18 +160,16 @@ function getNullQuery(viewConstraint: RelationConstraints, selUnit: SelectionUni
       } as ExprFunAst;
 
       // format argument AST
-      let whereClauseArg;
       let cname = notNullColumns[i];
 
 
       // console.log(generateExpr(originalAST));
       let whichConstraint = cname + " NOT NULL";
 
-      whereClauseArg = {
+      const whereClauseArg: ExprColumnAst = {
         exprType: ExprType.Column,
-        hasStar: false,
         columnName: cname
-      } as ExprColumnAst;
+      };
 
       whereClause.args.push(whereClauseArg);
 
@@ -252,7 +250,7 @@ function getUniqueQuery (viewConstraints: RelationConstraints, selUnit: Selectio
       groupbySelections.map(expr => {
         selectColumns.push({expr});
       });
-      selectColumns.push({
+      const cS: ColumnSelection = {
         expr: {
           exprType: ExprType.Func,
           dataType: DielDataType.Number,
@@ -263,7 +261,8 @@ function getUniqueQuery (viewConstraints: RelationConstraints, selUnit: Selectio
             hasStar: true
           }]
         }
-      } as ColumnSelection);
+      };
+      selectColumns.push(cS);
 
       selUnit.columnSelections = selectColumns as ColumnSelection[];
 

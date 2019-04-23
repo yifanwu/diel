@@ -34,11 +34,13 @@ export function WalkThroughSelectionUnits<T>(ast: DielAst, fun: SelectionUnitFun
   const results: T[] = [];
   function applyToDerivedRelation(r: DerivedRelation, fun: SelectionUnitFunction<T>): void {
     r.selection.compositeSelections.map(c => {
+      console.log(`visiting ${r.rName}`);
       const result = fun(c.relation, ast, r.rName);
       results.push(result);
     });
   }
-  GetAllDerivedViews(ast).map(r => {
+  const derived = GetAllDerivedViews(ast);
+  derived.map(r => {
     applyToDerivedRelation(r, fun);
   });
   ast.programs.forEach((commands, _) => {

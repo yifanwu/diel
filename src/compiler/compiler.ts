@@ -2,7 +2,6 @@ import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateAst";
-import { CompileDiel } from "./DielCompiler";
 import { RelationSelection } from "../parser/dielAstTypes";
 
 export function parse(code: string) {

@@ -1,11 +1,44 @@
-import { GetAllDerivedViews, IsRelationEvent } from "../DielAstGetters";
+import { GetAllDerivedViews, IsRelationEvent, GetRelationDef } from "../DielAstGetters";
 import { DependencyTree, NodeDependency } from "../../runtime/runtimeTypes";
 import { SqlDerivedRelation } from "../../parser/sqlAstTypes";
 import { LogInternalError } from "../../util/messages";
-import { RelationNameType, DielAst, RelationType, CompositeSelection, SelectionUnit, RelationReference, ExprAst, ExprType, ExprRelationAst, ExprFunAst, ExprParen, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, DerivedRelation } from "../../parser/dielAstTypes";
+import { RelationNameType, DielAst, RelationType, CompositeSelection, SelectionUnit, RelationReference, ExprAst, ExprType, ExprRelationAst, ExprFunAst, ExprParen, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, DerivedRelation, Relation } from "../../parser/dielAstTypes";
+import { getTopologicalOrder } from "./passesHelper";
+import { SetSymmetricDifference } from "../../util/dielUtils";
 
-// ------------ BEGIN DERIVERS ------------------
 
+export function ArrangeInTopologicalOrder(ast: DielAst): void {
+  if (!ast.depTree) return LogInternalError(`the dependency should be defined already!`);
+  const orderedNames = getTopologicalOrder(ast.depTree);
+  // TMP
+  const newRelations: Relation[] = [];
+  orderedNames.map(n => {
+    const def = GetRelationDef(ast, n);
+    if (def) newRelations.push(def);
+  });
+  function checkDiff() {
+    const topo = new Set(newRelations.map(n => n.rName));
+    const relation = new Set(ast.relations.map(r => r.rName));
+    const diff = SetSymmetricDifference(topo, relation);
+    if (diff.size > 0) LogInternalError(`Topological sort length did not match, ${diff}`);
+  }
+
+  // there are cases when relations that are not read by anyone is just not inserted, i.e. no deps etc.
+  if (newRelations.length > ast.relations.length) {
+    checkDiff;
+  } else if (newRelations.length === ast.relations.length) {
+    ast.relations = newRelations;
+    return;
+  } else {
+    const diff = SetSymmetricDifference(new Set(newRelations.map(n => n.rName)), new Set(ast.relations.map(r => r.rName)));
+    diff.forEach(d => {
+      const def = GetRelationDef(ast, d);
+      if (def) newRelations.push(def);
+    });
+    checkDiff;
+    ast.relations = newRelations;
+  }
+}
 /**
  * return the set of the relations that depent on the table passed in
  * TODO add depndsOn?: true and do another pass that uses transitive closure to figure out all dependnecies
@@ -219,8 +252,9 @@ dependsOn.map(dO => {
         isDynamic: isDynamic(dO),
       });
     } else {
-      dep.isDependedBy.push(dO);
+      dep.isDependedBy.push(viewName);
     }
   }
 });
 }
+

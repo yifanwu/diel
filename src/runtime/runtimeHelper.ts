@@ -2,7 +2,6 @@ import { Database, QueryResults } from "sql.js";
 import { RelationObject } from "./runtimeTypes";
 import { RelationSelection, ExprAst, ExprType, ExprColumnAst } from "../parser/dielAstTypes";
 import { LogInternalError } from "../util/messages";
-import { GetRelationReferenceName } from "../compiler/passes/passesHelper";
 
 function getNameFromExpr(e: ExprAst): string | undefined {
   switch (e.exprType) {
@@ -17,7 +16,7 @@ export function GenerateViewName(q: RelationSelection) {
   const hash = Math.floor(Math.random() * 1000).toString();
   if (q.compositeSelections) {
     const hintRel = q.compositeSelections[0].relation.baseRelation
-      ? "-" + GetRelationReferenceName(q.compositeSelections[0].relation.baseRelation)
+      ? "-" + q.compositeSelections[0].relation.baseRelation.alias
       : "";
     const hintCol = q.compositeSelections[0].relation.columnSelections
                   .map(c => c.alias ? c.alias : getNameFromExpr(c.expr))
