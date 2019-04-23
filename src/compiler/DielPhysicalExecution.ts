@@ -148,7 +148,17 @@ export class DielPhysicalExecution {
           return LogInternalError(`Outputs must be local`);
         }
         const relationDef = GetSqlDerivedRelationFromDielRelation(rDef);
-        if (relationDef) return [{dbId: LocalDbId, relationDef}];
+        if (relationDef) {
+          if (distribution.to !== LocalDbId) {
+            const relationDefRemote = GetSqlOriginalRelationFromDielRelation(rDef);
+            return [
+              {dbId: LocalDbId, relationDef},
+              {dbId: distribution.to, relationDef: relationDefRemote}
+            ];
+          } else {
+            return [{dbId: LocalDbId, relationDef}];
+          }
+        }
       }
       default:
         return LogInternalError(`Union types`, DielInternalErrorType.UnionTypeNotAllHandled);

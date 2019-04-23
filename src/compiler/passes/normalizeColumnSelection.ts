@@ -151,13 +151,19 @@ function normalizeColumnForSelectionUnit(s: SelectionUnit, ast: DielAst, rName?:
       });
     } else {
       // this must be the star case
+      // if the stars were all named
       for (let j = 0; j < exprs.length; j ++) {
         const expr = exprs[j];
         if (expr.exprType !== ExprType.Column) {
           LogInternalError(`Only columns should be expanded`);
         }
         const cE = expr as ExprColumnAst;
-        const alias = `${cE.relationName}-${cE.columnName}`;
+        // if there is just one relation, we shouldn't...
+        // we can potentially look into improving the experience by omitting the join?
+        // const alias = cE.columnName;
+        const alias = (s.joinClauses.length === 0) || (s.columnSelections.filter(s => s.expr.exprType === ExprType.Star).length === 1)
+          ? cE.columnName
+          : `${cE.relationName}_${cE.columnName}`;
         derivedColumnSelections.push({
           expr,
           alias

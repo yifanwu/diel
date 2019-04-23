@@ -113,7 +113,7 @@ export function GetColumnsFromSelection(selection: CompositeSelection): Column[]
   }
   const columns = originalColumns.map(c => ({
     cName: c.alias,
-    type: c.expr.dataType,
+    dataType: c.expr.dataType,
   }));
   return columns;
 }
@@ -140,6 +140,7 @@ export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTi
       };
     }
     // when we turn a view into a table, the table is dynamic!
+    case RelationType.Output:
     case RelationType.DerivedTable:
     case RelationType.View:
     case RelationType.EventView:

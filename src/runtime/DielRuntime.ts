@@ -21,7 +21,7 @@ import { getPlainSelectQueryAst } from "../compiler/compiler";
 import { GetSqlRelationFromAst, GetDynamicRelationsColumns } from "../compiler/codegen/SqlAstGetters";
 import { SqlOriginalRelation } from "../parser/sqlAstTypes";
 import { DeriveDependentRelations } from "../compiler/passes/dependency";
-import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation } from "../compiler/DielAstGetters";
+import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation, BuiltInColumn } from "../compiler/DielAstGetters";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
@@ -174,11 +174,11 @@ export default class DielRuntime {
     if (!sqlRelation) return ReportUserRuntimeError(`Event ${eventName} is not defined`);
     const columnNames = GetDynamicRelationsColumns(sqlRelation as SqlOriginalRelation);
       const values = objs.map(o => {
-        return columnNames.map(cName => {
+        return columnNames.filter(c => !(c in BuiltInColumn)).map(cName => {
           const raw = o[cName];
           // it can be explicitly set to null, but not undefined
           if (raw === undefined) {
-            ReportUserRuntimeError(`We expected the input ${cName}, but it was not defined in the object.`);
+            ReportUserRuntimeError(`We expected the input ${cName}, but it was not defined for ${eventName} in the object ${JSON.stringify(objs, null, 2)}.`);
           }
           return generateInsertClauseStringForValue(raw);
         });
@@ -188,8 +188,8 @@ export default class DielRuntime {
       insert into allInputs (timestep, inputRelation, timestamp, request_timestep) values
         (${this.timestep}, '${eventName}', ${Date.now()}, ${requestTimestep});`;
       if (columnNames && (columnNames.length > 0)) {
-        finalQuery = `insert into ${eventName} (timestep, request_timestep, ${columnNames.join(", ")}) values
-          ${values.map(v => `(${this.timestep}, ${requestTimestep}, ${v.join(", ")})`)};`;
+        finalQuery = `insert into ${eventName} (${columnNames.join(", ")}) values
+          ${values.map(v => `(${v.join(", ")}, ${this.timestep}, ${requestTimestep})`)};`; // HACK
       } else {
         finalQuery = `insert into ${eventName} (timestep, request_timestep) values (${this.timestep}, ${requestTimestep});`;
       }

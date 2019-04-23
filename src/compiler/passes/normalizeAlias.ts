@@ -1,10 +1,10 @@
-import { DielAst, RelationReference, RelationReferenceType, RelationReferenceDirect } from "../../parser/dielAstTypes";
-import { ReportDielUserError } from "../../util/messages";
-import { WalkThroughRelationReferences } from "../DielAstVisitors";
+import { DielAst, RelationReference, RelationReferenceType, RelationReferenceDirect, SelectionUnit, ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprValAst } from "../../parser/dielAstTypes";
+import { ReportDielUserError, ReportDielUserWarning, LogInternalError, DielInternalErrorType } from "../../util/messages";
+import { WalkThroughRelationReferences, WalkThroughSelectionUnits } from "../DielAstVisitors";
 
 /**
  * Need to normalize the names for the relation references
- * FIXME: not sure if we need for column names?
+ * also for column names
  * @param ast
  */
 export function NormalizeAlias(ast: DielAst) {
@@ -20,5 +20,30 @@ export function NormalizeAlias(ast: DielAst) {
     }
   };
   WalkThroughRelationReferences<void>(ast, visitor);
+  const visitSelections = (r: SelectionUnit) => {
+    r.columnSelections.map(c => {
+      if (c.alias) return;
+      c.alias = getAliasForExpr(c.expr);
+    });
+  };
+  WalkThroughSelectionUnits<void>(ast, visitSelections);
   return;
+}
+
+function getAliasForExpr(expr: ExprAst): string | null {
+  switch (expr.exprType) {
+    case ExprType.Column:
+      return (expr as ExprColumnAst).columnName;
+    case ExprType.Func:
+      ReportDielUserWarning(`Should name func column!`);
+      return (expr as ExprFunAst).functionReference;
+    case ExprType.Val:
+      ReportDielUserWarning(`Should name value column!`);
+      const v = (expr as ExprValAst);
+      return v.dataType + v.value;
+    case ExprType.Star:
+      return null;
+    default:
+      return LogInternalError(`Not all ${expr.exprType} handled`, DielInternalErrorType.UnionTypeNotAllHandled);
+  }
 }

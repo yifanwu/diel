@@ -157,23 +157,20 @@ export default class DbEngine {
     }
     // coarse grained
     const currentQueueHead = this.currentQueueHead;
-    if (currentQueueHead) {
-      return LogInternalError(`Curretn quene head shoudl be defined!`);
-    } else {
-      if (IsSetIdentical(currentItem.received, currentItem.deps)) {
-        currentItem.relationsToShip.forEach((destinations, relationName) => {
-          destinations.forEach(dbId => {
-            const shipMsg: RemoteShipRelationMessage = {
-              remoteAction: DielRemoteAction.ShipRelation,
-              requestTimestep: currentQueueHead,
-              relationName,
-              dbId
-            };
-            this.SendMsg(shipMsg);
-          });
+    if (!currentQueueHead) return LogInternalError(`Curretn quene head shoudl be defined!`);
+    if (IsSetIdentical(currentItem.received, currentItem.deps)) {
+      currentItem.relationsToShip.forEach((destinations, relationName) => {
+        destinations.forEach(dbId => {
+          const shipMsg: RemoteShipRelationMessage = {
+            remoteAction: DielRemoteAction.ShipRelation,
+            requestTimestep: currentQueueHead,
+            relationName,
+            dbId
+          };
+          this.SendMsg(shipMsg);
         });
-        this.nextQueue();
-      }
+      });
+      this.nextQueue();
     }
     // need to keep on waiting
     return null;

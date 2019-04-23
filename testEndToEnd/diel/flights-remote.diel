@@ -68,7 +68,7 @@ create event view delayDistanceHeatEvent AS
   select
     max(min(round(f.delay / 10) * 10, 500), -100) as delayBin,
     min(round(f.distance / 100) * 100, 2000) as distanceBin,
-    count(*) as count
+    count() as count
   from flights f
   group by delayBin, distanceBin;
 
@@ -82,7 +82,7 @@ create template flightDistributionT(sourceRelation)
     else
       round(delay / (max(round((z.maxDelay - z.minDelay) / 10), 5))) * (max(round((z.maxDelay - z.minDelay) / 10), 5))
     end as delayBin,
-    count(*) as count
+    count() as count
   from {sourceRelation}
   left outer join currentPanZoom z
   group by delayBin
@@ -96,7 +96,7 @@ create template flightDistributionT(sourceRelation)
     );
 
 create view filteredFlights AS
-  select *
+  select f.*
   from flights f
   join currentOriginSelection s
     on f.origin = s.origin;

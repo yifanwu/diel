@@ -45,6 +45,7 @@ function runTest() {
     // assert the values here!
   });
 
+  debugger;
   // change runtime values
   diel.NewInput("zoomScatterItx", {minDelay: 0, maxDelay: 100, minDistance: 0, maxDistance: 800});
 

@@ -16,12 +16,12 @@ export function GenerateViewName(q: RelationSelection) {
   const hash = Math.floor(Math.random() * 1000).toString();
   if (q.compositeSelections) {
     const hintRel = q.compositeSelections[0].relation.baseRelation
-      ? "-" + q.compositeSelections[0].relation.baseRelation.alias
+      ? "_" + q.compositeSelections[0].relation.baseRelation.alias
       : "";
     const hintCol = q.compositeSelections[0].relation.columnSelections
                   .map(c => c.alias ? c.alias : getNameFromExpr(c.expr))
                   .join("-");
-    return `${hash}${hintCol}${hintRel}`;
+    return `${hintCol}${hintRel}${hash}`;
   }
   return hash;
 }
