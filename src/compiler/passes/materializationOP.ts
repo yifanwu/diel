@@ -113,6 +113,9 @@ function changeASTMaterializeOP(view: DerivedRelation,
  */
 function hasAggregate(view: DerivedRelation): boolean {
   let ret: boolean = false;
+  // LATER. for order by clause, use view level materialization for now
+  // THINK about limit clause?
+
   // ??? maybe there is another way to check for these functions?
   // for now, ast says they are "custom" functions.
   const aggregateFunc = ["sum", "min", "max", "avg", "count"];
