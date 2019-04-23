@@ -12,8 +12,8 @@ CREATE EVENT TABLE originSelectionEvent (
 );
 
 create output currentOriginSelection AS
-  select origin, timestep from originSelectionEvent
-    where timestep = (select max(timestep) from originSelectionEvent);
+  select origin, timestep
+  from LATEST originSelectionEvent;
 
 create event table panZoomEvent (
   minDelay number,
@@ -22,10 +22,7 @@ create event table panZoomEvent (
 
 create view currentPanZoom as 
   select minDelay, maxDelay
-  from panZoomEvent
-  where timestep = (
-      select max(timestep) from panZoomEvent
-    );
+  from LATEST panZoomEvent;
 
 create output allPastSelections AS
   select distinct origin from originSelectionEvent order by timestep;
@@ -58,7 +55,11 @@ insert into __scales (component, dimension, outputName, x, y) values ('flight', 
 create output delayDistanceByOrigin AS
   select *
   from delayDistanceByOriginEvent e
+<<<<<<< HEAD
   join currentOriginSelection s on e.lineage = s.timestep;
+=======
+  join currentOriginSelection s on e.request_timestep = s.timestep;
+>>>>>>> 98f434bc3b3a7e51c8d65ee57fa516acc4a38f54
 
 ----------------------------------------------------------------------------------
 
@@ -71,7 +72,11 @@ create event view delayDistanceHeatEvent AS
   select
     max(min(round(f.delay / 10) * 10, 500), -100) as delayBin,
     min(round(f.distance / 100) * 100, 2000) as distanceBin,
+<<<<<<< HEAD
     count(*) as count
+=======
+    count() as count
+>>>>>>> 98f434bc3b3a7e51c8d65ee57fa516acc4a38f54
   from flights f
   group by delayBin, distanceBin;
 
@@ -85,7 +90,11 @@ create template flightDistributionT(sourceRelation)
     else
       round(delay / (max(round((z.maxDelay - z.minDelay) / 10), 5))) * (max(round((z.maxDelay - z.minDelay) / 10), 5))
     end as delayBin,
+<<<<<<< HEAD
     count(*) as count
+=======
+    count() as count
+>>>>>>> 98f434bc3b3a7e51c8d65ee57fa516acc4a38f54
   from {sourceRelation}
   left outer join currentPanZoom z
   group by delayBin
@@ -99,7 +108,11 @@ create template flightDistributionT(sourceRelation)
     );
 
 create view filteredFlights AS
+<<<<<<< HEAD
   select *
+=======
+  select f.*
+>>>>>>> 98f434bc3b3a7e51c8d65ee57fa516acc4a38f54
   from flights f
   join currentOriginSelection s
     on f.origin = s.origin;
@@ -116,15 +129,23 @@ create output flightDistribution AS
     delayBin,
     count,
     'all' as series
+<<<<<<< HEAD
   from flightDistributionEvent
   where timestep = (select max(timestep) from flightDistributionEvent)
+=======
+  from LATEST flightDistributionEvent
+>>>>>>> 98f434bc3b3a7e51c8d65ee57fa516acc4a38f54
   UNION
   select
     delayBin,
     count,
     'airport'
+<<<<<<< HEAD
   from flightDistributionByAirportEvent
   where timestep = (select max(timestep) from flightDistributionByAirportEvent);
+=======
+  from LATEST flightDistributionByAirportEvent;
+>>>>>>> 98f434bc3b3a7e51c8d65ee57fa516acc4a38f54
 
 -------
 
@@ -133,6 +154,7 @@ CREATE EVENT TABLE zoomScatterItx(
 );
 
 create view currentZoomScaterItx AS
+<<<<<<< HEAD
 select * from zoomScatterItx
   where timestep = (select max(timestep) from zoomScatterItx);
 
@@ -140,6 +162,14 @@ insert into __scales (component, dimension, outputName, x, y) values ('flights',
 CREATE OUTPUT delayByDistance AS
   select * from delayByDistanceEvent
   where timestep = (select max(timestep) from delayByDistanceEvent);
+=======
+select * from LATEST zoomScatterItx;
+
+insert into __scales (component, dimension, outputName, x, y) values ('flights', 2, 'delayByDistance', 'delay', 'distance');
+CREATE OUTPUT delayByDistance AS
+  select *
+  from LATEST delayByDistanceEvent;
+>>>>>>> 98f434bc3b3a7e51c8d65ee57fa516acc4a38f54
 
 CREATE EVENT VIEW delayByDistanceEvent AS
   SELECT delay, distance

@@ -1,7 +1,8 @@
-import { getDielIr, getDielAst } from "../../src/compiler/compiler";
+import { getDielAst } from "../../src/compiler/compiler";
+import { CompileDiel } from "../../src/compiler/DielCompiler";
 import { TransformAstForMaterializationOP } from "../../src/compiler/passes/materializationOP";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
-import { generateSqlFromDielAst } from "../../src/compiler/codegen/codeGenSql";
+import { generateStringFromSqlIr } from "../../src/compiler/codegen/codeGenSql";
 import { FgGray, FgMagenta, Reset} from "../../src/util/messages";
 
 export function testMaterializationOpLevel() {
@@ -9,12 +10,12 @@ export function testMaterializationOpLevel() {
   for (let test of tests) {
     let q = test[0];
     let a = test[1];
-    let ir = getDielIr(q);
+    let ir = (getDielAst(q));
     TransformAstForMaterializationOP(ir.ast);
-    let sql1 = generateSqlFromDielAst(ir.ast);
+    let sql1 = generateStringFromSqlIr(ir.ast);
 
     let ir2 = getDielIr(a);
-    let sql2 = generateSqlFromDielAst(ir2.ast);
+    let sql2 = generateStringFromSqlIr(ir2.ast);
 
     // console.log(JSON.stringify(ir.ast, null, 2));
     // console.log(JSON.stringify(ir2.ast, null, 2));

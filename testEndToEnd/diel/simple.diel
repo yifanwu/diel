@@ -1,5 +1,8 @@
-CREATE EVENT TABLE click (delta number);
 
+CREATE EVENT TABLE originSelectionEvent (
+  origin text
+);
 
-create output currentClick as select sum(delta * 2) as count from click
-constrain check (count < 10);
+create output currentOriginSelection AS
+  select origin, timestep
+  from LATEST originSelectionEvent;

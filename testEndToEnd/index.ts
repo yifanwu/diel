@@ -1,4 +1,6 @@
-import { DielRuntime, DbSetupConfig, DbType, RelationObject } from "../../src";
+import * as path from "path";
+
+import { DielRuntime, DbSetupConfig, DbType, RelationObject } from "../src";
 
 /**
  * LUCIE TODO:
@@ -7,19 +9,20 @@ import { DielRuntime, DbSetupConfig, DbType, RelationObject } from "../../src";
  * - put the .diel into the current dir (cp from diel-gallery)
  */
 
-const jsFile = "./<FIX>worker.sql.js";
+const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/js/worker.sql.js");
 
 const dbConfigs: DbSetupConfig[] = [
   {
     dbType: DbType.Worker,
     jsFile,
-    dataFile: `<FIX>flights.small.sqlite`
+    dataFile: path.resolve(__dirname, "../../testEndToEnd/data/flights.small.sqlite")
   },
 ];
 
 const mainDbPath: string = null;
 
-const dielFiles = [`<FIX>flights-remote.diel`];
+// const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/simple.diel")];
+const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/flights-remote.diel")];
 
 export const diel = new DielRuntime({
   isStrict: true,
@@ -37,12 +40,18 @@ function runTest() {
   // make assertions about the setup
   // e.g. the ASTs in diel.physicalExecution
 
-// bind custom outputs
+  // bind custom outputs
   diel.BindOutput("allOriginAirports", (o: RelationObject) => {
     // assert the values here!
+    console.log("bindoutput!!!", o);
   });
 
+  debugger;
   // change runtime values
   diel.NewInput("zoomScatterItx", {minDelay: 0, maxDelay: 100, minDistance: 0, maxDistance: 800});
 
+  // let's try adding dynamically
+  diel.AddOutputRelationByString(`
+    select distinct origin from flights where delay > 500;
+  `);
 }

@@ -1,24 +1,55 @@
 import { Database, QueryResults } from "sql.js";
 import { RelationObject } from "./runtimeTypes";
-// import { SelectionUnit } from "../parser/dielAstTypes";
+import { RelationSelection, ExprAst, ExprType, ExprColumnAst } from "../parser/dielAstTypes";
+import { LogInternalError } from "../util/messages";
 
-// export function generateViewNameForSelect(ast: SelectionUnit) {
-// }
+function getNameFromExpr(e: ExprAst): string | undefined {
+  switch (e.exprType) {
+    case ExprType.Column:
+      return (e as ExprColumnAst).columnName;
+    default:
+      return "";
+  }
+}
+
+export function GenerateViewName(q: RelationSelection) {
+  const hash = Math.floor(Math.random() * 1000).toString();
+  if (q.compositeSelections) {
+    const hintRel = q.compositeSelections[0].relation.baseRelation
+      ? "_" + q.compositeSelections[0].relation.baseRelation.alias
+      : "";
+    const hintCol = q.compositeSelections[0].relation.columnSelections
+                  .map(c => c.alias ? c.alias : getNameFromExpr(c.expr))
+                  .join("-");
+    return `${hintCol}${hintRel}${hash}`;
+  }
+  return hash;
+}
+
+export function CaughtLocalRun(db: Database, s: string) {
+  try {
+    console.log(`%c Running Query in Main:\n${s}`, "color: purple");
+    db.run(s);
+  } catch (error) {
+    LogInternalError(`Error while running\n${s}\n${error}`);
+  }
+}
 
 /**
  * returns all the SQL that defines tables in this DB
  *   so that we can add to IR parsing (for type inference and other processing needs)
  */
-export function getExistingTableDefinitions(isWorker: boolean, db?: Database): string {
+export function getExistingTableDefinitions(isWorker: boolean, db: Database): string {
   let queries = "";
   const q = `SELECT name, sql FROM sqlite_master WHERE type='table'`;
 
   if (isWorker) {
     throw new Error(`not yet implemented`);
   } else {
+    const done = () => { console.log("done"); }
     db.each(q, (o: any) => {
       queries += queries + o.sql;
-    }, null);
+    }, done);
   }
   return queries;
 }
@@ -80,3 +111,20 @@ export function SqlJsGetObjectArrayFromQuery(db: Database, query: string) {
 
 //   return fn(params);
 // };
+
+
+export function convertRelationObjectToQueryResults(ro: RelationObject): QueryResults {
+  let qr = {
+    columns: [],
+    values: []
+  } as QueryResults;
+  qr.columns = Object.keys(ro[0]);
+  ro.forEach((array) => {
+    let values: string[] = [];
+    qr.columns.forEach((colname) => {
+      values.push(array[colname] as string);
+    });
+    qr.values.push(values);
+  });
+  return qr;
+}

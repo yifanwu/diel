@@ -5,7 +5,7 @@ import { DielAst, DerivedRelation, CrossFilterIr, RelationType, SetOperator, Sel
  * - We are assuming that crossfitlers do not have unions
  * @param ast DielAst
  */
-export function applyCrossfilter(ast: DielAst): void {
+export function ApplyCrossfilter(ast: DielAst): void {
   const newSetsOfViews = ast.crossfilters.map(c => _getViews(c));
   ast.relations = ast.relations.concat(...newSetsOfViews);
 }
@@ -16,7 +16,7 @@ function _getViews(xIr: CrossFilterIr): DerivedRelation[] {
   const unfilteredViews: DerivedRelation[] = xIr.charts.map(c => {
     return {
       relationType: RelationType.View,
-      name: `${c.chartName}Unfiltered`,
+      rName: `${c.chartName}Unfiltered`,
       selection: c.selection
     };
   });
@@ -34,7 +34,7 @@ function _getViews(xIr: CrossFilterIr): DerivedRelation[] {
       }]
     };
     return {
-      name: `${c.chartName}Filtered`,
+      rName: `${c.chartName}Filtered`,
       relationType: RelationType.View,
       selection
     };
