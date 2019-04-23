@@ -15,7 +15,7 @@ type FinalMsgType =
 type FinalIdType = {
   remoteAction: DielRemoteAction,
   destinationDbId?: DbIdType,
-  lineage: LogicalTimestep
+  requestTimestep: LogicalTimestep
 };
 
 interface FinalPromiseIdType extends FinalIdType {

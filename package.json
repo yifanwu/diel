@@ -16,7 +16,8 @@
     "lang": "antlr4ts -visitor -no-listener src/parser/grammar/DIEL.g4",
     "test": "tsc -b tests/ && node build/tests/index.js",
     "test-watch": "tsc -b -w tests/",
-    "debug": "node --inspect-brk -r ts-node/register tests/index.ts"
+    "debug": "node --inspect-brk -r ts-node/register tests/index.ts",
+    "testEndToEnd": "webpack-dev-server --mode development --hot"
   },
   "repository": {
     "type": "git",
@@ -35,6 +36,7 @@
   "homepage": "https://github.com/yifanwu/diel#readme",
   "devDependencies": {
     "antlr4ts-cli": "^0.4.0-alpha.4",
+    "awesome-typescript-loader": "^5.2.1",
     "rollup": "^1.9.0",
     "rollup-plugin-commonjs": "^9.3.4",
     "rollup-plugin-node-builtins": "^2.1.2",
@@ -45,7 +47,10 @@
     "tslint": "^5.15.0",
     "tslint-loader": "^3.5.3",
     "typescript": "^3.4.1",
-    "typescript-formatter": "^7.2.2"
+    "typescript-formatter": "^7.2.2",
+    "webpack": "^4.30.0",
+    "webpack-cli": "^3.3.0",
+    "webpack-dev-server": "^3.3.1"
   },
   "dependencies": {
     "@types/sql.js": "0.0.29",
