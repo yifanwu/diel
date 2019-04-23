@@ -16,6 +16,6 @@ create table allInputs (
   -- timestamp kept track of in the JS code
   timestamp DATETIME not null,
   inputRelation text not null,
-  lineage integer
+  request_timestep integer
 );
 `;

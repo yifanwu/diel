@@ -1,7 +1,6 @@
 import { getDielAst } from "../../src/compiler/compiler";
 import { DielAst } from "../../src/parser/dielAstTypes";
 import { applyLatestToAst } from "../../src/compiler/passes/syntaxSugar";
-import { generateSqlFromDielAst } from "../../src/compiler/codegen/codeGenSql";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
 import { TestLogger } from "../testTypes";
 
@@ -23,7 +22,6 @@ function compareAST(q1: string, ast2: DielAst, logger: TestLogger) {
   let pretty2 = JSON.stringify(ast2, null, 2);
 
   // console.log("============ Query ==============");
-  let sqls = generateSqlFromDielAst(ast2);
   // console.log("Converted:\n\n", sqls[0], "\n");
 
   if (pretty1 !== pretty2) {

@@ -1,9 +1,9 @@
-import { getDielIr } from "../../src/compiler/compiler";
 import { DerivedRelation, Relation } from "../../src/parser/dielAstTypes";
 import { GetAllDerivedViews } from "../../src/compiler/DielIr";
 import { GetDependenciesFromViewList, getOriginalRelationsDependedOn } from "../../src/compiler/passes/dependency";
 import { IsSetIdentical } from "../../src/util/dielUtils";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
+import { getDielIr } from "../../build/src/compiler/compiler";
 
 export function testGetOriginalRelationsDependedOn() {
   const logger = GenerateUnitTestErrorLogger("testGetOriginalRelationsDependedOn", q1);
@@ -14,13 +14,13 @@ export function testGetOriginalRelationsDependedOn() {
 
   let originalRelations = [] as string[];
   ir.GetOriginalRelations().forEach(function(value: Relation) {
-    originalRelations.push(value.name);
+    originalRelations.push(value.rName);
   });
 
   views.forEach(function(view: DerivedRelation) {
     let dependedTables = getOriginalRelationsDependedOn(view, deps, originalRelations);
-    if (!IsSetIdentical(answer.get(view.name), dependedTables)) {
-      logger.error(`Two sets are not the same.`, {expected: answer.get(view.name), got: dependedTables});
+    if (!IsSetIdentical(answer.get(view.rName), dependedTables)) {
+      logger.error(`Two sets are not the same.`, {expected: answer.get(view.rName), got: dependedTables});
     }
   });
   logger.pass();

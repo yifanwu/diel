@@ -2,9 +2,6 @@ import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as parser from "../parser/grammar/DIELParser";
 import * as lexer from "../parser/grammar/DIELLexer";
 import Visitor from "../parser/generateAst";
-import { CompileDiel } from "./DielCompiler";
-import { LogInfo, PrintCode } from "../util/messages";
-import { DielIr } from "./DielIr";
 import { RelationSelection } from "../parser/dielAstTypes";
 
 export function parse(code: string) {
@@ -23,12 +20,6 @@ export function getPlainSelectQueryAst(code: string) {
   let visitor = new Visitor();
   let ast = visitor.visit(tree) as RelationSelection;
   return ast;
-}
-
-export function getDielIr(code: string) {
-  const ast = getDielAst(code);
-  // apply the templates
-  return CompileDiel(new DielIr(ast));
 }
 
 export function getDielAst(code: string) {

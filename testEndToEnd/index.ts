@@ -21,7 +21,8 @@ const dbConfigs: DbSetupConfig[] = [
 
 const mainDbPath: string = null;
 
-const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/test.diel")];
+// const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/simple.diel")];
+const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/flights-remote.diel")];
 
 export const diel = new DielRuntime({
   isStrict: true,
@@ -39,18 +40,18 @@ function runTest() {
   // make assertions about the setup
   // e.g. the ASTs in diel.physicalExecution
 
-// bind custom outputs
+  // bind custom outputs
   diel.BindOutput("allOriginAirports", (o: RelationObject) => {
     // assert the values here!
     console.log("bindoutput!!!", o);
   });
 
-  // // change runtime values
-  // diel.NewInput("zoomScatterItx",
-  //   {minDelay: 0, maxDelay: 100, minDistance: 0, maxDistance: 800});
+  debugger;
+  // change runtime values
+  diel.NewInput("zoomScatterItx", {minDelay: 0, maxDelay: 100, minDistance: 0, maxDistance: 800});
 
+  // let's try adding dynamically
+  diel.AddOutputRelationByString(`
+    select distinct origin from flights where delay > 500;
+  `);
 }
-
-// 1. test evaluating view constraints that are not outputs
-// 2. test if the views are already materialized. if so, don't check constraints.
-// 3. if not, materialize, but they could be distributed.
