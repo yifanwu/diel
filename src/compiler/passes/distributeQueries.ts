@@ -1,9 +1,9 @@
-import { BuiltInColumn, GetAllOutputs } from "../DielAstGetters";
+import { GetAllOutputs } from "../DielAstGetters";
 import { LogInternalError, DielInternalErrorType } from "../../util/messages";
 import { NodeDependencyAugmented, DependencyTree } from "../../runtime/runtimeTypes";
 import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation } from "../../parser/sqlAstTypes";
 import { LocalDbId } from "../DielPhysicalExecution";
-import { RelationNameType, DbIdType, Column, DielDataType, CompositeSelection, Relation, RelationType, OriginalRelation, DielAst } from "../../parser/dielAstTypes";
+import { RelationNameType, DbIdType, Column, DielDataType, CompositeSelection, Relation, RelationType, OriginalRelation, DielAst, BuiltInColumn } from "../../parser/dielAstTypes";
 import { DerivedRelation } from "../..";
 
 export type SingleDistribution = {

@@ -1,7 +1,7 @@
 import { LogInfo } from "../../src/util/messages";
 import { ExprColumnAst, DielDataType, DerivedRelation, DielAst } from "../../src/parser/dielAstTypes";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
-import { ParsePlainDielAst } from "../../src/compiler/compiler";
+import { ParsePlainDielAst, CompileAst } from "../../src/compiler/compiler";
 import { GetRelationDef } from "../../src/compiler/DielAstGetters";
 
 export function assertAllStar() {
@@ -32,6 +32,7 @@ export function assertAllStar() {
   `;
   const logger = GenerateUnitTestErrorLogger("assertAllStar", q);
   let ast = ParsePlainDielAst(q);
+  CompileAst(ast);
   assertColumns("v1", [
     {columnName: "a", relationName: "t", dataType: DielDataType.Number},
     {columnName: "b", relationName: "t", dataType: DielDataType.Number}

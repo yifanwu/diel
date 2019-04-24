@@ -40,7 +40,7 @@ export function assertSimpleType() {
   const logger = GenerateUnitTestErrorLogger("assertSimpleType", q);
   let ast = ParsePlainDielAst(q);
   // then we need to compile it!
-
+  CompileAst(ast);
   function arrivalAssert(viewName: string) {
     const viewAst = GetRelationDef(ast, viewName);
     const arrivalType = getColumnTypeFromRelation(viewAst, "arrival");

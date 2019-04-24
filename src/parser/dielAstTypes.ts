@@ -4,6 +4,7 @@ export type DbIdType = number;
 export type RelationNameType = string;
 export type LogicalTimestep = number;
 
+
 // in the code base we make use of different types of NULLs
 // this is an attempt to keep the flexibilities of nulls but also make programming more sane!
 export type ToBeFilled<T> = T | undefined;
@@ -531,6 +532,24 @@ export interface ExprValAst extends ExprBase {
 export interface CustomFunc {
   name: string;
 }
+
+
+export type SimpleColumn = {
+  columnName: string,
+  dataType: DielDataType
+};
+
+export enum BuiltInColumn {
+  TIMESTEP = "TIMESTEP",
+  TIMESTAMP = "TIMESTAMP",
+  REQUEST_TIMESTEP = "REQUEST_TIMESTEP"
+}
+
+export const BuiltInColumnDataTypes = new Map([
+  [BuiltInColumn.TIMESTAMP.toString(), DielDataType.TimeStamp],
+  [BuiltInColumn.TIMESTEP.toString(), DielDataType.Number],
+  [BuiltInColumn.REQUEST_TIMESTEP.toString(), DielDataType.Number],
+]);
 
 // export enum MathOp {
 //   ADD,

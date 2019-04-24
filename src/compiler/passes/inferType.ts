@@ -1,4 +1,4 @@
-import { LogInternalError, ReportDielUserError, DielInternalErrorType } from "../../util/messages";
+import { LogInternalError, ReportDielUserError, DielInternalErrorType, LogInternalWarning } from "../../util/messages";
 import { DielDataType, BuiltInColumnTyppes, SelectionUnit, RelationReference, ExprType, ExprFunAst, ExprColumnAst, ExprAst, BuiltInFunc, ExprValAst, ExprParen, DerivedRelation, DielAst, RelationReferenceType, RelationReferenceSubquery, Relation, OriginalRelation, CompositeSelection, RelationReferenceDirect } from "../../parser/dielAstTypes";
 import { GetRelationDef, IsRelationTypeDerived } from "../DielAstGetters";
 import { WalkThroughSelectionUnits } from "../DielAstVisitors";
@@ -97,13 +97,14 @@ function getTypeForExpr(ast: DielAst, expr: ExprAst, sUnit: SelectionUnit): Diel
   }
 }
 
-function getColumnTypeFromCompositionSelection(s: CompositeSelection, columnName: string) {
+function getColumnTypeFromCompositionSelection(s: CompositeSelection, columnName: string): DielDataType | null {
   const selections = s[0].relation.derivedColumnSelections;
-    if (!selections) return LogInternalError(`Should have done the normalization pass before this!`);
+    if (!selections) return LogInternalError(`Should have done the normalization pass before this for column ${columnName} in composite selction:\n ${JSON.stringify(s, null, 2)}!\n`);
     for (let i = 0; i < selections.length; i ++) {
       const s = selections[i];
       if (columnName === s.alias) return s.expr.dataType;
     }
+    LogInternalWarning(`Type not found for ${columnName}`);
     return null;
 }
 
@@ -119,6 +120,7 @@ export function getColumnTypeFromRelation(relation: Relation, columnName: string
   if (column.length > 0) {
     return column[0].dataType;
   } else {
+    LogInternalWarning(`Type not found for ${columnName}`);
     return null;
   }
 }

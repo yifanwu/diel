@@ -33,7 +33,7 @@ export function PrintCode(code: string) {
 }
 
 export function LogInternalError(m: string, errorType = DielInternalErrorType.Untitled): null {
-  console.log(`%cError[${errorType}]: ${m}`, "color: red");
+  console.log(`${FgRed}Error[${errorType}]: ${m}${Reset}`);
   debugger;
   if (STRICT) throw new Error();
   return null;

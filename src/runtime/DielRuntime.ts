@@ -5,7 +5,7 @@ import { DIELLexer } from "../parser/grammar/DIELLexer";
 import { DIELParser } from "../parser/grammar/DIELParser";
 
 import { DielRemoteAction, RelationObject, DielConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, ExecutionSpec, } from "./runtimeTypes";
-import { OriginalRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationNameType, DerivedRelation, DielAst } from "../parser/dielAstTypes";
+import { OriginalRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationNameType, DerivedRelation, DielAst, BuiltInColumn } from "../parser/dielAstTypes";
 import { SqlStrFromSelectionUnit, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst, GenerateSqlRelationString } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
 import { CompileAst, CompileDerivedAstGivenAst } from "../compiler/compiler";
@@ -21,7 +21,7 @@ import { ParsePlainSelectQueryAst } from "../compiler/compiler";
 import { GetSqlRelationFromAst, GetDynamicRelationsColumns } from "../compiler/codegen/SqlAstGetters";
 import { SqlOriginalRelation, SqlRelationType } from "../parser/sqlAstTypes";
 import { DeriveDependentRelations } from "../compiler/passes/dependency";
-import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation, BuiltInColumn } from "../compiler/DielAstGetters";
+import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation } from "../compiler/DielAstGetters";
 
 // ugly global mutable pattern here...
 export let STRICT = false;

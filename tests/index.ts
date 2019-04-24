@@ -9,8 +9,18 @@ import { assertLatestSyntax } from "./compilerTests/testSyntaxSugar";
 import { codeGenBasicSQLTest } from "./sqlCodeGenTest";
 import { testGetOriginalRelationsDependedOn } from "./compilerTests/testDependency";
 import { assertCheckViewConstraintTest } from "./compilerTests/testViewConstraints";
-import { ParsePlainDielAst } from "../src/compiler/compiler";
+import { ParsePlainDielAst, CompileAst } from "../src/compiler/compiler";
 // import { PrintCode } from "../src/util/messages";
+
+
+testTopologicalSort();
+testGetOriginalRelationsDependedOn();
+testDistributionLogc();
+codeGenBasicSQLTest();
+assertBasicOperators();
+assertSimpleType();
+assertAllStar();
+assertMultiplyType();
 
 const q = `
 create event table t1 (
@@ -27,25 +37,16 @@ create view v2 as select a from t1 join (select max(b) as b from t2) m on m.b = 
 create view v3 as select a from t1 where b in (select b from t2 where c = 'hello');
 `;
 
-testGetOriginalRelationsDependedOn();
-testDistributionLogc();
-// @LUCIE: the following is failing, fix me
-// assertLatestSyntax();
-
-testTopologicalSort();
-
-// @LUCIE sorry failing as well.
-// assertBasicConstraints();
-codeGenBasicSQLTest();
-assertBasicOperators();
-assertSimpleType();
-assertAllStar();
-assertMultiplyType();
-
 let ast = ParsePlainDielAst(q);
+CompileAst(ast);
 assertBasicNormalizationOfRelation(ast, q);
 assertFunctionParsing(ast, q);
 
-// testMaterializedViewConstraint();
+// @LUCIE: the following tests are failing, fix me
+assertBasicConstraints();
+assertLatestSyntax();
 assertCheckViewConstraintTest();
+
+// @LUCIE: the following tests are not defined:
+// testMaterializedViewConstraint();
 // testMaterialization();

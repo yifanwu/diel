@@ -1,7 +1,7 @@
 import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
-import { ExprType, ExprColumnAst, SelectionUnit, ColumnSelection, RelationReference, DerivedRelation, DielAst, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, ExprFunAst, ExprStarAst, ExprAst, ExprParen } from "../../parser/dielAstTypes";
+import { ExprType, ExprColumnAst, SelectionUnit, ColumnSelection, RelationReference, DerivedRelation, DielAst, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, ExprFunAst, ExprStarAst, ExprAst, ExprParen, SimpleColumn, BuiltInColumn, BuiltInColumnDataTypes } from "../../parser/dielAstTypes";
 import { WalkThroughSelectionUnits } from "../DielAstVisitors";
-import { SimpleColumn, BuiltInColumn, GetRelationDef, IsRelationEvent, BuiltInColumnDataTypes, DeriveColumnsFromRelation, DeriveColumnsFromSelectionUnit } from "../DielAstGetters";
+import { GetRelationDef, IsRelationEvent, DeriveColumnsFromRelation, DeriveColumnsFromSelectionUnit } from "../DielAstGetters";
 
 /**
  * the pass removes the .* as well as filling in where the columns comes from if it's not specified
@@ -123,7 +123,7 @@ function normalizeRelationReference(ref: RelationReference, ast: DielAst, rName?
  * @param rName optional, used for providing informative error messages.
  */
 function normalizeColumnForSelectionUnit(s: SelectionUnit, ast: DielAst, rName?: string): void {
-
+  console.log("normalized column for ", rName);
   if (s.derivedColumnSelections) {
     return LogInternalError(`DerivedColumnsSelections was already defined! Shouldn't do again for ${rName}`);
   }
@@ -308,5 +308,6 @@ function normalizeColumnExpr(ast: DielAst, s: SelectionUnit, currentColumnExpr: 
 function checkIfColumnInRelationReference(ast: DielAst, ref: RelationReference, columnName: string): SimpleColumn | null {
   // first see if the relation reference is direct
   const columns = columnsFromRelationReference(ast, ref);
-  return columns.find(c => c.columnName === columnName);
+  if (columns) return columns.find(c => c.columnName === columnName);
+  return null;
 }
