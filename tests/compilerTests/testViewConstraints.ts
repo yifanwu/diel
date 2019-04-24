@@ -1,5 +1,5 @@
 import { checkViewConstraint } from "../../src/compiler/passes/generateViewConstraints";
-import { getDielAst, getPlainSelectQueryAst } from "../../src/compiler/compiler";
+import { ParsePlainDielAst, ParsePlainSelectQueryAst } from "../../src/compiler/compiler";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
 import { TestLogger } from "../testTypes";
 
@@ -185,7 +185,7 @@ export function assertCheckViewConstraintTest() {
   for (let test of tests) {
     const query = test[0] as string;
     const answer = test[1] as string[];
-    let ast = getDielAst(query);
+    let ast = ParsePlainDielAst(query);
     let viewqueries = checkViewConstraint(ast);
     let computedQueries = Array.from(viewqueries)[0][1];
     compareAST(computedQueries, answer, logger);
@@ -202,8 +202,8 @@ function compareAST(computedQueries: string[][], answerQueries: string[], logger
     let q = computedQueries[i][0];
     let a = answerQueries[i];
 
-    let ast1 = getPlainSelectQueryAst(q);
-    let ast2 = getPlainSelectQueryAst(a);
+    let ast1 = ParsePlainSelectQueryAst(q);
+    let ast2 = ParsePlainSelectQueryAst(a);
 
     let pretty1 = JSON.stringify(ast1, null, 2);
     let pretty2 = JSON.stringify(ast2, null, 2);

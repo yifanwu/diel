@@ -80,6 +80,7 @@ export function generateUpdate(command: UpdateClause) {
       }).join(",\n")
     }
   `;
+}
 export function GenerateSqlRelationString(r: SqlRelation, replace = false): string {
   switch (r.relationType) {
     case SqlRelationType.Table:

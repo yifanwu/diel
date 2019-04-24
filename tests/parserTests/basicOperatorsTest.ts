@@ -1,10 +1,10 @@
-import { getDielIr } from "../../src/compiler/compiler";
-import { LogInfo } from "../../src/util/messages";
+import { ParsePlainDielAst } from "../../src/compiler/compiler";
 import { assertExprAsFunctionWithName, assertExprAsColumnWithname, assertValue, GenerateUnitTestErrorLogger } from "../testHelper";
 import { ExprColumnAst, ExprFunAst, DerivedRelation } from "../../src/parser/dielAstTypes";
+import { GetRelationDef } from "../../src/compiler/DielAstGetters";
 
 export function assertBasicOperators() {
-  let q = `
+  const q = `
   create event table Attendance (
       arrival int,
       departure int,
@@ -13,8 +13,8 @@ export function assertBasicOperators() {
   create view v1 as select avg(arrival), aid from Attendance group by aid having avg(arrival) > 8 order by aid asc limit 5;
   `;
   const logger = GenerateUnitTestErrorLogger("assertBasicOperators", q);
-  let ir = getDielIr(q);
-  const v1Relation = (ir.GetRelationDef("v1") as DerivedRelation).selection.compositeSelections[0].relation;
+  const ast = ParsePlainDielAst(q);
+  const v1Relation = (GetRelationDef(ast, "v1") as DerivedRelation).selection.compositeSelections[0].relation;
   // test group by
   const groupByClauses = v1Relation.groupByClause;
   if (groupByClauses.selections.length !== 1) {

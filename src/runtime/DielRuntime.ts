@@ -17,7 +17,7 @@ import { DielPhysicalExecution, LocalDbId } from "../compiler/DielPhysicalExecut
 import DbEngine from "./DbEngine";
 import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
-import { getPlainSelectQueryAst } from "../compiler/compiler";
+import { ParsePlainSelectQueryAst } from "../compiler/compiler";
 import { GetSqlRelationFromAst, GetDynamicRelationsColumns } from "../compiler/codegen/SqlAstGetters";
 import { SqlOriginalRelation, SqlRelationType } from "../parser/sqlAstTypes";
 import { DeriveDependentRelations } from "../compiler/passes/dependency";
@@ -593,7 +593,7 @@ export default class DielRuntime {
    * we assume that the string is a basic select
    */
   public async AddOutputRelationByString(q: string, rName?: string) {
-    const relationSelection = getPlainSelectQueryAst(q);
+    const relationSelection = ParsePlainSelectQueryAst(q);
     rName = rName ? rName : GenerateViewName(relationSelection);
     const derived: DerivedRelation = {
       rName,

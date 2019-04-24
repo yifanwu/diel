@@ -11,7 +11,7 @@ export function parse(code: string) {
   return new parser.DIELParser(tokenStream);
 }
 
-export function getPlainSelectQueryAst(code: string) {
+export function ParsePlainSelectQueryAst(code: string) {
   const inputStream = new ANTLRInputStream(code);
   const l = new lexer.DIELLexer(inputStream);
   const tokenStream = new CommonTokenStream(l);
@@ -22,7 +22,7 @@ export function getPlainSelectQueryAst(code: string) {
   return ast;
 }
 
-export function getDielAst(code: string) {
+export function ParsePlainDielAst(code: string) {
   // PrintCode(code);
   const inputStream = new ANTLRInputStream(code);
   const l = new lexer.DIELLexer(inputStream);

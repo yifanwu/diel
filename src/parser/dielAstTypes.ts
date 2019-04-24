@@ -26,6 +26,7 @@ export type ExpressionValue = DielAst
   | Command[]
   | DropClause
   | DeleteClause
+  | UpdateClause
   | string
   | string[]
   | RawValues
