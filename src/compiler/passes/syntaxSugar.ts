@@ -39,9 +39,13 @@ function applyLatestToRelationReference(ref: RelationReference, selection: Selec
   switch (ref.relationReferenceType) {
     case RelationReferenceType.Direct: {
       const r = ref as RelationReferenceDirect;
-      let relationName = r.relationName;
-      // we will be doing a rewrite!
-      modifyWhereComplete(selection, relationName);
+      if (r.isLatest) {
+        let relationName = r.relationName;
+        r.isLatest = false;
+        // we will be doing a rewrite!
+        modifyWhereComplete(selection, relationName);
+      }
+      // do nothing if it doesn't have latest flag.
       return;
     }
     case RelationReferenceType.Subquery: {
@@ -162,7 +166,8 @@ function createSubquery(relationName: string): ExprAst {
             baseRelation: {
               alias: null,
               isLatest: false,
-              relationName: relationName
+              relationName: relationName,
+              relationReferenceType: RelationReferenceType.Direct
             },
             joinClauses: [],
             whereClause: null,

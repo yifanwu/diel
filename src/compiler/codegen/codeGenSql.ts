@@ -130,7 +130,7 @@ export function GetSqlStringFromCompositeSelectionUnit(c: CompositeSelectionUnit
 }
 
 export function SqlStrFromSelectionUnit(v: SelectionUnit): string {
-  const selection = generateColumnSelection(v.derivedColumnSelections);
+  const selection = v.derivedColumnSelections ? generateColumnSelection(v.derivedColumnSelections) : generateColumnSelection(v.columnSelections);
   // const selection = original
   //   ? generateColumnSelection(v.columnSelections)
     // : generateColumnSelection(v.derivedColumnSelections)

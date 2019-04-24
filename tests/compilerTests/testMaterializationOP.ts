@@ -34,249 +34,249 @@
 
 //   logger.pass();
 // }
-// // Q: when do you update vs insert?
-// // update when there is aggregate function or groupby clause
+// Q: when do you update vs insert?
+// update when there is aggregate function or groupby clause
 
-// // General principle for insert
-// // 1. initializing insert, just copy the select statemet from the view, like in view level materialization
-// // 2. for program insert,
-// //    delete new table if its the base relation.
-// //    make the first join relation the base relation
-// //    copy the predicate of the deleted join into where clause.
-
-
-// // 1. most basic test--insert instead of update?
-// let q1 =
-// `
-// create table t1 (a integer);
-
-// create view v1 as select t1.a + 1 as aPrime from t1;
-
-// create output o1 as select aPrime + 1 from v1;
-// create output o2 as select aPrime + 2 from v1;
-// `;
-
-// let a1 =
-// `
-// create table t1 (a integer);
-
-// create table v1 (aPrime integer);
-
-// insert into v1 select t1.a + 1 as aPrime from t1;
-// create program after (t1)
-// 	begin
-//     insert into v1 select new.a + 1 as aPrime;
-//   end;
-
-// create output o1 as select aPrime + 1 from v1;
-// create output o2 as select aPrime + 2 from v1;
-// `;
-
-// let q1_1 =
-// `
-// create table t1 (a integer);
-
-// create view v1 as select a + 1 as aPrime from t1;
-
-// create output o1 as select aPrime + 1 from v1;
-// create output o2 as select aPrime + 2 from v1;
-// `;
-
-// let a1_1 =
-// `
-// create table t1 (a integer);
-
-// create table v1 (aPrime integer);
-
-// insert into v1 select a + 1 as aPrime from t1;
-// create program after (t1)
-// 	begin
-//     insert into v1 select new.a + 1 as aPrime;
-//   end;
-
-// create output o1 as select aPrime + 1 from v1;
-// create output o2 as select aPrime + 2 from v1;
-// `;
-// // 2) from multiple tables. no-join
-// let q2 =
-// `
-// create table t1 (a integer);
-// create table t2 (b integer);
-
-// create view v1 as select t1.a + 1 as aPrime from t1, t2 where t1.a = t2.b;
-
-// create output o1 as select aPrime + 1 from v1;
-// create output o2 as select aPrime + 2 from v1;
-// `;
+// General principle for insert
+// 1. initializing insert, just copy the select statemet from the view, like in view level materialization
+// 2. for program insert,
+//    delete new table if its the base relation.
+//    make the first join relation the base relation
+//    copy the predicate of the deleted join into where clause.
 
 
-// let a2 =
-// `
-// create table t1 (a integer);
-// create table t2 (b integer);
+// 1. most basic test--insert instead of update?
+let q1 =
+`
+create table t1 (a integer);
 
-// create table v1 (aPrime integer);
+create view v1 as select t1.a + 1 as aPrime from t1;
 
-// insert into v1 select t1.a + 1 as aPrime from t1, t2 where t1.a = t2.b;
-// create program after (t1)
-// 	begin
-//     insert into v1 select new.a + 1 as aPrime from t2 where new.a = t2.b;
-//   end;
-// create program after (t2)
-//   begin
-//     insert into v1 select t1.a + 1 as aPrime from t1 where t1.a = new.b;
-//   end;
+create output o1 as select aPrime + 1 from v1;
+create output o2 as select aPrime + 2 from v1;
+`;
 
-// create output o1 as select aPrime + 1 from v1;
-// create output o2 as select aPrime + 2 from v1;
-// `;
+let a1 =
+`
+create table t1 (a integer);
 
-// // 3) multiple tables--Join
-// let q3 =
-// `
-// create table t1 (a integer);
-// create table t2 (b integer);
+create table v1 (aPrime integer);
 
-// create view v1 as
-//   select t1.a + 1 as aPrime, t2.b - 1 as bPrime from t1 join t2 on t1.a + 1 = t2.b + 1
-//   where t1.a > 10;
+insert into v1 select t1.a + 1 as aPrime from t1;
+create program after (t1)
+	begin
+    insert into v1 select new.a + 1 as aPrime;
+  end;
 
-// create output o1 as select aPrime + 1 from v1;
-// create output o2 as select aPrime + 2 from v1;
-// `;
+create output o1 as select aPrime + 1 from v1;
+create output o2 as select aPrime + 2 from v1;
+`;
 
-// let a3 =
-// `
-// create table t1 (a integer);
-// create table t2 (b integer);
+let q1_1 =
+`
+create table t1 (a integer);
 
-// create table v1 (aPrime integer, bPrime integer);
+create view v1 as select a + 1 as aPrime from t1;
 
-// insert into v1
-//   select t1.a + 1 as aPrime, t2.b - 1 as bPrime from t1 join t2 on t1.a + 1 = t2.b + 1 where t1.a > 10;
+create output o1 as select aPrime + 1 from v1;
+create output o2 as select aPrime + 2 from v1;
+`;
 
-// create program after (t1)
-// 	begin
-//     insert into v1 select new.a + 1 as aPrime, t2.b - 1 as bPrime from t2
-//     where new.a + 1 = t2.b + 1
-//     and new.a > 10;
-//   end;
-// create program after (t2)
-//   begin
-//     insert into v1 select t1.a + 1 as aPrime, new.b - 1 as bPrime from t1 where t1.a + 1 = new.b + 1
-//     and t1.a > 10;
-//   end;
+let a1_1 =
+`
+create table t1 (a integer);
 
-// create output o1 as select aPrime + 1 from v1;
-// create output o2 as select aPrime + 2 from v1;
-// `;
+create table v1 (aPrime integer);
 
-// // 3-1) a lot of joins and where clauses
-// let q3_1 =
-// `
-// create table t1 (a integer);
-// create table t2 (b integer);
-// create table t3 (c integer);
+insert into v1 select a + 1 as aPrime from t1;
+create program after (t1)
+	begin
+    insert into v1 select new.a + 1 as aPrime;
+  end;
 
-// create view v1 as
-//   select t1.a + 1 as aPrime, t2.b + 1 as bPrime, t3.c + 1 as cPrime from t1
-//   join t2 on t1.a + 1 = t2.b + 1
-//   join t3 on t1.a = t3.c - 1
-//   ;
+create output o1 as select aPrime + 1 from v1;
+create output o2 as select aPrime + 2 from v1;
+`;
+// 2) from multiple tables. no-join
+let q2 =
+`
+create table t1 (a integer);
+create table t2 (b integer);
 
-// create output o1 as select aPrime + 1 from v1;
-// create output o2 as select aPrime + 2 from v1;
-// `;
+create view v1 as select t1.a + 1 as aPrime from t1, t2 where t1.a = t2.b;
 
-// let a3_1 =
-// `
-// create table t1 (a integer);
-// create table t2 (b integer);
-// create table t3 (c integer);
-
-// create table v1 (aPrime integer, bPrime integer, cPrime integer);
-
-// insert into v1
-//   select t1.a + 1 as aPrime, t2.b + 1 as bPrime, t3.c + 1 as cPrime from t1
-//   join t2 on t1.a + 1 = t2.b + 1
-//   join t3 on t1.a = t3.c - 1;
-
-// create program after (t1)
-// 	begin
-//     insert into v1
-//       select new.a + 1 as aPrime, t2.b + 1 as bPrime, t3.c + 1 as cPrime
-//       from t2 join t3 on new.a = t3.c - 1
-//       where new.a + 1 = t2.b + 1;
-//   end;
-// create program after (t2)
-//   begin
-//     insert into v1
-//       select t1.a + 1 as aPrime, new.b + 1 as bPrime, t3.c + 1 as cPrime
-//       from t1 join t3 on t1.a = t3.c - 1
-//       where t1.a + 1 = new.b + 1;
-//   end;
-// create program after (t3)
-//   begin
-//     insert into v1
-//       select t1.a + 1 as aPrime, t2.b + 1 as bPrime, new.c + 1 as cPrime
-//       from t1
-//       join t2 on t1.a + 1 = t2.b + 1
-//       where t1.a = new.c - 1;
-//   end;
-
-// create output o1 as select aPrime + 1 from v1;
-// create output o2 as select aPrime + 2 from v1;
-// `;
+create output o1 as select aPrime + 1 from v1;
+create output o2 as select aPrime + 2 from v1;
+`;
 
 
-// // 4) select clause for column
-// let q4 =
-// `
-// create table t1 (a integer);
+let a2 =
+`
+create table t1 (a integer);
+create table t2 (b integer);
 
-// create view v1 as
-//   select (select t1.a + 1 from t1)
+create table v1 (aPrime integer);
 
-// create output o1 as select aPrime + 1 from v1;
-// create output o2 as select aPrime + 2 from v1;
-// `;
+insert into v1 select t1.a + 1 as aPrime from t1, t2 where t1.a = t2.b;
+create program after (t1)
+	begin
+    insert into v1 select new.a + 1 as aPrime from t2 where new.a = t2.b;
+  end;
+create program after (t2)
+  begin
+    insert into v1 select t1.a + 1 as aPrime from t1 where t1.a = new.b;
+  end;
 
-// // 2. build in function: sum, count. might need to coalesce
-// let q10 =
-// `
-// create event table t1 (a integer);
+create output o1 as select aPrime + 1 from v1;
+create output o2 as select aPrime + 2 from v1;
+`;
 
-// create view v1 as select sum(a) as sumA, count(a) as countA from t1;
+// 3) multiple tables--Join
+let q3 =
+`
+create table t1 (a integer);
+create table t2 (b integer);
 
-// create output o1 as select countA from v1;
-// create output o2 as select sumA from v1;
-// `;
+create view v1 as
+  select t1.a + 1 as aPrime, t2.b - 1 as bPrime from t1 join t2 on t1.a + 1 = t2.b + 1
+  where t1.a > 10;
 
-// let a10 =
-// `
-// create event table t1 (a integer);
+create output o1 as select aPrime + 1 from v1;
+create output o2 as select aPrime + 2 from v1;
+`;
 
-// create table v1 (sumA integer, countA integer);
+let a3 =
+`
+create table t1 (a integer);
+create table t2 (b integer);
 
-// insert into v1 select sum(a), count(a) from t1;
-// create program after (t1)
-// 	begin
-//     update v1 set
-//       sumVal = (select sumVal + new.a),
-//       countVal = (select countVal + 1)
-//       ;
-//   end;
+create table v1 (aPrime integer, bPrime integer);
 
-//   create output o1 as select countA from v1;
-//   create output o2 as select sumA from v1;
-// `;
+insert into v1
+  select t1.a + 1 as aPrime, t2.b - 1 as bPrime from t1 join t2 on t1.a + 1 = t2.b + 1 where t1.a > 10;
 
-// // group by order by
+create program after (t1)
+	begin
+    insert into v1 select new.a + 1 as aPrime, t2.b - 1 as bPrime from t2
+    where new.a + 1 = t2.b + 1
+    and new.a > 10;
+  end;
+create program after (t2)
+  begin
+    insert into v1 select t1.a + 1 as aPrime, new.b - 1 as bPrime from t1 where t1.a + 1 = new.b + 1
+    and t1.a > 10;
+  end;
 
-// const tests = [
-// [q1, a1],
-// // [q1_1, a1_1],
-// [q2, a2],
-// [q3, a3],
-// [q3_1, a3_1]
-// ];
+create output o1 as select aPrime + 1 from v1;
+create output o2 as select aPrime + 2 from v1;
+`;
+
+// 3-1) a lot of joins and where clauses
+let q3_1 =
+`
+create table t1 (a integer);
+create table t2 (b integer);
+create table t3 (c integer);
+
+create view v1 as
+  select t1.a + 1 as aPrime, t2.b + 1 as bPrime, t3.c + 1 as cPrime from t1
+  join t2 on t1.a + 1 = t2.b + 1
+  join t3 on t1.a = t3.c - 1
+  ;
+
+create output o1 as select aPrime + 1 from v1;
+create output o2 as select aPrime + 2 from v1;
+`;
+
+let a3_1 =
+`
+create table t1 (a integer);
+create table t2 (b integer);
+create table t3 (c integer);
+
+create table v1 (aPrime integer, bPrime integer, cPrime integer);
+
+insert into v1
+  select t1.a + 1 as aPrime, t2.b + 1 as bPrime, t3.c + 1 as cPrime from t1
+  join t2 on t1.a + 1 = t2.b + 1
+  join t3 on t1.a = t3.c - 1;
+
+create program after (t1)
+	begin
+    insert into v1
+      select new.a + 1 as aPrime, t2.b + 1 as bPrime, t3.c + 1 as cPrime
+      from t2 join t3 on new.a = t3.c - 1
+      where new.a + 1 = t2.b + 1;
+  end;
+create program after (t2)
+  begin
+    insert into v1
+      select t1.a + 1 as aPrime, new.b + 1 as bPrime, t3.c + 1 as cPrime
+      from t1 join t3 on t1.a = t3.c - 1
+      where t1.a + 1 = new.b + 1;
+  end;
+create program after (t3)
+  begin
+    insert into v1
+      select t1.a + 1 as aPrime, t2.b + 1 as bPrime, new.c + 1 as cPrime
+      from t1
+      join t2 on t1.a + 1 = t2.b + 1
+      where t1.a = new.c - 1;
+  end;
+
+create output o1 as select aPrime + 1 from v1;
+create output o2 as select aPrime + 2 from v1;
+`;
+
+
+// 4) select clause for column
+let q4 =
+`
+create table t1 (a integer);
+
+create view v1 as
+  select (select t1.a + 1 from t1)
+
+create output o1 as select aPrime + 1 from v1;
+create output o2 as select aPrime + 2 from v1;
+`;
+
+// 2. build in function: sum, count. might need to coalesce
+let q10 =
+`
+create event table t1 (a integer);
+
+create view v1 as select sum(a) as sumA, count(a) as countA from t1;
+
+create output o1 as select countA from v1;
+create output o2 as select sumA from v1;
+`;
+
+let a10 =
+`
+create event table t1 (a integer);
+
+create table v1 (sumA integer, countA integer);
+
+insert into v1 select sum(a), count(a) from t1;
+create program after (t1)
+	begin
+    update v1 set
+      sumVal = (select sumVal + new.a),
+      countVal = (select countVal + 1)
+      ;
+  end;
+
+  create output o1 as select countA from v1;
+  create output o2 as select sumA from v1;
+`;
+
+// group by order by
+
+const tests = [
+[q1, a1],
+// [q1_1, a1_1],
+[q2, a2],
+[q3, a3],
+[q3_1, a3_1]
+];
