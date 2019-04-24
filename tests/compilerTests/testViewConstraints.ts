@@ -1,5 +1,5 @@
 import { checkViewConstraint } from "../../src/compiler/passes/generateViewConstraints";
-import { ParsePlainDielAst, ParsePlainSelectQueryAst } from "../../src/compiler/compiler";
+import { ParsePlainDielAst, ParsePlainSelectQueryAst, CompileAst } from "../../src/compiler/compiler";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
 import { TestLogger } from "../testTypes";
 
@@ -186,6 +186,7 @@ export function assertCheckViewConstraintTest() {
     const query = test[0] as string;
     const answer = test[1] as string[];
     let ast = ParsePlainDielAst(query);
+    CompileAst(ast);
     let viewqueries = checkViewConstraint(ast);
     let computedQueries = Array.from(viewqueries)[0][1];
     compareAST(computedQueries, answer, logger);

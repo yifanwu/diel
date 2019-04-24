@@ -1,23 +1,6 @@
-import { LogInternalWarning, LogInternalError, DielInternalErrorType } from "../util/messages";
-import { DielDataType, SelectionUnit, DielAst, RelationType, OriginalRelation, Relation, ExprType, ExprColumnAst, RelationNameType, ExprFunAst, AstType, InsertionClause, createEmptyDielAst } from "../parser/dielAstTypes";
+import { LogInternalError, DielInternalErrorType } from "../util/messages";
+import { SelectionUnit, DielAst, RelationType, OriginalRelation, Relation, ExprType, ExprColumnAst, RelationNameType, ExprFunAst, SimpleColumn } from "../parser/dielAstTypes";
 import { DerivedRelation } from "..";
-
-export type SimpleColumn = {
-  columnName: string,
-  dataType: DielDataType
-};
-
-export enum BuiltInColumn {
-  TIMESTEP = "TIMESTEP",
-  TIMESTAMP = "TIMESTAMP",
-  REQUEST_TIMESTEP = "REQUEST_TIMESTEP"
-}
-
-export const BuiltInColumnDataTypes = new Map([
-  [BuiltInColumn.TIMESTAMP.toString(), DielDataType.TimeStamp],
-  [BuiltInColumn.TIMESTEP.toString(), DielDataType.Number],
-  [BuiltInColumn.REQUEST_TIMESTEP.toString(), DielDataType.Number],
-]);
 
 const DerivedRelationTypes = new Set([RelationType.View, RelationType.EventView, , RelationType.Output, RelationType.DerivedTable]);
 const OriginalRelationTypes = new Set([RelationType.Table, RelationType.EventTable, RelationType.ExistingAndImmutable]);
@@ -107,7 +90,7 @@ export function GetRelationDef(ast: DielAst, rName: string): Relation | null {
   if (result) {
     return result;
   } else {
-    return LogInternalError(`Relation ${rName} not defined`);
+    return LogInternalError(`[GetRelationDef]: Relation ${rName} not defined`);
   }
 }
 

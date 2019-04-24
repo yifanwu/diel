@@ -1,4 +1,4 @@
-import { ParsePlainDielAst } from "../../src/compiler/compiler";
+import { ParsePlainDielAst, CompileAst } from "../../src/compiler/compiler";
 import { DielDataType } from "../../src/parser/dielAstTypes";
 import { getColumnTypeFromRelation } from "../../src/compiler/passes/inferType";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
@@ -11,6 +11,7 @@ export function assertMultiplyType() {
   `;
   const logger = GenerateUnitTestErrorLogger("assertMultiplyType", q);
   let ast = ParsePlainDielAst(q);
+  CompileAst(ast);
   const v2 = GetRelationDef(ast, "v2");
   const v2Type = getColumnTypeFromRelation(v2, "newA");
   if (v2Type !== DielDataType.Number) {
@@ -38,6 +39,8 @@ export function assertSimpleType() {
   `;
   const logger = GenerateUnitTestErrorLogger("assertSimpleType", q);
   let ast = ParsePlainDielAst(q);
+  // then we need to compile it!
+  CompileAst(ast);
   function arrivalAssert(viewName: string) {
     const viewAst = GetRelationDef(ast, viewName);
     const arrivalType = getColumnTypeFromRelation(viewAst, "arrival");

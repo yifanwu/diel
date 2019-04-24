@@ -1,4 +1,4 @@
-import { ParsePlainDielAst } from "../../src/compiler/compiler";
+import { ParsePlainDielAst, CompileAst } from "../../src/compiler/compiler";
 import { ExprFunAst, ExprType, ExprParen, OriginalRelation } from "../../src/parser/dielAstTypes";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
 import { GetRelationDef } from "../../src/compiler/DielAstGetters";
@@ -20,6 +20,7 @@ export function assertBasicConstraints() {
     FOREIGN KEY (PersonID) REFERENCES Persons(PersonID)
   );`;
   let ast = ParsePlainDielAst(q);
+  CompileAst(ast);
   const logger = GenerateUnitTestErrorLogger("assertBasicConstraints", q);
   const ordersTable = GetRelationDef(ast, "Orders") as OriginalRelation;
   if (!ordersTable) {

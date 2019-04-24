@@ -2,14 +2,14 @@ import { DerivedRelation, Relation } from "../../src/parser/dielAstTypes";
 import { IsSetIdentical } from "../../src/util/dielUtils";
 import { ParsePlainDielAst } from "../../src/compiler/compiler";
 import { GetOriginalRelations, GetAllDerivedViews } from "../../src/compiler/DielAstGetters";
-import { GetDepTreeFromDerivedRelations, DeriveOriginalRelationsAViewDependsOn } from "../../src/compiler/passes/dependency";
+import { DeriveOriginalRelationsAViewDependsOn, AddDepTree } from "../../src/compiler/passes/dependency";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
 
 export function testGetOriginalRelationsDependedOn() {
   const logger = GenerateUnitTestErrorLogger("testGetOriginalRelationsDependedOn", q1);
   let ast = ParsePlainDielAst(q1);
   const views = GetAllDerivedViews(ast);
-  const deps = GetDepTreeFromDerivedRelations(views);
+  const deps = AddDepTree(ast);
 
   let originalRelations = [] as string[];
   GetOriginalRelations(ast).forEach(function(value: Relation) {

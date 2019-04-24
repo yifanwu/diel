@@ -1,7 +1,6 @@
-import { RelationType, SetOperator, JoinAst, ExprAst, ExprFunAst, FunctionType, AstType,  ExprType, DielDataType, JoinType, CompositeSelectionUnit, RelationSelection, DerivedRelation, SelectionUnit, ExprColumnAst, RelationReferenceType } from "../parser/dielAstTypes";
+import { RelationType, SetOperator, JoinAst, ExprAst, ExprFunAst, FunctionType, AstType,  ExprType, DielDataType, JoinType, CompositeSelectionUnit, RelationSelection, DerivedRelation, SelectionUnit, ExprColumnAst, RelationReferenceType, BuiltInColumn } from "../parser/dielAstTypes";
 import { ApplyLatestToDerivedRelation } from "../compiler/passes/syntaxSugar";
 import { LogInternalError } from "../util/messages";
-import { BuiltInColumn } from "../compiler/DielAstGetters";
 
 function getTimestepColumn(relationName: string, request = false): ExprColumnAst {
   return {

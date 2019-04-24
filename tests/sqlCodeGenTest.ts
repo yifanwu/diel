@@ -15,16 +15,13 @@ export function codeGenBasicSQLTest() {
     expr: {
       exprType: ExprType.Column,
       columnName: "aId",
-      hasStar: false,
       relationName: "t1"
     },
     alias: "a"
   },
   {
     expr: {
-      exprType: ExprType.Column,
-      columnName: "",
-      hasStar: true,
+      exprType: ExprType.Star,
       relationName: "t2"
     }
   }
@@ -38,13 +35,11 @@ export function codeGenBasicSQLTest() {
       {
         exprType: ExprType.Column,
         columnName: "aId",
-        hasStar: false,
         relationName: "t1"
       },
       {
         exprType: ExprType.Column,
         columnName: "aId",
-        hasStar: false,
         relationName: "t2"
       }
     ]
