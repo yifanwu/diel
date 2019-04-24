@@ -126,20 +126,16 @@ export function DeriveOriginalRelationsAViewDependsOn(depTree: DependencyTree, v
   return tables;
 }
 
-export function GetDepTreeFromDerivedRelations(relations: DerivedRelation[]) {
-  const depTree = new Map<RelationNameType, NodeDependency>();
-  const isDynamic = (rName: string) => false; // dummy
-  relations.map(v => AddSingleDependency(depTree, v.selection.compositeSelections, v.rName, isDynamic));
-  return depTree;
-}
 
 // ------------- BEGIN SETTER --------------------
-export function AddDepTree(ast: DielAst) {
+export function AddDepTree(ast: DielAst): DependencyTree {
   const isDynamic = (rName: string) => {
     const found = ast.relations.find(r => r.rName === rName);
     return (found && found.relationType === RelationType.EventTable) ? true : false;
   };
   GetAllDerivedViews(ast).map(v => AddSingleDependency(ast.depTree, v.selection.compositeSelections, v.rName, isDynamic));
+
+  return ast.depTree;
 }
 
 export function AddSingleDependencyByDerivedRelation(ast: DielAst, view: DerivedRelation) {

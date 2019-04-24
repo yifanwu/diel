@@ -8,7 +8,7 @@ import { DielRemoteAction, RelationObject, DielConfig, TableMetaData, DbType, Re
 import { OriginalRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationNameType, DerivedRelation, DielAst } from "../parser/dielAstTypes";
 import { SqlStrFromSelectionUnit, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst, GenerateSqlRelationString } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
-import { CompileDiel, CompileDerivedAstGivenAst } from "../compiler/DielCompiler";
+import { CompileAst, CompileDerivedAstGivenAst } from "../compiler/compiler";
 import { log } from "../util/dielUdfs";
 import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo } from "../util/messages";
@@ -337,7 +337,7 @@ export default class DielRuntime {
     const p = new DIELParser(new CommonTokenStream(new DIELLexer(inputStream)));
     const tree = p.queries();
     let ast = this.visitor.visitQueries(tree);
-    this.ast = CompileDiel(ast);
+    this.ast = CompileAst(ast);
 
     // get sql for views constraints
     checkViewConstraint(ast).forEach((queries: string[][], viewName: string) => {

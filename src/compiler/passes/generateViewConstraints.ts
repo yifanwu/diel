@@ -1,5 +1,5 @@
 import { DielDataType, RelationType, DerivedRelation, CompositeSelection, SelectionUnit, ColumnSelection, RelationSelection, RelationReference, GroupByAst, ExprStarAst } from "../../parser/dielAstTypes";
-import {GetSqlStringFromExpr, SqlStrFromSelectionUnit, SqlStrFromSelectionUnitBody} from "../../compiler/codegen/codeGenSql";
+import {GetSqlStringFromExpr, SqlStrFromSelectionUnit} from "../../compiler/codegen/codeGenSql";
 import { DielAst, RelationConstraints, ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst } from "../../parser/dielAstTypes";
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as lexer from "../../parser/grammar/DIELLexer";
@@ -131,7 +131,7 @@ function getCheckQuery(viewConstraint: RelationConstraints, selUnit: SelectionUn
 
       // ast for the whole clause
       selUnit.whereClause = whereClause;
-      let str = SqlStrFromSelectionUnitBody(selUnit);
+      let str = SqlStrFromSelectionUnit(selUnit);
       ret.push([str, whichConstraint]);
     }
   }
@@ -262,7 +262,7 @@ function getUniqueQuery (viewConstraints: RelationConstraints, selUnit: Selectio
       selUnit.columnSelections = selectColumns as ColumnSelection[];
 
       // Generate proper query from AST
-      str = SqlStrFromSelectionUnitBody(selUnit);
+      str = SqlStrFromSelectionUnit(selUnit);
       ret.push([str, whichConstraint]);
     }
   }
