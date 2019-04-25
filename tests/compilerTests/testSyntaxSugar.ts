@@ -22,7 +22,6 @@ export function assertLatestSyntax() {
 /**
  */
 function compareAST(ast1: SelectionUnit, ast2: SelectionUnit, logger: TestLogger) {
-  // console.log(JSON.stringify);
   // Note that relying on JSON stringify is too brittle
   // but we can use our own ast to sql string functions!
   const q1 = SqlStrFromSelectionUnit(ast1);
@@ -31,7 +30,7 @@ function compareAST(ast1: SelectionUnit, ast2: SelectionUnit, logger: TestLogger
   // let pretty2 = JSON.stringify(ast2, null, 2);
 
   if (q1 !== q2) {
-    logger.error(`\n${q1}\n\nis not the same as\n\n${q2}`);
+    logger.error(`${q1}\n\nis not the same as\n\n${q2}.`);
   }
 }
 

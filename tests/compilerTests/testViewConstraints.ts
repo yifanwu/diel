@@ -186,7 +186,7 @@ export function assertCheckViewConstraintTest() {
     const query = test[0] as string;
     const answer = test[1] as string[];
     let ast = ParsePlainDielAst(query);
-    CompileAst(ast);
+
     let viewqueries = checkViewConstraint(ast);
     let computedQueries = Array.from(viewqueries)[0][1];
     compareAST(computedQueries, answer, logger);

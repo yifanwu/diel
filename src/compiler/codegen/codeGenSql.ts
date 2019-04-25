@@ -130,7 +130,9 @@ export function GetSqlStringFromCompositeSelectionUnit(c: CompositeSelectionUnit
 }
 
 export function SqlStrFromSelectionUnit(v: SelectionUnit): string {
-  const selection = v.derivedColumnSelections ? generateColumnSelection(v.derivedColumnSelections) : generateColumnSelection(v.columnSelections);
+  const selection = v.derivedColumnSelections && v.derivedColumnSelections.length > 0
+     ? generateColumnSelection(v.derivedColumnSelections)
+     : generateColumnSelection(v.columnSelections);
   // const selection = original
   //   ? generateColumnSelection(v.columnSelections)
     // : generateColumnSelection(v.derivedColumnSelections)
@@ -183,7 +185,6 @@ function sqlStrFromRelationReference(ref: RelationReference): string {
  * @param s
  */
 function generateColumnSelection(s: ColumnSelection[]): string {
-
   if (!s || s.length === 0) {
     return "";
   }
