@@ -1,7 +1,6 @@
 import {ReportDielUserError, LogInternalError} from "../../util/messages";
-import { ExprAst, ExprType, ExprRelationAst, FunctionType, ExprFunAst, SetOperator, DielDataType, DerivedRelation, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, RelationReference } from "../../../src/parser/dielAstTypes";
-import { SelectionUnit, DielAst, AstType, RelationSelection } from "../../parser/dielAstTypes";
-import { GetAllDerivedViews, GetAllPrograms,  } from "../DielAstGetters";
+import { ExprAst, ExprType, ExprRelationAst, FunctionType, ExprFunAst, SetOperator, DielDataType, DerivedRelation, RelationReferenceType, RelationReferenceDirect, RelationReference } from "../../../src/parser/dielAstTypes";
+import { SelectionUnit, DielAst, AstType } from "../../parser/dielAstTypes";
 import { WalkThroughSelectionUnits } from "../DielAstVisitors";
 
 /**
@@ -177,3 +176,4 @@ function createSubquery(relationName: string): ExprAst {
 
   return relationAST;
 }
+

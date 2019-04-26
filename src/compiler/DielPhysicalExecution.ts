@@ -40,6 +40,8 @@ export class DielPhysicalExecution {
     // let's first figure out the shipping information
     this.distributions = [];
     this.distributedEval();
+    // TMP
+    console.log("current distributions", this.distributions);
     // organize it by db-engines so we know how to set it up
     // then construct the definitions
     this.sqlAstSpecPerDb = new Map<DbIdType, SqlAst>();
@@ -226,17 +228,21 @@ export class DielPhysicalExecution {
    */
   distributedEvalForOutput(output: DerivedRelation) {
     const newDistributions: SingleDistribution[] = [];
+    const ast = this.ast;
     const scope = {
       augmentedDep: this.augmentedDep,
       selectRelationEvalOwner: this.selectRelationEvalOwner.bind(this),
-      outputName: output.rName
+      outputName: output.rName,
+      relationTypeLookup: (rName: string) => GetRelationDef(ast, rName).relationType,
     };
     const result = QueryDistributionRecursiveEval(newDistributions, scope, output.rName);
     if (!result) return null;
+    debugger;
     if (result.dbId !== LocalDbId) {
       debugger; // just checking
       // apply default policy!
       const eventDeps = DeriveOriginalRelationsAViewDependsOn(this.ast.depTree, output.rName);
+      debugger;
       const v = OutputToAsyncDefaultPolicty(output, eventDeps);
       // also add the new definitions to the DIEL AST, modify in place?
       DeleteRelation(this.ast, v.output.rName);

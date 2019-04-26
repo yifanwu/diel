@@ -29,8 +29,10 @@ export function QueryDistributionRecursiveEval(
     augmentedDep: Map<RelationNameType, NodeDependencyAugmented>,
     selectRelationEvalOwner: (dbIds: Set<DbIdType>) => DbIdType,
     outputName: RelationNameType,
+    relationTypeLookup: (rName: RelationNameType) => RelationType,
   },
-  relationId: RelationNameType): RecursiveEvalResult | null {
+  relationId: RelationNameType,
+  ): RecursiveEvalResult | null {
   // find where rel lives, need to access metadata, or just have it augmented with the metadata already?
   // base case
   const node = scope.augmentedDep.get(relationId);
@@ -42,31 +44,8 @@ export function QueryDistributionRecursiveEval(
     finalOutputName: scope.outputName,
   };
 
-  if (node.dependsOn.length > 0) {
-    // derived, need to look at the things it needs, then decide who should own this relation
-    // logic that decides the relation
-    const dependentRecResults = node.dependsOn
-      .map(depRelation => QueryDistributionRecursiveEval(distributions, scope, depRelation));
-    // if the results is the output
-    const owner = node.relationName === scope.outputName
-      ? LocalDbId
-      : scope.selectRelationEvalOwner(new Set(dependentRecResults.filter(d => d).map(r => r!.dbId)));
-
-    dependentRecResults.map(result => {
-      if (result) {
-        distributions.push({
-          relationName: result.relationName,
-          from: result.dbId,
-          to: owner,
-          ...sharedPartialDistributionObj
-        });
-      }
-    });
-    return {
-      relationName: node.relationName,
-      dbId: owner,
-    };
-  } else {
+  // base case
+  if (node.dependsOn.length === 0) {
     distributions.push({
       relationName: node.relationName,
       from: node.remoteId,
@@ -81,6 +60,43 @@ export function QueryDistributionRecursiveEval(
       dbId: node.remoteId,
     };
   }
+  // derived, need to look at the things it needs, then decide who should own this relation
+  // logic that decides the relation
+  const dependentRecResults = node.dependsOn
+    .map(depRelation => QueryDistributionRecursiveEval(distributions, scope, depRelation));
+  // if the results is the output
+  const owner = scope.selectRelationEvalOwner(new Set(dependentRecResults.filter(d => d).map(r => r!.dbId)));
+
+  // we need to check to see if we need to apply the default policy here
+  dependentRecResults.map(result => {
+    if (result) {
+      distributions.push({
+        relationName: result.relationName,
+        from: result.dbId,
+        to: owner,
+        ...sharedPartialDistributionObj
+      });
+    }
+  });
+
+  if (scope.relationTypeLookup(relationId) === RelationType.EventView) {
+    // add an additional shipping
+    distributions.push({
+      relationName: relationId,
+      from: owner,
+      to: LocalDbId,
+      ...sharedPartialDistributionObj
+    });
+    return {
+      relationName: node.relationName,
+      dbId: LocalDbId,
+    };
+  }
+
+  return {
+    relationName: node.relationName,
+    dbId: owner,
+  };
 }
 
 /**

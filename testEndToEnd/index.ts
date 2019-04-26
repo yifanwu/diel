@@ -35,23 +35,29 @@ export const diel = new DielRuntime({
 
 // runt time testing
 
-function runTest() {
+async function runTest() {
   console.log("DIEL runtime test starting");
   // make assertions about the setup
   // e.g. the ASTs in diel.physicalExecution
 
   // bind custom outputs
   diel.BindOutput("allOriginAirports", (o: RelationObject) => {
-    // assert the values here!
-    console.log("bindoutput!!!", o);
+    console.log("bindoutput results!", o);
   });
 
-  debugger;
   // change runtime values
   diel.NewInput("zoomScatterItx", {minDelay: 0, maxDelay: 100, minDistance: 0, maxDistance: 800});
 
+  // AssertDefaultAsyncPolicy
+  // at this point we know that the flights table is remote.
+  // we are going to create an output
+  // then 
+
   // let's try adding dynamically
-  diel.AddOutputRelationByString(`
+  const rName = await diel.AddOutputRelationByString(`
     select distinct origin from flights where delay > 500;
   `);
+  diel.BindOutput(rName, (data: RelationObject) => {
+    console.log("AddOutputRelationByString function returned data", data);
+  });
 }

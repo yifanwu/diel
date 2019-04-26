@@ -76,7 +76,6 @@ export default class DielRuntime {
   checkConstraints: boolean;
   protected boundFns: TickBind[];
   protected runtimeOutputs: Map<string, Statement>;
-  private runtimeEvents: Map<string, (d: RelationObject) => string>
 
   constructor(config: DielConfig) {
     if (typeof window !== "undefined") {
@@ -284,7 +283,7 @@ export default class DielRuntime {
     this.setupUDFs();
     this.physicalExecution = new DielPhysicalExecution(this.ast, this.physicalMetaData, this.getEventByTimestep.bind(this));
     await this.executeToDBs();
-    GetAllOutputs(this.ast).map(o => this.setupNewOutput(o));
+    GetAllOutputs(this.ast).map(o => this.setupNewOutput(o.rName));
     this.scales = ParseSqlJsWorkerResult(this.db.exec("select * from __scales"));
     loadPage();
   }
@@ -461,10 +460,10 @@ export default class DielRuntime {
    *   it would be handled via some trigger programs
    * FIXME: just pass in what it needs, the name str
    */
-  private setupNewOutput(r: DerivedRelation) {
-    const q = `select * from ${r.rName}`;
+  private setupNewOutput(rName: string) {
+    const q = `select * from ${rName}`;
     this.runtimeOutputs.set(
-      r.rName,
+      rName,
       this.dbPrepare(q)
     );
   }
@@ -590,7 +589,9 @@ export default class DielRuntime {
   }
 
   /**
-   * we assume that the string is a basic select
+   * Returns the name of derived view (which will be auto generated if not specified)
+   * @param q: the raw query string
+   * @param rName: the relation name
    */
   public async AddOutputRelationByString(q: string, rName?: string) {
     const relationSelection = ParsePlainSelectQueryAst(q);
@@ -604,6 +605,13 @@ export default class DielRuntime {
     return rName;
   }
 
+  // this is accessed by the Notebook to reason with he ASTs
+  // if this was an output view on an async event, then we need to access the underlying event...
+  // so it has to be from the DIEL ast and not SQL ast
+  public GetRelationDef(rName: string) {
+    return GetRelationDef(this.ast, rName);
+  }
+
   /**
    * Note that the AST here need not be typed or de-stared
    * It's fine if they are.
@@ -613,6 +621,8 @@ export default class DielRuntime {
     const compiledAst = CompileDerivedAstGivenAst(this.ast, derived);
     const instructions = this.physicalExecution.GetInstructionsToAddOutput(compiledAst);
     if (instructions) await this.incrementalExecuteToDb(instructions);
+    // then set up the prepared statements as well (TODO: need to think thru all the steps that need to happen for the runtime, similar to the steps that compile DIEL)
+    this.setupNewOutput(derived.rName);
   }
 
   // ------------------------ debugging related ---------------------------

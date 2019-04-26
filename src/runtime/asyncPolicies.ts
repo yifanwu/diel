@@ -1,4 +1,4 @@
-import { RelationType, SetOperator, JoinAst, ExprAst, ExprFunAst, FunctionType, AstType,  ExprType, DielDataType, JoinType, CompositeSelectionUnit, RelationSelection, DerivedRelation, SelectionUnit, ExprColumnAst, RelationReferenceType, BuiltInColumn } from "../parser/dielAstTypes";
+import { RelationType, SetOperator, JoinAst, ExprAst, ExprFunAst, FunctionType, AstType,  ExprType, DielDataType, JoinType, CompositeSelectionUnit, RelationSelection, DerivedRelation, SelectionUnit, ExprColumnAst, RelationReferenceType, BuiltInColumn, RelationNameType } from "../parser/dielAstTypes";
 import { ApplyLatestToDerivedRelation } from "../compiler/passes/syntaxSugar";
 import { LogInternalError } from "../util/messages";
 
@@ -133,6 +133,10 @@ function defaultPolicyGetOutputHelper(ast: DerivedRelation, asyncViewName: strin
   }
 }
 
+export function GetAsyncViewNameFromOutput(rName: RelationNameType) {
+  return `${rName}AsyncView`;
+}
+
 /**
  * Note that we are passing the input dependencies here because
  * otherwise it needs to get access to the IR/depTree
@@ -149,7 +153,7 @@ function defaultPolicyGetOutputHelper(ast: DerivedRelation, asyncViewName: strin
 export function OutputToAsyncDefaultPolicty(ast: DerivedRelation, eventDeps: Set<string>) {
   // first create a new async view from the output
   // again, copy by reference, should be a bit careful here
-  const viewName = `${ast.rName}AsyncView`;
+  const viewName = GetAsyncViewNameFromOutput(ast.rName);
   const asyncView: DerivedRelation = {
     rName: viewName,
     relationType: RelationType.EventView,

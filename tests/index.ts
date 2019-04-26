@@ -10,8 +10,10 @@ import { codeGenBasicSQLTest } from "./sqlCodeGenTest";
 import { testGetOriginalRelationsDependedOn } from "./compilerTests/testDependency";
 import { assertCheckViewConstraintTest } from "./compilerTests/testViewConstraints";
 import { ParsePlainDielAst, CompileAst } from "../src/compiler/compiler";
+import { testAsyncPolicy } from "./compilerTests/testAsyncPolicy";
 // import { PrintCode } from "../src/util/messages";
 
+testAsyncPolicy();
 
 testTopologicalSort();
 testGetOriginalRelationsDependedOn();

@@ -229,12 +229,12 @@ export function NewRelationConstraints(): RelationConstraints {
 }
 
 
-export type ProgramsIrFinal = Map<string, Command[]>;
+// export type ProgramsIrFinal = Map<string, Command[]>;
 
 /**
  * If input is not specified, i.e. "", it's over all inputs.
  */
-export type ProgramsIr = Map<string, Command[]>;
+export type ProgramsIr = Map<RelationNameType, Command[]>;
 
 export interface DielConfig {
   name?: string;
@@ -401,7 +401,7 @@ export interface JoinAst extends AstBase {
   templateSpec?: TemplateVariableAssignments;
   joinType: JoinType;
   relation: RelationReference;
-  predicate?: ExprAst;
+  predicate?: Optional<ExprAst>;
 }
 
 export type RawValues = (string|number|boolean)[];
