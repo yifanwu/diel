@@ -251,8 +251,7 @@ export class DielPhysicalExecution {
       const v = OutputToAsyncDefaultPolicty(output, eventDeps);
       // also add the new definitions to the DIEL AST, modify in place?
       DeleteRelation(this.ast, v.output.rName);
-      AddRelation(this.ast, v.output);
-      AddRelation(this.ast, v.asyncView);
+      AddRelation(this.ast, v.asyncView);      AddRelation(this.ast, v.output);
       // if the from of the output is not local, we need to apply
       const outputDistribution = newDistributions.find(d => d.relationName === output.rName);
       if (!outputDistribution) {

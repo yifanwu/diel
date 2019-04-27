@@ -1,7 +1,8 @@
 import { DielAst, Relation, AstType, InsertionClause, SelectionUnit, RelationReference, RelationNameType } from "../parser/dielAstTypes";
 import { LogInternalError, LogInternalWarning } from "../util/messages";
 import { DerivedRelation } from "..";
-import { GetAllDerivedViews } from "./DielAstGetters";
+import { GetAllDerivedViews, IsRelationTypeDerived } from "./DielAstGetters";
+import { AddSingleDependencyByDerivedRelation } from "./passes/dependency";
 
 type SelectionUnitFunction<T> = (s: SelectionUnit, ast?: DielAst, relationName?: string) => T;
 
@@ -14,6 +15,10 @@ export function AddRelation(ast: DielAst, newR: Relation) {
     LogInternalError(`The relation you want to add, ${newR.rName}, is already defined`);
   } else {
     ast.relations.push(newR);
+    // also need to update the dependency tree....
+    if (IsRelationTypeDerived(newR.relationType)) {
+      AddSingleDependencyByDerivedRelation(ast, newR as DerivedRelation);
+    }
   }
 }
 
@@ -24,6 +29,10 @@ export function DeleteRelation(ast: DielAst, relationName: RelationNameType) {
     return ast.relations.splice(idx, 1);
   }
   LogInternalWarning(`Relation ${relationName} to delete was not found`);
+  // also need to update the dependency tree....
+  if (ast.depTree) {
+    ast.depTree.delete(relationName);
+  }
   return null;
 }
 

@@ -151,7 +151,7 @@ export default class DielRuntime {
         // if (!rDb) return LogInternalError(`${t.dbId} not found`);
         // rDb.SendMsg(msg);
         this.staticRelationsSent.push({static: t.relation, output: outputName});
-    }
+      }
     }
   }
 
