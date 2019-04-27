@@ -259,10 +259,21 @@ export class DielPhysicalExecution {
         console.log(newDistributions);
         return LogInternalError(`Should have shipping for output ${output.rName}`);
       }
+      // need to modify existing distributions!
+      // replace the output with the async view...
+      const forOutput = newDistributions.filter(d => (d.forRelationName === output.rName) && (d.relationName !== output.rName));
+      forOutput.map(f => f.forRelationName = v.asyncView.rName);
       newDistributions.push({
-        forRelationName: output.rName,
+        forRelationName: v.asyncView.rName,
         relationName: v.asyncView.rName,
         from: result.fromDbId,
+        to: LocalDbId,
+        finalOutputName: output.rName,
+      });
+      newDistributions.push({
+        forRelationName: v.output.rName,
+        relationName: v.asyncView.rName,
+        from: LocalDbId,
         to: LocalDbId,
         finalOutputName: output.rName,
       });
@@ -288,17 +299,28 @@ export class DielPhysicalExecution {
     // return distributionsForAllOutput;
   }
 
-  getBubbledUpRelationToShip(dbId: DbIdType, relation: RelationNameType): {destination: DbIdType, relation: RelationNameType}[] {
+  /**
+   * we want to figure out what relations to ship from the individual remotes
+   * @param dbId 
+   * @param staticRelation 
+   * @param outputRelation 
+   */
+  getBubbledUpRelationToShipForStatic(dbId: DbIdType, staticRelation: RelationNameType, outputRelation: RelationNameType): {destination: DbIdType, relation: RelationNameType}[] {
     const distributions = this.distributions;
     function helper(acc: {destination: DbIdType, relation: RelationNameType}[], dbId: DbIdType, relation: RelationNameType) {
+
       distributions.map(d => {
-        // (d.finalOutputName === output)
         if ((d.relationName === relation) && (d.from === dbId)) {
           if ((d.to === d.from) && (d.forRelationName !== relation)) {
             helper(acc, d.to, d.forRelationName);
           } else if ((d.to !== d.from)) {
-            // only push if it's not already there
-            if (!acc.find(a => (a.destination === d.to) && (a.relation === d.relationName))) {
+            console.log("consider shipping", d);
+            // only push if
+            // - it's not already there
+            // - and it's for the output!
+            const hasAdded = acc.find(a => (a.destination === d.to) && (a.relation === d.relationName));
+            const isForOutput = d.finalOutputName === outputRelation;
+            if (!hasAdded && isForOutput) {
               acc.push({
                 destination: d.to,
                 relation: d.relationName
@@ -309,7 +331,41 @@ export class DielPhysicalExecution {
       });
     }
     let acc: {destination: DbIdType, relation: RelationNameType}[] = [];
-    helper(acc, dbId, relation);
+    helper(acc, dbId, staticRelation);
+    return acc;
+  }
+  /**
+   * this functions figures out what views are dependent on the new relation at the db location.
+   * @param dbId
+   * @param eventRelation
+   */
+  getBubbledUpRelationToShipForEvent(dbId: DbIdType, eventRelation: RelationNameType): {destination: DbIdType, relation: RelationNameType}[] {
+    const distributions = this.distributions;
+    let count = 0;
+    function helper(acc: {destination: DbIdType, relation: RelationNameType}[], dbId: DbIdType, relation: RelationNameType) {
+      count += 1;
+      if (count > 100) {
+        debugger;
+      }
+      distributions.map(d => {
+        // (d.finalOutputName === output)
+        if ((d.relationName === relation) && (d.from === dbId)) {
+          if ((d.to === d.from) && (d.forRelationName !== relation)) {
+            helper(acc, d.to, d.forRelationName);
+          } else if ((d.to !== d.from)) {
+            const hasAdded = acc.find(a => (a.destination === d.to) && (a.relation === d.relationName));
+            if (!hasAdded) {
+              acc.push({
+                destination: d.to,
+                relation: d.relationName
+                });
+            }
+          }
+        }
+      });
+    }
+    let acc: {destination: DbIdType, relation: RelationNameType}[] = [];
+    helper(acc, dbId, eventRelation);
     return acc;
   }
 

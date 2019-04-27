@@ -68,7 +68,7 @@ export default class DielRuntime {
   dbEngines: Map<DbIdType, DbEngine>;
   physicalMetaData: PhysicalMetaData;
   config: DielConfig;
-  staticRelationsSent: Set<RelationNameType>;
+  staticRelationsSent: {static: RelationNameType, output: RelationNameType}[];
   db: Database;
   scales: RelationObject;
   visitor: Visitor;
@@ -99,7 +99,7 @@ export default class DielRuntime {
       dbs: new Map(),
       relationLocation: new Map()
     };
-    this.staticRelationsSent = new Set();
+    this.staticRelationsSent = [];
     this.boundFns = [];
     this.runOutput = this.runOutput.bind(this);
     this.BindOutput = this.BindOutput.bind(this);
@@ -121,21 +121,37 @@ export default class DielRuntime {
     // const staticTriggers = SetDifference(new Set(staticTriggersRaw.map(t => t.relation)), );
     // static triggers should be done just once...
     if (staticTriggers && (staticTriggers.length > 0)) {
-      console.log(`Sending triggers for async static output: ${outputName}`, staticTriggers);
-        for (let i = 0; i < staticTriggers.length; i++) {
-          const t = staticTriggers[i];
-          if (this.staticRelationsSent.has(t.relation)) continue;
-          const msg: RemoteShipRelationMessage = {
+      LogInfo(`Sending triggers for async static output: ${outputName}`, staticTriggers);
+      for (let i = 0; i < staticTriggers.length; i++) {
+        const t = staticTriggers[i];
+        if (this.staticRelationsSent.find(s => (s.static === t.relation) && (s.output === outputName))) {
+          console.log("seen this before", t.relation, outputName);
+          continue;
+        }
+        const staticShip = this.physicalExecution.getBubbledUpRelationToShipForStatic(t.dbId, t.relation, outputName);
+        console.log("staticShip result", staticShip);
+        const rDb = this.findRemoteDbEngine(t.dbId);
+        staticShip.map(t => {
+          const staticMsg: RemoteShipRelationMessage = {
             remoteAction: DielRemoteAction.ShipRelation,
             relationName: t.relation,
-            dbId: t.dbId,
-            requestTimestep: INIT_TIMESTEP
+            dbId: t.destination,
+            requestTimestep: this.timestep,
           };
-          const rDb = this.findRemoteDbEngine(t.dbId);
-          if (!rDb) return LogInternalError(`${t.dbId} not found`);
-          rDb.SendMsg(msg);
-          this.staticRelationsSent.add(t.relation);
-      }
+          rDb.SendMsg(staticMsg);
+        });
+        // const msg: RemoteShipRelationMessage = {
+        //   remoteAction: DielRemoteAction.ShipRelation,
+        //   relationName: t.relation,
+        //   outputName: outputName,
+        //   dbId: t.dbId,
+        //   requestTimestep: INIT_TIMESTEP
+        // };
+        // const rDb = this.findRemoteDbEngine(t.dbId);
+        // if (!rDb) return LogInternalError(`${t.dbId} not found`);
+        // rDb.SendMsg(msg);
+        this.staticRelationsSent.push({static: t.relation, output: outputName});
+    }
     }
   }
 
@@ -400,7 +416,7 @@ export default class DielRuntime {
    */
   shipWorkerInput(inputName: string, timestep: number) {
     // const remotesToShipTo = this.physicalExecution.getShippingInfoForDbByEvent(inputName, LocalDbId);
-    const remotesToShipTo = this.physicalExecution.getBubbledUpRelationToShip(LocalDbId, inputName);
+    const remotesToShipTo = this.physicalExecution.getBubbledUpRelationToShipForEvent(LocalDbId, inputName);
     // FIXME: we can improve performance by grouping by the views to ship so that they are not evaluated multiple times.
     if (remotesToShipTo && remotesToShipTo.length > 0) {
       remotesToShipTo.map(t => {
@@ -506,12 +522,14 @@ export default class DielRuntime {
         const sqlStr = GenerateSqlRelationString(i.relationDef);
         const remoteInstance = this.findRemoteDbEngine(i.dbId);
         if (remoteInstance) {
+          // just to be sure
+          // FIXME: this is kinda redundant...
+          remoteInstance.setPhysicalExecutionReference(this.physicalExecution);
           const msg: RemoteExecuteMessage = {
             remoteAction: DielRemoteAction.DefineRelations,
             requestTimestep: INIT_TIMESTEP,
             sql: sqlStr,
           };
-          debugger;
           const mPromise = remoteInstance.SendMsg(msg, true);
           promises.push(mPromise);
         }

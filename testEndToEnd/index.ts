@@ -42,13 +42,13 @@ async function runTest() {
   // e.g. the ASTs in diel.physicalExecution
 
   // bind custom outputs
-  diel.BindOutput("currentOriginSelection", (o: RelationObject) => {
-    console.log("bindoutput results!", o);
+  diel.BindOutput("allOriginAirports", (o: RelationObject) => {
+    console.log("allOriginAirports results!", o);
   });
   // diel.physicalExecution.getAstFromDbId(LocalDbId)
   // change runtime values
   // diel.NewInput("zoomScatterItx", {minDelay: 0, maxDelay: 100, minDistance: 0, maxDistance: 800});
-  diel.NewInput("originSelectionEvent", {origin: "LAX"});
+  // diel.NewInput("originSelectionEvent", {origin: "LAX"});
 
   // AssertDefaultAsyncPolicy
   // at this point we know that the flights table is remote.
@@ -56,7 +56,7 @@ async function runTest() {
 
   // let's try adding dynamically
   const rName = await diel.AddOutputRelationByString(`
-    select distinct origin from flights where delay > 500;
+    select distinct origin from flights where delay < 100;
   `);
   diel.BindOutput(rName, (data: RelationObject) => {
     console.log("AddOutputRelationByString function returned data", data);

@@ -282,21 +282,22 @@ export default class DbEngine {
           LogInternalError(`You cannot wait on ${DielRemoteAction.ShipRelation}`);
         }
         // also need to check if it's being shipped to itself, in which case, we need to bubble up
+        // this is assumed to be only for static relations... might be wrong
         if (shipMsg.dbId === this.id) {
           // note that this is a good hook for materialization
-          LogInfo(`Shipping to itself, this is a local evaluation`);
-          const staticShip = this.physicalExeuctionRef.getBubbledUpRelationToShip(this.id, shipMsg.relationName);
+          // LogInfo(`Shipping to itself, this is a local evaluation`);
+          LogInternalError(`why is this happening...`);
           // in theory I think we can just invoke the connection directly.
-          staticShip.map(t => {
-            const staticMsg: RemoteShipRelationMessage = {
-              remoteAction: DielRemoteAction.ShipRelation,
-              relationName: t.relation,
-              dbId: t.destination,
-              requestTimestep: msg.requestTimestep,
-            };
-            this.SendMsg(staticMsg);
-          });
-          return null;
+          // staticShip.map(t => {
+          //   const staticMsg: RemoteShipRelationMessage = {
+          //     remoteAction: DielRemoteAction.ShipRelation,
+          //     relationName: t.relation,
+          //     dbId: t.destination,
+          //     requestTimestep: msg.requestTimestep,
+          //   };
+          //   this.SendMsg(staticMsg);
+          // });
+          // return null;
         }
         if ((this.id !== LocalDbId) && (shipMsg.dbId !== LocalDbId)) {
           // this case is not yet supported
