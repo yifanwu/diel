@@ -19,6 +19,7 @@ export type SingleDistribution = {
 type RecursiveEvalResult = {
   relationName: RelationNameType,
   dbId: DbIdType,
+  fromDbId: DbIdType,
 };
 
 // keeping this functional so we can test it properly, this is why
@@ -58,13 +59,13 @@ export function QueryDistributionRecursiveEval(
     return {
       relationName: node.relationName,
       dbId: node.remoteId,
+      fromDbId: node.remoteId,
     };
   }
   // derived, need to look at the things it needs, then decide who should own this relation
   // logic that decides the relation
   const dependentRecResults = node.dependsOn
     .map(depRelation => QueryDistributionRecursiveEval(distributions, scope, depRelation));
-  // if the results is the output
   const owner = scope.selectRelationEvalOwner(new Set(dependentRecResults.filter(d => d).map(r => r!.dbId)));
 
   // we need to check to see if we need to apply the default policy here
@@ -79,7 +80,8 @@ export function QueryDistributionRecursiveEval(
     }
   });
 
-  if (scope.relationTypeLookup(relationId) === RelationType.EventView) {
+  const rType = scope.relationTypeLookup(relationId);
+  if (rType === RelationType.EventView || rType === RelationType.Output) {
     // add an additional shipping
     distributions.push({
       relationName: relationId,
@@ -90,12 +92,14 @@ export function QueryDistributionRecursiveEval(
     return {
       relationName: node.relationName,
       dbId: LocalDbId,
+      fromDbId: owner,
     };
   }
 
   return {
     relationName: node.relationName,
     dbId: owner,
+    fromDbId: owner,
   };
 }
 

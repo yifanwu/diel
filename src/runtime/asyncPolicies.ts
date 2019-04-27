@@ -151,6 +151,7 @@ export function GetAsyncViewNameFromOutput(rName: RelationNameType) {
  * @param inputDeps
  */
 export function OutputToAsyncDefaultPolicty(ast: DerivedRelation, eventDeps: Set<string>) {
+  console.log("applying default async", ast.rName);
   // first create a new async view from the output
   // again, copy by reference, should be a bit careful here
   const viewName = GetAsyncViewNameFromOutput(ast.rName);

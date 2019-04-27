@@ -237,9 +237,7 @@ export class DielPhysicalExecution {
     };
     const result = QueryDistributionRecursiveEval(newDistributions, scope, output.rName);
     if (!result) return null;
-    debugger;
-    if (result.dbId !== LocalDbId) {
-      debugger; // just checking
+    if (result.fromDbId !== LocalDbId) {
       // apply default policy!
       const eventDeps = DeriveOriginalRelationsAViewDependsOn(this.ast.depTree, output.rName);
       debugger;
@@ -248,22 +246,28 @@ export class DielPhysicalExecution {
       DeleteRelation(this.ast, v.output.rName);
       AddRelation(this.ast, v.output);
       AddRelation(this.ast, v.asyncView);
+      // if the from of the output is not local, we need to apply
+      const outputDistribution = newDistributions.find(d => d.relationName === output.rName);
+      if (!outputDistribution) {
+        console.log(newDistributions);
+        return LogInternalError(`Should have shipping for output ${output.rName}`);
+      }
       newDistributions.push({
         forRelationName: output.rName,
         relationName: v.asyncView.rName,
-        from: result.dbId,
+        from: result.fromDbId,
         to: LocalDbId,
         finalOutputName: output.rName,
       });
-    } else {
-      newDistributions.push({
-        forRelationName: output.rName,
-        relationName: result.relationName,
-        from: result.dbId,
-        to: LocalDbId,
-        finalOutputName: output.rName,
-      });
+      outputDistribution.from = LocalDbId;
     }
+    // newDistributions.push({
+    //   forRelationName: output.rName,
+    //   relationName: result.relationName,
+    //   from: LocalDbId,
+    //   to: LocalDbId,
+    //   finalOutputName: output.rName,
+    // });
     this.distributions = newDistributions.concat(this.distributions);
     return newDistributions;
   }

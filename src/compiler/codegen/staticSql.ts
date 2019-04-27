@@ -18,4 +18,9 @@ create table allInputs (
   inputRelation text not null,
   request_timestep integer
 );
+
+create table __perf (
+  timestep integer primary key,
+  timeTaken integer
+);
 `;

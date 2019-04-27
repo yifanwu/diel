@@ -1,11 +1,11 @@
-import { DbIdType, RelationNameType, LogicalTimestep, RelationType, Relation } from "../parser/dielAstTypes";
+import { DbIdType, RelationNameType, LogicalTimestep, RelationType, Relation, ToBeFilled } from "../parser/dielAstTypes";
 import { DbSetupConfig } from "./DbEngine";
 import { SqlRelation } from "../parser/sqlAstTypes";
 
 export type ExecutionSpec = {dbId: DbIdType, relationDef: SqlRelation}[];
 
 export interface NodeDependencyAugmented extends NodeDependency {
-  remoteId: DbIdType | null; // only has remoteId if it's an original table
+  remoteId?: ToBeFilled<DbIdType>; // only has remoteId if it's an original table
 }
 
 export type NodeDependency = {

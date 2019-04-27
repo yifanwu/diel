@@ -1,6 +1,7 @@
 import * as path from "path";
 
 import { DielRuntime, DbSetupConfig, DbType, RelationObject } from "../src";
+import { LocalDbId } from "../build/src/compiler/DielPhysicalExecution";
 
 /**
  * LUCIE TODO:
@@ -44,7 +45,7 @@ async function runTest() {
   diel.BindOutput("allOriginAirports", (o: RelationObject) => {
     console.log("bindoutput results!", o);
   });
-
+  // diel.physicalExecution.getAstFromDbId(LocalDbId)
   // change runtime values
   diel.NewInput("zoomScatterItx", {minDelay: 0, maxDelay: 100, minDistance: 0, maxDistance: 800});
 

@@ -1,6 +1,6 @@
 import { getTopologicalOrder } from "../src/compiler/passes/passesHelper";
 import { SingleDistribution, QueryDistributionRecursiveEval } from "../src/compiler/passes/distributeQueries";
-import { DbIdType, RelationNameType  } from "../src/parser/dielAstTypes";
+import { DbIdType, RelationNameType, RelationType  } from "../src/parser/dielAstTypes";
 import { LocalDbId } from "../src/compiler/DielPhysicalExecution";
 import { BgGreen, Reset } from "../src/util/messages";
 import { DependencyTree, NodeDependencyAugmented } from "../src/runtime/runtimeTypes";
@@ -65,22 +65,27 @@ export function testDistributionLogc() {
   };
   const depV1: NodeDependencyAugmented = {
     relationName: "v1",
-    remoteId: LocalDbId,
     isDynamic: false,
     dependsOn: ["i1", "i2", "r1"],
     isDependedBy: ["o1"]
   };
-  const depO1: NodeDependencyAugmented = {
-    relationName: "o1",
-    remoteId: LocalDbId,
+  const depE1: NodeDependencyAugmented = {
+    relationName: "e1",
     isDynamic: false,
     dependsOn: ["i1", "i2", "r1"],
+    isDependedBy: []
+  };
+  const depO1: NodeDependencyAugmented = {
+    relationName: "o1",
+    isDynamic: false,
+    dependsOn: ["e1"],
     isDependedBy: []
   };
   augmentedDep.set("i1", depI1);
   augmentedDep.set("i2", depI2);
   augmentedDep.set("r1", depR1);
   augmentedDep.set("v1", depV1);
+  augmentedDep.set("e1", depE1);
   augmentedDep.set("o1", depO1);
 
   // as a simple hack for testing, encode the remoteId by the size of the original Id
@@ -88,9 +93,17 @@ export function testDistributionLogc() {
     return Math.max(...Array.from(dbIds));
   }
   const distributions: SingleDistribution[] = [];
+  const relationTypeLookup = (rName: string) => {
+    if (rName[0] === "o") return RelationType.Output;
+    if (rName[0] === "v") return RelationType.View;
+    if (rName[0] === "i") return RelationType.EventTable;
+    if (rName[0] === "e") return RelationType.EventView;
+    return RelationType.Table;
+  };
   const scope = {
     augmentedDep,
     selectRelationEvalOwner,
+    relationTypeLookup,
     outputName: "dummy"
   };
   QueryDistributionRecursiveEval(distributions, scope, "o1");
@@ -124,6 +137,21 @@ export function testDistributionLogc() {
       relationName: "r1",
       from: 2,
       to: 2
+    },
+    {
+      relationName: "e1",
+      from: 2,
+      to: 1
+    },
+    {
+      relationName: "e1",
+      from: 1,
+      to: 1
+    },
+    {
+      relationName: "o1",
+      from: 1,
+      to: 1
     }
   ];
   // DO assertions
@@ -131,8 +159,8 @@ export function testDistributionLogc() {
     throw new Error(`Distribution incorrect length, expected ${JSON.stringify(expected, null, 2)}, but got ${JSON.stringify(distributions, null, 2)}`);
   }
   expected.map(e => {
-    const f = distributions.find(d => (e.relationName === d.relationName) && (e.to === d.to));
-    if (!f || f.from !== e.from) {
+    const f = distributions.find(d => (e.relationName === d.relationName) && (e.to === d.to) && (d.from === e.from));
+    if (!f) {
       throw new Error(`Distribution incorrect! Expected to find ${JSON.stringify(e, null, 2)}`);
     }
   });

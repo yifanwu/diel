@@ -165,6 +165,7 @@ export default class DielRuntime {
   // also cache parts of the logic
   // FIXME: use AST instead of string manipulation...
   private newInputHelper(eventName: string, objs: any[], requestTimestep: number) {
+    // start of tick
     this.timestep++;
     this.eventByTimestep.set(this.timestep, eventName);
     // we should get the definition from the local SQL definitions...
@@ -204,6 +205,7 @@ export default class DielRuntime {
           this.runOutput(b);
         }
       });
+      // end of tick
       this.shipWorkerInput(eventName, this.timestep);
   }
 
@@ -461,6 +463,7 @@ export default class DielRuntime {
    * FIXME: just pass in what it needs, the name str
    */
   private setupNewOutput(rName: string) {
+    console.log("setting up new output", rName);
     const q = `select * from ${rName}`;
     this.runtimeOutputs.set(
       rName,
