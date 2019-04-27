@@ -22,8 +22,8 @@ const dbConfigs: DbSetupConfig[] = [
 
 const mainDbPath: string = null;
 
-// const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/simple.diel")];
-const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/flights-remote.diel")];
+const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/simple.diel")];
+// const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/flights-remote.diel")];
 
 export const diel = new DielRuntime({
   isStrict: true,
@@ -42,17 +42,17 @@ async function runTest() {
   // e.g. the ASTs in diel.physicalExecution
 
   // bind custom outputs
-  diel.BindOutput("allOriginAirports", (o: RelationObject) => {
+  diel.BindOutput("currentOriginSelection", (o: RelationObject) => {
     console.log("bindoutput results!", o);
   });
   // diel.physicalExecution.getAstFromDbId(LocalDbId)
   // change runtime values
-  diel.NewInput("zoomScatterItx", {minDelay: 0, maxDelay: 100, minDistance: 0, maxDistance: 800});
+  // diel.NewInput("zoomScatterItx", {minDelay: 0, maxDelay: 100, minDistance: 0, maxDistance: 800});
+  diel.NewInput("originSelectionEvent", {origin: "LAX"});
 
   // AssertDefaultAsyncPolicy
   // at this point we know that the flights table is remote.
   // we are going to create an output
-  // then 
 
   // let's try adding dynamically
   const rName = await diel.AddOutputRelationByString(`

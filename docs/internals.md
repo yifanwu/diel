@@ -24,4 +24,8 @@ Once we generate the SQL IR for each node, we then perform __materialized view m
 Second, DIEL only invokes the rendering function if there is a new dependent event. This can improve performance if the rendering function naively recomputes and populates the DOM elements.
 Third, when evaluating async views, DIEL creates a cache based on past results. For every new event, DIEL first hashes the param- eters of the event tables and then looks up the hash in an internal table, request cache, which contains three columns hash, dataId, and viewName. If the hash is present, DIEL inserts the dataId into the corre- sponding event table for the async view. If the hash is not present, DIEL dispatches the events to evaluate the async views and stores the results with the hash once the result has been received. The dataId creates another layer of indirection that saves storage by duplicating “pointers” as opposed to the actual data. These functionalities are implemented via a combination of compile time query rewrites and runtime event handling.
 
+#### `DbEngines`
+
+The `DbEngines.ts` file (and class) is a wrapper around each database instance.
+
 ## Data Structures

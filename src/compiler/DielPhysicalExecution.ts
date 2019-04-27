@@ -1,4 +1,4 @@
-import { DerivedRelation, RelationType, DbIdType, RelationNameType, LogicalTimestep, DielAst } from "../parser/dielAstTypes";
+import { DerivedRelation, RelationType, DbIdType, RelationNameType, LogicalTimestep, DielAst, Relation } from "../parser/dielAstTypes";
 import { DbType, NodeDependencyAugmented, NodeDependency, DependencyTree, ExecutionSpec } from "../runtime/runtimeTypes";
 import { PhysicalMetaData } from "../runtime/DielRuntime";
 import { GetSqlDerivedRelationFromDielRelation, SingleDistribution, GetSqlOriginalRelationFromDielRelation, QueryDistributionRecursiveEval } from "./passes/distributeQueries";
@@ -36,7 +36,8 @@ export class DielPhysicalExecution {
     this.metaData = metaData;
     this.getEventByTimestep = getEventByTimestep;
     // get all the outputs and loop
-    this.augmentedDep = this.augmentDepTree(this.ast.depTree);
+    this.augmentedDep = new Map<RelationNameType, NodeDependencyAugmented>();
+    this.augmentDepTree();
     // let's first figure out the shipping information
     this.distributions = [];
     this.distributedEval();
@@ -49,6 +50,13 @@ export class DielPhysicalExecution {
     this.getSqlAstSpecsFromDistribution(this.distributions);
   }
 
+  // right now just do a reset, but performance wise it's better to do incrementally
+  // FIXME
+  public AddDerivedAst(view: DerivedRelation) {
+    // this.augmentSingleDepTreeNode(view);
+    this.augmentedDep = new Map<RelationNameType, NodeDependencyAugmented>();
+    this.augmentDepTree();
+  }
   private setAstSpecPerDbIfNotExist(dbId: DbIdType): SqlAst {
     const ast = this.sqlAstSpecPerDb.get(dbId);
     if (ast) {
@@ -240,7 +248,6 @@ export class DielPhysicalExecution {
     if (result.fromDbId !== LocalDbId) {
       // apply default policy!
       const eventDeps = DeriveOriginalRelationsAViewDependsOn(this.ast.depTree, output.rName);
-      debugger;
       const v = OutputToAsyncDefaultPolicty(output, eventDeps);
       // also add the new definitions to the DIEL AST, modify in place?
       DeleteRelation(this.ast, v.output.rName);
@@ -410,7 +417,7 @@ export class DielPhysicalExecution {
 
   augmentDepTreeNode(nodDep: NodeDependency, relationName: RelationNameType): NodeDependencyAugmented | null {
     const foundRelation = GetRelationDef(this.ast, relationName);
-    if (!foundRelation) return LogInternalError(`Not found`);
+    if (!foundRelation) return LogInternalError(`Relation ${relationName} is not found`);
     const relationType = foundRelation.relationType;
     let remoteId;
     if (relationType === RelationType.EventTable || relationType === RelationType.Table) {
@@ -430,16 +437,20 @@ export class DielPhysicalExecution {
     };
     return nodeDepAugmetned;
   }
+
+  augmentSingleDepTreeNode(nodeDep: NodeDependency, relationName: RelationNameType) {
+    const nodeDepAugmetned = this.augmentDepTreeNode(nodeDep, relationName);
+    if (nodeDepAugmetned) {
+      this.augmentedDep.set(relationName, nodeDepAugmetned);
+    } else {
+      LogInternalError(`Augmented tree is null for ${relationName}`);
+    }
+  }
   /**
    * adding where the location is, as well as the type of location it is.
    */
-  augmentDepTree(depTree: DependencyTree) {
-    const augmentedTree = new Map<RelationNameType, NodeDependencyAugmented>();
-    depTree.forEach((nodeDep, relationName) => {
-      const nodeDepAugmetned = this.augmentDepTreeNode(nodeDep, relationName);
-      if (nodeDepAugmetned) augmentedTree.set(relationName, nodeDepAugmetned);
-    });
-    return augmentedTree;
+  augmentDepTree(): void {
+    this.ast.depTree.forEach(this.augmentSingleDepTreeNode.bind(this));
   }
   // this function needs to access the metadata
   selectRelationEvalOwner(dbIds: Set<DbIdType>): DbIdType {

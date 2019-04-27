@@ -81,48 +81,45 @@ export function applyLatestToSelectionUnit(relation: SelectionUnit): void {
  * @param relationName
  */
 function modifyWhereComplete(relation: SelectionUnit, relationName: string): void {
-  let originalWhere = relation.whereClause;
-  // 2-1. create exprast for relation.timestep
+  const originalWhere = relation.whereClause;
+  // create exprast for subquery (select max(timestep) from relation)
+  const rhsExpr = createSubquery(relationName);
+  const whereAST: ExprFunAst = {
+    exprType: ExprType.Func,
+    functionType: FunctionType.Logic,
+    functionReference: "=",
+    dataType: DielDataType.Boolean,
+    args: []
+  };
+
+  // create exprast for relation.timestep
   let lhsExpr: ExprAst = {
     exprType: ExprType.Column,
     columnName: "timestep",
     relationName: relationName
   };
 
-  // 2-2. create exprast for subquery (select max(timestep) from relation)
-  let rhsExpr = createSubquery(relationName);
 
-  // 2-3. Merge into a where query
-  let whereAST = {
-    exprType: ExprType.Func,
-    functionType: FunctionType.Logic,
-    functionReference: "=",
-    dataType: DielDataType.Boolean,
-    args: []
-  } as ExprFunAst;
-
-  // 2-4. set the where clause in place
-  if (originalWhere === null || originalWhere === undefined) {
-    whereAST.args = [lhsExpr, rhsExpr];
-    relation.whereClause = whereAST;
-  } else {
+  if (originalWhere) {
+    // Merge into a where query
     lhsExpr = modifyExistingWhere(originalWhere, lhsExpr);
-    whereAST.args = [lhsExpr, rhsExpr];
-    relation.whereClause = whereAST;
   }
+  // set the where clause in place
+  whereAST.args = [lhsExpr, rhsExpr];
+  relation.whereClause = whereAST;
 }
 
 /**
  * Modify existing whereClause and return it so that a new ExprAst can be appended
 */
  function modifyExistingWhere(originalAST: ExprAst, lhs: ExprAst): ExprAst {
-  let andAst = {
+  let andAst: ExprAst = {
     exprType: ExprType.Func,
     functionType: FunctionType.Logic,
     functionReference: "and",
     dataType: DielDataType.Boolean,
     args: [originalAST, lhs]
-  } as ExprAst;
+  };
 
   return andAst;
 }
@@ -131,7 +128,7 @@ function modifyWhereComplete(relation: SelectionUnit, relationName: string): voi
  * Create ExprAst for the clause (select max(relationName) from relationName).
 */
 function createSubquery(relationName: string): ExprAst {
-  let relationAST = {
+  const relationAST: ExprRelationAst = {
     exprType: ExprType.Relation,
     dataType: DielDataType.Relation,
     selection: {
@@ -141,12 +138,11 @@ function createSubquery(relationName: string): ExprAst {
           op: SetOperator.NA,
           relation: {
             isDistinct: false,
-            columnSelections: [
+            derivedColumnSelections: [
               {
-                alias: null,
+                alias: "timestep",
                 expr: {
                   exprType: ExprType.Func,
-                  // dataType: DielDataType.TBD,
                   functionType: FunctionType.Custom,
                   functionReference: "max",
                   args: [
@@ -159,21 +155,16 @@ function createSubquery(relationName: string): ExprAst {
               }
             ],
             baseRelation: {
+              relationReferenceType: RelationReferenceType.Direct,
               alias: null,
               isLatest: false,
               relationName: relationName
             },
-            joinClauses: [],
-            whereClause: null,
-            groupByClause: null,
-            orderByClause: null,
-            limitClause: null
           }
         }
       ]
     }
-  } as ExprRelationAst;
-
+  };
   return relationAST;
 }
 

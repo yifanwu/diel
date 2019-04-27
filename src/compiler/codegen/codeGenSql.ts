@@ -113,6 +113,9 @@ export function GetSqlStringFromCompositeSelectionUnit(c: CompositeSelectionUnit
 }
 
 export function SqlStrFromSelectionUnit(v: SelectionUnit): string {
+  if (v.derivedColumnSelections === undefined) {
+    return LogInternalError(`There should be selections; might be beucase this was not normalized!.  This is for query:\n${JSON.stringify(v)}`);
+  }
   const selection = generateColumnSelection(v.derivedColumnSelections);
   // const selection = original
   //   ? generateColumnSelection(v.columnSelections)
@@ -153,7 +156,7 @@ function sqlStrFromRelationReference(ref: RelationReference): string {
       break;
     }
     default:
-      LogInternalError(``);
+      LogInternalError(`RelationReference ${ref.relationReferenceType} not handled`, DielInternalErrorType.UnionTypeNotAllHandled);
   }
   if (ref.alias) {
     query += ` AS ${ref.alias}`;

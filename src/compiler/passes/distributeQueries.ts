@@ -131,10 +131,13 @@ export function GetColumnsFromSelection(selection: CompositeSelection): Column[]
   if (!originalColumns) {
     return LogInternalError(`query not normalized and cannot be distributed to main`);
   }
-  const columns = originalColumns.map(c => ({
-    cName: c.alias,
-    dataType: c.expr.dataType,
-  }));
+  const columns = originalColumns.map(c => {
+    if (!c.alias) LogInternalError(`Alias should be defined for selection:\n${JSON.stringify(selection)}`);
+    return {
+      cName: c.alias,
+      dataType: c.expr.dataType,
+    };
+  });
   return columns;
 }
 

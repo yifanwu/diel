@@ -511,6 +511,7 @@ export default class DielRuntime {
             requestTimestep: INIT_TIMESTEP,
             sql: sqlStr,
           };
+          debugger;
           const mPromise = remoteInstance.SendMsg(msg, true);
           promises.push(mPromise);
         }
@@ -537,8 +538,6 @@ export default class DielRuntime {
         if (remoteInstance) {
           remoteInstance.setPhysicalExecutionReference(this.physicalExecution);
           const replace = remoteInstance.config.dbType === DbType.Socket;
-          const isRemote = true;
-          // const sqlAst = createSqlAstFromDielAst(ast, isRemote);
           const queries = generateStringFromSqlIr(ast, replace);
           if (queries && queries.length > 0) {
             const sql = queries.map(q => q + ";").join("\n");
@@ -622,6 +621,8 @@ export default class DielRuntime {
    */
   public async AddViewByAst(derived: DerivedRelation) {
     const compiledAst = CompileDerivedAstGivenAst(this.ast, derived);
+    // physical execution need to also maintain some metadata...
+    this.physicalExecution.AddDerivedAst(compiledAst);
     const instructions = this.physicalExecution.GetInstructionsToAddOutput(compiledAst);
     if (instructions) await this.incrementalExecuteToDb(instructions);
     // then set up the prepared statements as well (TODO: need to think thru all the steps that need to happen for the runtime, similar to the steps that compile DIEL)

@@ -368,7 +368,7 @@ export interface SelectionUnit {
 
 export interface ColumnSelection {
   expr: ExprAst; // the column name is subsumed by the ExprAst...
-  alias?: string;
+  alias?: ToBeFilled<string>;
 }
 
 export enum RelationReferenceType {

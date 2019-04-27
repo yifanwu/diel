@@ -7,7 +7,7 @@ import { NormalizeColumnSelection, NormalizeColumnForDerivedRelation } from "./p
 import { InferType, InferTypeForDerivedRelation } from "./passes/inferType";
 import { DerivedRelation, OriginalRelation, DielAst } from "../parser/dielAstTypes";
 import { AddRelation } from "./DielAstVisitors";
-import { NormalizeAlias } from "./passes/normalizeAlias";
+import { NormalizeAlias, NormalizeAliasForDerivedRelation } from "./passes/normalizeAlias";
 
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as parser from "../parser/grammar/DIELParser";
@@ -75,12 +75,18 @@ export function CompileNewRelationToExistingAst(ast: DielAst, relation: Original
 export function CompileDerivedAstGivenAst(ast: DielAst, view: DerivedRelation) {
   AddRelation(ast, view);
   TryToApplyTemplate(view.selection);
+  NormalizeAliasForDerivedRelation(view);
   AddSingleDependencyByDerivedRelation(ast, view);
   NormalizeColumnForDerivedRelation(ast, view);
   InferTypeForDerivedRelation(ast, view);
   return view;
 }
 
+/**
+ * TODO: we need to handled the original like derived if they have subqueries...
+ * @param ast 
+ * @param original 
+ */
 export function CompileOriginalAstGivenIr(ast: DielAst, original: OriginalRelation) {
   TryToCopyRelationSpec(ast, original);
   // TODO: need to add the depends on dependency...

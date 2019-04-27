@@ -42,8 +42,8 @@ export function GenerateUnitTestErrorLogger(testName: string, q?: string): TestL
   ${BgYellow}Starting Test: %s${Reset}\n`, testName);
   if (q) console.log(`With query:\n%s`, q);
   return {
-    error: (m: string, obj?: any) => {
-      console.log(`\n ${FgRed}Error for [${testName}]: %s${Reset}`, m, obj);
+    error: (m: string, objs: any | any[]) => {
+      console.log(`\n ${FgRed}Error for [${testName}]: %s${Reset}`, m, objs);
       throw new Error(`Test [${testName}] failed\n`);
     },
     pass: () => {

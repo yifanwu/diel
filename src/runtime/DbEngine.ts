@@ -223,6 +223,7 @@ export default class DbEngine {
         return this.connection.send(id, msgToSend, isPromise);
       }
       case DielRemoteAction.UpdateRelation: {
+        if (!this.physicalExeuctionRef) return LogInternalError(`should have reference to phsyical execution by now`);
         const updateMsg = msg as RemoteUpdateRelationMessage;
         // push this on to the message queue
         if (this.queueMap.has(updateMsg.requestTimestep)) {
@@ -271,6 +272,7 @@ export default class DbEngine {
         return this.connection.send(id, msgToSend, isPromise);
       }
       case DielRemoteAction.ShipRelation: {
+        if (!this.physicalExeuctionRef) return LogInternalError(`should have reference to phsyical execution by now`);
         const shipMsg = msg as RemoteShipRelationMessage;
         const newId = {
           ...id,
@@ -374,6 +376,7 @@ export default class DbEngine {
   }
 
   setPhysicalExecutionReference(physicalExeuctionRef: DielPhysicalExecution) {
+    console.log("setting physical exeuction reference", this.id);
     this.physicalExeuctionRef = physicalExeuctionRef;
   }
 

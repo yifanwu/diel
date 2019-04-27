@@ -1,6 +1,38 @@
-import { DielAst, RelationReference, RelationReferenceType, RelationReferenceDirect, SelectionUnit, ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprValAst } from "../../parser/dielAstTypes";
+import { DielAst, RelationReference, RelationReferenceType, RelationReferenceDirect, SelectionUnit, ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprValAst, DerivedRelation } from "../../parser/dielAstTypes";
 import { ReportDielUserError, ReportDielUserWarning, LogInternalError, DielInternalErrorType } from "../../util/messages";
 import { WalkThroughRelationReferences, WalkThroughSelectionUnits } from "../DielAstVisitors";
+
+function relationReferenceVisitor(r: RelationReference) {
+  if (r.alias) return;
+  switch (r.relationReferenceType) {
+    case RelationReferenceType.Subquery:
+      ReportDielUserError(`Subqueries must be named!`);
+      return;
+    case RelationReferenceType.Direct:
+      r.alias = (r as RelationReferenceDirect).relationName;
+  }
+}
+
+function visitSelections (r: SelectionUnit) {
+  r.columnSelections.map(c => {
+    if (c.alias) return;
+    c.alias = getAliasForExpr(c.expr);
+  });
+}
+
+export function NormalizeAliasForDerivedRelation(derived: DerivedRelation) {
+  derived.selection.compositeSelections.map(c => {
+    visitSelections(c.relation);
+    if (c.relation.baseRelation) {
+      relationReferenceVisitor(c.relation.baseRelation);
+      if (c.relation.joinClauses) {
+        c.relation.joinClauses.map(j => {
+          relationReferenceVisitor(j.relation);
+        });
+      }
+    }
+  });
+}
 
 /**
  * Need to normalize the names for the relation references
@@ -9,23 +41,7 @@ import { WalkThroughRelationReferences, WalkThroughSelectionUnits } from "../Die
  */
 export function NormalizeAlias(ast: DielAst) {
   // walk through all the Relation References
-  const visitor = (r: RelationReference) => {
-    if (r.alias) return;
-    switch (r.relationReferenceType) {
-      case RelationReferenceType.Subquery:
-        ReportDielUserError(`Subqueries must be named!`);
-        return;
-      case RelationReferenceType.Direct:
-        r.alias = (r as RelationReferenceDirect).relationName;
-    }
-  };
-  WalkThroughRelationReferences<void>(ast, visitor);
-  const visitSelections = (r: SelectionUnit) => {
-    r.columnSelections.map(c => {
-      if (c.alias) return;
-      c.alias = getAliasForExpr(c.expr);
-    });
-  };
+  WalkThroughRelationReferences<void>(ast, relationReferenceVisitor);
   WalkThroughSelectionUnits<void>(ast, visitSelections);
   return;
 }
