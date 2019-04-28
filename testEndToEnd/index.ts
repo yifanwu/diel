@@ -61,4 +61,11 @@ async function runTest() {
   diel.BindOutput(rName, (data: RelationObject) => {
     console.log("AddOutputRelationByString function returned data", data);
   });
+
+  const rName2 = await diel.AddOutputRelationByString(`
+    select delay, distance from flights limit 20;
+  `);
+  diel.BindOutput(rName2, (data: RelationObject) => {
+    console.log("delay distance function returned data", data);
+  });
 }

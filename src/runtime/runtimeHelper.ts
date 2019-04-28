@@ -20,7 +20,7 @@ export function GenerateViewName(q: RelationSelection) {
       : "";
     const hintCol = q.compositeSelections[0].relation.columnSelections
                   .map(c => c.alias ? c.alias : getNameFromExpr(c.expr))
-                  .join("-");
+                  .join("_");
     return `${hintCol}${hintRel}${hash}`;
   }
   return hash;
