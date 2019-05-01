@@ -21,7 +21,7 @@ export function testMaterialization() {
   logger.pass();
 }
 
-function transformSqlASTFromDielAST(ast: DielAst): SqlAst {
+export function transformSqlASTFromDielAST(ast: DielAst): SqlAst {
     let sqlAST = CreateEmptySqlAst();
     // the logic is same as in DielPhysicalExecution.ts
     GetOriginalRelations(ast).map(r => {
@@ -57,15 +57,11 @@ function compareAST(query: string, ast2: SqlAst, logger: TestLogger) {
   CompileAst(ast);
   const ast1 = transformSqlASTFromDielAST(ast);
 
+  ast1.relations = ast1.relations.sort((a, b) => (a.rName > b.rName) ? 1 : 0);
+  ast2.relations = ast1.relations.sort((a, b) => (a.rName > b.rName) ? 1 : 0);
+
   let pretty1 = JSON.stringify(ast1, null, 2);
   let pretty2 = JSON.stringify(ast2, null, 2);
-
-//   let map1 = JSON.stringify(Array.from(ast1.programs));
-//   let map2 = JSON.stringify(Array.from(ast2.programs));
-
-//   if (map1 !== map2) {
-//     logger.error(`${map1} is not the same as ${map2}.`);
-//   }
 
   if (pretty1 !== pretty2) {
     logger.error(`${pretty1} is not the same as ${pretty2}.`);
@@ -326,10 +322,10 @@ create output o3 as select v2Prime from v2;
 
 let tests = [
 [q1, a1],
-// [q2, a2],
-// [q3, a3],
-// [q4, a4],
-// [q5, a5],
-// [q6, a6],
-// [q7, a7]
+[q2, a2],
+[q3, a3],
+[q4, a4],
+[q5, a5],
+[q6, a6],
+[q7, a7]
 ];
