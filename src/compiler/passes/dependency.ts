@@ -101,7 +101,6 @@ export function DeriveOriginalRelationsAViewDependsOn(depTree: DependencyTree, v
        next = toVisit.shift();
       if (next) {
         const dep = depTree.get(next);
-        console.log(viewName, dep, next);
 
         if (!dep) {
           return LogInternalError(`Dependency ${dep} not found`);

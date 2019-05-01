@@ -1,39 +1,39 @@
-// import { getDielAst } from "../../src/compiler/compiler";
-// import { CompileDiel } from "../../src/compiler/DielCompiler";
-// import { TransformAstForMaterializationOP } from "../../src/compiler/passes/materializationOP";
-// import { GenerateUnitTestErrorLogger } from "../testHelper";
-// import { generateStringFromSqlIr } from "../../src/compiler/codegen/codeGenSql";
-// import { FgGray, FgMagenta, Reset} from "../../src/util/messages";
+import { getDielAst } from "../../src/compiler/compiler";
+import { CompileDiel } from "../../src/compiler/DielCompiler";
+import { TransformAstForMaterializationOP } from "../../src/compiler/passes/materializationOP";
+import { GenerateUnitTestErrorLogger } from "../testHelper";
+import { generateStringFromSqlIr } from "../../src/compiler/codegen/codeGenSql";
+import { FgGray, FgMagenta, Reset} from "../../src/util/messages";
 
-// export function testMaterializationOpLevel() {
-//   const logger = GenerateUnitTestErrorLogger("testMaterializationOpLevel");
-//   for (let test of tests) {
-//     let q = test[0];
-//     let a = test[1];
-//     let ast = CompileDiel(getDielAst(q));
-//     TransformAstForMaterializationOP(ast);
-//     let sql1 = generateStringFromSqlIr(ast);
+export function testMaterializationOpLevel() {
+  const logger = GenerateUnitTestErrorLogger("testMaterializationOpLevel");
+  for (let test of tests) {
+    let q = test[0];
+    let a = test[1];
+    let ast = CompileDiel(getDielAst(q));
+    TransformAstForMaterializationOP(ast);
+    let sql1 = generateStringFromSqlIr(ast);
 
-//     let ast2 = getDielAst(a);
-//     let sql2 = generateStringFromSqlIr(ast2);
+    let ast2 = getDielAst(a);
+    let sql2 = generateStringFromSqlIr(ast2);
 
-//     // console.log(JSON.stringify(ir.ast, null, 2));
-//     // console.log(JSON.stringify(ir2.ast, null, 2));
+    // console.log(JSON.stringify(ir.ast, null, 2));
+    // console.log(JSON.stringify(ir2.ast, null, 2));
 
-//     console.log(`Translating: \n${FgGray}`, q, `${Reset}`);
-//     if (sql1.length !== sql2.length) {
-//       logger.error("length not the same");
-//     }
-//     for (let i in sql1) {
-//       if (sql1[i] !== sql2[i]) {
-//         logger.error(`sql not the same ${sql1[i]} ${sql2[i]}`);
-//       }
-//       console.log( `${FgMagenta}`, sql1[i], `${Reset}`);
-//     }
-//   }
+    console.log(`Translating: \n${FgGray}`, q, `${Reset}`);
+    if (sql1.length !== sql2.length) {
+      logger.error("length not the same");
+    }
+    for (let i in sql1) {
+      if (sql1[i] !== sql2[i]) {
+        logger.error(`sql not the same ${sql1[i]} ${sql2[i]}`);
+      }
+      console.log( `${FgMagenta}`, sql1[i], `${Reset}`);
+    }
+  }
 
-//   logger.pass();
-// }
+  logger.pass();
+}
 // Q: when do you update vs insert?
 // update when there is aggregate function or groupby clause
 
