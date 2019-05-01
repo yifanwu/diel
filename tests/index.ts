@@ -11,6 +11,7 @@ import { testGetOriginalRelationsDependedOn } from "./compilerTests/testDependen
 import { assertCheckViewConstraintTest } from "./compilerTests/testViewConstraints";
 import { ParsePlainDielAst, CompileAst } from "../src/compiler/compiler";
 import { testMaterialization } from "./compilerTests/testMaterialization";
+import { testMaterializationOP } from "./compilerTests/testMaterializationOP";
 // import { PrintCode } from "../src/util/messages";
 
 
@@ -51,4 +52,5 @@ import { testMaterialization } from "./compilerTests/testMaterialization";
 
 // @LUCIE: the following tests are not defined:
 // testMaterializedViewConstraint();
-testMaterialization();
+// testMaterialization();
+testMaterializationOP();

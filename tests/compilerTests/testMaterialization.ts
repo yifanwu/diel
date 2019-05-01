@@ -3,7 +3,7 @@ import { DielAst } from "../../src/parser/dielAstTypes";
 import { TransformAstForMaterialization } from "../../src/compiler/passes/materialization";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
 import { TestLogger } from "../testTypes";
-import { SqlAst, CreateEmptySqlAst, TriggerAst } from "../../src/parser/sqlAstTypes";
+import { SqlAst, CreateEmptySqlAst, TriggerAst, SqlRelation } from "../../src/parser/sqlAstTypes";
 import { GetSqlOriginalRelationFromDielRelation, GetSqlDerivedRelationFromDielRelation } from "../../src/compiler/passes/distributeQueries";
 import { GetOriginalRelations, GetAllDerivedViews } from "../../src/compiler/DielAstGetters";
 
@@ -52,22 +52,31 @@ export function transformSqlASTFromDielAST(ast: DielAst): SqlAst {
     return sqlAST;
 }
 
-function compareAST(query: string, ast2: SqlAst, logger: TestLogger) {
+export function compareAST(query: string, ast2: SqlAst, logger: TestLogger) {
   let ast = ParsePlainDielAst(query);
   CompileAst(ast);
   const ast1 = transformSqlASTFromDielAST(ast);
 
-  ast1.relations = ast1.relations.sort((a, b) => (a.rName > b.rName) ? 1 : 0);
-  ast2.relations = ast1.relations.sort((a, b) => (a.rName > b.rName) ? 1 : 0);
+  ast1.relations = ast1.relations.sort(sortRelations);
+  ast2.relations = ast1.relations.sort(sortRelations);
 
   let pretty1 = JSON.stringify(ast1, null, 2);
   let pretty2 = JSON.stringify(ast2, null, 2);
 
   if (pretty1 !== pretty2) {
     logger.error(`${pretty1} is not the same as ${pretty2}.`);
+    // logger.error("");
   }
 }
 
+export function sortRelations(a: SqlRelation, b: SqlRelation): number {
+  if (a.rName > b.rName) {
+    return 1;
+  } else if (a.rName === b.rName) {
+    return 0;
+  }
+  return -1;
+}
 // 1. simple. Materialize v1
 let q1 =
 `

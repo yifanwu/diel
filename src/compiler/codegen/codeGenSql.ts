@@ -217,6 +217,7 @@ function generateWhere(e: ExprAst | undefined): string {
 
 // recursive fun...
 export function GetSqlStringFromExpr(e: ExprAst): string | null {
+  if (!e) return "";
   switch (e.exprType) {
     case ExprType.Val:
       const v = e as ExprValAst;

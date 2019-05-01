@@ -105,7 +105,7 @@ export function DeriveOriginalRelationsAViewDependsOn(depTree: DependencyTree, v
         if (!dep) {
           return LogInternalError(`Dependency ${dep} not found`);
         }
-        if (dep.isDynamic) {
+        if (dep.isDynamic) { // why only for event tables????
           tables.add(next);
           visited.push(next);
           if (dep.dependsOn.length !== 0) {
