@@ -1,7 +1,7 @@
 import { getTopologicalOrder, getRelationsToMateralize } from "./passesHelper";
 import { DeriveOriginalRelationsAViewDependsOn, DeriveDepTreeFromSqlRelations } from "./dependency";
 import { GetColumnsFromSelection } from "./distributeQueries";
-import { SqlAst, SqlRelationType, SqlDerivedRelation } from "../../parser/sqlAstTypes";
+import { SqlAst, SqlRelationType, SqlDerivedRelation, SqlRelation, SqlOriginalRelation } from "../../parser/sqlAstTypes";
 import { LogInternalError } from "../../util/messages";
 import { Command, DeleteClause, AstType, InsertionClause, RelationSelection, DerivedRelation, OriginalRelation, RelationConstraints } from "../../parser/dielAstTypes";
 
@@ -52,6 +52,8 @@ function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables:
     columns
   };
 
+  // translateConstraints(view, table);
+
   // 2. make a program ast
   // 2-1. create insert,delete ast
   let deleteCommand = makeDeleteCommand(view.rName);
@@ -83,36 +85,36 @@ function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables:
  * @param view
  * @param table
  */
-function translateConstraints(view: DerivedRelation, table: OriginalRelation) {
-  if (view.constraints) {
-    // 1. translate column constraints
-    table.columns.forEach(c => {
-      // 1-1. Handle NOT NULL constraint
-      if (view.constraints.notNull.indexOf(c.cName) !== -1) {
-        c.constraints.notNull = true;
-      }
-      // 1-2. Handle UNIQUE column constraint
-      view.constraints.uniques.forEach(array => {
-        if (array.length === 1 && array[0] === c.cName) {
-          c.constraints.unique = true;
-        }
-      });
-      // 1-3. No need to translate check constraints
-      // they are directly copied in step 2, at the end.
-    });
-    // 2. copy relation constraints
-    table.constraints = view.constraints;
-  } else {
-    table.constraints = {
-      relationNotNull: false,
-      relationHasOneRow: false,
-      primaryKey: [],
-      notNull: [],
-      uniques: [],
-      exprChecks: [],
-      foreignKeys: [],
-    } as RelationConstraints;
-  }
+function translateConstraints(view: SqlDerivedRelation, table: SqlOriginalRelation) {
+  // if (view.constraints) {
+  //   // 1. translate column constraints
+  //   table.columns.forEach(c => {
+  //     // 1-1. Handle NOT NULL constraint
+  //     if (view.constraints.notNull.indexOf(c.cName) !== -1) {
+  //       c.constraints.notNull = true;
+  //     }
+  //     // 1-2. Handle UNIQUE column constraint
+  //     view.constraints.uniques.forEach(array => {
+  //       if (array.length === 1 && array[0] === c.cName) {
+  //         c.constraints.unique = true;
+  //       }
+  //     });
+  //     // 1-3. No need to translate check constraints
+  //     // they are directly copied in step 2, at the end.
+  //   });
+  //   // 2. copy relation constraints
+  //   table.constraints = view.constraints;
+  // } else {
+  //   table.constraints = {
+  //     relationNotNull: false,
+  //     relationHasOneRow: false,
+  //     primaryKey: [],
+  //     notNull: [],
+  //     uniques: [],
+  //     exprChecks: [],
+  //     foreignKeys: [],
+  //   } as RelationConstraints;
+  // }
 }
 
 
