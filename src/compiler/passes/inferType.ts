@@ -1,29 +1,33 @@
-import { DielIr, SelectionUnitVisitorFunctionOptions } from "../DielIr";
-import { LogInternalError, ReportDielUserError, DielInternalErrorType } from "../../util/messages";
-import { DielDataType, BuiltInColumns, SelectionUnit, RelationReference, ExprType, ExprFunAst, ExprColumnAst, ExprAst, BuiltInFunc, ExprValAst, ExprParen } from "../../parser/dielAstTypes";
+import { LogInternalError, ReportDielUserError, DielInternalErrorType, LogInternalWarning } from "../../util/messages";
+import { DielDataType, BuiltInColumnTyppes, SelectionUnit, RelationReference, ExprType, ExprFunAst, ExprColumnAst, ExprAst, BuiltInFunc, ExprValAst, ExprParen, DerivedRelation, DielAst, RelationReferenceType, RelationReferenceSubquery, Relation, OriginalRelation, CompositeSelection, RelationReferenceDirect } from "../../parser/dielAstTypes";
+import { GetRelationDef, IsRelationTypeDerived } from "../DielAstGetters";
+import { WalkThroughSelectionUnits } from "../DielAstVisitors";
 
-export function InferType(ir: DielIr) {
-  ir.ApplyToImmediateSelectionUnits(inferTypeForSelection, true);
+export function InferType(ast: DielAst) {
+  WalkThroughSelectionUnits(ast, ((selection) => {
+    _inferTypeForSelectionUnit(ast, selection);
+  }));
 }
 
-// recurively invoked
-// FIXME: the optional is kinda weird
-export function inferTypeForSelection(r: SelectionUnit, optional: SelectionUnitVisitorFunctionOptions) {
-  r.derivedColumnSelections.map(cs => {
-    if (!cs.expr) {
-      LogInternalError(`the selection must have been parsed`);
-    }
+export function InferTypeForDerivedRelation(ast: DielAst, view: DerivedRelation) {
+  view.selection.compositeSelections.map(s => {
+    _inferTypeForSelectionUnit(ast, s.relation);
+  });
+}
+
+function _inferTypeForSelectionUnit(ast: DielAst, selection: SelectionUnit) {
+  if (!selection.derivedColumnSelections) {
+    LogInternalError(`Normalization pass of column selection should be defined before infer type is called! for derivedColumnSelections `);
+  }
+
+  selection.derivedColumnSelections.map(cs => {
     if (!cs.expr.dataType) {
-      LogInternalError(`derivedColumnSelections should be defined`);
-    }
-    if (cs.expr.dataType === DielDataType.TBD) {
-      cs.expr.dataType = getTypeForExpr(optional.ir, cs.expr, r);
+      cs.expr.dataType = getTypeForExpr(ast, cs.expr, selection);
     }
   });
 }
 
-
-function getUdfType(ir: DielIr, sUnit: SelectionUnit, funName: string, expr: ExprFunAst) {
+function getUdfType(ast: DielAst, sUnit: SelectionUnit, funName: string, expr: ExprFunAst): DielDataType | null {
   const normalizedName = funName.toLocaleUpperCase();
   switch (normalizedName) {
     case BuiltInFunc.Coalesce:
@@ -33,82 +37,107 @@ function getUdfType(ir: DielIr, sUnit: SelectionUnit, funName: string, expr: Exp
       if (!firstExpr) {
         LogInternalError(`If else then should contain the if clause, but is missing: ${JSON.stringify(expr, null, 2)}`);
       }
-      return getTypeForExpr(ir, firstExpr, sUnit);
+      return getTypeForExpr(ast, firstExpr, sUnit);
     default:
-      const r = ir.ast.udfTypes.find(u => u.udf === normalizedName);
+      const r = ast.udfTypes.find(u => u.udf === normalizedName);
       if (!r) {
-        ReportDielUserError(`Type of ${funName} not defined. Original query is ${JSON.stringify(sUnit, null, 2)}.`);
+        return ReportDielUserError(`Type of ${funName} not defined. Original query is ${JSON.stringify(sUnit, null, 2)}.`);
       }
       return r.type;
   }
 }
 
-function getTypeForExpr(ir: DielIr, expr: ExprAst, sUnit: SelectionUnit): DielDataType {
+// recursive!
+function getTypeForExpr(ast: DielAst, expr: ExprAst, sUnit: SelectionUnit): DielDataType | null {
   switch (expr.exprType) {
     case ExprType.Func:
       const funExpr = expr as ExprFunAst;
-      return getUdfType(ir, sUnit, funExpr.functionReference, funExpr);
+      return getUdfType(ast, sUnit, funExpr.functionReference, funExpr);
     case ExprType.Column:
       const columnExpr = expr as ExprColumnAst;
+      const cn = columnExpr.columnName;
+      // case 1: check for keywords
+      const special = BuiltInColumnTyppes.filter(sc => sc.column === cn)[0];
+      if (special) {
+        return special.type;
+      }
       // make sure that the source is specified
       if (!columnExpr.relationName) {
         return LogInternalError(`The normalization pass screwed up and did not specify the source relation for ${JSON.stringify(columnExpr)}`);
       }
-      const cn = columnExpr.columnName;
-      // case 1: check for keywords
-      const special = BuiltInColumns.filter(sc => sc.column === cn)[0];
-      if (special) {
-        return special.type;
-      }
-      // map columnName to simple alias
-      // first check base
-      let deAliasedRelationname = columnExpr.relationName;
-      if (sUnit.baseRelation.alias && sUnit.baseRelation.relationName && (columnExpr.relationName === sUnit.baseRelation.alias)) {
-        deAliasedRelationname = sUnit.baseRelation.relationName;
-      }
-      // TODO: check for joins as well
-      // directly see if it's found
-      const existingType = ir.GetRelationColumnType(deAliasedRelationname, cn);
-      // checking for subqueries
-      if (!existingType) {
-        // case 3: must be a temp table defined in a join or aliased
-        // we need to access the scope of the current selection
-        const checkAlias = (rRef: RelationReference) => {
-          if (rRef.alias === columnExpr.relationName) {
-            // found it
-            const tempRelation = rRef.subquery.compositeSelections[0].relation;
-            inferTypeForSelection(tempRelation, {ir});
-            // now access it, should be fine...
-            return ir.GetTypeFromDerivedRelationColumn(tempRelation, cn);
-          }
-          return null;
-        };
-        // first check base!
-        const typeFromBase = checkAlias(sUnit.baseRelation);
-        if (typeFromBase) {
-          return typeFromBase;
+      // case 2: see if its from the baseRelation
+      if (sUnit.baseRelation) {
+        if (columnExpr.relationName === sUnit.baseRelation.alias) {
+          return getColumnTypeFromReference(ast, columnExpr.columnName, sUnit.baseRelation);
         }
-        // check joins
-        for (let idx = 0; idx < sUnit.joinClauses.length; idx ++) {
-          const j = sUnit.joinClauses[idx];
-          // temp table can only be defined as alias...
-          const typeFromJoin = checkAlias(j.relation);
-          if (typeFromJoin) {
-            return typeFromJoin;
+        // case 3: see if its from the joins
+        if (sUnit.joinClauses) {
+          for (let i = 0; i < sUnit.joinClauses.length; i ++) {
+            const j = sUnit.joinClauses[i];
+            if (columnExpr.relationName === j.relation.alias) {
+              return getColumnTypeFromReference(ast, columnExpr.columnName, sUnit.baseRelation);
+            }
           }
         }
-        return LogInternalError("Should have found a type by now!");
-      } else {
-        return existingType;
       }
+      // FIXME: should pass some metadata for debugging
+      debugger;
+      ReportDielUserError(`type not found for column`);
     case ExprType.Parenthesis:
       const parenExpr = expr as ExprParen;
       // unpack
-      return getTypeForExpr(ir, parenExpr.content, sUnit);
+      return getTypeForExpr(ast, parenExpr.content, sUnit);
     case ExprType.Val:
       const valExpr = expr as ExprValAst;
       return valExpr.dataType;
+    case ExprType.Star:
+      return LogInternalError(`Should only invoke or normalized selections`);
     default:
       return LogInternalError(`Should have handled all cases`, DielInternalErrorType.UnionTypeNotAllHandled);
+  }
+}
+
+function getColumnTypeFromCompositionSelection(s: CompositeSelection, columnName: string): DielDataType | null {
+  const selections = s[0].relation.derivedColumnSelections;
+    if (!selections) return LogInternalError(`Should have done the normalization pass before this for column ${columnName} in composite selction:\n ${JSON.stringify(s, null, 2)}!\n`);
+    for (let i = 0; i < selections.length; i ++) {
+      const s = selections[i];
+      if (columnName === s.alias) return s.expr.dataType;
+    }
+    LogInternalWarning(`Type not found for ${columnName}`);
+    return null;
+}
+
+// the two types are interchangeable for access purposes.
+// exported for tests!
+export function getColumnTypeFromRelation(relation: Relation, columnName: string): DielDataType | null {
+  // case 1: derived
+  if (IsRelationTypeDerived(relation.relationType)) {
+    return getColumnTypeFromCompositionSelection((relation as DerivedRelation).selection.compositeSelections, columnName);
+  }
+  // case 2: original
+  const column = (relation as OriginalRelation).columns.filter(r => r.cName === columnName);
+  if (column.length > 0) {
+    return column[0].dataType;
+  } else {
+    LogInternalWarning(`Type not found for ${columnName}`);
+    return null;
+  }
+}
+
+function getColumnTypeFromReference(ast: DielAst, columnName: string, ref: RelationReference): DielDataType | null {
+  switch (ref.relationReferenceType) {
+    case RelationReferenceType.Direct: {
+      const r = ref as RelationReferenceDirect;
+      // we need the original name, not alias!
+      const rDef = GetRelationDef(ast, r.relationName);
+      return getColumnTypeFromRelation(rDef, columnName);
+    }
+    case RelationReferenceType.Subquery: {
+      const rDef = (ref as RelationReferenceSubquery).subquery.compositeSelections;
+      return getColumnTypeFromCompositionSelection(rDef, columnName);
+    }
+    default:
+      return LogInternalError(``);
   }
 }

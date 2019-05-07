@@ -16,13 +16,11 @@ create table allInputs (
   -- timestamp kept track of in the JS code
   timestamp DATETIME not null,
   inputRelation text not null,
-  lineage integer,
-  hashVal text
+  request_timestep integer
 );
 
-create table cacheMeta (
-  hash text not null,
-  dataId integer not null,
-  eventTableName text not null
+create table __perf (
+  timestep integer primary key,
+  timeTaken integer
 );
 `;

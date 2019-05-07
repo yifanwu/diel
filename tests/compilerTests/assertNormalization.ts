@@ -1,10 +1,10 @@
-import { DerivedRelation, ExprColumnAst } from "../../src/parser/dielAstTypes";
-import { DielIr } from "../../src/compiler/DielIr";
+import { DerivedRelation, ExprColumnAst, DielAst } from "../../src/parser/dielAstTypes";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
+import { GetRelationDef } from "../../src/compiler/DielAstGetters";
 
-export function assertBasicNormalizationOfRelation(ir: DielIr, q: string) {
+export function assertBasicNormalizationOfRelation(ast: DielAst, q: string) {
   const logger = GenerateUnitTestErrorLogger("assertBasicNormalizationOfRelation", q);
-  const v1Relation = ir.GetRelationDef("v1") as DerivedRelation;
+  const v1Relation = GetRelationDef(ast, "v1") as DerivedRelation;
   const aSelection = v1Relation.selection.compositeSelections[0].relation.derivedColumnSelections[0].expr as ExprColumnAst;
   if (aSelection.relationName !== "t1") {
     logger.error(`Normalization pass failed, I had expected a to be matched with relation t1. Got: ${JSON.stringify(aSelection, null, 2)}`);

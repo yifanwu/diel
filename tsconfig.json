@@ -7,10 +7,12 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
+    // "strictNullChecks": true, // occastionally turn on to improve code quality....
 
     "noImplicitAny": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,
+    // "noUnusedLocals": true,
     // "noUnusedLocals": true, // cannot use because ANTLR generated files have this problem
     // "preserveConstEnums": true,
     

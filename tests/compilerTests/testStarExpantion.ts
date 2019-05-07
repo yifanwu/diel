@@ -1,11 +1,12 @@
-import { getDielIr } from "../../src/compiler/compiler";
 import { LogInfo } from "../../src/util/messages";
-import { ExprColumnAst, DielDataType, DerivedRelation } from "../../src/parser/dielAstTypes";
+import { ExprColumnAst, DielDataType, DerivedRelation, DielAst } from "../../src/parser/dielAstTypes";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
+import { ParsePlainDielAst, CompileAst } from "../../src/compiler/compiler";
+import { GetRelationDef } from "../../src/compiler/DielAstGetters";
 
 export function assertAllStar() {
   function assertColumns(viewName: string, selections: {columnName: string, relationName: string, dataType: DielDataType}[]) {
-    const view = ir.GetRelationDef(viewName) as DerivedRelation;
+    const view = GetRelationDef(ast, viewName) as DerivedRelation;
     const columns = view.selection.compositeSelections[0].relation.derivedColumnSelections;
     if (!columns) {
       logger.error(`${viewName} is not expanded`);
@@ -30,7 +31,8 @@ export function assertAllStar() {
   create view v2 as select t2.* from t join t2 on t.a = t2.a;
   `;
   const logger = GenerateUnitTestErrorLogger("assertAllStar", q);
-  let ir = getDielIr(q);
+  let ast = ParsePlainDielAst(q);
+  CompileAst(ast);
   assertColumns("v1", [
     {columnName: "a", relationName: "t", dataType: DielDataType.Number},
     {columnName: "b", relationName: "t", dataType: DielDataType.Number}

@@ -1,4 +1,3 @@
-import { getDielIr } from "../src/compiler/compiler";
 import { assertSimpleType, assertMultiplyType } from "./compilerTests/assertTypes";
 import { testTopologicalSort, testDistributionLogc } from "./unitTest";
 import { assertBasicNormalizationOfRelation } from "./compilerTests/assertNormalization";
@@ -9,11 +8,21 @@ import { assertFunctionParsing } from "./parserTests/functionTest";
 import { assertLatestSyntax } from "./compilerTests/testSyntaxSugar";
 import { codeGenBasicSQLTest } from "./sqlCodeGenTest";
 import { testGetOriginalRelationsDependedOn } from "./compilerTests/testDependency";
-
+import { assertCheckViewConstraintTest } from "./compilerTests/testViewConstraints";
+import { ParsePlainDielAst, CompileAst } from "../src/compiler/compiler";
+import { testAsyncPolicy } from "./compilerTests/testAsyncPolicy";
 // import { PrintCode } from "../src/util/messages";
 
+testAsyncPolicy();
 
-// TODO: refactor tests to share more compiling and save some time...
+testTopologicalSort();
+testGetOriginalRelationsDependedOn();
+testDistributionLogc();
+codeGenBasicSQLTest();
+assertBasicOperators();
+assertSimpleType();
+assertAllStar();
+assertMultiplyType();
 
 const q = `
 create event table t1 (
@@ -30,20 +39,16 @@ create view v2 as select a from t1 join (select max(b) as b from t2) m on m.b = 
 create view v3 as select a from t1 where b in (select b from t2 where c = 'hello');
 `;
 
-testGetOriginalRelationsDependedOn();
-testDistributionLogc();
+let ast = ParsePlainDielAst(q);
+CompileAst(ast);
+assertBasicNormalizationOfRelation(ast, q);
+assertFunctionParsing(ast, q);
+
+// @LUCIE: the following tests are failing, fix me
+assertBasicConstraints();
 assertLatestSyntax();
+assertCheckViewConstraintTest();
 
-testTopologicalSort();
-
-// @LUCIE the following test is failing
-// assertBasicConstraints();
-codeGenBasicSQLTest();
-assertBasicOperators();
-assertSimpleType();
-assertAllStar();
-assertMultiplyType();
-
-const ir = getDielIr(q);
-assertBasicNormalizationOfRelation(ir, q);
-assertFunctionParsing(ir, q);
+// @LUCIE: the following tests are not defined:
+// testMaterializedViewConstraint();
+// testMaterialization();

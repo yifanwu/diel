@@ -1,5 +1,5 @@
-import { generateSelectionUnit } from "../src/compiler/codegen/codeGenSql";
-import { ExprType, FunctionType, DielDataType, SelectionUnit, JoinType, AstType } from "../src/parser/dielAstTypes";
+import { SqlStrFromSelectionUnit } from "../src/compiler/codegen/codeGenSql";
+import { ExprType, FunctionType, DielDataType, SelectionUnit, JoinType, AstType, RelationReferenceType } from "../src/parser/dielAstTypes";
 import { GenerateUnitTestErrorLogger } from "./testHelper";
 
 /**
@@ -14,19 +14,14 @@ export function codeGenBasicSQLTest() {
   const columns = [{
     expr: {
       exprType: ExprType.Column,
-      dataType: DielDataType.TBD,
       columnName: "aId",
-      hasStar: false,
       relationName: "t1"
     },
     alias: "a"
   },
   {
     expr: {
-      exprType: ExprType.Column,
-      dataType: DielDataType.TBD,
-      columnName: "",
-      hasStar: true,
+      exprType: ExprType.Star,
       relationName: "t2"
     }
   }
@@ -39,16 +34,12 @@ export function codeGenBasicSQLTest() {
     args: [
       {
         exprType: ExprType.Column,
-        dataType: DielDataType.TBD,
         columnName: "aId",
-        hasStar: false,
         relationName: "t1"
       },
       {
         exprType: ExprType.Column,
-        dataType: DielDataType.TBD,
         columnName: "aId",
-        hasStar: false,
         relationName: "t2"
       }
     ]
@@ -56,15 +47,21 @@ export function codeGenBasicSQLTest() {
   const ast: SelectionUnit = {
     derivedColumnSelections: columns,
     columnSelections: columns,
-    baseRelation: {relationName: "t1"},
+    baseRelation: {
+      relationReferenceType: RelationReferenceType.Direct,
+      relationName: "t1"
+    },
     joinClauses: [{
       astType: AstType.Join,
       joinType: JoinType.LeftOuter,
-      relation: {relationName: "t2"},
+      relation: {
+        relationReferenceType: RelationReferenceType.Direct,
+        relationName: "t2"
+      },
       predicate
     }]
   };
-  const sGen = generateSelectionUnit(ast);
+  const sGen = SqlStrFromSelectionUnit(ast);
   const refSolution = `select t1.aId as a, t2.* from t1 LEFT OUTER join t2 on t1.aId = t2.aId`;
   const logger = GenerateUnitTestErrorLogger("codeGenBasicSQLTest", refSolution);
   if (strip(sGen) !== strip(refSolution)) {

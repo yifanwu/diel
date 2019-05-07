@@ -1,13 +1,11 @@
-import { DielDataType, RelationType, DerivedRelation, CompositeSelection, SelectionUnit, ColumnSelection, RelationSelection, RelationReference, GroupByAst } from "../../parser/dielAstTypes";
-import {generateViewConstraintSelection, generateExpr} from "../../compiler/codegen/codeGenSql";
+import { DielDataType, RelationType, DerivedRelation, CompositeSelection, SelectionUnit, ColumnSelection, RelationSelection, RelationReference, GroupByAst, ExprStarAst } from "../../parser/dielAstTypes";
+import {GetSqlStringFromExpr, SqlStrFromSelectionUnit} from "../../compiler/codegen/codeGenSql";
 import { DielAst, RelationConstraints, ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst } from "../../parser/dielAstTypes";
-
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
 import * as lexer from "../../parser/grammar/DIELLexer";
 import * as parser from "../../parser/grammar/DIELParser";
-// import {generateViewConstraintSelection, generateExpr} from "../../compiler/codegen/codeGenSql";
-// import { DielAst, RelationConstraints, ExprAst, ExprParen, ExprColumnAst, ExprValAst, ExprType, FunctionType, BuiltInFunc, ExprFunAst } from "../../parser/dielAstTypes";
 import Visitor from "../../parser/generateAst";
+import { GetAllDerivedViews } from "../DielAstGetters";
 
 export function generateViewConstraintCheckQuery(query: string): Map<string, string[][]> {
   let ast = checkValidView(query);
@@ -42,40 +40,36 @@ function checkValidView(query: string): DielAst {
 // supports only a single relation in view
 export function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
   // var i, j;
-  let ret = new Map<string, string[][]>();
+  const ret = new Map<string, string[][]>();
 
   // Handling multiple view statements
-  for ( let i = 0; i < ast.relations.length; i++) {
-    let view = ast.relations[i] as DerivedRelation;
-    if (view.relationType !== RelationType.View
-        && view.relationType !== RelationType.EventView
-        && view.relationType !== RelationType.Output) {
-      continue;
-    }
+  const views = GetAllDerivedViews(ast);
+
+  for (let view of views) {
     let viewConstraint = view.constraints;
     let queries = [] as string[][];
     let selClause;
 
     // Only when there is a constraint on view
     if (viewConstraint) {
-      let composite_selections = view.selection.compositeSelections as CompositeSelection;
+      let compositeSelections = view.selection.compositeSelections as CompositeSelection;
 
       // 1. handle null constraint
-      selClause = getSelectClauseAST(composite_selections);
+      selClause = getSelectClauseAST(compositeSelections);
       let nullQueries = getNullQuery(viewConstraint, selClause);
       queries = queries.concat(nullQueries);
 
       // 2. handle unique constraint
-      selClause = getSelectClauseAST(composite_selections);
+      selClause = getSelectClauseAST(compositeSelections);
       let uniqueQueries = getUniqueQuery(viewConstraint, selClause);
       queries = queries.concat(uniqueQueries);
 
       // 3. handle check constraint
-      selClause = getSelectClauseAST(composite_selections);
+      selClause = getSelectClauseAST(compositeSelections);
       let checkQueries = getCheckQuery(viewConstraint, selClause);
       queries = queries.concat(checkQueries);
     }
-    ret.set(view.name, queries);
+    ret.set(view.rName, queries);
   }
   return ret;
 }
@@ -86,34 +80,36 @@ export function checkViewConstraint(ast: DielAst): Map<string, string[][]> {
  * e.g) where (select a1, a2 from t1 where a1 < 10)
  */
 function getSelectClauseAST(fromSel: CompositeSelection): SelectionUnit {
-    let columnSel = {} as ColumnSelection;
-    columnSel.expr = {
-      exprType: ExprType.Column,
-      dataType: DielDataType.TBD,
-      hasStar: true
-    } as ExprAst;
+  const expr: ExprStarAst = {
+    dataType: undefined,
+    exprType: ExprType.Star
+  };
+  const columnSel: ColumnSelection = {
+    expr
+  };
 
-    let baseRelation = {
-      subquery: {
-        compositeSelections: fromSel
-      } as RelationSelection
-    } as RelationReference;
+  const baseRelation = {
+    subquery: {
+      compositeSelections: fromSel
+    } as RelationSelection
+  } as RelationReference;
 
-    let selUnit;
-    selUnit = {
-      columnSelections: [columnSel],
-      baseRelation: baseRelation,
-      derivedColumnSelections: [],
-      joinClauses: [],
-      groupByClause: null,
-      orderByClause: null,
-      limitClause: null
-    } as SelectionUnit;
-    return selUnit;
+  const selUnit: SelectionUnit = {
+    isDistinct: undefined,
+    columnSelections: [columnSel],
+    baseRelation: baseRelation,
+    derivedColumnSelections: [],
+    joinClauses: [],
+    whereClause: undefined,
+    groupByClause: undefined,
+    orderByClause: undefined,
+    limitClause: undefined
+  };
+  return selUnit;
 }
 
-function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionUnit): string[][] {
-  let exprAsts = view_constraint.exprChecks;
+function getCheckQuery(viewConstraint: RelationConstraints, selUnit: SelectionUnit): string[][] {
+  let exprAsts = viewConstraint.exprChecks;
   let ret = [] as string[][];
   let whichConstraint: string;
   if (exprAsts && exprAsts.length > 0) {
@@ -124,7 +120,7 @@ function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionU
       exprAst = exprAsts[i] as ExprParen;
 
       // where in the query it was broken
-      whichConstraint = "CHECK " + generateExpr(exprAst);
+      whichConstraint = "CHECK " + GetSqlStringFromExpr(exprAst);
       whereClause = {
         exprType: ExprType.Func,
         dataType: DielDataType.Boolean,
@@ -135,7 +131,7 @@ function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionU
 
       // ast for the whole clause
       selUnit.whereClause = whereClause;
-      let str = generateViewConstraintSelection(selUnit);
+      let str = SqlStrFromSelectionUnit(selUnit);
       ret.push([str, whichConstraint]);
     }
   }
@@ -143,12 +139,12 @@ function getCheckQuery(view_constraint: RelationConstraints, selUnit: SelectionU
 }
 
 
-function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUnit): string[][] {
+function getNullQuery(viewConstraint: RelationConstraints, selUnit: SelectionUnit): string[][] {
   // console.log(JSON.stringify(view_constraint, null, 2));
   let ret = [] as string[][];
-  if (view_constraint.notNull && view_constraint.notNull.length > 0) {
+  if (viewConstraint.notNull && viewConstraint.notNull.length > 0) {
 
-    let notNullColumns = view_constraint.notNull;
+    let notNullColumns = viewConstraint.notNull;
     for (let i = 0; i < notNullColumns.length; i++) {
       // formating the AST for whereclause
       let whereClause = {
@@ -160,30 +156,15 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
       } as ExprFunAst;
 
       // format argument AST
-      let whereClauseArg;
       let cname = notNullColumns[i];
 
-      // generate original query
-      let originalAST = {
-        exprType: ExprType.Func,
-        functionType: FunctionType.BuiltIn,
-        functionReference: BuiltInFunc.ValueIsNotNull,
-        args: [{
-          exprType: ExprType.Column,
-          columnName: cname,
-          hasStar: false
-        } as ExprAst]
-      } as ExprAst;
 
-      // console.log(generateExpr(originalAST));
       let whichConstraint = cname + " NOT NULL";
 
-      whereClauseArg = {
+      const whereClauseArg: ExprColumnAst = {
         exprType: ExprType.Column,
-        dataType: DielDataType.TBD,
-        hasStar: false,
         columnName: cname
-      } as ExprColumnAst;
+      };
 
       whereClause.args.push(whereClauseArg);
 
@@ -191,21 +172,20 @@ function getNullQuery(view_constraint: RelationConstraints, selUnit: SelectionUn
       selUnit.whereClause = whereClause;
 
       // Generate proper query from AST
-      let str = generateViewConstraintSelection(selUnit);
+      let str = SqlStrFromSelectionUnit(selUnit);
       ret.push([str, whichConstraint]);
     }
   }
   return ret;
 }
 
-function getUniqueQuery (view_constraints: RelationConstraints, selUnit: SelectionUnit): string[][] {
+function getUniqueQuery (viewConstraints: RelationConstraints, selUnit: SelectionUnit): string[][] {
   let ret = [] as string[][];
-  let uniques = view_constraints.uniques;
+  let uniques = viewConstraints.uniques;
 
   // check if unique constraint exists
   if (uniques && uniques.length > 0) {
-    let str, i, j, groupbyArgs, groupbyColName, groupByClause, groupbySel, predicateSel;
-    // uniques = [ [ 'a1', 'a2' ], [ 'a3' ] ]
+    let str, i, groupbyArgs, groupByClause, predicateSel;
 
     for (i = 0; i < uniques.length; i++) {
       groupbyArgs = uniques[i];
@@ -213,13 +193,12 @@ function getUniqueQuery (view_constraints: RelationConstraints, selUnit: Selecti
       let whichConstraint = `UNIQUE (${groupbyArgs})`;
       let groupbySelections = [] as ExprColumnAst[];
 
-
       // format groupby AST
       // which coloum to group by
       groupbyArgs.map(function(colName) {
         let expr = {
           exprType: ExprType.Column,
-          dataType: DielDataType.TBD,
+          dataType: undefined,
           hasStar: false,
           columnName: colName
         } as ExprColumnAst;
@@ -236,14 +215,13 @@ function getUniqueQuery (view_constraints: RelationConstraints, selUnit: Selecti
         args : [
           {
             exprType: ExprType.Func,
-            dataType: DielDataType.TBD,
+            dataType: DielDataType.Number,
             functionType: FunctionType.Custom,
             functionReference: "COUNT",
             args: [{
-                    exprType: ExprType.Column,
-                    dataType: DielDataType.TBD,
-                    hasStar: true
-                }]
+              exprType: ExprType.Column,
+              hasStar: true
+            }]
           },
           {
             exprType: ExprType.Val,
@@ -267,30 +245,29 @@ function getUniqueQuery (view_constraints: RelationConstraints, selUnit: Selecti
       groupbySelections.map(expr => {
         selectColumns.push({expr});
       });
-      selectColumns.push({
+      const cS: ColumnSelection = {
         expr: {
           exprType: ExprType.Func,
-          dataType: DielDataType.TBD,
+          dataType: DielDataType.Number,
           functionType: FunctionType.Custom,
           functionReference: "COUNT",
-          args: [
-            {
-              exprType: ExprType.Column,
-              dataType: DielDataType.TBD,
-              hasStar: true
-            }]}} as ColumnSelection);
+          args: [{
+            exprType: ExprType.Column,
+            hasStar: true
+          }]
+        }
+      };
+      selectColumns.push(cS);
 
       selUnit.columnSelections = selectColumns as ColumnSelection[];
 
       // Generate proper query from AST
-      str = generateViewConstraintSelection(selUnit);
+      str = SqlStrFromSelectionUnit(selUnit);
       ret.push([str, whichConstraint]);
-
     }
   }
   return ret;
 }
-
 
 
 

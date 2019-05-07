@@ -1,6 +1,52 @@
+import { DependencyTree } from "../runtime/runtimeTypes";
+
 export type DbIdType = number;
-export type RelationIdType = string;
+export type RelationNameType = string;
 export type LogicalTimestep = number;
+
+
+// in the code base we make use of different types of NULLs
+// this is an attempt to keep the flexibilities of nulls but also make programming more sane!
+export type ToBeFilled<T> = T | undefined;
+export type HasDefault<T> = T | undefined;
+export type Optional<T> = T | undefined;
+export type NotNeededForCompiledAst<T> = T | undefined;
+
+export type ExpressionValue = DielAst
+  | OriginalRelation
+  | DerivedRelation
+  | ColumnSelection
+  | ColumnSelection[]
+  | Column
+  | Column[]
+  | OrderByAst
+  | OrderByAst[]
+  | CompositeSelectionUnit
+  | RelationSelection
+  | RelationConstraints
+  | Command[]
+  | DropClause
+  | DeleteClause
+  | string
+  | string[]
+  | RawValues
+  | ProgramsParserIr
+  | CrossFilterIr
+  | CrossFilterChartIr
+  | JoinAst
+  | GroupByAst
+  | ExprValAst
+  | ExprStarAst
+  | ExprAst
+  | ExprAst[]
+  | RelationReferenceDirect
+  | RelationReferenceSubquery
+  | SelectionUnit
+  | InsertionClause
+  | UdfType
+  | TemplateVariableAssignmentUnit
+  | null
+  ;
 
 export interface DielTemplate {
   variables: string[];
@@ -21,22 +67,22 @@ export enum DielDataType {
   TimeStamp = "TimeStamp",
   Boolean = "Boolean",
   Relation = "Relation",
-  // this needs to be inferred in the next stage
-  TBD = "TBD"
 }
 
-export enum RelationType {
-  EventTable = "EventTable",
-  // these are etables taht do not generate their own timesteps
-  // their temporal relationships are managed by the queue
-  // IntermediateEventTable = "IntermediateEventTable",
-  EventView = "EventView",
+
+// this is actually still not just SQL
+// since we differentiate static and dynamic
+// this is more an overloaded lable for the event processing system than the actual SQL logic itself.
+
+
+export const enum RelationType {
+  View = "View",
+  Output = "Output",
   Table = "Table",
+  EventTable = "EventTable",
+  EventView = "EventView",
   DerivedTable = "DerivedTable",
   ExistingAndImmutable = "ExistingAndImmutable",
-  View = "View",
-  // StaticTable = "StaticTable",
-  Output = "Output",
 }
 
 export enum StaticRelationType {
@@ -71,7 +117,7 @@ interface BuiltInColumnType {
   type: DielDataType;
 }
 
-export const BuiltInColumns: BuiltInColumnType[] = [
+export const BuiltInColumnTyppes: BuiltInColumnType[] = [
   {
     column: "rowid",
     type: DielDataType.Number
@@ -134,14 +180,16 @@ export const BuiltInUdfTypes: UdfType[] = [
 ];
 
 interface RelationBase {
-  name: string;
-  constraints?: RelationConstraints;
+  rName: string;
+  constraints?: Optional<RelationConstraints>;
   relationType: RelationType;
 }
+
 
 export interface DerivedRelation extends RelationBase {
   selection: RelationSelection;
 }
+
 
 export interface OriginalRelation extends RelationBase {
   columns: Column[];
@@ -155,22 +203,38 @@ export type ForeignKey = {
   sourceColumn: string, targetRelation: string, targetColumn: string
 };
 
+// the other parts are in columns, which are normalized in in the normalize constraints pass
 export interface RelationConstraints {
-  relationNotNull: boolean;
-  relationHasOneRow: boolean;
-  primaryKey?: string[];
-  notNull?: string[];
-  uniques?: string[][]; // there could be multiple unique claueses
-  exprChecks?: ExprAst[]; // these are actually on colunmn level, a bit weird here
-  foreignKeys?: ForeignKey[];
-  // the other parts are in columns, which are normalized in in the normalize constraints pass
+  relationNotNull?: HasDefault<boolean>;
+  relationHasOneRow?: HasDefault<boolean>;
+  primaryKey?: Optional<string[]>;
+  notNull?: Optional<string[]>;
+  // there could be multiple unique claueses
+  uniques?: Optional<string[][]>;
+  // these are actually on colunmn level, a bit weird here
+  exprChecks?: Optional<ExprAst[]>;
+  foreignKeys?: Optional<ForeignKey[]>;
 }
 
+export function NewRelationConstraints(): RelationConstraints {
+  return {
+    relationNotNull: false,
+    relationHasOneRow: false,
+    primaryKey: [],
+    notNull: [],
+    uniques: [],
+    exprChecks: [],
+    foreignKeys: []
+  };
+}
+
+
+// export type ProgramsIrFinal = Map<string, Command[]>;
 
 /**
  * If input is not specified, i.e. "", it's over all inputs.
  */
-export type ProgramsIr = Map<string, Command[]>;
+export type ProgramsIr = Map<RelationNameType, Command[]>;
 
 export interface DielConfig {
   name?: string;
@@ -193,23 +257,20 @@ export interface DielAst {
   programs: ProgramsIr;
   crossfilters: CrossFilterIr[];
   udfTypes: UdfType[];
+  depTree?: ToBeFilled<DependencyTree>;
 }
 
 export function createEmptyDielAst() {
   const newAst: DielAst = {
-    // originalRelations: [],
     relations: [],
-    // views: [],
     programs: new Map(),
-    // inserts: [],
     commands: [],
-    // drops: []
     crossfilters: [],
     udfTypes: [],
+    depTree: new Map()
   };
   return newAst;
 }
-
 
 export interface CrossFilterChartIr {
   chartName: string;
@@ -223,59 +284,15 @@ export interface CrossFilterIr {
   charts: CrossFilterChartIr[];
 }
 
-export type ProgramsParserIr = {events: RelationIdType[], queries: Command[]};
+export type ProgramsParserIr = {events: RelationNameType[], queries: Command[]};
 
-export type ExpressionValue = DielAst
-  | OriginalRelation
-  | DerivedRelation
-  | ColumnSelection
-  | ColumnSelection[]
-  | Column
-  | Column[]
-  | OrderByAst
-  | OrderByAst[]
-  | CompositeSelectionUnit
-  | RelationSelection
-  | RelationConstraints
-  | Command[]
-  | DropClause
-  | string
-  | string[]
-  | RawValues
-  | ProgramsParserIr
-  | CrossFilterIr
-  | CrossFilterChartIr
-  | JoinAst
-  | GroupByAst
-  | ExprValAst
-  | ExprAst
-  | ExprAst[]
-  | RelationReference
-  | SelectionUnit
-  | InsertionClause
-  | UdfType
-  | TemplateVariableAssignmentUnit
-  ;
-
-
-export interface ColumnSelection {
-  expr: ExprAst; // the column name is subsumed by the ExprAst...
-  alias?: string;
-}
 
 export interface Column {
-  name: string;
-  type: DielDataType;
-  constraints?: ColumnConstraints;
-  defaultValue?: ExprAst;
+  cName: string;
+  dataType?: ToBeFilled<DielDataType>;
+  constraints?: Optional<ColumnConstraints>;
+  defaultValue?: Optional<ExprAst>;
 }
-
-
-// note that the string would need to contain quotes itself...
-// export interface DefaultValue {
-//   dataType: DataType;
-//   value: ;
-// }
 
 // currently a bit lazy about the default representation...
 export interface ColumnConstraints {
@@ -289,12 +306,6 @@ export enum JoinType {
   LeftOuter = "LeftOuter",
   Inner = "Inner",
   CROSS = "Cross"
-}
-
-export interface CompositeSelectionUnit {
-  // sequence of unions and intersections; SQL does not allow parenthesis here, they can create subqueries though
-  op: SetOperator;
-  relation: SelectionUnit;
 }
 
 /**
@@ -320,7 +331,15 @@ interface AstBase {
   astType: AstType;
 }
 
+// sequence of unions and intersections; SQL does not allow parenthesis here, they can create subqueries though
+export interface CompositeSelectionUnit {
+  op: SetOperator;
+  relation: SelectionUnit;
+}
+
+
 export type CompositeSelection = CompositeSelectionUnit[];
+
 
 // ugh cannot be called selection because the DOM apparently is using this...
 export interface RelationSelection extends AstBase {
@@ -329,44 +348,60 @@ export interface RelationSelection extends AstBase {
 }
 
 /**
- * This is the meat of DIEL IR
- * - it is recursive
- * - derivedColumnSelections contains normalized selections
- *   (all selections have specified source relations)
- * - columns are derived types
- * - note that the original query is left intact, so that the
- *   user's original representation are kept as is.
+ * a recursive data structure that is the meat of DIEL IR
+ * derivedColumnSelections contains normalized selections
+ *   - all selections have specified source relations
+ *   - no more stars
+ *   - then it's filled by the type inference pass
  */
 export interface SelectionUnit {
-  // this is first filled in by getting rid of the stars
-  // then it's filled by the type inference pass
-  isDistinct?: boolean;
-  derivedColumnSelections?: ColumnSelection[];
-  // these are filled in the parsing step
-  columnSelections: ColumnSelection[];
-  baseRelation?: RelationReference;
-  joinClauses?: JoinAst[];
-  whereClause?: ExprAst;
-  groupByClause?: GroupByAst;
-  orderByClause?: OrderByAst[];
-  limitClause?: ExprAst;
+  isDistinct?: HasDefault<boolean>;
+  columnSelections?: NotNeededForCompiledAst<ColumnSelection[]>;
+  derivedColumnSelections?: ToBeFilled<ColumnSelection[]>;
+  baseRelation?: Optional<RelationReference>;
+  joinClauses?: Optional<JoinAst[]>;
+  whereClause?: Optional<ExprAst>;
+  groupByClause?: Optional<GroupByAst>;
+  orderByClause?: Optional<OrderByAst[]>;
+  limitClause?: Optional<ExprAst>;
 }
 
-// NOTE for LUCIE: here is where latest is being marked
-//   (the parsing logic is done in `generateAst.ts` already)
-export interface RelationReference {
-  relationName?: string;
-  isLatest?: boolean;
-  alias?: string;
-  subquery?: RelationSelection;
+export interface ColumnSelection {
+  expr: ExprAst; // the column name is subsumed by the ExprAst...
+  alias?: ToBeFilled<string>;
 }
+
+export enum RelationReferenceType {
+  Direct = "Direct",
+  Subquery = "Subquery"
+}
+
+export type RelationReference = RelationReferenceDirect | RelationReferenceSubquery;
+
+export interface RelationReferenceBase {
+  relationReferenceType: RelationReferenceType;
+  // reference's alias will be copied with relationName in the alias normalization pass.
+  alias?: ToBeFilled<string>;
+}
+
+export interface RelationReferenceDirect extends RelationReferenceBase {
+  relationName: ToBeFilled<string>;
+  isLatest?: HasDefault<boolean>;
+}
+
+export interface RelationReferenceSubquery extends RelationReferenceBase {
+  // Subquery must have the alias
+  alias: string;
+  subquery: RelationSelection;
+  wasFromLatest?: HasDefault<boolean>; // keeps track
+}
+
 
 export interface JoinAst extends AstBase {
   templateSpec?: TemplateVariableAssignments;
   joinType: JoinType;
   relation: RelationReference;
-  alias?: string;
-  predicate?: ExprAst;
+  predicate?: Optional<ExprAst>;
 }
 
 export type RawValues = (string|number|boolean)[];
@@ -386,6 +421,7 @@ export enum Order {
   ASC = "ASC",
   DESC = "DESC"
 }
+
 
 export interface GroupByAst {
   selections: ExprAst[];
@@ -411,8 +447,6 @@ export interface DropClause extends AstBase {
   dropType: DropType;
   dropName: string;
 }
-
-// LUCIE TODO: need to create this for the corresponding codeGenSQL file!
 export interface DeleteClause extends AstBase {
   relationName: string;
   predicate?: ExprAst; // could be no predicate
@@ -429,15 +463,9 @@ export enum ExprType {
   Func = "Func",
   Val = "Val",
   Column = "Column",
+  Star = "Star",
   Relation = "Relation",
   Parenthesis = "Parenthesis"
-}
-
-export type ExprAst = ExprFunAst | ExprValAst | ExprColumnAst | ExprRelationAst | ExprParen;
-
-export interface ExprBase {
-  exprType: ExprType;
-  dataType: DielDataType;
 }
 
 /**
@@ -465,6 +493,13 @@ export enum FunctionType {
   Custom = "Custom"
 }
 
+export type ExprAst = ExprFunAst | ExprStarAst | ExprValAst | ExprColumnAst | ExprRelationAst | ExprParen;
+
+export interface ExprBase {
+  exprType: ExprType;
+  dataType?: ToBeFilled<DielDataType>;
+}
+
 export interface ExprParen extends ExprBase {
   content: ExprAst;
 }
@@ -479,21 +514,42 @@ export interface ExprFunAst extends ExprBase {
   args: ExprAst[];
 }
 
+export interface ExprStarAst extends ExprBase {
+  relationName?: Optional<string>;
+}
+
 // hm there might be multiple here...
-export interface ExprColumnAst extends ExprBase  {
-  // column: SimpleColumSelection;
-  columnName: string;
-  hasStar: boolean;
-  relationName?: string;
+export interface ExprColumnAst extends ExprBase {
+  columnName: string; // might not be defined if has start
+  relationName?: ToBeFilled<string>;
 }
 
 export interface ExprValAst extends ExprBase {
+  dataType: DielDataType;
   value: string | number | boolean;
 }
 
 export interface CustomFunc {
   name: string;
 }
+
+
+export type SimpleColumn = {
+  columnName: string,
+  dataType: DielDataType
+};
+
+export enum BuiltInColumn {
+  TIMESTEP = "TIMESTEP",
+  TIMESTAMP = "TIMESTAMP",
+  REQUEST_TIMESTEP = "REQUEST_TIMESTEP"
+}
+
+export const BuiltInColumnDataTypes = new Map([
+  [BuiltInColumn.TIMESTAMP.toString(), DielDataType.TimeStamp],
+  [BuiltInColumn.TIMESTEP.toString(), DielDataType.Number],
+  [BuiltInColumn.REQUEST_TIMESTEP.toString(), DielDataType.Number],
+]);
 
 // export enum MathOp {
 //   ADD,
