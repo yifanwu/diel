@@ -1,7 +1,7 @@
 import { DerivedRelation, RelationType, DbIdType, RelationNameType, LogicalTimestep, DielAst, Relation } from "../parser/dielAstTypes";
 import { DbType, NodeDependencyAugmented, NodeDependency, DependencyTree, ExecutionSpec } from "../runtime/runtimeTypes";
 import { PhysicalMetaData } from "../runtime/DielRuntime";
-import { GetSqlDerivedRelationFromDielRelation, SingleDistribution, GetSqlOriginalRelationFromDielRelation, QueryDistributionRecursiveEval } from "./passes/distributeQueries";
+import { GetSqlDerivedRelationFromDielRelation, SingleDistribution, GetSqlOriginalRelationFromDielRelation, QueryDistributionRecursiveEval, GetCachedEventView } from "./passes/distributeQueries";
 import { LogInternalError, DielInternalErrorType, LogInternalWarning } from "../util/messages";
 import { SetIntersection } from "../util/dielUtils";
 import { SqlAst, CreateEmptySqlAst, SqlRelation, TriggerAst, SqlRelationType } from "../parser/sqlAstTypes";
@@ -134,9 +134,20 @@ export class DielPhysicalExecution {
         ];
       }
       // the following two cases should be the same
-      case RelationType.View:
       case RelationType.EventView: {
-        const addTimeColumns = (rDef.relationType === RelationType.EventView) && (distribution.to === LocalDbId);
+        if (this.metaData.cache === true) {
+          const eventViewTable = GetCachedEventView(rDef as DerivedRelation);
+          const eventView = GetSqlDerivedRelationFromDielRelation(rDef);
+          if (eventView && eventViewTable) return [
+            {dbId: distribution.from, relationDef: eventView},
+            {dbId: distribution.to, relationDef: eventViewTable.cacheTable},
+            {dbId: distribution.to, relationDef: eventViewTable.referenceTable},
+            {dbId: distribution.to, relationDef: eventViewTable.view}
+          ];
+        }
+      } // else, fallthrough
+      case RelationType.View: {
+        const addTimeColumns = (false) && (distribution.to === LocalDbId);
         const eventViewTable = GetSqlOriginalRelationFromDielRelation(rDef, addTimeColumns);
         const eventView = GetSqlDerivedRelationFromDielRelation(rDef);
         if (eventView && eventViewTable) return [
@@ -144,6 +155,8 @@ export class DielPhysicalExecution {
           {dbId: distribution.to, relationDef: eventViewTable}
         ];
       }
+
+
       case RelationType.ExistingAndImmutable: {
         if (distribution.to !== distribution.from) {
           const newTable = GetSqlOriginalRelationFromDielRelation(rDef);

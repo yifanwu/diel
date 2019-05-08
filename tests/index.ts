@@ -7,11 +7,18 @@ import { assertBasicConstraints } from "./parserTests/constraintsTest";
 import { assertFunctionParsing } from "./parserTests/functionTest";
 import { assertLatestSyntax } from "./compilerTests/testSyntaxSugar";
 import { codeGenBasicSQLTest } from "./sqlCodeGenTest";
+import { testTriTableCreation } from "./testEventTableCacheCreation";
 import { testGetOriginalRelationsDependedOn } from "./compilerTests/testDependency";
 import { assertCheckViewConstraintTest } from "./compilerTests/testViewConstraints";
 import { ParsePlainDielAst, CompileAst } from "../src/compiler/compiler";
 import { testAsyncPolicy } from "./compilerTests/testAsyncPolicy";
+import { testMaterializationRuntime } from "./compilerTests/testMaterializationRuntime";
 // import { PrintCode } from "../src/util/messages";
+
+testTriTableCreation();
+//testAsyncPolicy();
+
+/*
 
 testAsyncPolicy();
 
@@ -52,3 +59,5 @@ assertCheckViewConstraintTest();
 // @LUCIE: the following tests are not defined:
 // testMaterializedViewConstraint();
 // testMaterialization();
+
+*/

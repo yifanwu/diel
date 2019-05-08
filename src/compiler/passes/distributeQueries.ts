@@ -3,7 +3,7 @@ import { LogInternalError, DielInternalErrorType } from "../../util/messages";
 import { NodeDependencyAugmented, DependencyTree } from "../../runtime/runtimeTypes";
 import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation } from "../../parser/sqlAstTypes";
 import { LocalDbId } from "../DielPhysicalExecution";
-import { RelationNameType, DbIdType, Column, DielDataType, CompositeSelection, Relation, RelationType, OriginalRelation, DielAst, BuiltInColumn } from "../../parser/dielAstTypes";
+import { RelationNameType, DbIdType, Column, DielDataType, CompositeSelection, Relation, RelationType, OriginalRelation, DielAst, BuiltInColumn, SetOperator, RelationReferenceType, JoinAst, AstType, JoinType, ExprType, FunctionType, ColumnSelection } from "../../parser/dielAstTypes";
 import { DerivedRelation } from "../..";
 
 export type SingleDistribution = {
@@ -141,6 +141,20 @@ export function GetColumnsFromSelection(selection: CompositeSelection): Column[]
   return columns;
 }
 
+export function getEventViewCacheName(tableName: string) {
+  return `${tableName}Cache`;
+}
+
+export function getEventViewCacheReferenceName(tableName: string) {
+  return `${tableName}Reference`;
+}
+
+export type CacheTriplet = {
+  cacheTable: SqlOriginalRelation,
+  referenceTable: SqlOriginalRelation,
+  view: SqlDerivedRelation
+}
+
 export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTimeColumns?: boolean): SqlOriginalRelation | null {
   switch (relation.relationType) {
     // when we turn an event into a table, the table is dynamic!
@@ -182,6 +196,122 @@ export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTi
     default:
       return LogInternalError(`Should all be handled, but ${relation.relationType} was not, for ${relation.rName}`, DielInternalErrorType.UnionTypeNotAllHandled);
   }
+}
+
+function makeCacheJoinClause(
+  cacheRelationName: string,
+  referenceRelationName: string): JoinAst {
+  const dataId = "dataId"
+  let returnVal: JoinAst = {
+    astType: AstType.Join,
+    joinType: JoinType.Inner,
+    relation: {
+      relationName: cacheRelationName,
+      relationReferenceType: RelationReferenceType.Direct
+    },
+    predicate: {
+      dataType: DielDataType.Boolean,
+      exprType: ExprType.Func,
+      functionType: FunctionType.Compare,
+      functionReference: "=",
+      args: [{
+          exprType: ExprType.Column,
+          relationName: cacheRelationName,
+          columnName: dataId, 
+          dataType: DielDataType.Number,
+          hasStar: false
+        }, { 
+          exprType: ExprType.Column,
+          relationName: referenceRelationName,
+          columnName: dataId,
+          dataType: DielDataType.Number,
+          hasStar: false
+        }
+      ]
+    }
+  };
+  return returnVal;
+}
+
+
+function getEventDerivedColumnSelections(
+  cacheTableName: string,
+  cacheReferenceName: string
+  ): ColumnSelection[] {
+
+    var cols: ColumnSelection[] = [];
+        cols.push({
+          expr: {
+            exprType: ExprType.Column,
+            columnName: "timestep",
+            relationName: cacheReferenceName,
+            dataType: DielDataType.Number,
+          }
+       })
+   return cols;
+}
+
+
+
+export function GetCachedEventView(relation: DerivedRelation): CacheTriplet {
+  const cacheName = getEventViewCacheName(relation.rName);
+  const refName = getEventViewCacheReferenceName(relation.rName);
+  const viewName = relation.rName;
+
+  let originalColumns = GetColumnsFromSelection ( 
+    relation.selection.compositeSelections
+  ); 
+
+  originalColumns.push({
+    cName: "requestTimestep",
+  })
+
+  const cacheTable: SqlOriginalRelation = {
+    rName: cacheName,
+    relationType: SqlRelationType.Table,
+    columns: originalColumns
+  }
+
+  const referenceTable: SqlOriginalRelation = {
+    rName: refName,
+    relationType: SqlRelationType.Table,
+    columns: [
+      {
+        cName: "timestep",
+        dataType: DielDataType.Number
+      }, {
+        cName: "timestamp",
+        dataType: DielDataType.TimeStamp
+      }, {
+        cName: "request_timestep",
+        dataType: DielDataType.Number
+      }
+    ]
+  }
+
+  const view: SqlDerivedRelation = {
+    rName: refName,
+    relationType: SqlRelationType.View,
+    selection: [{
+      op: SetOperator.NA,
+      relation: {
+        baseRelation: {
+          relationName: cacheName,
+          relationReferenceType: RelationReferenceType.Direct
+        },
+
+        columnSelections: getEventDerivedColumnSelections(cacheName, refName),
+        derivedColumnSelections: null,
+        joinClauses: [makeCacheJoinClause(cacheName, refName)],
+      }
+    }]
+  }
+  return {
+    cacheTable: cacheTable,
+    referenceTable: referenceTable,
+    view: view
+  };
+  //return as an object.
 }
 
 /**

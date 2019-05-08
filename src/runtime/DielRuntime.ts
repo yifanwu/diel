@@ -54,6 +54,8 @@ type DbMetaData = {
 };
 
 export type PhysicalMetaData = {
+  // RYAN: TODO: Find better place for this.
+  cache?: boolean,
   dbs: Map<DbIdType, DbMetaData>;
   relationLocation: Map<string, TableMetaData>;
 };
