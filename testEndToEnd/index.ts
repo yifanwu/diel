@@ -17,7 +17,7 @@ const dbConfigs: DbSetupConfig[] = [{
     jsFile,
     dataFile: path.resolve(__dirname, "../../testEndToEnd/data/cache.sqlite")
   },
-]
+];
 
 const mainDbPath: string = null;
 

@@ -204,8 +204,10 @@ function getRelationReferenceDep(ref: RelationReference): string[] | null {
     }
     case RelationReferenceType.Subquery: {
       const r = ref as RelationReferenceSubquery;
-      const acc: string[] = [];
-      r.subquery.compositeSelections.map(c => acc.concat(getSelectionUnitDep(c.relation)), []);
+      let acc: string[] = [];
+      r.subquery.compositeSelections.map(c => {
+        acc = acc.concat(getSelectionUnitDep(c.relation));
+      });
       return acc;
     }
   }
