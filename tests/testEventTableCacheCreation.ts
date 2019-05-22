@@ -8,11 +8,11 @@ export function testTriTableCreation() {
   const query = `
     create table data (datum integer);
   
-    create event table click (num integer);
-    create event view myclicks as select num from click
-    join data on datum == num;
+    create event table click (num integer, pos integer);
+    create event view myclicks as select num * num as squared, pos from click
+    join data on datum = num;
 
-    create output o1 as select max(num) from myclicks;
+    create output o1 as select max(squared) as maximum from myclicks;
     `
   const physicalMetaData = {
     dbs: new Map([[1, {dbType: DbType.Local}]]),

@@ -12,29 +12,52 @@ import { LocalDbId } from "../build/src/compiler/DielPhysicalExecution";
 
 const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/js/worker.sql.js");
 
-const dbConfigs: DbSetupConfig[] = [
-  {
+const dbConfigs: DbSetupConfig[] = [{
     dbType: DbType.Worker,
     jsFile,
-    dataFile: path.resolve(__dirname, "../../testEndToEnd/data/flights.small.sqlite")
+    dataFile: path.resolve(__dirname, "../../testEndToEnd/data/cache.sqlite")
   },
-];
+]
 
 const mainDbPath: string = null;
 
-const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/simple.diel")];
+//const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/simple.diel")];
 // const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/flights-remote.diel")];
+const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/cache.diel")];
+
 
 export const diel = new DielRuntime({
   isStrict: true,
   showLog: true,
-  setupCb: runTest,
+  setupCb: testCacheNoCache,
+  caching: false,
   dielFiles,
   mainDbPath,
   dbConfigs,
 });
 
-// runt time testing
+
+// runtime testing
+
+async function testCacheNoCache() {
+  console.log("Cache test with no caching starting");
+  
+  diel.NewInput("click", {num: 5, pos: 100});
+  diel.NewInput("click", {num: 10, pos: 200});
+  diel.BindOutput("o1", (o: RelationObject) => {
+    console.log("results!", o);
+  });
+
+
+  /*
+  const rName = await diel.AddOutputRelationByString(`
+    select datum from data; 
+  `);
+  */
+
+  
+  
+}
 
 async function runTest() {
   console.log("DIEL runtime test starting");

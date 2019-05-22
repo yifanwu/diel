@@ -133,21 +133,26 @@ export class DielPhysicalExecution {
           {dbId: distribution.to, relationDef: eventTableDef}
         ];
       }
-      // the following two cases should be the same
+      // the following two cases should be the same if caching is disabled
       case RelationType.EventView: {
-        if (this.metaData.cache === true) {
-          const eventViewTable = GetCachedEventView(rDef as DerivedRelation);
+        if (this.metaData.cache === true
+            && distribution.from !== distribution.to)
+        {
+          const addTimeColumns = (rDef.relationType === RelationType.EventView) 
+              && (distribution.to === LocalDbId);
+          const cacheRelationTriplet = GetCachedEventView(rDef as DerivedRelation, addTimeColumns);
           const eventView = GetSqlDerivedRelationFromDielRelation(rDef);
-          if (eventView && eventViewTable) return [
+          if (eventView && cacheRelationTriplet) return [
+            {dbId: distribution.to, relationDef: cacheRelationTriplet.cacheTable},
+            {dbId: distribution.to, relationDef: cacheRelationTriplet.referenceTable},
+            {dbId: distribution.to, relationDef: cacheRelationTriplet.view},
             {dbId: distribution.from, relationDef: eventView},
-            {dbId: distribution.to, relationDef: eventViewTable.cacheTable},
-            {dbId: distribution.to, relationDef: eventViewTable.referenceTable},
-            {dbId: distribution.to, relationDef: eventViewTable.view}
+            // Ordering is significant: names are first come, first served
           ];
         }
       } // else, fallthrough
       case RelationType.View: {
-        const addTimeColumns = (false) && (distribution.to === LocalDbId);
+        const addTimeColumns = (rDef.relationType === RelationType.EventView) && (distribution.to === LocalDbId);
         const eventViewTable = GetSqlOriginalRelationFromDielRelation(rDef, addTimeColumns);
         const eventView = GetSqlDerivedRelationFromDielRelation(rDef);
         if (eventView && eventViewTable) return [

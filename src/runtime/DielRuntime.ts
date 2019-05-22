@@ -19,9 +19,10 @@ import { checkViewConstraint } from "../compiler/passes/generateViewConstraints"
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { ParsePlainSelectQueryAst } from "../compiler/compiler";
 import { GetSqlRelationFromAst, GetDynamicRelationsColumns } from "../compiler/codegen/SqlAstGetters";
-import { SqlOriginalRelation, SqlRelationType } from "../parser/sqlAstTypes";
+import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation } from "../parser/sqlAstTypes";
 import { DeriveDependentRelations } from "../compiler/passes/dependency";
 import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation } from "../compiler/DielAstGetters";
+import { getEventViewCacheName, getEventViewCacheReferenceName } from "../compiler/passes/distributeQueries";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
@@ -99,7 +100,8 @@ export default class DielRuntime {
     this.runtimeOutputs = new Map();
     this.physicalMetaData = {
       dbs: new Map(),
-      relationLocation: new Map()
+      relationLocation: new Map(),
+      cache: config.caching ? config.caching : false
     };
     this.staticRelationsSent = [];
     this.boundFns = [];
@@ -190,7 +192,17 @@ export default class DielRuntime {
     const localSqlAst = this.physicalExecution.getAstFromDbId(LocalDbId);
     const sqlRelation = GetSqlRelationFromAst(localSqlAst, eventName);
     if (!sqlRelation) return ReportUserRuntimeError(`Event ${eventName} is not defined`);
-    const columnNames = GetDynamicRelationsColumns(sqlRelation as SqlOriginalRelation);
+
+    let columnNames: string[] = [];
+
+    if (sqlRelation.relationType === SqlRelationType.Table) {
+      columnNames = GetDynamicRelationsColumns(sqlRelation as SqlOriginalRelation);
+    } else {
+
+      (sqlRelation as SqlDerivedRelation).selection.forEach(selUnit => {selUnit.relation.columnSelections.forEach(
+        c => {columnNames.push(c.alias);}
+      )})
+    }
       const values = objs.map(o => {
         return columnNames.filter(c => !(c in BuiltInColumn)).map(cName => {
           const raw = o[cName];
@@ -205,26 +217,41 @@ export default class DielRuntime {
       const allInputQuery = `
       insert into allInputs (timestep, inputRelation, timestamp, request_timestep) values
         (${this.timestep}, '${eventName}', ${Date.now()}, ${requestTimestep});`;
-      if (columnNames && (columnNames.length > 0)) {
-        finalQuery = `insert into ${eventName} (${columnNames.join(", ")}) values
-          ${values.map(v => `(${v.join(", ")}, ${this.timestep}, ${requestTimestep})`)};`; // HACK
+
+      if (this.config.caching && this.GetRelationDef(eventName).relationType === RelationType.EventView) {
+        if (columnNames && (columnNames.length > 0)) {
+          finalQuery = `insert into ${getEventViewCacheName(eventName)} (${columnNames.join(", ")}) values
+              ${values.map(v => `(${v.join(", ")}, ${requestTimestep})`)};`;
+          finalQuery += `\n insert into ${getEventViewCacheReferenceName(eventName)} values (${this.timestep}, ${requestTimestep});`
+        } else {
+          finalQuery = `insert into ${eventName} (timestep, request_timestep) values (${this.timestep}, ${requestTimestep});`;
+        }
+        LogInfo(`Tick\n${finalQuery + allInputQuery}`);
+        this.db.exec(finalQuery + allInputQuery);
       } else {
-        finalQuery = `insert into ${eventName} (timestep, request_timestep) values (${this.timestep}, ${requestTimestep});`;
+        if (columnNames && (columnNames.length > 0)) {
+          finalQuery = `insert into ${eventName} (${columnNames.join(", ")}) values
+              ${values.map(v => `(${v.join(", ")}, ${this.timestep}, ${requestTimestep})`)};`; // HACK
+        } else {
+          finalQuery = `insert into ${eventName} (timestep, request_timestep) values (${this.timestep}, ${requestTimestep});`;
+        }
+        LogInfo(`Tick\n${finalQuery + allInputQuery}`);
+        this.db.exec(finalQuery + allInputQuery);
       }
-      LogInfo(`Tick\n${finalQuery + allInputQuery}`);
-      this.db.exec(finalQuery + allInputQuery);
 
       const inputDep = DeriveDependentRelations(this.ast.depTree, eventName);
       if (!inputDep) {
         return LogInternalWarning(`Input ${eventName} as not dependencies`);
       }
+
       this.boundFns.map(b => {
         if (inputDep.has(b.outputName)) {
           this.runOutput(b);
         }
       });
-      // end of tick
+
       this.shipWorkerInput(eventName, this.timestep);
+      // end of tick
   }
 
   /**
@@ -417,13 +444,23 @@ export default class DielRuntime {
    * @param timestep
    */
   shipWorkerInput(inputName: string, timestep: number) {
+
+    const inputDep = DeriveDependentRelations(this.ast.depTree, inputName);
+    inputDep.forEach(dep => {
+      if (this.runtimeOutputs.has(dep)) {
+        
+      }
+    });
+
+
+
     // const remotesToShipTo = this.physicalExecution.getShippingInfoForDbByEvent(inputName, LocalDbId);
     const remotesToShipTo = this.physicalExecution.getBubbledUpRelationToShipForEvent(LocalDbId, inputName);
     // FIXME: we can improve performance by grouping by the views to ship so that they are not evaluated multiple times.
     if (remotesToShipTo && remotesToShipTo.length > 0) {
       remotesToShipTo.map(t => {
         // select * is problematic for event relations since the corresponding one does not have the additional timestep
-        // get the columsn...
+        // get the columns...
         // const rDef = this.ir.GetRelationDef(t.relation) as OriginalRelation;
         // if (!rDef.columns) {
         //   LogInternalError(`Columns for ${t.relation} not defined, it looks like ${JSON.stringify(rDef, null, 2)}`);

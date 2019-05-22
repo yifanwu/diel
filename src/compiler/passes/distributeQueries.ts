@@ -54,7 +54,7 @@ export function QueryDistributionRecursiveEval(
       ...sharedPartialDistributionObj
     });
     if (!node.remoteId) {
-      return LogInternalError(`Node should be assinged here`);
+      return LogInternalError(`Node should be assigned here`);
     }
     return {
       relationName: node.relationName,
@@ -201,12 +201,12 @@ export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTi
 function makeCacheJoinClause(
   cacheRelationName: string,
   referenceRelationName: string): JoinAst {
-  const dataId = "dataId"
+  const dataId = "REQUEST_TIMESTEP"
   let returnVal: JoinAst = {
     astType: AstType.Join,
     joinType: JoinType.Inner,
     relation: {
-      relationName: cacheRelationName,
+      relationName: referenceRelationName,
       relationReferenceType: RelationReferenceType.Direct
     },
     predicate: {
@@ -236,24 +236,29 @@ function makeCacheJoinClause(
 
 function getEventDerivedColumnSelections(
   cacheTableName: string,
-  cacheReferenceName: string
+  originalColumns:  Column[] 
   ): ColumnSelection[] {
 
     var cols: ColumnSelection[] = [];
-        cols.push({
+    originalColumns.forEach(function(c) {
+      cols.push({
           expr: {
             exprType: ExprType.Column,
-            columnName: "timestep",
-            relationName: cacheReferenceName,
-            dataType: DielDataType.Number,
-          }
-       })
+            columnName: c.cName,
+            relationName: cacheTableName,
+            dataType: c.dataType,
+      },
+      alias: c.cName
+    });
+      
+    })
+
    return cols;
 }
 
 
 
-export function GetCachedEventView(relation: DerivedRelation): CacheTriplet {
+export function GetCachedEventView(relation: DerivedRelation, addTimeColumns: boolean): CacheTriplet {
   const cacheName = getEventViewCacheName(relation.rName);
   const refName = getEventViewCacheReferenceName(relation.rName);
   const viewName = relation.rName;
@@ -263,7 +268,8 @@ export function GetCachedEventView(relation: DerivedRelation): CacheTriplet {
   ); 
 
   originalColumns.push({
-    cName: "requestTimestep",
+    cName: "REQUEST_TIMESTEP",
+    dataType: DielDataType.Number
   })
 
   const cacheTable: SqlOriginalRelation = {
@@ -277,20 +283,17 @@ export function GetCachedEventView(relation: DerivedRelation): CacheTriplet {
     relationType: SqlRelationType.Table,
     columns: [
       {
-        cName: "timestep",
+        cName: "TIMESTEP",
         dataType: DielDataType.Number
       }, {
-        cName: "timestamp",
-        dataType: DielDataType.TimeStamp
-      }, {
-        cName: "request_timestep",
+        cName: "REQUEST_TIMESTEP",
         dataType: DielDataType.Number
       }
     ]
   }
 
   const view: SqlDerivedRelation = {
-    rName: refName,
+    rName: viewName,
     relationType: SqlRelationType.View,
     selection: [{
       op: SetOperator.NA,
@@ -300,8 +303,8 @@ export function GetCachedEventView(relation: DerivedRelation): CacheTriplet {
           relationReferenceType: RelationReferenceType.Direct
         },
 
-        columnSelections: getEventDerivedColumnSelections(cacheName, refName),
-        derivedColumnSelections: null,
+        columnSelections: getEventDerivedColumnSelections(cacheName, originalColumns),
+        derivedColumnSelections: getEventDerivedColumnSelections(cacheName, originalColumns),
         joinClauses: [makeCacheJoinClause(cacheName, refName)],
       }
     }]
