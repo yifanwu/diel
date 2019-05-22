@@ -3,10 +3,13 @@ grammar DIEL;
 queries : (
            viewStmt
            | programStmt
-           | crossfilterStmt
            | templateStmt
            | insertQuery
-           //  the rest does not require templating
+           // higher level language
+           | crossfilterStmt
+           | selectionStmt
+           | filterStmt
+           // the rest does not require templating
            | originalTableStmt
            | registerTypeUdf
            | dropQuery
@@ -35,6 +38,21 @@ crossfilterChartStmt
     AS definitionQuery=selectQuery
     WITH PREDICATE predicateClause=joinClause
     DELIM
+  ;
+
+selectionStmt
+  : CREATE SELECTION selectionname=IDENTIFIER
+      ON view=IDENTIFIER
+  ;
+
+filterStmt
+  : CREATE FILTER filtername=IDENTIFIER
+    ON view=IDENTIFIER
+    WITH selectionname=IDENTIFIER
+  ;
+
+linkStmt
+  : LINK view=IDENTIFIER WITH view=IDENTIFIER
   ;
 
 dataType
@@ -256,9 +274,12 @@ logicOp
 
 EVENT: E V E N T;
 CROSSFILTER: C R O S S F I L T E R ;
+LINK: L I N K;
 PREDICATE : P R E D I C A T E;
 CONSTRAIN: C O N S T R A I N;
 TEMPLATE: T E M P L A T E;
+FILTER: F I L T E R;
+SELECTION: S E L E C T I O N;
 USE: U S E;
 XCHART: X C H A R T;
 NAME: N A M E;

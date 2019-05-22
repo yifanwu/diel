@@ -2,6 +2,7 @@ import DielRuntime from "./runtime/DielRuntime";
 import { WorkerConfig, SocketConfig, DbSetupConfig } from "./runtime/DbEngine";
 import { DbType, RelationObject, RecordObject } from "./runtime/runtimeTypes";
 import { DerivedRelation, RelationSelection, RelationNameType, CompositeSelection } from "./parser/dielAstTypes";
+import { GetAllStaticOriginalTables } from "./compiler/DielAstGetters";
 
 export {
   DielRuntime,
@@ -16,5 +17,7 @@ export {
   DerivedRelation,
   // not sure if the following should be exposed
   DbType,
-  RelationNameType
+  RelationNameType,
+  // getters
+  GetAllStaticOriginalTables
 };
