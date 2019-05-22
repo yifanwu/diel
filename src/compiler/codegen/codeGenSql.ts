@@ -81,7 +81,7 @@ function generateTableSpec(t: SqlOriginalRelation, replace = false): string {
   const replaceQuery = replace ? `DROP TABLE IF EXISTS ${t.rName};` : "";
   return `${replaceQuery}
   CREATE TABLE ${t.rName} (
-    ${t.columns.map(c => generateColumnDefinition(c)).join(",\n")}
+${t.columns.map(c => "    " + generateColumnDefinition(c)).join(",\n")}
   )`;
 }
 
@@ -350,7 +350,7 @@ const TypeConversionLookUp = new Map<DielDataType, string>([
 function generateColumnDefinition(c: Column): string {
   const typeStr = TypeConversionLookUp.get(c.dataType);
   if (!typeStr) {
-    LogInternalError(`data type ${c.dataType} is not mapped tos tring`);
+    LogInternalError(`data type ${c.dataType} is not mapped to string`);
   }
   const plainQuery = `${c.cName} ${typeStr}`;
   if (!c.constraints) {
