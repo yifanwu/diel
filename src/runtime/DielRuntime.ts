@@ -625,6 +625,10 @@ export default class DielRuntime {
     return rName;
   }
 
+  public async AddTemplateByString(q: string) {
+
+  }
+
   // this is accessed by the Notebook to reason with he ASTs
   // if this was an output view on an async event, then we need to access the underlying event...
   // so it has to be from the DIEL ast and not SQL ast

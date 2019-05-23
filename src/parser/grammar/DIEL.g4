@@ -6,9 +6,9 @@ queries : (
            | templateStmt
            | insertQuery
            // higher level language
-           | crossfilterStmt
-           | selectionStmt
-           | filterStmt
+          //  | crossfilterStmt
+          //  | selectionStmt
+          //  | filterStmt
            // the rest does not require templating
            | originalTableStmt
            | registerTypeUdf
@@ -27,33 +27,37 @@ templateStmt
     DELIM
   ;
 
-crossfilterStmt
-  : CREATE CROSSFILTER crossfilterName=IDENTIFIER ON relation=IDENTIFIER
-    BEGIN crossfilterChartStmt+ END
-    DELIM
-  ;
+// crossfilterStmt
+//   : CREATE CROSSFILTER crossfilterName=IDENTIFIER ON relationName=IDENTIFIER
+//     WITH FACTORS '('(factorColumnName=IDENTIFIER+)')'
+//     (MEASURING customAggregate=IDENTIFIER '(' measureColumnName=IDENTIFIER ')')?
+//     // BEGIN crossfilterChartStmt+ END
+//     DELIM
+//   ;
 
-crossfilterChartStmt
-  : CREATE XCHART chart=IDENTIFIER
-    AS definitionQuery=selectQuery
-    WITH PREDICATE predicateClause=joinClause
-    DELIM
-  ;
+// crossfilterChartStmt
+//   : CREATE XCHART chart=IDENTIFIER
+//     AS definitionQuery=selectQuery
+//     WITH PREDICATE predicateClause=joinClause
+//     DELIM
+//   ;
 
-selectionStmt
-  : CREATE SELECTION selectionname=IDENTIFIER
-      ON view=IDENTIFIER
-  ;
+// selectionStmt
+//   : CREATE SELECTION selectionName=IDENTIFIER
+//       ON viewName=IDENTIFIER
+//   ;
 
-filterStmt
-  : CREATE FILTER filtername=IDENTIFIER
-    ON view=IDENTIFIER
-    WITH selectionname=IDENTIFIER
-  ;
+// filterStmt
+//   : CREATE FILTER filterName=IDENTIFIER ON viewName=IDENTIFIER (WITH selectionName=IDENTIFIER)?
+//   ;
 
-linkStmt
-  : LINK view=IDENTIFIER WITH view=IDENTIFIER
-  ;
+// removeFilterStmt
+//   : DROP FILTER filterName=IDENTIFIER
+//   ;
+
+// linkStmt
+//   : LINK view=IDENTIFIER WITH view=IDENTIFIER
+//   ;
 
 dataType
   : INT | TEXT | BOOLEAN | DATETIME
@@ -279,6 +283,8 @@ PREDICATE : P R E D I C A T E;
 CONSTRAIN: C O N S T R A I N;
 TEMPLATE: T E M P L A T E;
 FILTER: F I L T E R;
+FACTORS: F A C T O R S;
+MEASURING: M E A S U R I N G;
 SELECTION: S E L E C T I O N;
 USE: U S E;
 XCHART: X C H A R T;
