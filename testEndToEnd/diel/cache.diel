@@ -11,5 +11,8 @@ create output o2 as select num * num as squared from
   data join click on datum = num;
   
  -- below doesn't work for some reason
- 
--- create output o1 as select subqry.result from (select max(squared) as result from myclicks) as subqry;
+
+create output o1 as select subqry.result from (select max(squared) as result from myclicks) as subqry;
+
+
+-- create output o1 as select max(squared) as result from myclicks;
