@@ -5,8 +5,11 @@ create event table click (num integer, pos integer);
 create event view myclicks as select num * num as squared from 
   data join click on datum = num;
 
--- create output o1 as select max(squared) from myclicks;
+create output o1 as select max(squared) from myclicks;
 
+create output o2 as select num * num as squared from 
+  data join click on datum = num;
+  
  -- below doesn't work for some reason
-
-create output o1 as select squared from latest myclicks;
+ 
+-- create output o1 as select subqry.result from (select max(squared) as result from myclicks) as subqry;
