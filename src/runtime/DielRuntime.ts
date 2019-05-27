@@ -5,7 +5,7 @@ import { DIELLexer } from "../parser/grammar/DIELLexer";
 import { DIELParser } from "../parser/grammar/DIELParser";
 
 import { DielRemoteAction, RelationObject, DielConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, ExecutionSpec, } from "./runtimeTypes";
-import { OriginalRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationNameType, DerivedRelation, DielAst, BuiltInColumn } from "../parser/dielAstTypes";
+import { OriginalRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationNameType, DerivedRelation, DielAst, BuiltInColumn, Relation, Optional } from "../parser/dielAstTypes";
 import { SqlStrFromSelectionUnit, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst, GenerateSqlRelationString } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
 import { CompileAst, CompileDerivedAstGivenAst } from "../compiler/compiler";
@@ -20,9 +20,10 @@ import { StaticSql } from "../compiler/codegen/staticSql";
 import { ParsePlainSelectQueryAst } from "../compiler/compiler";
 import { GetSqlRelationFromAst, GetDynamicRelationsColumns } from "../compiler/codegen/SqlAstGetters";
 import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation } from "../parser/sqlAstTypes";
-import { DeriveDependentRelations } from "../compiler/passes/dependency";
+import { DeriveDependentRelations, DeriveOriginalRelationsAViewDependsOn } from "../compiler/passes/dependency";
 import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation } from "../compiler/DielAstGetters";
 import { getEventViewCacheName, getEventViewCacheReferenceName } from "../compiler/passes/distributeQueries";
+import { eventNames } from "cluster";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
@@ -79,6 +80,7 @@ export default class DielRuntime {
   checkConstraints: boolean;
   protected boundFns: TickBind[];
   protected runtimeOutputs: Map<string, Statement>;
+  cache: Map<string, LogicalTimestep>;
 
   constructor(config: DielConfig) {
     if (typeof window !== "undefined") {
@@ -108,6 +110,8 @@ export default class DielRuntime {
     this.runOutput = this.runOutput.bind(this);
     this.BindOutput = this.BindOutput.bind(this);
     this.setup(config.setupCb);
+
+    this.cache = new Map();
   }
 
   getEventByTimestep(timestep: LogicalTimestep) {
@@ -182,6 +186,48 @@ export default class DielRuntime {
     this.newInputHelper(i, [o], requestTimestep);
   }
 
+  private findDependentEventTables(eventView: string) {
+    let tables = DeriveOriginalRelationsAViewDependsOn(this.ast.depTree, eventView);
+    
+    // TODO: Filter
+    return Array.from(tables);
+  }
+  
+  private getCacheKey(eventView: string) {
+
+    let eventNames = this.findDependentEventTables(eventView);
+
+    eventNames.sort();
+
+    let key = ""
+    eventNames.forEach(event => {
+      let query = `select * from ${event} order by timestep`;
+      key += this.ExecuteStringQuery(query).toString();
+    });
+
+    return key;
+  }
+
+  /**
+   * Returns the requestTimestep corresponding to the cached requestTimestep.
+   * If cache miss, will return the requestTimestep passed in.
+   * @param eventView 
+   * @param requestTimestep 
+   */
+  private getFromCacheOrMiss(eventView: string, requestTimestep: LogicalTimestep): LogicalTimestep {
+    let key = this.getCacheKey(eventView);
+    let cachedRequestTimestep = this.cache.get(key);
+    if (cachedRequestTimestep === undefined) {
+      console.log(`Cache miss for ${eventView}.`)
+      this.cache.set(key, requestTimestep);
+      return requestTimestep;
+    }
+    console.log(`Cache hit for ${eventView}: cached requestTimestep is ${requestTimestep}`)
+    return cachedRequestTimestep;
+  }
+
+
+
   // also cache parts of the logic
   // FIXME: use AST instead of string manipulation...
   private newInputHelper(eventName: string, objs: any[], requestTimestep: number) {
@@ -222,10 +268,11 @@ export default class DielRuntime {
         if (columnNames && (columnNames.length > 0)) {
           finalQuery = `insert into ${getEventViewCacheName(eventName)} (${columnNames.join(", ")}) values
               ${values.map(v => `(${v.join(", ")}, ${requestTimestep})`)};`;
-          finalQuery += `\n insert into ${getEventViewCacheReferenceName(eventName)} values (${this.timestep}, ${requestTimestep});`
         } else {
-          finalQuery = `insert into ${eventName} (timestep, request_timestep) values (${this.timestep}, ${requestTimestep});`;
+          finalQuery = `insert into ${getEventViewCacheName(eventName)} (request_timestep) values (${requestTimestep});`;
         }
+
+        finalQuery += `\n insert into ${getEventViewCacheReferenceName(eventName)} values (${this.timestep}, ${requestTimestep});`
         LogInfo(`Tick\n${finalQuery + allInputQuery}`);
         this.db.exec(finalQuery + allInputQuery);
       } else {
@@ -436,7 +483,7 @@ export default class DielRuntime {
    * Note for RYAN
    * caching logic here
    * - get all cacheable outputs dependent on this input
-   * - for each cacheable output
+   * - for each cacheable output (event view?)
    *   - check if its depenent state is the same
    *   - only ship to the remotes that need to do a reevaluation
    *   - for the outputs that are cached, do newInput to the events, with the cached dataId
@@ -445,19 +492,34 @@ export default class DielRuntime {
    */
   shipWorkerInput(inputName: string, timestep: number) {
 
-    const inputDep = DeriveDependentRelations(this.ast.depTree, inputName);
-    inputDep.forEach(dep => {
-      if (this.runtimeOutputs.has(dep)) {
-        
-      }
-    });
-
-
-
     // const remotesToShipTo = this.physicalExecution.getShippingInfoForDbByEvent(inputName, LocalDbId);
     const remotesToShipTo = this.physicalExecution.getBubbledUpRelationToShipForEvent(LocalDbId, inputName);
     // FIXME: we can improve performance by grouping by the views to ship so that they are not evaluated multiple times.
     if (remotesToShipTo && remotesToShipTo.length > 0) {
+      let inputDep = []
+      if (this.config.caching) {
+        inputDep = Array.from(
+          DeriveDependentRelations(this.ast.depTree, inputName))
+          .filter(dep => GetRelationDef(this.ast, dep).relationType === RelationType.EventView);
+        console.log(`Input Deps: ${inputName} --- ${inputDep}`);
+
+        const cachedTimesteps = inputDep.map(eventView => {
+          return this.getFromCacheOrMiss(eventView, timestep);
+        });
+        const needToShip = cachedTimesteps.some(cachedTimestep => {
+          return cachedTimestep === timestep;
+        });
+
+        if (!needToShip) {
+          inputDep.forEach((eventView, i) => {
+            const query = `insert into ${getEventViewCacheReferenceName(eventView)} values (${timestep}, ${cachedTimesteps[i]})`
+          });
+          console.log(`No need to ship ${inputName}`)
+          return;
+        }
+      }
+
+
       remotesToShipTo.map(t => {
         // select * is problematic for event relations since the corresponding one does not have the additional timestep
         // get the columns...
@@ -465,6 +527,7 @@ export default class DielRuntime {
         // if (!rDef.columns) {
         //   LogInternalError(`Columns for ${t.relation} not defined, it looks like ${JSON.stringify(rDef, null, 2)}`);
         // }
+        
         const rDef = GetRelationDef(this.ast, t.relation);
         const columns = DeriveColumnsFromRelation(rDef);
         const shareQuery = `select ${columns.map(c => c.columnName).join(", ")} from ${t.relation}`;

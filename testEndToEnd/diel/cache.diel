@@ -1,18 +1,17 @@
 -- remote table data(datum integer)
 
-create event table click (num integer, pos integer);
+create event table click (num integer);
+create event table slider (position integer);
 
-create event view myclicks as select num * num as squared from 
-  data join click on datum = num;
+create event view pos_view as select position as pos from slider;
 
-create output o1 as select max(squared) from myclicks;
+create event view myclicks as select num * num as squared, pos
+    from data join click on (datum = num) join pos_view; 
 
-create output o2 as select num * num as squared from 
-  data join click on datum = num;
-  
- -- below doesn't work for some reason
-
-create output o1 as select subqry.result from (select max(squared) as result from myclicks) as subqry;
-
+create output o1 as select squared, pos from myclicks;
+    
+-- below doesn't work for some reason
+-- create output o1 as select subqry.result from (select max(squared) as result from myclicks) as subqry;
 
 -- create output o1 as select max(squared) as result from myclicks;
+-- create event view myclicks as select num * num as squared, max_pos from  data join click on datum = num join (select max(position) as max_pos from slider) as subquery; 

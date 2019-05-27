@@ -42,20 +42,12 @@ export const diel = new DielRuntime({
 async function testCacheNoCache() {
   console.log("Cache test with no caching starting");
 
+  diel.NewInput("click", {num: 10});
 
-
-
-
- 
-  diel.NewInput("click", {num: 5, pos: 100});
-  diel.NewInput("click", {num: 10, pos: 200});
+  diel.NewInput("slider", {position: 105})
 
   diel.BindOutput("o1", (o: RelationObject) => {
     console.log("results!", o);
-  });
-
-  diel.BindOutput("o2", (o: RelationObject) => {
-    console.log("results of o2!", o);
   });
 
   /*
