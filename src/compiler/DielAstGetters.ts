@@ -44,7 +44,7 @@ export function DeriveColumnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[
       case ExprType.Column:
         const columnExpr = column.expr as ExprColumnAst;
         columns.push({
-          columnName: columnExpr.columnName,
+          columnName: column.alias,
           dataType: columnExpr.dataType
         });
         break;
