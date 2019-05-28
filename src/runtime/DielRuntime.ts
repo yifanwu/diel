@@ -5,22 +5,22 @@ import { DIELLexer } from "../parser/grammar/DIELLexer";
 import { DIELParser } from "../parser/grammar/DIELParser";
 
 import { DielRemoteAction, RelationObject, DielConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, ExecutionSpec, } from "./runtimeTypes";
-import { OriginalRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationNameType, DerivedRelation, DielAst, BuiltInColumn, Relation, Optional } from "../parser/dielAstTypes";
-import { SqlStrFromSelectionUnit, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst, GenerateSqlRelationString } from "../compiler/codegen/codeGenSql";
+import { OriginalRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationNameType, DerivedRelation, DielAst, BuiltInColumn, Relation, Optional, RelationReferenceType, RelationReferenceSubquery, RelationSelection, RelationReference, RelationReferenceDirect } from "../parser/dielAstTypes";
+import { SqlStrFromSelectionUnit, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst, GenerateSqlRelationString, GetSqlStringFromCompositeSelectionUnit, GetSqlStringFromExpr } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
 import { CompileAst, CompileDerivedAstGivenAst } from "../compiler/compiler";
 import { log } from "../util/dielUdfs";
-import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
+import { downloadHelper, CheckObjKeys, hashCompare } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo } from "../util/messages";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult, GenerateViewName, CaughtLocalRun, convertRelationObjectToQueryResults } from "./runtimeHelper";
-import { DielPhysicalExecution, LocalDbId } from "../compiler/DielPhysicalExecution";
+import { DielPhysicalExecution, LocalDbId, dependsOnLocalTables } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
 import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { ParsePlainSelectQueryAst } from "../compiler/compiler";
 import { GetSqlRelationFromAst, GetDynamicRelationsColumns } from "../compiler/codegen/SqlAstGetters";
 import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation } from "../parser/sqlAstTypes";
-import { DeriveDependentRelations, DeriveOriginalRelationsAViewDependsOn } from "../compiler/passes/dependency";
+import { DeriveDependentRelations, DeriveOriginalRelationsAViewDependsOn, getRelationReferenceDep, getSelectionUnitDep } from "../compiler/passes/dependency";
 import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation } from "../compiler/DielAstGetters";
 import { getEventViewCacheName, getEventViewCacheReferenceName } from "../compiler/passes/distributeQueries";
 import { eventNames } from "cluster";
@@ -122,6 +122,7 @@ export default class DielRuntime {
     if (!this.runtimeOutputs.has(outputName)) {
       ReportUserRuntimeError(`output not defined ${outputName}, from current outputs of: [${Array.from(this.runtimeOutputs.keys()).join(", ")}]`);
     }
+
     this.boundFns.push({outputName: outputName, uiUpdateFunc: reactFn });
     // the goal here is to tug on all the events so that the event views that outputs depend on will be shared
     // without any initial interactions
@@ -186,24 +187,45 @@ export default class DielRuntime {
     this.newInputHelper(i, [o], requestTimestep);
   }
 
-  private findDependentEventTables(eventView: string) {
-    let tables = DeriveOriginalRelationsAViewDependsOn(this.ast.depTree, eventView);
-    
-    // TODO: Filter
-    return Array.from(tables);
+  private makeSubKey(r: RelationReference) {
+    if (r.relationReferenceType === RelationReferenceType.Direct) {
+      let relation = (r as RelationReferenceDirect).relationName;
+      let query = `select * from ${relation}`
+      console.log(`    Hashing "${query} for caching"`)
+      return JSON.stringify(this.ExecuteStringQuery(query))
+    } else {
+      let subqry = (r as RelationReferenceSubquery).subquery;
+      let hash = "";
+      subqry.compositeSelections.forEach(c => {
+          let query = GetSqlStringFromCompositeSelectionUnit(c);
+          console.log(`    Hashing "${query} for caching"`)
+          hash += JSON.stringify(this.ExecuteStringQuery(query))
+      });
+      return hash;
+    }
   }
-  
+
   private getCacheKey(eventView: string) {
+    let rDef = GetRelationDef(this.ast, eventView) as DerivedRelation;
 
-    let eventNames = this.findDependentEventTables(eventView);
+    let selections: RelationReference[] = [];
 
-    eventNames.sort();
+    let mainSelection = rDef.selection.compositeSelections[0].relation;
+
+    // RYAN TODO: if baseRelation undefined? Also check in other places for this.
+    selections.push(mainSelection.baseRelation);
+
+    mainSelection.joinClauses.forEach(j => {
+      selections.push(j.relation);
+    })
 
     let key = ""
-    eventNames.forEach(event => {
-      let query = `select * from ${event} order by timestep`;
-      key += this.ExecuteStringQuery(query).toString();
-    });
+
+    selections.forEach(s => {
+      if (dependsOnLocalTables(getRelationReferenceDep(s), this.physicalMetaData.relationLocation)) {
+        key += ";" + this.makeSubKey(s);
+      }
+    })
 
     return key;
   }
@@ -218,11 +240,11 @@ export default class DielRuntime {
     let key = this.getCacheKey(eventView);
     let cachedRequestTimestep = this.cache.get(key);
     if (cachedRequestTimestep === undefined) {
-      console.log(`Cache miss for ${eventView}.`)
+      console.log(`    Cache miss for ${eventView}.`)
       this.cache.set(key, requestTimestep);
       return requestTimestep;
     }
-    console.log(`Cache hit for ${eventView}: cached requestTimestep is ${requestTimestep}`)
+    console.log(`    Cache hit for ${eventView}: cached requestTimestep is ${requestTimestep}`)
     return cachedRequestTimestep;
   }
 
@@ -286,20 +308,31 @@ export default class DielRuntime {
         this.db.exec(finalQuery + allInputQuery);
       }
 
-      const inputDep = DeriveDependentRelations(this.ast.depTree, eventName);
-      if (!inputDep) {
-        return LogInternalWarning(`Input ${eventName} as not dependencies`);
-      }
+      // Factored out so we can repeat
+      this.runOutputsGivenNewInputForEvent(eventName);
+      return 0; //dunno why need this
 
-      this.boundFns.map(b => {
-        if (inputDep.has(b.outputName)) {
-          this.runOutput(b);
-        }
-      });
-
-      this.shipWorkerInput(eventName, this.timestep);
-      // end of tick
+     // end of tick
   }
+
+
+  private runOutputsGivenNewInputForEvent(eventName: string) {
+    const inputDep = DeriveDependentRelations(this.ast.depTree, eventName);
+    if (!inputDep) {
+      return LogInternalWarning(`Input ${eventName} as not dependencies`);
+    }
+
+    this.boundFns.map(b => {
+      if (inputDep.has(b.outputName)) {
+        this.runOutput(b);
+      }
+    });
+
+    this.shipWorkerInput(eventName, this.timestep);
+
+  }
+
+
 
   /**
    * this is the execution logic
@@ -496,28 +529,46 @@ export default class DielRuntime {
     const remotesToShipTo = this.physicalExecution.getBubbledUpRelationToShipForEvent(LocalDbId, inputName);
     // FIXME: we can improve performance by grouping by the views to ship so that they are not evaluated multiple times.
     if (remotesToShipTo && remotesToShipTo.length > 0) {
-      let inputDep = []
-      if (this.config.caching) {
+      let inputDep: string[] = []
+      if (this.config.caching)
+      {
+        console.log(`Caching enabled, so determining whether we need to ship ${inputName}`)
+        // eventviews dependent on this input
         inputDep = Array.from(
           DeriveDependentRelations(this.ast.depTree, inputName))
           .filter(dep => GetRelationDef(this.ast, dep).relationType === RelationType.EventView);
-        console.log(`Input Deps: ${inputName} --- ${inputDep}`);
+        console.log(`    Dependencies on ${inputName} for caching: ${inputDep}`);
 
+       let isAllDependentRelationsCacheable = inputDep.some(dep => this.physicalExecution.cachedEventViews.has(dep));
+
+
+       if (isAllDependentRelationsCacheable) {
         const cachedTimesteps = inputDep.map(eventView => {
           return this.getFromCacheOrMiss(eventView, timestep);
         });
         const needToShip = cachedTimesteps.some(cachedTimestep => {
           return cachedTimestep === timestep;
         });
-
+       
         if (!needToShip) {
           inputDep.forEach((eventView, i) => {
+            this.timestep++; 
+            this.eventByTimestep.set(this.timestep, eventView);
+
             const query = `insert into ${getEventViewCacheReferenceName(eventView)} values (${timestep}, ${cachedTimesteps[i]})`
+
+            inputDep.forEach(e => this.runOutputsGivenNewInputForEvent(e));
           });
-          console.log(`No need to ship ${inputName}`)
+          console.log(`    ${inputName} is in cache so no need to ship.`)
+
           return;
+        } else {
+          console.log(`    Cache miss means we need to ship ${inputName}`)
         }
+      } else {
+        console.log(`    Not all dependent event views of ${inputName} are cacheable. ${inputName} must be shipped.`)
       }
+    }
 
 
       remotesToShipTo.map(t => {
@@ -816,3 +867,4 @@ export default class DielRuntime {
 
   }
 }
+

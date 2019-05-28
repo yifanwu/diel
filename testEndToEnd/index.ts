@@ -23,9 +23,11 @@ const mainDbPath: string = null;
 
 //const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/simple.diel")];
 // const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/flights-remote.diel")];
-const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/cache.diel")];
+ const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/cache.diel")];
 
-const isCaching = false;
+//const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/order.diel")];
+
+const isCaching = false:w
 
 export const diel = new DielRuntime({
   isStrict: true,
@@ -40,8 +42,23 @@ export const diel = new DielRuntime({
 
 // runtime testing
 
+async function testOrder() {
+
+  diel.NewInput("inp", {num: 10});
+
+  diel.BindOutput("o1", (o: RelationObject) => {
+    console.log("results!", o);
+  });
+
+
+}
+
 async function testCache() {
   console.log(`Cache test with${isCaching ? "" : " no"} caching starting`);
+
+  diel.BindOutput("o1", (o: RelationObject) => {
+    console.log("results!", o);
+  });
 
 
   diel.NewInput("click", {num: 10});
@@ -51,12 +68,6 @@ async function testCache() {
   diel.NewInput("slider", {position: 103})
 
   diel.NewInput("slider", {position: 109})
-
-  diel.BindOutput("o1", (o: RelationObject) => {
-    console.log("results!", o);
-  });
-
-  diel.NewInput("slider", {position: 110})
 
    /*
   const rName = await diel.AddOutputRelationByString(`
