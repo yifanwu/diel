@@ -25,12 +25,13 @@ const mainDbPath: string = null;
 // const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/flights-remote.diel")];
 const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/cache.diel")];
 
+const isCaching = false;
 
 export const diel = new DielRuntime({
   isStrict: true,
   showLog: true,
-  setupCb: testCacheNoCache,
-  caching: false,
+  setupCb: testCache,
+  caching: isCaching,
   dielFiles,
   mainDbPath,
   dbConfigs,
@@ -39,18 +40,25 @@ export const diel = new DielRuntime({
 
 // runtime testing
 
-async function testCacheNoCache() {
-  console.log("Cache test with no caching starting");
+async function testCache() {
+  console.log(`Cache test with${isCaching ? "" : " no"} caching starting`);
+
 
   diel.NewInput("click", {num: 10});
 
   diel.NewInput("slider", {position: 105})
 
+  diel.NewInput("slider", {position: 103})
+
+  diel.NewInput("slider", {position: 109})
+
   diel.BindOutput("o1", (o: RelationObject) => {
     console.log("results!", o);
   });
 
-  /*
+  diel.NewInput("slider", {position: 110})
+
+   /*
   const rName = await diel.AddOutputRelationByString(`
     select datum from data; 
   `);

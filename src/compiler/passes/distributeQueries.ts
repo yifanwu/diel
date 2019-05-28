@@ -256,7 +256,9 @@ function getEventDerivedColumnSelections(
    return cols;
 }
 
+export function isCachable(relation: DerivedRelation) {
 
+}
 
 export function GetCachedEventView(relation: DerivedRelation, addTimeColumns: boolean): CacheTriplet {
   const cacheName = getEventViewCacheName(relation.rName);

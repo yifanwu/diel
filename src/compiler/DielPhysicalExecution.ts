@@ -1,5 +1,5 @@
 import { DerivedRelation, RelationType, DbIdType, RelationNameType, LogicalTimestep, DielAst, Relation } from "../parser/dielAstTypes";
-import { DbType, NodeDependencyAugmented, NodeDependency, DependencyTree, ExecutionSpec } from "../runtime/runtimeTypes";
+import { DbType, NodeDependencyAugmented, NodeDependency, DependencyTree, ExecutionSpec, TableMetaData } from "../runtime/runtimeTypes";
 import { PhysicalMetaData } from "../runtime/DielRuntime";
 import { GetSqlDerivedRelationFromDielRelation, SingleDistribution, GetSqlOriginalRelationFromDielRelation, QueryDistributionRecursiveEval, GetCachedEventView } from "./passes/distributeQueries";
 import { LogInternalError, DielInternalErrorType, LogInternalWarning } from "../util/messages";
@@ -7,7 +7,7 @@ import { SetIntersection } from "../util/dielUtils";
 import { SqlAst, CreateEmptySqlAst, SqlRelation, TriggerAst, SqlRelationType } from "../parser/sqlAstTypes";
 import { TransformAstForMaterialization } from "./passes/materialization";
 import { OutputToAsyncDefaultPolicty } from "../runtime/asyncPolicies";
-import { DeriveOriginalRelationsAViewDependsOn, DeriveDependentRelations } from "./passes/dependency";
+import { DeriveOriginalRelationsAViewDependsOn, DeriveDependentRelations, getRelationReferenceDep } from "./passes/dependency";
 import { GetRelationDef, GetAllOutputs, GetOriginalRelations } from "./DielAstGetters";
 import { AddRelation, DeleteRelation } from "./DielAstVisitors";
 
@@ -29,6 +29,9 @@ export class DielPhysicalExecution {
   metaData: PhysicalMetaData; // read only
   sqlAstSpecPerDb: Map<DbIdType, SqlAst>;
   distributions: SingleDistribution[];
+
+  cachedEventViews: Set<string>;
+
   getEventByTimestep: (step: LogicalTimestep) => RelationNameType;
 
   constructor(ast: DielAst, metaData: PhysicalMetaData, getEventByTimestep: (step: LogicalTimestep) => RelationNameType) {
@@ -37,6 +40,9 @@ export class DielPhysicalExecution {
     this.getEventByTimestep = getEventByTimestep;
     // get all the outputs and loop
     this.augmentedDep = new Map<RelationNameType, NodeDependencyAugmented>();
+
+    this.cachedEventViews = new Set();
+
     this.augmentDepTree();
     // let's first figure out the shipping information
     this.distributions = [];
@@ -48,6 +54,7 @@ export class DielPhysicalExecution {
     this.sqlAstSpecPerDb = new Map<DbIdType, SqlAst>();
     this.setAstSpecPerDbIfNotExist(LocalDbId);
     this.getSqlAstSpecsFromDistribution(this.distributions);
+
   }
 
   // right now just do a reset, but performance wise it's better to do incrementally
@@ -136,8 +143,13 @@ export class DielPhysicalExecution {
       // the following two cases should be the same if caching is disabled
       case RelationType.EventView: {
         if (this.metaData.cache === true
-            && distribution.from !== distribution.to)
+            && distribution.from !== distribution.to
+            && distribution.to === LocalDbId
+            && isEventViewCacheable(rDef as DerivedRelation,
+              this.metaData.relationLocation))
         {
+          console.log(`${rDef.rName} is cacheable`)
+          this.cachedEventViews.add(rDef.rName)
           const addTimeColumns = (rDef.relationType === RelationType.EventView) 
               && (distribution.to === LocalDbId);
           const cacheRelationTriplet = GetCachedEventView(rDef as DerivedRelation, addTimeColumns);
@@ -566,3 +578,61 @@ export class DielPhysicalExecution {
     }
   }
 }
+
+// export and extracted for testing purposes
+export function dependsOnLocalTables(deps: string[], relationLocations: Map<string, TableMetaData>) {
+
+  let dependsOnLocal = deps.some(d => {
+    let loc = relationLocations.get(d);
+    return loc === undefined;
+  });
+
+  return dependsOnLocal;
+}
+
+// export and extracted for testing purposes
+export function dependsOnBothLocalAndForeignTables(deps: string[], relationLocations: Map<string, TableMetaData>) {
+    let dependsOnForeign = deps.some(d => {
+      let loc = relationLocations.get(d);
+      return loc !== undefined;
+    });
+
+    let dependsOnLocal = deps.some(d => {
+      let loc = relationLocations.get(d);
+      return loc === undefined;
+    });
+    return dependsOnForeign && dependsOnLocal;
+  }
+
+export function isEventViewCacheable(relation: DerivedRelation, relationLocations: Map<string, TableMetaData>) {
+    if (relation.relationType !== RelationType.EventView) {
+      throw Error(`${relation.rName} is not an EventView!`)
+      // TODO RYAN: Change error type
+    }
+
+    // need to check the "from" and the "joins"
+    if (relation.selection.compositeSelections.length != 1) {
+      return false;
+    } // totally arbitrary constraint; could change in future
+
+    let mainSelection = relation.selection.compositeSelections[0].relation;
+
+    if (dependsOnBothLocalAndForeignTables(
+      getRelationReferenceDep(mainSelection.baseRelation),
+      relationLocations))
+    {
+      return false;
+    }
+
+    let joinRelations = mainSelection.joinClauses.map(j => j.relation);
+
+    if (joinRelations.some(c => 
+      dependsOnBothLocalAndForeignTables(
+        getRelationReferenceDep(c),
+        relationLocations)))
+    {
+      return false;
+    } else {
+      return true;
+    }
+  }

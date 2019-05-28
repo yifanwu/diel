@@ -179,7 +179,7 @@ function addDependencyOneWay(depTree: DependencyTree, selection: CompositeSelect
 
 // recursive!
 // SelectionUnit | SelectionUnitFinal
-function getSelectionUnitDep(s: SelectionUnit): string[] {
+export function getSelectionUnitDep(s: SelectionUnit): string[] {
   if (!s.baseRelation) {
     return [];
   }
@@ -196,7 +196,7 @@ function getSelectionUnitDep(s: SelectionUnit): string[] {
   return deps;
 }
 
-function getRelationReferenceDep(ref: RelationReference): string[] | null {
+export function getRelationReferenceDep(ref: RelationReference): string[] | null {
   switch (ref.relationReferenceType) {
     case RelationReferenceType.Direct: {
       const r = ref as RelationReferenceDirect;

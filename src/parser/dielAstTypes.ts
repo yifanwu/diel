@@ -188,6 +188,7 @@ interface RelationBase {
 
 export interface DerivedRelation extends RelationBase {
   selection: RelationSelection;
+  cachable?: HasDefault<boolean>;
 }
 
 
