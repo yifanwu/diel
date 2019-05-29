@@ -40,11 +40,6 @@ export function TryToCopyRelationSpec(ast: DielAst, r: OriginalRelation): void {
   }
 }
 
-
-// export function () {
-
-// }
-
 /**
  * modify in place
  * @param ast

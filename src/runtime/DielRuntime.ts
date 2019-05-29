@@ -625,6 +625,14 @@ export default class DielRuntime {
     return rName;
   }
 
+  public async AddEventTableByAst(rDef: OriginalRelation) {
+    // we don't need to compile it...
+    // we need to add it to the dependnecy tree (actually might not be needed... watch...)
+    // as well as the runtime metadata?
+    // hm i think we just need to add to the ast
+    this.ast.relations.push(rDef);
+  }
+
   public async AddTemplateByString(q: string) {
 
   }
