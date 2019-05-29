@@ -70,6 +70,10 @@ export function GetAllPrograms(ast: DielAst | DielAst) {
   return ast.programs;
 }
 
+export function GetAllStaticOriginalTables(ast: DielAst): OriginalRelation[] {
+  return ast.relations.filter(r => r.relationType === RelationType.ExistingAndImmutable) as OriginalRelation[];
+}
+
 export function GetAllDielDefinedOriginalRelations(ast: DielAst): OriginalRelation[] {
   return ast.relations.filter(r => (r.relationType === RelationType.EventTable)
                                 || (r.relationType === RelationType.Table)

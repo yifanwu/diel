@@ -1,11 +1,41 @@
-create output allOriginAirports AS
-  select * from allOriginAirportsEvent;
+create event table inp(num integer);
 
-create event view allOriginAirportsEvent AS
-  select
-    origin,
-    count() as c
-  from flights
-    group by origin
-  order by c
-  limit 10;
+create event view ev as select num from inp join data;
+
+create output o1 as select num from ev;
+-- select origin, count() from flights group by origin limit 20;
+
+-- remote 
+
+-- create table data(datum integer);
+
+-- create event table click (num integer);
+-- create event table slider (position integer);
+
+-- create event view pos_view as select position as pos from slider;
+
+-- create event view myclicks as select num * num as squared, pos
+--     from data join click on (datum = num) join pos_view; 
+
+-- create output o1 as select squared, pos from myclicks;
+
+-- create event view myclicks as select num * num as squared from 
+--   data join click on datum = num;
+
+-- -- create output o1 as select max(squared) from myclicks;
+
+--  -- below doesn't work for some reason
+ 
+-- create output o1 as select subqry.result from (select max(squared) as result from myclicks) as subqry;
+
+-- create output allOriginAirports AS
+--   select * from allOriginAirportsEvent;
+
+-- create event view allOriginAirportsEvent AS
+--   select
+--     origin,
+--     count() as c
+--   from flights
+--     group by origin
+--   order by c
+--   limit 10;

@@ -1,6 +1,5 @@
 import { IsRelationTypeDerived } from "./DielAstGetters";
 import { ApplyTemplates, TryToApplyTemplate, TryToCopyRelationSpec } from "./passes/applyTemplate";
-import { ApplyCrossfilter } from "./passes/applyCrossfilter";
 import { AddDepTree, AddSingleDependencyByDerivedRelation, ArrangeInTopologicalOrder } from "./passes/dependency";
 import { NormalizeConstraints, NormalizeConstraintsForSingleOriginalRelation } from "./passes/normalizeConstraints";
 import { NormalizeColumnSelection, NormalizeColumnForDerivedRelation } from "./passes/normalizeColumnSelection";
@@ -33,6 +32,10 @@ export function ParsePlainSelectQueryAst(code: string) {
   return ast;
 }
 
+/**
+ * this visits all the queries that are included in the string
+ * @param code code string
+ */
 export function ParsePlainDielAst(code: string) {
   // PrintCode(code);
   const inputStream = new ANTLRInputStream(code);
@@ -52,7 +55,6 @@ export function ParsePlainDielAst(code: string) {
  */
 export function CompileAst(ast: DielAst) {
   ApplyTemplates(ast);
-  ApplyCrossfilter(ast);
   NormalizeAlias(ast);
   AddDepTree(ast);
   ArrangeInTopologicalOrder(ast);
