@@ -219,13 +219,11 @@ function makeCacheJoinClause(
           relationName: cacheRelationName,
           columnName: dataId, 
           dataType: DielDataType.Number,
-          hasStar: false
         }, { 
           exprType: ExprType.Column,
           relationName: referenceRelationName,
           columnName: dataId,
           dataType: DielDataType.Number,
-          hasStar: false
         }
       ]
     }
@@ -260,6 +258,18 @@ export function isCachable(relation: DerivedRelation) {
 
 }
 
+/**
+ * Obtains the internal representation of a cached event view, consisting
+ * of three relations: a cache table, containing the data normally contained
+ * by the event view; a reference table, which maps request timesteps to its
+ * corresponding data in the cache table; and a view sharing the name of the
+ * event view, which joins the previous two tables to represent the final
+ * behavior.
+ * 
+ * @param relation the event view to be cached
+ * @param addTimeColumns whether to add time columns.
+ *        TODO: Ryan: Should always be true?
+ */
 export function GetCachedEventView(relation: DerivedRelation, addTimeColumns: boolean): CacheTriplet {
   const cacheName = getEventViewCacheName(relation.rName);
   const refName = getEventViewCacheReferenceName(relation.rName);

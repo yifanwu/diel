@@ -1,8 +1,10 @@
-import { DbType } from "../src";
+import { DbType, DerivedRelation } from "../src";
 import { DielPhysicalExecution } from "../src/compiler/DielPhysicalExecution";
 import { CompileAst, ParsePlainDielAst } from "../src/compiler/compiler";
 import { LogicalTimestep } from "../src/parser/dielAstTypes";
-import {  generateStringFromSqlIr } from "../src/compiler/codegen/codeGenSql";
+import {  generateStringFromSqlIr, GenerateSqlRelationString } from "../src/compiler/codegen/codeGenSql";
+import { GetCachedEventView } from "..//src/compiler/passes/distributeQueries";
+import { GetRelationDef } from "..//src/compiler/DielAstGetters";
 
 export function testTriTableCreation() {
   const query = `
@@ -15,10 +17,12 @@ export function testTriTableCreation() {
     create output o1 as select max(squared) as maximum from myclicks;
     `
   const physicalMetaData = {
-    dbs: new Map([[1, {dbType: DbType.Local}]]),
+    dbs: new Map([[1, {dbType: DbType.Local}], [2, {dbType: DbType.Worker}]]),
     relationLocation: new Map(),
     cache: true,
   };
+
+  physicalMetaData.relationLocation.set("data", {dbType: 2});
 
   const ast = ParsePlainDielAst(query);
   CompileAst(ast);
@@ -28,23 +32,10 @@ export function testTriTableCreation() {
   let physicalExecution = new DielPhysicalExecution(ast, physicalMetaData, getEventByTimestep);
 
   let sqlAst = physicalExecution.sqlAstSpecPerDb.get(1);
-  let withcaching = generateStringFromSqlIr(sqlAst);
 
-  // without caching...
-  physicalMetaData.cache = false;
-  physicalExecution = new DielPhysicalExecution(ast, physicalMetaData, getEventByTimestep);
+  let cacheTriplet = GetCachedEventView(GetRelationDef(ast, "myclicks") as DerivedRelation, true);
 
-  sqlAst = physicalExecution.sqlAstSpecPerDb.get(1);
-  const strs = generateStringFromSqlIr(sqlAst);
-
-  withcaching.forEach(s =>
-    console.log(s));
-
-  console.log("Without caching...");
-
-
-  strs.forEach(s =>
-    console.log(s));
+  console.log(GenerateSqlRelationString(cacheTriplet.cacheTable));
 
 
 }

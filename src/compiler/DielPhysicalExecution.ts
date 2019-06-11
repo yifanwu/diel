@@ -606,6 +606,14 @@ export function dependsOnBothLocalAndForeignTables(deps: string[], relationLocat
     return dependsOnForeign && dependsOnLocal;
   }
 
+/**
+ * Determines whether the event view can be cached.
+ * This is determined by inpecting all of the join clauses and the
+ * base relation. To be cacheable, all of these must either exclusively
+ * reference local tables or exclusively reference foreign tables.
+ * @param relation 
+ * @param relationLocations 
+ */
 export function isEventViewCacheable(relation: DerivedRelation, relationLocations: Map<string, TableMetaData>) {
     if (relation.relationType !== RelationType.EventView) {
       throw Error(`${relation.rName} is not an EventView!`)

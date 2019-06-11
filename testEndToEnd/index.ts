@@ -15,7 +15,7 @@ const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/js/worker.
 const dbConfigs: DbSetupConfig[] = [{
     dbType: DbType.Worker,
     jsFile,
-    dataFile: path.resolve(__dirname, "../../testEndToEnd/data/cache.sqlite")
+    dataFile: path.resolve(__dirname, "../../testEndToEnd/data/students.sqlite")
   },
 ];
 
@@ -23,34 +23,32 @@ const mainDbPath: string = null;
 
 //const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/simple.diel")];
 // const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/flights-remote.diel")];
- const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/cache.diel")];
+ const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/students.diel")];
 
 //const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/order.diel")];
 
-const isCaching = false:w
+const isCaching = true
 
 export const diel = new DielRuntime({
   isStrict: true,
   showLog: true,
-  setupCb: testCache,
+  setupCb: testClass,
   caching: isCaching,
   dielFiles,
   mainDbPath,
   dbConfigs,
 });
 
+async function testClass() {
+  console.log(`Cache test with${isCaching ? "" : " no"} caching starting`);
 
-// runtime testing
-
-async function testOrder() {
-
-  diel.NewInput("inp", {num: 10});
-
-  diel.BindOutput("o1", (o: RelationObject) => {
-    console.log("results!", o);
+  diel.BindOutput("o2", (o: RelationObject) => {
+    console.log("o2 results!", o);
   });
 
-
+  diel.NewInput("name_choice", {first_name: "Alice"});
+  diel.NewInput("name_choice", {first_name: "Bob"});
+  diel.NewInput("name_choice", {first_name: "Alice"});
 }
 
 async function testCache() {
@@ -58,25 +56,30 @@ async function testCache() {
 
   diel.BindOutput("o1", (o: RelationObject) => {
     console.log("results!", o);
+  let results = JSON.stringify(diel.db.exec("select pos from o1")[0])
+  console.log(`${results} should be 109`)
   });
-
 
   diel.NewInput("click", {num: 10});
 
-  diel.NewInput("slider", {position: 105})
-
-  diel.NewInput("slider", {position: 103})
-
-  diel.NewInput("slider", {position: 109})
+  diel.NewInput("slider", {position: 105});
+  let results = JSON.stringify(diel.db.exec("select pos from o1")[0])
+  console.log(`${results} should be 105`)
+ 
+  diel.NewInput("slider", {position: 103});
+  results = JSON.stringify(diel.db.exec("select pos from o1")[0])
+  console.log(`${results} should be 103`)
+ 
+  diel.NewInput("slider", {position: 109});
+  console.log(`${diel.db.exec("select pos from o1")} should be 109`)
+  results = JSON.stringify(diel.db.exec("select pos from o1")[0])
+  console.log(`${results} should be 109`)
 
    /*
   const rName = await diel.AddOutputRelationByString(`
     select datum from data; 
   `);
   */
-
-  
-  
 }
 
 async function runTest() {
