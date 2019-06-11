@@ -2,6 +2,7 @@ import { DependencyTree } from "../runtime/runtimeTypes";
 
 export type DbIdType = number;
 export type RelationNameType = string;
+export type ColumnNameType = string;
 export type LogicalTimestep = number;
 
 
@@ -31,8 +32,6 @@ export type ExpressionValue = DielAst
   | string[]
   | RawValues
   | ProgramsParserIr
-  | CrossFilterIr
-  | CrossFilterChartIr
   | JoinAst
   | GroupByAst
   | ExprValAst
@@ -252,11 +251,13 @@ export interface DielContext {
   };
 }
 
+// Note: a bit problematic to mix cells and relations
+
+
 export interface DielAst {
   relations: Relation[]; // contains all relations, including table definitions, events, ouputs and views
   commands: Command[]; // contains select, insert, drop, and delete
   programs: ProgramsIr;
-  crossfilters: CrossFilterIr[];
   udfTypes: UdfType[];
   depTree?: ToBeFilled<DependencyTree>;
 }
@@ -266,24 +267,17 @@ export function createEmptyDielAst() {
     relations: [],
     programs: new Map(),
     commands: [],
-    crossfilters: [],
     udfTypes: [],
     depTree: new Map()
   };
   return newAst;
 }
 
-export interface CrossFilterChartIr {
-  chartName: string;
-  predicate: JoinAst;
-  selection: RelationSelection;
-}
-
-export interface CrossFilterIr {
-  crossfilter: string;
-  relation: string;
-  charts: CrossFilterChartIr[];
-}
+// export interface CrossFilterChartIr {
+//   chartName: string;
+//   predicate: JoinAst;
+//   selection: RelationSelection;
+// }
 
 export type ProgramsParserIr = {events: RelationNameType[], queries: Command[]};
 

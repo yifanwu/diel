@@ -2,7 +2,7 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import * as parser from "./grammar/DIELParser";
 import * as visitor from "./grammar/DIELVisitor";
 
-import { ExpressionValue, DerivedRelation, Command, CrossFilterChartIr, CrossFilterIr, DielAst, DielDataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr, InsertionClause, DropClause, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst, createEmptyDielAst, ColumnConstraints, DeleteClause, ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst, DropType, Relation, NewRelationConstraints, ExprStarAst, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery } from "./dielAstTypes";
+import { ExpressionValue, DerivedRelation, Command, DielAst, DielDataType, UdfType, BuiltInUdfTypes, OriginalRelation, RelationConstraints, RelationType, DielTemplate, ForeignKey, ProgramsParserIr, InsertionClause, DropClause, Column, RelationReference, RelationSelection, CompositeSelectionUnit, ColumnSelection, SetOperator, SelectionUnit, JoinAst, OrderByAst, JoinType, RawValues, AstType, Order, GroupByAst, createEmptyDielAst, ColumnConstraints, DeleteClause, ExprAst, ExprValAst, ExprFunAst, FunctionType, BuiltInFunc, ExprColumnAst, ExprType, ExprParen, ExprRelationAst, DropType, Relation, NewRelationConstraints, ExprStarAst, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery } from "./dielAstTypes";
 import { parseColumnType, getCtxSourceCode } from "./visitorHelper";
 import { LogInfo, LogInternalError, ReportDielUserError } from "../util/messages";
 
@@ -93,9 +93,6 @@ implements visitor.DIELVisitor<ExpressionValue> {
       this.visit(e) as DeleteClause
     ));
     this.ast.commands = insert.concat(drops).concat(deletes);
-    this.ast.crossfilters = ctx.crossfilterStmt().map(e => (
-      this.visit(e) as CrossFilterIr
-    ));
     return this.ast;
   }
 
@@ -805,32 +802,64 @@ implements visitor.DIELVisitor<ExpressionValue> {
     return this.visit(ctx.selectQuery()) as RelationSelection;
   }
 
-  // crossfilter
-  visitCrossfilterStmt(ctx: parser.CrossfilterStmtContext): CrossFilterIr | null {
-    const crossfilter = ctx._crossfilterName.text;
-    const relation = ctx._relation.text;
-    const charts = ctx.crossfilterChartStmt().map(c => this.visit(c) as CrossFilterChartIr);
-    if (crossfilter && relation) {
-      return {
-        crossfilter,
-        relation,
-        charts
-      };
-    }
-    return ReportDielUserError(`Crosffilter must speficy`);
-  }
+  // visitSelectionStmt(ctx: parser.SelectionStmtContext): UISelection {
+  //   const cell = ctx._viewName.text;
+  //   const sName = ctx._selectionName.text;
+  //   return {
+  //     cell,
+  //     sName
+  //   };
+  // }
 
-  visitCrossfilterChartStmt(ctx: parser.CrossfilterChartStmtContext): CrossFilterChartIr | null {
-    const chartName = ctx._chart.text;
-    const selection = this.visit(ctx._definitionQuery) as RelationSelection;
-    const predicate = this.visit(ctx._predicateClause) as JoinAst;
-    if (chartName) {
-      return {
-        chartName,
-        selection,
-        predicate
-      };
-    }
-    return ReportDielUserError(`Crosffilter must speficy chart name`);
-  }
+  // visitFilterStmt(ctx: parser.FilterStmtContext): UIFilter {
+  //   const cell = ctx._viewName.text;
+  //   const fName = ctx._filterName.text;
+  //   const selection = ctx._selectionName.text;
+  //   return {
+  //     cell,
+  //     fName,
+  //     selection,
+  //   };
+  // }
+
+  // visitCrossfilterStmt(ctx: parser.CrossfilterStmtContext): UICrossfilter {
+  //   const crossfilterName = ctx._crossfilterName.text;
+  //   const relation = ctx._relationName.text;
+  //   const measure = ctx._measureColumnName.text;
+  //   return {
+  //     crossfilterName,
+  //     relation,
+  //     factors,
+  //     measure,
+  //   };
+  // }
+
+  // crossfilter
+  // visitCrossfilterStmt(ctx: parser.CrossfilterStmtContext): CrossFilterIr | null {
+  //   const crossfilter = ctx._crossfilterName.text;
+  //   const relation = ctx._relation.text;
+  //   const charts = ctx.crossfilterChartStmt().map(c => this.visit(c) as CrossFilterChartIr);
+  //   if (crossfilter && relation) {
+  //     return {
+  //       crossfilter,
+  //       relation,
+  //       charts
+  //     };
+  //   }
+  //   return ReportDielUserError(`Crosffilter must speficy`);
+  // }
+
+  // visitCrossfilterChartStmt(ctx: parser.CrossfilterChartStmtContext): CrossFilterChartIr | null {
+  //   const chartName = ctx._chart.text;
+  //   const selection = this.visit(ctx._definitionQuery) as RelationSelection;
+  //   const predicate = this.visit(ctx._predicateClause) as JoinAst;
+  //   if (chartName) {
+  //     return {
+  //       chartName,
+  //       selection,
+  //       predicate
+  //     };
+  //   }
+  //   return ReportDielUserError(`Crosffilter must speficy chart name`);
+  // }
 }

@@ -33,8 +33,6 @@ import { SelectQueryTemplateContext } from './DIELParser';
 import { QueriesContext } from './DIELParser';
 import { RegisterTypeUdfContext } from './DIELParser';
 import { TemplateStmtContext } from './DIELParser';
-import { CrossfilterStmtContext } from './DIELParser';
-import { CrossfilterChartStmtContext } from './DIELParser';
 import { DataTypeContext } from './DIELParser';
 import { ColumnDefinitionContext } from './DIELParser';
 import { ConstraintDefinitionContext } from './DIELParser';
@@ -317,20 +315,6 @@ export interface DIELVisitor<Result> extends ParseTreeVisitor<Result> {
 	 * @return the visitor result
 	 */
 	visitTemplateStmt?: (ctx: TemplateStmtContext) => Result;
-
-	/**
-	 * Visit a parse tree produced by `DIELParser.crossfilterStmt`.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	visitCrossfilterStmt?: (ctx: CrossfilterStmtContext) => Result;
-
-	/**
-	 * Visit a parse tree produced by `DIELParser.crossfilterChartStmt`.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	visitCrossfilterChartStmt?: (ctx: CrossfilterChartStmtContext) => Result;
 
 	/**
 	 * Visit a parse tree produced by `DIELParser.dataType`.

@@ -18,12 +18,6 @@ import { GetAllDielDefinedOriginalRelations, GetAllDerivedViews } from "../DielA
 export function ApplyTemplates(ast: DielAst) {
   // note: i think the concat should be fine with modifying in place?
   GetAllDerivedViews(ast).map(r => TryToApplyTemplate(r.selection));
-  ast.crossfilters.map(x => {
-    x.charts.map(c => {
-      TryToApplyTemplate(c.predicate);
-      TryToApplyTemplate(c.selection);
-    });
-  });
 
   // defined here since it needs to access the global definition
   // and the copy pass
@@ -45,11 +39,6 @@ export function TryToCopyRelationSpec(ast: DielAst, r: OriginalRelation): void {
     }
   }
 }
-
-
-// export function () {
-
-// }
 
 /**
  * modify in place

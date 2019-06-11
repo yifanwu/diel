@@ -81,13 +81,16 @@ async function testCache() {
 
 async function runTest() {
   console.log("DIEL runtime test starting");
+  diel.BindOutput("o1", (o: RelationObject) => {
+    console.log("results!", o);
+  });
   // make assertions about the setup
   // e.g. the ASTs in diel.physicalExecution
 
   // bind custom outputs
-  diel.BindOutput("allOriginAirports", (o: RelationObject) => {
-    console.log("allOriginAirports results!", o);
-  });
+  // diel.BindOutput("allOriginAirports", (o: RelationObject) => {
+  //   console.log("allOriginAirports results!", o);
+  // });
   // diel.physicalExecution.getAstFromDbId(LocalDbId)
   // change runtime values
   // diel.NewInput("zoomScatterItx", {minDelay: 0, maxDelay: 100, minDistance: 0, maxDistance: 800});
@@ -98,17 +101,17 @@ async function runTest() {
   // we are going to create an output
 
   // let's try adding dynamically
-  const rName = await diel.AddOutputRelationByString(`
-    select distinct origin from flights where delay < 100;
-  `);
-  diel.BindOutput(rName, (data: RelationObject) => {
-    console.log("AddOutputRelationByString function returned data", data);
-  });
+  // const rName = await diel.AddOutputRelationByString(`
+  //   select distinct origin from flights where delay < 100;
+  // `);
+  // diel.BindOutput(rName, (data: RelationObject) => {
+  //   console.log("AddOutputRelationByString function returned data", data);
+  // });
 
-  const rName2 = await diel.AddOutputRelationByString(`
-    select delay, distance from flights limit 20;
-  `);
-  diel.BindOutput(rName2, (data: RelationObject) => {
-    console.log("delay distance function returned data", data);
-  });
+  // const rName2 = await diel.AddOutputRelationByString(`
+  //   select delay, distance from flights limit 20;
+  // `);
+  // diel.BindOutput(rName2, (data: RelationObject) => {
+  //   console.log("delay distance function returned data", data);
+  // });
 }

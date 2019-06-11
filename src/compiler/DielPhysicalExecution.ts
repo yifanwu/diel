@@ -442,6 +442,8 @@ export class DielPhysicalExecution {
     // if input is specified, we will filter dependencies by those relations that depend on the input
     const inputEvent = this.getEventByTimestep(requestTimestep);
     const allInputDeps = DeriveDependentRelations(this.ast.depTree, inputEvent);
+    // the allInputDeps should also contain the original inputEvents as well.
+    allInputDeps.add(inputEvent);
     if (!allInputDeps) {
       LogInternalWarning(`There are no input dependencies for ${inputEvent}`);
       return null;

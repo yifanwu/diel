@@ -3,10 +3,13 @@ grammar DIEL;
 queries : (
            viewStmt
            | programStmt
-           | crossfilterStmt
            | templateStmt
            | insertQuery
-           //  the rest does not require templating
+           // higher level language
+          //  | crossfilterStmt
+          //  | selectionStmt
+          //  | filterStmt
+           // the rest does not require templating
            | originalTableStmt
            | registerTypeUdf
            | dropQuery
@@ -24,18 +27,37 @@ templateStmt
     DELIM
   ;
 
-crossfilterStmt
-  : CREATE CROSSFILTER crossfilterName=IDENTIFIER ON relation=IDENTIFIER
-    BEGIN crossfilterChartStmt+ END
-    DELIM
-  ;
+// crossfilterStmt
+//   : CREATE CROSSFILTER crossfilterName=IDENTIFIER ON relationName=IDENTIFIER
+//     WITH FACTORS '('(factorColumnName=IDENTIFIER+)')'
+//     (MEASURING customAggregate=IDENTIFIER '(' measureColumnName=IDENTIFIER ')')?
+//     // BEGIN crossfilterChartStmt+ END
+//     DELIM
+//   ;
 
-crossfilterChartStmt
-  : CREATE XCHART chart=IDENTIFIER
-    AS definitionQuery=selectQuery
-    WITH PREDICATE predicateClause=joinClause
-    DELIM
-  ;
+// crossfilterChartStmt
+//   : CREATE XCHART chart=IDENTIFIER
+//     AS definitionQuery=selectQuery
+//     WITH PREDICATE predicateClause=joinClause
+//     DELIM
+//   ;
+
+// selectionStmt
+//   : CREATE SELECTION selectionName=IDENTIFIER
+//       ON viewName=IDENTIFIER
+//   ;
+
+// filterStmt
+//   : CREATE FILTER filterName=IDENTIFIER ON viewName=IDENTIFIER (WITH selectionName=IDENTIFIER)?
+//   ;
+
+// removeFilterStmt
+//   : DROP FILTER filterName=IDENTIFIER
+//   ;
+
+// linkStmt
+//   : LINK view=IDENTIFIER WITH view=IDENTIFIER
+//   ;
 
 dataType
   : INT | TEXT | BOOLEAN | DATETIME
@@ -256,9 +278,14 @@ logicOp
 
 EVENT: E V E N T;
 CROSSFILTER: C R O S S F I L T E R ;
+LINK: L I N K;
 PREDICATE : P R E D I C A T E;
 CONSTRAIN: C O N S T R A I N;
 TEMPLATE: T E M P L A T E;
+FILTER: F I L T E R;
+FACTORS: F A C T O R S;
+MEASURING: M E A S U R I N G;
+SELECTION: S E L E C T I O N;
 USE: U S E;
 XCHART: X C H A R T;
 NAME: N A M E;

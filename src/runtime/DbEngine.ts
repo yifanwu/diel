@@ -125,7 +125,7 @@ export default class DbEngine {
     if (this.queueMap.size > 0) {
       this.currentQueueHead = Math.min(...this.queueMap.keys());
       // also load the next queue's results in
-      const currentQueueMap = this.queueMap.get(this.currentQueueHead)
+      const currentQueueMap = this.queueMap.get(this.currentQueueHead);
       if (!currentQueueMap) {
         LogInternalError(`CurrentQueneMap not defined`);
         return;
