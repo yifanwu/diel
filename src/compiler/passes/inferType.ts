@@ -75,7 +75,7 @@ function getTypeForExpr(ast: DielAst, expr: ExprAst, sUnit: SelectionUnit): Diel
           for (let i = 0; i < sUnit.joinClauses.length; i ++) {
             const j = sUnit.joinClauses[i];
             if (columnExpr.relationName === j.relation.alias) {
-              return getColumnTypeFromReference(ast, columnExpr.columnName, sUnit.baseRelation);
+              return getColumnTypeFromReference(ast, columnExpr.columnName, j.relation);
             }
           }
         }

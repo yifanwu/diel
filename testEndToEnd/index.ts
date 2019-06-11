@@ -38,9 +38,9 @@ export const diel = new DielRuntime({
 
 async function runTest() {
   console.log("DIEL runtime test starting");
-  diel.BindOutput("o1", (o: RelationObject) => {
-    console.log("results!", o);
-  });
+  // diel.BindOutput("o1", (o: RelationObject) => {
+  //   console.log("results!", o);
+  // });
   // make assertions about the setup
   // e.g. the ASTs in diel.physicalExecution
 

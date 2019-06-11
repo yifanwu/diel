@@ -1,8 +1,12 @@
-create event table inp(num integer);
+create event table click(num integer);
 
-create event view ev as select num from inp join data;
+create event table slider (position integer);
 
-create output o1 as select num from ev;
+create event view myclicks as
+  select num * num as squared, subqry.position as pos
+  from data join click on (datum = num)
+  join (select max(position) as position from slider) as subqry; 
+
 -- select origin, count() from flights group by origin limit 20;
 
 -- remote 
