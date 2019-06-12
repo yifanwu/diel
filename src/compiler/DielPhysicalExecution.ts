@@ -16,6 +16,7 @@ export const LocalDbId = 1;
 // local helper function
 // not using a set here because sets do not work well over complex objects...
 function addRelationIfOnlyNotExist(relationDef: SqlRelation[], newRelation: SqlRelation) {
+  // TEMP
   if (!relationDef.find(r => r.rName === newRelation.rName)) {
     relationDef.push(newRelation);
     return true;
@@ -146,11 +147,10 @@ export class DielPhysicalExecution {
             && distribution.from !== distribution.to
             && distribution.to === LocalDbId
             && isEventViewCacheable(rDef as DerivedRelation,
-              this.metaData.relationLocation))
-        {
-          console.log(`${rDef.rName} is cacheable`)
-          this.cachedEventViews.add(rDef.rName)
-          const addTimeColumns = (rDef.relationType === RelationType.EventView) 
+              this.metaData.relationLocation)) {
+          console.log(`${rDef.rName} is cacheable`);
+          this.cachedEventViews.add(rDef.rName);
+          const addTimeColumns = (rDef.relationType === RelationType.EventView)
               && (distribution.to === LocalDbId);
           const cacheRelationTriplet = GetCachedEventView(rDef as DerivedRelation, addTimeColumns);
           const eventView = GetSqlDerivedRelationFromDielRelation(rDef);
@@ -330,9 +330,9 @@ export class DielPhysicalExecution {
 
   /**
    * we want to figure out what relations to ship from the individual remotes
-   * @param dbId 
-   * @param staticRelation 
-   * @param outputRelation 
+   * @param dbId
+   * @param staticRelation
+   * @param outputRelation
    */
   getBubbledUpRelationToShipForStatic(dbId: DbIdType, staticRelation: RelationNameType, outputRelation: RelationNameType): {destination: DbIdType, relation: RelationNameType}[] {
     const distributions = this.distributions;
@@ -611,12 +611,12 @@ export function dependsOnBothLocalAndForeignTables(deps: string[], relationLocat
  * This is determined by inpecting all of the join clauses and the
  * base relation. To be cacheable, all of these must either exclusively
  * reference local tables or exclusively reference foreign tables.
- * @param relation 
- * @param relationLocations 
+ * @param relation
+ * @param relationLocations
  */
 export function isEventViewCacheable(relation: DerivedRelation, relationLocations: Map<string, TableMetaData>) {
     if (relation.relationType !== RelationType.EventView) {
-      throw Error(`${relation.rName} is not an EventView!`)
+      throw Error(`${relation.rName} is not an EventView!`);
       // TODO RYAN: Change error type
     }
 
@@ -629,18 +629,16 @@ export function isEventViewCacheable(relation: DerivedRelation, relationLocation
 
     if (dependsOnBothLocalAndForeignTables(
       getRelationReferenceDep(mainSelection.baseRelation),
-      relationLocations))
-    {
+      relationLocations)) {
       return false;
     }
 
     let joinRelations = mainSelection.joinClauses.map(j => j.relation);
 
-    if (joinRelations.some(c => 
+    if (joinRelations.some(c =>
       dependsOnBothLocalAndForeignTables(
         getRelationReferenceDep(c),
-        relationLocations)))
-    {
+        relationLocations))) {
       return false;
     } else {
       return true;

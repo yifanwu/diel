@@ -199,7 +199,7 @@ insertBody
   ;
 
 joinClause
-  : (((LEFT OUTER)? JOIN) | ',') relationReference (ON expr)? # joinClauseBasic
+  : ((((LEFT OUTER) | NATURAL)? JOIN) | ',') relationReference (ON expr)? # joinClauseBasic
   | templateQuery                                             # joinClauseTemplate
   ;
 
@@ -323,6 +323,7 @@ VALUES: V A L U E S;
 AS: A S;
 SELECT: S E L E C T;
 FROM: F R O M;
+NATURAL: N A T U R A L;
 JOIN: J O I N;
 ON: O N;
 WHERE: W H E R E;

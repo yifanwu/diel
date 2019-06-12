@@ -126,6 +126,10 @@ export const BuiltInColumnTyppes: BuiltInColumnType[] = [
     type: DielDataType.Number
   },
   {
+    column: "request_timestep",
+    type: DielDataType.Number
+  },
+  {
     column: "timestamp",
     type: DielDataType.Number
   }
@@ -300,6 +304,7 @@ export interface ColumnConstraints {
 export enum JoinType {
   LeftOuter = "LeftOuter",
   Inner = "Inner",
+  Natural = "Natural",
   CROSS = "Cross"
 }
 

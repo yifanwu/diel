@@ -65,6 +65,7 @@ export function generateDelete(command: DeleteClause) {
 }
 
 export function GenerateSqlRelationString(r: SqlRelation, replace = false): string {
+
   switch (r.relationType) {
     case SqlRelationType.Table:
       return generateTableSpec(r as SqlOriginalRelation, replace);
@@ -181,6 +182,7 @@ const joinOpToString = new Map([
   [JoinType.LeftOuter, "LEFT OUTER JOIN"],
   [JoinType.Inner, "JOIN"],
   [JoinType.CROSS, "CROSS JOIN"],
+  [JoinType.Natural, "NATURAL JOIN"],
 ]);
 
 function generateJoin(j: JoinAst): string {
@@ -300,15 +302,7 @@ function generateTrigger({ trigger, replace = false }: { trigger: TriggerAst; re
   const replaceQuery = replace ? `DROP TRIGGER IF EXISTS ${trigger.tName};` : "";
   let program = `${replaceQuery}
   CREATE TRIGGER ${trigger.tName} AFTER INSERT ON ${trigger.afterRelationName}\nBEGIN\n`;
-  program += trigger.commands.map(p => {
-    if (p.astType === AstType.RelationSelection) {
-      const r = p as RelationSelection;
-      return generateSelect(r.compositeSelections) + ";";
-    } else {
-      const i = p as InsertionClause;
-      return generateInserts(i) + ";";
-    }
-  }).join("\n");
+  program += trigger.commands.map(p => generateCommand(p)).join("\n");
   program += "\nEND;";
   return program;
 }
@@ -335,7 +329,7 @@ function generateInserts(i: InsertionClause): string {
     : i.selection
       ? generateSelect(i.selection.compositeSelections)
       : "";
-  return `INSERT INTO ${i.relation} ${columns} ${values}`;
+  return `INSERT INTO ${i.relation} ${columns} ${values};`;
 }
 
 const TypeConversionLookUp = new Map<DielDataType, string>([

@@ -431,9 +431,11 @@ implements visitor.DIELVisitor<ExpressionValue> {
       : undefined;
     const joinType = ctx.LEFT()
       ? JoinType.LeftOuter
-      : ctx.JOIN()
-        ? JoinType.Inner
-        : JoinType.CROSS;
+      : ctx.NATURAL
+        ? JoinType.Natural
+        : ctx.JOIN()
+          ? JoinType.Inner
+          : JoinType.CROSS;
     return {
       astType: AstType.Join,
       joinType,

@@ -19,7 +19,8 @@ export enum DielInternalErrorType {
   RelationNotFound = "RelationNotFound",
   NotImplemented = "NotImplemented",
   UnionTypeNotAllHandled = "UnionTypeNotAllHandled",
-  MalFormedAst = "MalFormedAst"
+  MalFormedAst = "MalFormedAst",
+  AsyncError = "AsyncError"
 }
 
 export enum DielInternalWarningType {

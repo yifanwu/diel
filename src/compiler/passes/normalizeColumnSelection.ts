@@ -246,10 +246,9 @@ function normalizeFuncExpr(ast: DielAst, s: SelectionUnit, e: ExprFunAst) {
  * @param c: will be modifying in place
  */
 function normalizeColumnExpr(ast: DielAst, s: SelectionUnit, currentColumnExpr: ExprColumnAst): ExprColumnAst {
-  // already works
   const capsName = currentColumnExpr.columnName.toUpperCase();
+  // TODO: we should probably just normalize the table instead of catching corner cases here
   if (capsName in BuiltInColumn) {
-    // FIXME: we shouldn't set the types even if we can here...
     const dataType = BuiltInColumnDataTypes.get(capsName);
     function createBuiltInColumnsIfReferencesEvent(ref: RelationReference) {
       if (ref.relationReferenceType === RelationReferenceType.Direct) {
@@ -264,13 +263,10 @@ function normalizeColumnExpr(ast: DielAst, s: SelectionUnit, currentColumnExpr: 
           return newColumnExpr;
         }
       }
-      return LogInternalError(``);
+      return null;
     }
-    // then it must be from an Event
-    // if there are more than one events in the relation, this is bogus
     const newColumn = createBuiltInColumnsIfReferencesEvent(s.baseRelation);
     if (newColumn) return newColumn;
-    // or it might be from the joins
     if (s.joinClauses) {
       for (let i = 0 ; i < s.joinClauses.length; i ++) {
         const j = s.joinClauses[i];
@@ -278,8 +274,7 @@ function normalizeColumnExpr(ast: DielAst, s: SelectionUnit, currentColumnExpr: 
         if (newColumn) return newColumn;
       }
     }
-    // if still here, report error
-    return ReportDielUserError(`No events parsing the current relation`);
+    // the name might actually used by a different relation that is not built in; continue
   }
   // otherwise we need to search thru the relations for custom column names
   // const existingType = GetRelationColumnType(deAliasedRelationname, cn);

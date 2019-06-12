@@ -248,10 +248,6 @@ export default class DielRuntime {
     return cachedRequestTimestep;
   }
 
-
-
-  // also cache parts of the logic
-  // FIXME: use AST instead of string manipulation...
   private newInputHelper(eventName: string, objs: any[], requestTimestep: number) {
     // start of tick
     this.timestep++;
@@ -260,59 +256,55 @@ export default class DielRuntime {
     const localSqlAst = this.physicalExecution.getAstFromDbId(LocalDbId);
     const sqlRelation = GetSqlRelationFromAst(localSqlAst, eventName);
     if (!sqlRelation) return ReportUserRuntimeError(`Event ${eventName} is not defined`);
+    const caching = this.config.caching && this.GetRelationDef(eventName).relationType === RelationType.EventView;
+    const columnNames = GetDynamicRelationsColumns(sqlRelation as SqlOriginalRelation);
 
-    let columnNames: string[] = [];
-
-    if (sqlRelation.relationType === SqlRelationType.Table) {
-      columnNames = GetDynamicRelationsColumns(sqlRelation as SqlOriginalRelation);
-    } else {
-
-      (sqlRelation as SqlDerivedRelation).selection.forEach(selUnit => {selUnit.relation.columnSelections.forEach(
-        c => {columnNames.push(c.alias);}
-      )})
-    }
-      const values = objs.map(o => {
-        return columnNames.filter(c => !(c in BuiltInColumn)).map(cName => {
-          const raw = o[cName];
-          // it can be explicitly set to null, but not undefined
-          if (raw === undefined) {
-            ReportUserRuntimeError(`We expected the input ${cName}, but it was not defined for ${eventName} in the object ${JSON.stringify(objs, null, 2)}.`);
-          }
-          return generateInsertClauseStringForValue(raw);
-        });
+    const values = objs.map(o => {
+      return columnNames.filter(c => !(c in BuiltInColumn)).map(cName => {
+        const raw = o[cName];
+        // it can be explicitly set to null, but not undefined
+        if (raw === undefined) {
+          ReportUserRuntimeError(`We expected the input ${cName}, but it was not defined for ${eventName} in the object ${JSON.stringify(objs, null, 2)}.`);
+        }
+        return generateInsertClauseStringForValue(raw);
       });
-      let finalQuery: string;
-      const allInputQuery = `
-      insert into allInputs (timestep, inputRelation, timestamp, request_timestep) values
-        (${this.timestep}, '${eventName}', ${Date.now()}, ${requestTimestep});`;
+    });
 
-      if (this.config.caching && this.GetRelationDef(eventName).relationType === RelationType.EventView) {
-        if (columnNames && (columnNames.length > 0)) {
-          finalQuery = `insert into ${getEventViewCacheName(eventName)} (${columnNames.join(", ")}) values
-              ${values.map(v => `(${v.join(", ")}, ${requestTimestep})`)};`;
-        } else {
-          finalQuery = `insert into ${getEventViewCacheName(eventName)} (request_timestep) values (${requestTimestep});`;
-        }
+    let finalQuery: string;
+    const allInputQuery = `
+    insert into allInputs (timestep, inputRelation, timestamp, request_timestep) values
+      (${this.timestep}, '${eventName}', ${Date.now()}, ${requestTimestep});`;
 
-        finalQuery += `\n insert into ${getEventViewCacheReferenceName(eventName)} values (${this.timestep}, ${requestTimestep});`
-        LogInfo(`Tick\n${finalQuery + allInputQuery}`);
-        this.db.exec(finalQuery + allInputQuery);
+    if (caching) {
+      const cacheTableName = getEventViewCacheName(eventName);
+      if (columnNames && (columnNames.length > 0)) {
+        // brittle, depends on requestTimestep being last...
+        finalQuery = `insert into ${cacheTableName} (${columnNames.filter(c => c !== "TIMESTEP").join(", ")}) values
+            ${values.map(v => `(${v.join(", ")}, ${requestTimestep})`)};`;
       } else {
-        if (columnNames && (columnNames.length > 0)) {
-          finalQuery = `insert into ${eventName} (${columnNames.join(", ")}) values
-              ${values.map(v => `(${v.join(", ")}, ${this.timestep}, ${requestTimestep})`)};`; // HACK
-        } else {
-          finalQuery = `insert into ${eventName} (timestep, request_timestep) values (${this.timestep}, ${requestTimestep});`;
-        }
-        LogInfo(`Tick\n${finalQuery + allInputQuery}`);
-        this.db.exec(finalQuery + allInputQuery);
+        finalQuery = `insert into ${cacheTableName} (request_timestep) values (${requestTimestep});`;
+        LogInternalWarning(`Shouldn't cache empty views...`);
       }
 
-      // Factored out so we can repeat
-      this.runOutputsGivenNewInputForEvent(eventName);
-      return 0; //dunno why need this
+      finalQuery += `\n insert into ${getEventViewCacheReferenceName(eventName)} values (${this.timestep}, ${requestTimestep});`;
+      LogInfo(`Tick\n${finalQuery + allInputQuery}`);
+      this.db.exec(finalQuery + allInputQuery);
+    } else {
+      // NOT cashing
+      if (columnNames && (columnNames.length > 0)) {
+        finalQuery = `insert into ${eventName} (${columnNames.join(", ")}) values
+            ${values.map(v => `(${v.join(", ")}, ${this.timestep}, ${requestTimestep})`)};`; // HACK
+      } else {
+        finalQuery = `insert into ${eventName} (timestep, request_timestep) values (${this.timestep}, ${requestTimestep});`;
+      }
+      LogInfo(`Tick\n${finalQuery + allInputQuery}`);
+      this.db.exec(finalQuery + allInputQuery);
+    }
 
-     // end of tick
+    // Factored out so we can repeat
+    this.runOutputsGivenNewInputForEvent(eventName);
+    return 0;
+    // end of tick
   }
 
 

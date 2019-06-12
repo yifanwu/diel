@@ -102,11 +102,11 @@ export function GetRelationDef(ast: DielAst, rName: string): Relation | null {
 
 
 
-// -------------- CHERS ---------------
+// --------------  ---------------
 
 export function IsRelationEvent(ast: DielAst, rName: RelationNameType) {
   const r = GetRelationDef(ast, rName);
-  return r.relationType === RelationType.EventTable;
+  return (r.relationType === RelationType.EventTable) || (r.relationType === RelationType.EventView);
 }
 
 // export class DielIr {
