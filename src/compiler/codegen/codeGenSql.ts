@@ -1,4 +1,4 @@
-import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
+import { ReportDielUserError, LogInternalError, DielInternalErrorType, LogInternalWarning } from "../../util/messages";
 import { SqlAst, SqlRelationType, SqlRelation, SqlOriginalRelation, SqlDerivedRelation, TriggerAst } from "../../parser/sqlAstTypes";
 import { DropClause, AstType, DropType, Command, InsertionClause, RelationSelection, CompositeSelection, SetOperator, CompositeSelectionUnit, SelectionUnit, RelationReference, ColumnSelection, JoinType, JoinAst, ExprAst, ExprType, ExprValAst, DielDataType, ExprColumnAst, ExprRelationAst, ExprParen, ExprFunAst, FunctionType, BuiltInFunc, GroupByAst, OrderByAst, Order, Column, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, ExprStarAst, DeleteClause } from "../../parser/dielAstTypes";
 
@@ -113,14 +113,12 @@ export function GetSqlStringFromCompositeSelectionUnit(c: CompositeSelectionUnit
 }
 
 export function SqlStrFromSelectionUnit(v: SelectionUnit): string {
-  if (v.derivedColumnSelections === undefined) {
-    return LogInternalError(`There should be selections; might be beucase this was not normalized!.  This is for query:\n${JSON.stringify(v)}`);
-  }
-  const selection = generateColumnSelection(v.derivedColumnSelections);
-  // const selection = original
-  //   ? generateColumnSelection(v.columnSelections)
-    // : generateColumnSelection(v.derivedColumnSelections)
-    // ;
+  // sometimes might want to use the un-normalized case for a quick SQL string...
+  const selection = v.derivedColumnSelections
+    ? generateColumnSelection(v.derivedColumnSelections)
+    : generateColumnSelection(v.columnSelections)
+    ;
+
   return `SELECT ${v.isDistinct ? "DISTINCT" : ""} ${selection}
     ${SqlStrFromSelectionUnitBody(v)}
   `;

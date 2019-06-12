@@ -148,8 +148,13 @@ export default class DbEngine {
   // RECURSIVE
   private evaluateQueueOnUpdateHandler(): null {
     if (!this.currentQueueHead) {
+      // if there is no queue, skip
+      if (this.queueMap.size === 0) {
+        return null;
+      }
+      const queueKeys = this.queueMap.keys();
       // this is the first time
-      this.currentQueueHead = Math.min(...this.queueMap.keys());
+      this.currentQueueHead = Math.min(...queueKeys);
     }
     const currentItem = this.queueMap.get(this.currentQueueHead);
     if (!currentItem) {

@@ -8,10 +8,8 @@ import { SqlStrFromSelectionUnit } from "../../src/compiler/codegen/codeGenSql";
 export function assertLatestSyntax() {
   const logger = GenerateUnitTestErrorLogger("assertLatestSyntax");
   for (let test of tests) {
-    let query = test[0];
-    let answer = test[1];
-    const qAst = ParsePlainSelectQueryAst(query);
-    const aAst = ParsePlainSelectQueryAst(answer);
+    const qAst = ParsePlainSelectQueryAst(test.query);
+    const aAst = ParsePlainSelectQueryAst(test.answer);
     const unit = qAst.compositeSelections[0].relation;
     applyLatestToSelectionUnit(unit);
     compareAST(aAst.compositeSelections[0].relation, unit, logger);
@@ -24,108 +22,101 @@ export function assertLatestSyntax() {
 function compareAST(ast1: SelectionUnit, ast2: SelectionUnit, logger: TestLogger) {
   // Note that relying on JSON stringify is too brittle
   // but we can use our own ast to sql string functions!
-  const q1 = SqlStrFromSelectionUnit(ast1);
-  const q2 = SqlStrFromSelectionUnit(ast2);
+  const q1 = SqlStrFromSelectionUnit(ast1).replace(/\s+/g, "");
+  const q2 = SqlStrFromSelectionUnit(ast2).replace(/\s+/g, "");
   // let pretty1 = JSON.stringify(ast1, null, 2);
   // let pretty2 = JSON.stringify(ast2, null, 2);
 
   if (q1 !== q2) {
-    logger.error(`${q1}\n\nis not the same as\n\n${q2}.`);
+    logger.error(`\n${q1}\n\nis not the same as\n\n${q2}.`);
   }
 }
 
-// 1. basic
-let q1 = `select arrival from LATEST t1;`;
 
-let a1 = `
-select arrival
-from t1
-where t1.timestep = (select max(timestep) from t1);`;
+let tests = [
+  // in case of joins, latest should be applied to immediate relations
+  {
+    query: `
+    select a
+    from latest t1
+    join t2 on t1.b = t2.b;`,
+    answer: `
+    select a
+    from t1
+    join t2 on t1.b = t2.b
+    where t1.timestep = (select max(timestep) as timestep from t1);`
+  },
+  // 1. basic
+  {
+    query: `select arrival from LATEST t1;`,
+    answer: `select arrival from t1 where t1.timestep = (select max(timestep) as timestep from t1);`,
+  },
+  // 2. where clause should be preserved
+  {
+    query: `select arrival from LATEST t1 where arrival > 10 and arrival < 20;`,
+    answer: `select arrival from t1 where arrival > 10 and arrival < 20 and t1.timestep = (select max(timestep) as timestep from t1);`,
+  },
+  // 3. constraints, group by, order by, limit should also be preservered
+  {
+    query: `
+    select count(*), arrival from LATEST t1
+    where arrival > 10
+    group by arrival
+    order by count DESC
+    limit 10
+    constrain check (arrival > 10);`,
+    answer: `
+    select count(*), arrival from t1
+    where arrival > 10
+    and t1.timestep = (select max(timestep) as timestep from t1)
+    group by arrival
+    order by count DESC
+    limit 10
+    constrain check (arrival > 10);`,
+  },
+  // 5. check multiple latest for explicit join
+  {
+  query: `
+  select a
+  from latest t1
+  join latest t2 on t1.b = t2.b;`,
 
+  answer: `
+  select a
+  from t1 join t2 on t1.b = t2.b
+  where t1.timestep = (select max(timestep) as timestep from t1)
+  and t2.timestep = (select max(timestep) as timestep from t2);`,
 
-// 2. where clause should be preserved
-let q2 = `
-select arrival
-from LATEST t1
-where arrival > 10
-and arrival < 20;`;
+  },
+  {
 
-let a2 = `
-select arrival
-from t1
-where arrival > 10
-and arrival < 20
-and t1.timestep = (select max(timestep) from t1);`;
+  // 6. check multiple latest for implicit join
+  query: `
+  select a
+  from latest t1, latest t2
+  where t1.b = t2.b;`,
 
-// 3. constraints, group by, order by, limit should also be preservered
-let q3 = `
-select count(*), arrival from LATEST t1
-where arrival > 10
-group by arrival
-order by count DESC
-limit 10
-constrain check (arrival > 10);`;
+  answer: `
+  select a
+  from t1, t2
+  where t1.b = t2.b
+  and t1.timestep = (select max(timestep) as timestep from t1)
+  and t2.timestep = (select max(timestep) as timestep from t2);`,
 
-let a3 = `
-select count(*), arrival from t1
-where arrival > 10
-and t1.timestep = (select max(timestep) from t1)
-group by arrival
-order by count DESC
-limit 10
-constrain check (arrival > 10);`;
+  },
+  {
 
+  // 7. check multiple tables
+  query:  `
+  select a
+  from latest t1, t2
+  where t1.b = t2.b ;`,
 
-// 4. in case of joins, latest should be applied to immediate relations
-let q4 = `
-select a
-from latest t1
-join t2 on t1.b = t2.b;`;
+  answer: `
+  select a
+  from t1, t2
+  where t1.b = t2.b
+  and t1.timestep = (select max(timestep) as timestep from t1);`,
+  }
+];
 
-let a4 = `
-select a
-from t1
-join t2 on t1.b = t2.b
-where t1.timestep = (select max(timestep) from t1);`;
-
-
-// 5. check multiple latest for explicit join
-let q5 = `
-select a
-from latest t1
-join latest t2 on t1.b = t2.b;`;
-
-let a5 = `
-select a
-from t1 join t2 on t1.b = t2.b
-where t1.timestep = (select max(timestep) from t1)
-and t2.timestep = (select max(timestep) from t2);`;
-
-
-// 6. check multiple latest for implicit join
-let q6 = `
-select a
-from latest t1, latest t2
-where t1.b = t2.b;`;
-
-let a6 = `
-select a
-from t1, t2
-where t1.b = t2.b
-and t1.timestep = (select max(timestep) from t1)
-and t2.timestep = (select max(timestep) from t2);`;
-
-
-// 7. check multiple tables
-let q7 =  `
-select a
-from latest t1, t2
-where t1.b = t2.b ;`;
-
-let a7 = `
-select a
-from t1, t2
-where t1.b = t2.b
-and t1.timestep = (select max(timestep) from t1);`;
-
-let tests = [[q1, a1], [q2, a2], [q3, a3], [q4, a4], [q5, a5], [q6, a6], [q7, a7]];

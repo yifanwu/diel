@@ -15,8 +15,10 @@ import { testAsyncPolicy } from "./compilerTests/testAsyncPolicy";
 import { testMaterializationRuntime } from "./compilerTests/testMaterializationRuntime";
 // import { PrintCode } from "../src/util/messages";
 
-testTriTableCreation();
-//testAsyncPolicy();
+// testTriTableCreation();
+// testAsyncPolicy();
+
+assertLatestSyntax();
 
 /*
 
@@ -53,7 +55,6 @@ assertFunctionParsing(ast, q);
 
 // @LUCIE: the following tests are failing, fix me
 // assertBasicConstraints();
-// assertLatestSyntax();
 // assertCheckViewConstraintTest();
 
 // @LUCIE: the following tests are not defined:

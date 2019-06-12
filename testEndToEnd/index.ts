@@ -27,7 +27,7 @@ const mainDbPath: string = null;
 
 //const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/order.diel")];
 
-const isCaching = true
+const isCaching = true;
 
 export const diel = new DielRuntime({
   isStrict: true,
