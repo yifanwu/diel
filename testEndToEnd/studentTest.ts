@@ -58,7 +58,7 @@ export function testStudentDb() {
       const result = o[0]["grade"];
       const answer = answerByRequestTimestep.get(o[0]["request_timestep"] as number);
       if (result !== answer) {
-        LogInternalError(`We expected ${answer} but got ${result} instead`, DielInternalErrorType.AsyncError);
+        LogInternalError(`We expected ${answer} but got ${result} instead`, DielInternalErrorType.TestError);
       }
     });
 

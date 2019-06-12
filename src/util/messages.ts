@@ -20,7 +20,7 @@ export enum DielInternalErrorType {
   NotImplemented = "NotImplemented",
   UnionTypeNotAllHandled = "UnionTypeNotAllHandled",
   MalFormedAst = "MalFormedAst",
-  AsyncError = "AsyncError"
+  TestError = "TestError"
 }
 
 export enum DielInternalWarningType {

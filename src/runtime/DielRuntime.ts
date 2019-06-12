@@ -190,16 +190,16 @@ export default class DielRuntime {
   private makeSubKey(r: RelationReference) {
     if (r.relationReferenceType === RelationReferenceType.Direct) {
       let relation = (r as RelationReferenceDirect).relationName;
-      let query = `select * from ${relation}`
-      console.log(`    Hashing "${query} for caching"`)
-      return JSON.stringify(this.ExecuteStringQuery(query))
+      let query = `select * from ${relation}`;
+      console.log(`    Hashing "${query} for caching"`);
+      return JSON.stringify(this.ExecuteStringQuery(query));
     } else {
       let subqry = (r as RelationReferenceSubquery).subquery;
       let hash = "";
       subqry.compositeSelections.forEach(c => {
           let query = GetSqlStringFromCompositeSelectionUnit(c);
-          console.log(`    Hashing "${query} for caching"`)
-          hash += JSON.stringify(this.ExecuteStringQuery(query))
+          console.log(`    Hashing "${query} for caching"`);
+          hash += JSON.stringify(this.ExecuteStringQuery(query));
       });
       return hash;
     }
@@ -217,15 +217,15 @@ export default class DielRuntime {
 
     mainSelection.joinClauses.forEach(j => {
       selections.push(j.relation);
-    })
+    });
 
-    let key = ""
+    let key = "";
 
     selections.forEach(s => {
       if (dependsOnLocalTables(getRelationReferenceDep(s), this.physicalMetaData.relationLocation)) {
         key += ";" + this.makeSubKey(s);
       }
-    })
+    });
 
     return key;
   }
@@ -233,18 +233,18 @@ export default class DielRuntime {
   /**
    * Returns the requestTimestep corresponding to the cached requestTimestep.
    * If cache miss, will return the requestTimestep passed in.
-   * @param eventView 
-   * @param requestTimestep 
+   * @param eventView
+   * @param requestTimestep
    */
   private getFromCacheOrMiss(eventView: string, requestTimestep: LogicalTimestep): LogicalTimestep {
     let key = this.getCacheKey(eventView);
     let cachedRequestTimestep = this.cache.get(key);
     if (cachedRequestTimestep === undefined) {
-      console.log(`    Cache miss for ${eventView}.`)
+      console.log(`    Cache miss for ${eventView}.`);
       this.cache.set(key, requestTimestep);
       return requestTimestep;
     }
-    console.log(`    Cache hit for ${eventView}: cached requestTimestep is ${requestTimestep}`)
+    console.log(`    Cache hit for ${eventView}: cached requestTimestep is ${requestTimestep}`);
     return cachedRequestTimestep;
   }
 
@@ -521,10 +521,9 @@ export default class DielRuntime {
     const remotesToShipTo = this.physicalExecution.getBubbledUpRelationToShipForEvent(LocalDbId, inputName);
     // FIXME: we can improve performance by grouping by the views to ship so that they are not evaluated multiple times.
     if (remotesToShipTo && remotesToShipTo.length > 0) {
-      let inputDep: string[] = []
-      if (this.config.caching)
-      {
-        console.log(`Caching enabled, so determining whether we need to ship ${inputName}`)
+      let inputDep: string[] = [];
+      if (this.config.caching) {
+        console.log(`Caching enabled, so determining whether we need to ship ${inputName}`);
         // eventviews dependent on this input
         inputDep = Array.from(
           DeriveDependentRelations(this.ast.depTree, inputName))
@@ -541,24 +540,24 @@ export default class DielRuntime {
         const needToShip = cachedTimesteps.some(cachedTimestep => {
           return cachedTimestep === timestep;
         });
-       
+
         if (!needToShip) {
           inputDep.forEach((eventView, i) => {
-            this.timestep++; 
+            this.timestep++;
             this.eventByTimestep.set(this.timestep, eventView);
 
-            const query = `insert into ${getEventViewCacheReferenceName(eventView)} values (${timestep}, ${cachedTimesteps[i]})`
+            const query = `insert into ${getEventViewCacheReferenceName(eventView)} values (${timestep}, ${cachedTimesteps[i]})`;
 
             inputDep.forEach(e => this.runOutputsGivenNewInputForEvent(e));
           });
-          console.log(`    ${inputName} is in cache so no need to ship.`)
+          console.log(`    ${inputName} is in cache so no need to ship.`);
 
           return;
         } else {
-          console.log(`    Cache miss means we need to ship ${inputName}`)
+          console.log(`    Cache miss means we need to ship ${inputName}`);
         }
       } else {
-        console.log(`    Not all dependent event views of ${inputName} are cacheable. ${inputName} must be shipped.`)
+        console.log(`    Not all dependent event views of ${inputName} are cacheable. ${inputName} must be shipped.`);
       }
     }
 
@@ -570,7 +569,7 @@ export default class DielRuntime {
         // if (!rDef.columns) {
         //   LogInternalError(`Columns for ${t.relation} not defined, it looks like ${JSON.stringify(rDef, null, 2)}`);
         // }
-        
+
         const rDef = GetRelationDef(this.ast, t.relation);
         const columns = DeriveColumnsFromRelation(rDef);
         const shareQuery = `select ${columns.map(c => c.columnName).join(", ")} from ${t.relation}`;
