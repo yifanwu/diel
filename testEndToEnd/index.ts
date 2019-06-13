@@ -1,5 +1,7 @@
 import { testStudentDb } from "./studentTest";
+import { testSimpleCache } from "./cacheTest";
 
+//testSimpleCache();
 testStudentDb();
 
 

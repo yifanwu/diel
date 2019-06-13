@@ -13,7 +13,7 @@ import { log } from "../util/dielUdfs";
 import { downloadHelper, CheckObjKeys, hashCompare } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo } from "../util/messages";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult, GenerateViewName, CaughtLocalRun, convertRelationObjectToQueryResults } from "./runtimeHelper";
-import { DielPhysicalExecution, LocalDbId, dependsOnLocalTables } from "../compiler/DielPhysicalExecution";
+import { DielPhysicalExecution, LocalDbId, dependsOnLocalTables, dependsOnBothLocalAndForeignTables, dependsOnRemoteTables } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
 import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
@@ -191,14 +191,14 @@ export default class DielRuntime {
     if (r.relationReferenceType === RelationReferenceType.Direct) {
       let relation = (r as RelationReferenceDirect).relationName;
       let query = `select * from ${relation}`;
-      console.log(`    Hashing "${query} for caching"`);
+      console.log(`    Hashing "${query}" for caching`);
       return JSON.stringify(this.ExecuteStringQuery(query));
     } else {
       let subqry = (r as RelationReferenceSubquery).subquery;
       let hash = "";
       subqry.compositeSelections.forEach(c => {
           let query = GetSqlStringFromCompositeSelectionUnit(c);
-          console.log(`    Hashing "${query} for caching"`);
+          console.log(`    Hashing "${query}" for caching`);
           hash += JSON.stringify(this.ExecuteStringQuery(query));
       });
       return hash;
@@ -240,7 +240,7 @@ export default class DielRuntime {
     let key = this.getCacheKey(eventView);
     let cachedRequestTimestep = this.cache.get(key);
     if (cachedRequestTimestep === undefined) {
-      console.log(`    Cache miss for ${eventView}.`);
+      console.log(`    Cache miss for local dependencies of ${eventView}.`);
       this.cache.set(key, requestTimestep);
       return requestTimestep;
     }
@@ -525,9 +525,11 @@ export default class DielRuntime {
       if (this.config.caching) {
         console.log(`Caching enabled, so determining whether we need to ship ${inputName}`);
         // eventviews dependent on this input
+        // further, we only want event views that depend on remote tables.
         inputDep = Array.from(
           DeriveDependentRelations(this.ast.depTree, inputName))
-          .filter(dep => GetRelationDef(this.ast, dep).relationType === RelationType.EventView);
+          .filter(dep => GetRelationDef(this.ast, dep).relationType === RelationType.EventView)
+          .filter(dep => dependsOnRemoteTables(this.ast.depTree.get(dep).dependsOn, this.physicalMetaData.relationLocation));
         console.log(`    Dependencies on ${inputName} for caching: ${inputDep}`);
 
        let isAllDependentRelationsCacheable = inputDep.some(dep => this.physicalExecution.cachedEventViews.has(dep));

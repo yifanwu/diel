@@ -592,19 +592,21 @@ export function dependsOnLocalTables(deps: string[], relationLocations: Map<stri
   return dependsOnLocal;
 }
 
+export function dependsOnRemoteTables(deps: string[], relationLocations: Map<string, TableMetaData>) {
+
+  let dependsOnRemote = deps.some(d => {
+    let loc = relationLocations.get(d);
+    return loc !== undefined;
+  });
+
+  return dependsOnRemote;
+}
+
 // export and extracted for testing purposes
 export function dependsOnBothLocalAndForeignTables(deps: string[], relationLocations: Map<string, TableMetaData>) {
-    let dependsOnForeign = deps.some(d => {
-      let loc = relationLocations.get(d);
-      return loc !== undefined;
-    });
-
-    let dependsOnLocal = deps.some(d => {
-      let loc = relationLocations.get(d);
-      return loc === undefined;
-    });
-    return dependsOnForeign && dependsOnLocal;
-  }
+  return dependsOnLocalTables(deps, relationLocations) &&
+      dependsOnRemoteTables(deps, relationLocations);
+ }
 
 /**
  * Determines whether the event view can be cached.
@@ -621,7 +623,7 @@ export function isEventViewCacheable(relation: DerivedRelation, relationLocation
     }
 
     // need to check the "from" and the "joins"
-    if (relation.selection.compositeSelections.length != 1) {
+    if (relation.selection.compositeSelections.length !== 1) {
       return false;
     } // totally arbitrary constraint; could change in future
 
