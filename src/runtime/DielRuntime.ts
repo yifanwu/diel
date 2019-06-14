@@ -183,6 +183,7 @@ export default class DielRuntime {
 
   public NewInput(i: string, o: any, requestTimestep?: number) {
     requestTimestep = requestTimestep ? requestTimestep : this.timestep;
+    LogInfo(`New input ${requestTimestep ? `at ${requestTimestep}` : ""}`, JSON.stringify(o));
     this.newInputHelper(i, [o], requestTimestep);
   }
 
