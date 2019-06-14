@@ -6,24 +6,23 @@ import { DIELParser } from "../parser/grammar/DIELParser";
 
 import { DielRemoteAction, RelationObject, DielConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, ExecutionSpec, } from "./runtimeTypes";
 import { OriginalRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationNameType, DerivedRelation, DielAst, BuiltInColumn, Relation, Optional, RelationReferenceType, RelationReferenceSubquery, RelationSelection, RelationReference, RelationReferenceDirect } from "../parser/dielAstTypes";
-import { SqlStrFromSelectionUnit, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst, GenerateSqlRelationString, GetSqlStringFromCompositeSelectionUnit, GetSqlStringFromExpr } from "../compiler/codegen/codeGenSql";
+import { SqlStrFromSelectionUnit, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst, GenerateSqlRelationString, GetSqlStringFromCompositeSelectionUnit } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
 import { CompileAst, CompileDerivedAstGivenAst } from "../compiler/compiler";
 import { log } from "../util/dielUdfs";
-import { downloadHelper, CheckObjKeys, hashCompare } from "../util/dielUtils";
+import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo } from "../util/messages";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult, GenerateViewName, CaughtLocalRun, convertRelationObjectToQueryResults } from "./runtimeHelper";
-import { DielPhysicalExecution, LocalDbId, dependsOnLocalTables, dependsOnBothLocalAndForeignTables, dependsOnRemoteTables } from "../compiler/DielPhysicalExecution";
+import { DielPhysicalExecution, LocalDbId, dependsOnLocalTables, dependsOnRemoteTables } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
 import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { ParsePlainSelectQueryAst } from "../compiler/compiler";
 import { GetSqlRelationFromAst, GetDynamicRelationsColumns } from "../compiler/codegen/SqlAstGetters";
 import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation } from "../parser/sqlAstTypes";
-import { DeriveDependentRelations, DeriveOriginalRelationsAViewDependsOn, getRelationReferenceDep, getSelectionUnitDep } from "../compiler/passes/dependency";
+import { DeriveDependentRelations, getRelationReferenceDep } from "../compiler/passes/dependency";
 import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation } from "../compiler/DielAstGetters";
 import { getEventViewCacheName, getEventViewCacheReferenceName } from "../compiler/passes/distributeQueries";
-import { eventNames } from "cluster";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
@@ -345,8 +344,6 @@ export default class DielRuntime {
    */
   constraintChecking(viewName: string) {
     // TODO. Check view constraint for nested views. currently, it only checks output view.
-    console.log("toggle mode: ", this.checkConstraints);
-
     // only check if checking mode is turned on
     if (this.checkConstraints) {
       if (this.constraintQueries.has(viewName)) {

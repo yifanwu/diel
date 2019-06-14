@@ -4,6 +4,8 @@ export const FgRed = "\x1b[31m";
 export const FgGreen = "\x1b[32m";
 export const FgBlue = "\x1b[34m";
 export const FgGray = "\x1b[90m";
+export const Underscore = "\x1b[4m";
+export const FgCyan = "\x1b[36m";
 export const FgMagenta = "\x1b[35m";
 
 export const BgRed = "\x1b[41m";
@@ -33,10 +35,27 @@ export function PrintCode(code: string) {
   console.log(`DIEL Code\n%s}`, codeWithLine);
 }
 
+export function LogSetup(m: string) {
+  console.log(`${FgMagenta}${m}${Reset}`);
+}
+
+export function LogExecutionTrace(m: string, obj?: any) {
+  // return null;
+  console.log(`${FgGray}%s${Reset}`, m, obj ? obj : "");
+}
+
+export function LogTest(m: string, obj?: any) {
+  console.log(`${FgCyan}%s${Reset}`, m, obj ? obj : "");
+}
+
 export function LogInternalError(m: string, errorType = DielInternalErrorType.Untitled): null {
-  console.log(`${FgRed}Error[${errorType}]: ${m}${Reset}`);
-  debugger;
-  if (STRICT) throw new Error();
+  const message = `Error[${errorType}]: ${m}`;
+  if (STRICT) {
+    debugger;
+    throw new Error(message);
+  } else {
+    console.log(`${FgRed}${message}${Reset}`);
+  }
   return null;
 }
 
@@ -45,7 +64,11 @@ export function LogInternalWarning(m: string, wariningType = DielInternalWarning
 }
 
 export function LogInfo(m: string, obj?: any) {
-  console.log(`${FgBlue}%s${Reset}`, m, obj);
+  if (obj) {
+    console.log(`${FgBlue}%s${Reset}`, m, obj);
+  } else {
+    console.log(`${FgBlue}%s${Reset}`, m);
+  }
 }
 
 export function LogTmp(m: string) {

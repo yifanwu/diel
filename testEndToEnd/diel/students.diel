@@ -10,6 +10,6 @@ create event view current_student_score
   from students natural join exam natural join latest_name_choice;
     
 create output grade_result as
-  select request_timestep, grade
+  select student, grade
   from latest current_student_score;
   -- where d.request_timestep = (select max(timestep) from name_choice);

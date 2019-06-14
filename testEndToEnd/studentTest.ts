@@ -1,6 +1,6 @@
 import * as path from "path";
 import { DielRuntime, DbSetupConfig, DbType, RelationObject } from "../src";
-import { LogInternalError, DielInternalErrorType } from "../src/util/messages";
+import { LogInternalError, LogTest, LogInternalWarning } from "../src/util/messages";
 
 const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/js/worker.sql.js");
 
@@ -29,11 +29,11 @@ const mainDbPath: string = null;
 const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/students.diel")];
 const isCaching = true;
 
-const answerByRequestTimestep = new Map<number, number>();
+const answerByRequestTimestep = new Map<string, number>();
 // timesteps start on 2 since the first 1 is used at setup time
-answerByRequestTimestep.set(2, 50);
-answerByRequestTimestep.set(3, 85);
-answerByRequestTimestep.set(4, 50);
+answerByRequestTimestep.set("Alice", 50);
+answerByRequestTimestep.set("Bob", 85);
+answerByRequestTimestep.set("Charlie", 99);
 
 export function testStudentDb() {
 
@@ -51,19 +51,27 @@ export function testStudentDb() {
     console.log(`Cache test with${isCaching ? "" : " no"} caching starting`);
 
     diel.BindOutput("grade_result", (o: RelationObject) => {
-      console.log("results!", o);
+      LogTest("results!", JSON.stringify(o));
       if (o.length !== 1) {
         LogInternalError(`We expected only one result`);
       }
       const result = o[0]["grade"];
-      const answer = answerByRequestTimestep.get(o[0]["request_timestep"] as number);
+      const answer = answerByRequestTimestep.get(o[0]["student"] as string);
       if (result !== answer) {
-        LogInternalError(`We expected ${answer} but got ${result} instead`, DielInternalErrorType.TestError);
+        LogInternalWarning(`We expected ${answer} but got ${result} instead`);
       }
     });
 
     diel.NewInput("name_choice", {first_name: "Alice"});
+    // window.setTimeout(() => {
     diel.NewInput("name_choice", {first_name: "Bob"});
+    diel.NewInput("name_choice", {first_name: "Charlie"});
     diel.NewInput("name_choice", {first_name: "Alice"});
+    // }, 1000);
+    // window.setTimeout(() => {
+    //   diel.NewInput("name_choice", {first_name: "Alice"});
+    // }, 1000);
+    // window.setTimeout(() => {
+    // }, 1000);
   }
 }
