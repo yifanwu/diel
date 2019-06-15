@@ -26,6 +26,7 @@ function addRelationIfOnlyNotExist(relationDef: SqlRelation[], newRelation: SqlR
 
 export class DielPhysicalExecution {
   ast: DielAst; // read only
+  addRelationToDiel: (r: Relation) => void;
   augmentedDep: Map<string, NodeDependencyAugmented>;
   metaData: PhysicalMetaData; // read only
   sqlAstSpecPerDb: Map<DbIdType, SqlAst>;
@@ -35,8 +36,14 @@ export class DielPhysicalExecution {
 
   getEventByTimestep: (step: LogicalTimestep) => RelationNameType;
 
-  constructor(ast: DielAst, metaData: PhysicalMetaData, getEventByTimestep: (step: LogicalTimestep) => RelationNameType) {
+  constructor(
+      ast: DielAst,
+      metaData: PhysicalMetaData,
+      getEventByTimestep: (step: LogicalTimestep) => RelationNameType,
+      addRelationToDiel: (r: Relation) => void,
+    ) {
     this.ast = ast;
+    this.addRelationToDiel = addRelationToDiel;
     this.metaData = metaData;
     this.getEventByTimestep = getEventByTimestep;
     // get all the outputs and loop
@@ -55,7 +62,12 @@ export class DielPhysicalExecution {
     this.sqlAstSpecPerDb = new Map<DbIdType, SqlAst>();
     this.setAstSpecPerDbIfNotExist(LocalDbId);
     this.getSqlAstSpecsFromDistribution(this.distributions);
+  }
 
+  public RemoveDerivedAst(view: DerivedRelation) {
+    // TODO: do some tests to make sure that this is robust...
+    // if anything else depends on this.... hmm
+    this.ast.depTree.delete(view.rName);
   }
 
   // right now just do a reset, but performance wise it's better to do incrementally
@@ -154,13 +166,20 @@ export class DielPhysicalExecution {
               && (distribution.to === LocalDbId);
           const cacheRelationTriplet = GetCachedEventView(rDef as DerivedRelation, addTimeColumns);
           const eventView = GetSqlDerivedRelationFromDielRelation(rDef);
-          if (eventView && cacheRelationTriplet) return [
-            {dbId: distribution.to, relationDef: cacheRelationTriplet.cacheTable},
-            {dbId: distribution.to, relationDef: cacheRelationTriplet.referenceTable},
-            {dbId: distribution.to, relationDef: cacheRelationTriplet.view},
-            {dbId: distribution.from, relationDef: eventView},
-            // Ordering is significant: names are first come, first served
-          ];
+          if (eventView && cacheRelationTriplet) {
+            // TODO: need to add the cache relations to the AST!
+            // also the AST now need to be aware of the new input events...
+            this.addRelationToDiel(cacheRelationTriplet.cacheDielTable);
+            this.addRelationToDiel(cacheRelationTriplet.referenceDielTable);
+            this.addRelationToDiel(cacheRelationTriplet.dielView);
+            return [
+              {dbId: distribution.to, relationDef: cacheRelationTriplet.cacheTable},
+              {dbId: distribution.to, relationDef: cacheRelationTriplet.referenceTable},
+              {dbId: distribution.to, relationDef: cacheRelationTriplet.view},
+              {dbId: distribution.from, relationDef: eventView},
+              // Ordering is significant: names are first come, first served
+            ];
+          }
         }
       } // else, fallthrough
       case RelationType.View: {
@@ -231,7 +250,13 @@ export class DielPhysicalExecution {
           // we need to add this to the local one
           // fixme: might be relevant for workers as well
           const newOriginal = GetSqlOriginalRelationFromDielRelation(r);
-          if (newOriginal) localAst.relations.push(newOriginal);
+          if (newOriginal) {
+            // need to do the following check because the distribution pass may also add relations
+            // sigh this is a bit messy.
+            if (!localAst.relations.find(r => r.rName === newOriginal.rName)) {
+              localAst.relations.push(newOriginal);
+            }
+          }
         }
       }}
     );
@@ -368,7 +393,14 @@ export class DielPhysicalExecution {
    * @param dbId
    * @param eventRelation
    */
-  getBubbledUpRelationToShipForEvent(dbId: DbIdType, eventRelation: RelationNameType): {destination: DbIdType, relation: RelationNameType}[] {
+  getBubbledUpRelationToShipForEvent(
+      dbId: DbIdType,
+      eventRelation: RelationNameType,
+      includedForRelation?: RelationNameType[]
+    ): {
+      destination: DbIdType,
+      relation: RelationNameType,
+    }[] {
     const distributions = this.distributions;
     let count = 0;
     function helper(acc: {destination: DbIdType, relation: RelationNameType}[], dbId: DbIdType, relation: RelationNameType) {
@@ -382,8 +414,9 @@ export class DielPhysicalExecution {
           if ((d.to === d.from) && (d.forRelationName !== relation)) {
             helper(acc, d.to, d.forRelationName);
           } else if ((d.to !== d.from)) {
+            const isIncluded = !includedForRelation || (includedForRelation && (includedForRelation.find(r => r === d.forRelationName)));
             const hasAdded = acc.find(a => (a.destination === d.to) && (a.relation === d.relationName));
-            if (!hasAdded) {
+            if (!hasAdded && isIncluded) {
               acc.push({
                 destination: d.to,
                 relation: d.relationName
@@ -596,7 +629,7 @@ export function dependsOnRemoteTables(deps: string[], relationLocations: Map<str
 
   let dependsOnRemote = deps.some(d => {
     let loc = relationLocations.get(d);
-    return loc !== undefined;
+    return ((loc !== undefined) || (loc && loc.dbId !== LocalDbId));
   });
 
   return dependsOnRemote;

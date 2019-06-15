@@ -20,7 +20,10 @@ create table allInputs (
 );
 
 create table __perf (
-  timestep integer primary key,
-  timeTaken integer
+  timestep integer,
+  kind text,
+  ts integer,
+  check(kind = 'start' or kind = 'end'),
+  primary key(timestep, kind)
 );
 `;

@@ -101,7 +101,7 @@ export class ConnectionWrapper {
   setHandler(f: (msg: DielRemoteReply) => void) {
     const self = this;
     const newF = (event: any) => {
-      LogExecutionTrace(`DB executed message`, event);
+      LogExecutionTrace(`DB executed message`, event.data);
       let msg: DielRemoteReply | undefined;
       if (this.remoteType === DbType.Socket) {
         try {

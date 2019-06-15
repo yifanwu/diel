@@ -67,6 +67,7 @@ export function testStudentDb() {
     diel.NewInput("name_choice", {first_name: "Bob"});
     diel.NewInput("name_choice", {first_name: "Charlie"});
     diel.NewInput("name_choice", {first_name: "Alice"});
+    diel.NewInput("name_choice", {first_name: "Charlie"});
     // }, 1000);
     // window.setTimeout(() => {
     //   diel.NewInput("name_choice", {first_name: "Alice"});

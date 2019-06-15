@@ -182,18 +182,25 @@ export const BuiltInUdfTypes: UdfType[] = [
   },
 ];
 
+export enum RelationOrigin {
+  User = "User",
+  DerivedFromCaching = "DerivedFromCaching",
+  DerivedFromMaterialization = "DerivedFromMaterialization"
+}
+
 interface RelationBase {
   rName: string;
+  origin?: HasDefault<RelationOrigin>;
+  replaces?: Optional<RelationNameType>;
+  isReplaced?: HasDefault<boolean>;
   constraints?: Optional<RelationConstraints>;
   relationType: RelationType;
 }
-
 
 export interface DerivedRelation extends RelationBase {
   selection: RelationSelection;
   cachable?: HasDefault<boolean>;
 }
-
 
 export interface OriginalRelation extends RelationBase {
   columns: Column[];
@@ -260,6 +267,7 @@ export interface DielContext {
 
 export interface DielAst {
   relations: Relation[]; // contains all relations, including table definitions, events, ouputs and views
+  replacedRelations: Relation[];
   commands: Command[]; // contains select, insert, drop, and delete
   programs: ProgramsIr;
   udfTypes: UdfType[];
@@ -269,6 +277,7 @@ export interface DielAst {
 export function createEmptyDielAst() {
   const newAst: DielAst = {
     relations: [],
+    replacedRelations: [],
     programs: new Map(),
     commands: [],
     udfTypes: [],

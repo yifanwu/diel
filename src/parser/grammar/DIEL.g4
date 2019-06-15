@@ -75,7 +75,7 @@ constraintDefinition
   | IDENTIFIER NOT NULL
   | FOREIGN KEY '(' column=IDENTIFIER ')' REFERENCES table=IDENTIFIER'(' otherColumn=IDENTIFIER ')'
   | SINGLE LINE
-  | CHECK (expr)
+  | CHECK '(' expr ')'
   ;
 
 originalTableStmt
