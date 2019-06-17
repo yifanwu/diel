@@ -12,22 +12,12 @@ export function NormalizeColumnSelection(ast: DielAst) {
   WalkThroughSelectionUnits(ast, normalizeColumnForSelectionUnit);
 }
 
-// function copyColumnSelection(s: ColumnSelection) {
-//   const columnName = (s.expr as ExprColumnAst).columnName;
-//   return {
-//     expr: {
-//       exprType: ExprType.Column,
-//       columnName,
-//       hasStar: false,
-//       relationName: (s.expr  as ExprColumnAst).relationName,
-//     },
-//     alias: s.alias ? s.alias : columnName,
-//   };
-// }
 
-
-
-
+/**
+ * Note that if the referenced relation is an event table, the relevant event timesteps will be included
+ * @param ast
+ * @param ref
+ */
 function columnsFromRelationReference(ast: DielAst, ref: RelationReference): SimpleColumn[] | null {
   switch (ref.relationReferenceType) {
     case RelationReferenceType.Direct: {
@@ -76,7 +66,7 @@ function starCase(ast: DielAst, s: SelectionUnit, currentColumnExpr: ExprStarAst
           exprType: ExprType.Column,
           dataType: newColumn.dataType,
           hasStar: false,
-          columnName: newColumn.columnName,
+          columnName: newColumn.cName,
           relationName: currentColumnExpr.relationName
       }));
     return populatedColumns;
@@ -86,7 +76,7 @@ function starCase(ast: DielAst, s: SelectionUnit, currentColumnExpr: ExprStarAst
       .map(newColumn => ({
         exprType: ExprType.Column,
         dataType: newColumn.dataType,
-        columnName: newColumn.columnName,
+        columnName: newColumn.cName,
         relationName: s.baseRelation.alias
       }));
     let populatedColumnsFromJoins: ExprColumnAst[] = [];
@@ -94,7 +84,7 @@ function starCase(ast: DielAst, s: SelectionUnit, currentColumnExpr: ExprStarAst
       const relationName = j.relation.alias;
       const newColumns: ExprColumnAst[] = columnsFromRelationReference(ast, j.relation).map(c => ({
         exprType: ExprType.Column,
-        columnName: c.columnName,
+        columnName: c.cName,
         relationName: relationName,
       }));
       populatedColumnsFromJoins.push(...newColumns);
@@ -226,18 +216,6 @@ function normalizeFuncExpr(ast: DielAst, s: SelectionUnit, e: ExprFunAst) {
   return e;
 }
 
-// function normalizeColumnSelection(ast: DielAst, s: SelectionUnit, c: ColumnSelection) {
-//   const currentColumnExpr = c.expr as ExprColumnAst;
-//   // already works
-//   if (currentColumnExpr.relationName) return [copyColumnSelection(c)];
-//   // built in
-//   const expr = normalizeColumnExpr(ast, s, currentColumnExpr);
-//   return [{
-//     expr,
-//     alias: c.alias
-//   }];
-// }
-
 /**
  * resursive
  * does NOT set in place
@@ -246,6 +224,10 @@ function normalizeFuncExpr(ast: DielAst, s: SelectionUnit, e: ExprFunAst) {
  * @param c: will be modifying in place
  */
 function normalizeColumnExpr(ast: DielAst, s: SelectionUnit, currentColumnExpr: ExprColumnAst): ExprColumnAst {
+  // if there is already a source specified, do NOT modify
+  if (currentColumnExpr.relationName) {
+    return JSON.parse(JSON.stringify(currentColumnExpr));
+  }
   const capsName = currentColumnExpr.columnName.toUpperCase();
   // TODO: we should probably just normalize the table instead of catching corner cases here
   if (capsName in BuiltInColumn) {
@@ -305,6 +287,6 @@ function normalizeColumnExpr(ast: DielAst, s: SelectionUnit, currentColumnExpr: 
 function checkIfColumnInRelationReference(ast: DielAst, ref: RelationReference, columnName: string): SimpleColumn | null {
   // first see if the relation reference is direct
   const columns = columnsFromRelationReference(ast, ref);
-  if (columns) return columns.find(c => c.columnName === columnName);
+  if (columns) return columns.find(c => c.cName === columnName);
   return null;
 }

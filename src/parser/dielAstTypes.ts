@@ -544,7 +544,7 @@ export interface CustomFunc {
 
 
 export type SimpleColumn = {
-  columnName: string,
+  cName: string,
   dataType: DielDataType
 };
 

@@ -90,8 +90,6 @@ function modifyWhereComplete(relation: SelectionUnit, relationName: string): voi
     columnName: "timestep",
     relationName: relationName
   };
-
-
   if (originalWhere) {
     // Merge into a where query
     lhsExpr = modifyExistingWhere(originalWhere, lhsExpr);

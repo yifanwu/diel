@@ -1,0 +1,26 @@
+create event table score_low(val integer);
+create event table score_high(val integer);
+
+create output current_score_range2 as
+  select score_low.val as low, score_high.val as high
+  from latest score_low, latest score_high; 
+
+-- create event view matching_students2 AS
+--   select student.first_name
+--   from students
+--     natural join exam
+--   join current_score_range2
+--     where (exam.score < current_score_range2.high or current_score_range2.high is null)
+--       and (exam.score > current_score_range2.low or current_score_range2.low is null);
+
+-- create output current_matching_students2 AS
+--   select first_name
+--   from matching_students2
+--   where request_timestep = (
+--     select max(timestep)
+--     from (
+--       select timestep from score_low
+--       union
+--       select timestep from score_high
+--     )
+--   );

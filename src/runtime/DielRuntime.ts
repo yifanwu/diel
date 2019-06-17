@@ -19,7 +19,7 @@ import { checkViewConstraint } from "../compiler/passes/generateViewConstraints"
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { ParsePlainSelectQueryAst } from "../compiler/compiler";
 import { GetSqlRelationFromAst, GetDynamicRelationsColumns } from "../compiler/codegen/SqlAstGetters";
-import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation } from "../parser/sqlAstTypes";
+import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation, SqlAst } from "../parser/sqlAstTypes";
 import { DeriveDependentRelations, getRelationReferenceDep } from "../compiler/passes/dependency";
 import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation, IsRelationTypeDerived } from "../compiler/DielAstGetters";
 import { getEventViewCacheName, getEventViewCacheReferenceName } from "../compiler/passes/distributeQueries";
@@ -79,7 +79,7 @@ export default class DielRuntime {
   checkConstraints: boolean;
   protected boundFns: TickBind[];
   protected runtimeOutputs: Map<string, Statement>;
-  logTime: Statement;
+  protected runtimeInputs: Map<string, {stmt: Statement, columnNames: string[]}>;
   cache: Map<string, LogicalTimestep>;
 
   constructor(config: DielConfig) {
@@ -191,6 +191,7 @@ export default class DielRuntime {
   private makeSubKey(r: RelationReference) {
     if (r.relationReferenceType === RelationReferenceType.Direct) {
       let relation = (r as RelationReferenceDirect).relationName;
+      // we need to filter out the time related fields if they are not used
       let query = `select * from ${relation}`;
       console.log(`    Hashing "${query}" for caching`);
       return JSON.stringify(this.ExecuteStringQuery(query));
@@ -206,6 +207,10 @@ export default class DielRuntime {
     }
   }
 
+  /**
+   * Improvements: could be smarter
+   * @param eventView
+   */
   private getCacheKey(eventView: string) {
     let rDef = GetRelationDef(this.ast, eventView) as DerivedRelation;
 
@@ -252,64 +257,56 @@ export default class DielRuntime {
   private newInputHelper(eventName: string, objs: any[], requestTimestep: number) {
     // start of tick
     this.timestep++;
-    this.logTime.run({
+    this.runtimeInputs.get("logTime").stmt.run({
       $timestep: this.timestep,
       $kind: "begin",
       $ts: performance.now()
     });
     this.eventByTimestep.set(this.timestep, eventName);
     // we should get the definition from the local SQL definitions...
-    const localSqlAst = this.physicalExecution.getAstFromDbId(LocalDbId);
-    const sqlRelation = GetSqlRelationFromAst(localSqlAst, eventName);
-    if (!sqlRelation) return ReportUserRuntimeError(`Event ${eventName} is not defined`);
     const caching = this.config.caching && this.GetRelationDef(eventName).relationType === RelationType.EventView;
-    const columnNames = GetDynamicRelationsColumns(sqlRelation as SqlOriginalRelation);
+    const inputEvent = caching
+      ? getEventViewCacheName(eventName)
+      : eventName
+      ;
 
-    const values = objs.map(o => {
+    const builtIn: {[index: string]: number} = {
+      TIMESTEP: this.timestep,
+      REQUEST_TIMESTEP: requestTimestep,
+      ORIGINAL_REQUEST_TIMESTEP: requestTimestep
+    };
+
+    // set the values
+    objs.map(o => {
+      const value: {[index: string]: number | string} = {};
       // note that we need to filter out the built in columns
       //   because they are provided by US, not the input object
-      return columnNames.filter(c => !(c in BuiltInColumn)).map(cName => {
-        const raw = o[cName];
-        // it can be explicitly set to null, but not undefined
-        if (raw === undefined) {
-          ReportUserRuntimeError(`We expected the input ${cName}, but it was not defined for ${eventName} in the object ${JSON.stringify(objs, null, 2)}.`);
+      // filter(c => !(c in BuiltInColumn))
+      this.runtimeInputs.get(inputEvent).columnNames.map(cName => {
+        const builtInValue = builtIn[cName];
+        if (builtInValue) {
+          value[`$${cName}`] = builtInValue;
+          return;
+        } else {
+          const raw = o[cName];
+          // it can be explicitly set to null, but not undefined
+          if (raw === undefined) {
+            ReportUserRuntimeError(`We expected the input ${cName}, but it was not defined for ${eventName} in the object ${JSON.stringify(objs, null, 2)}.`);
+          } else {
+            value[`$${cName}`] = raw;
+          }
+          return;
         }
-        return generateInsertClauseStringForValue(raw);
       });
+      this.runtimeInputs.get(inputEvent).stmt.run(value);
     });
 
-    let finalQuery: string = "";
-    const allInputQuery = `
-    insert into allInputs (timestep, inputRelation, timestamp, request_timestep) values
-      (${this.timestep}, '${eventName}', ${Date.now()}, ${requestTimestep});`;
-
-    if (caching) {
-      const cacheTableName = getEventViewCacheName(eventName);
-      const cacheTableColumns = GetDynamicRelationsColumns(GetSqlRelationFromAst(localSqlAst, cacheTableName) as SqlOriginalRelation);
-      // const referenceRelation = getEventViewCacheReferenceName(eventName);
-      if (cacheTableColumns && (cacheTableColumns.length > 0)) {
-        // filter(c => c !== "TIMESTEP")
-        finalQuery += `insert into ${cacheTableName} (${cacheTableColumns.join(", ")}) values
-            ${values.map(v => `(${v.join(", ")}, ${this.timestep}, ${requestTimestep})`)};`;
-      } else {
-        finalQuery = `insert into ${cacheTableName} (TIMESTEP, ORIGINAL_REQUEST_TIMESTEP) values (${this.timestep}, ${requestTimestep});`;
-        LogInternalWarning(`Shouldn't cache empty views...`);
-      }
-
-      // finalQuery += `\n insert into ${getEventViewCacheReferenceName(eventName)} values (${this.timestep}, ${requestTimestep});`;
-      LogInfo(`Tick\n${finalQuery + allInputQuery}`);
-      this.db.exec(finalQuery + allInputQuery);
-    } else {
-      // NOT cashing
-      if (columnNames && (columnNames.length > 0)) {
-        finalQuery = `insert into ${eventName} (${columnNames.join(", ")}) values
-            ${values.map(v => `(${v.join(", ")}, ${this.timestep}, ${requestTimestep})`)};`; // HACK
-      } else {
-        finalQuery = `insert into ${eventName} (timestep, request_timestep) values (${this.timestep}, ${requestTimestep});`;
-      }
-      LogInfo(`Tick\n${finalQuery + allInputQuery}`);
-      this.db.exec(finalQuery + allInputQuery);
-    }
+    this.runtimeInputs.get("allInput").stmt.run({
+      $timestep: this.timestep,
+      $inputRelation: inputEvent,
+      $timestamp: Date.now(),
+      $request_timestep: requestTimestep
+    });
 
     // Factored out so we can repeat
     const relationsDependentOnCurrentEvent = DeriveDependentRelations(this.ast.depTree, eventName);
@@ -326,7 +323,6 @@ export default class DielRuntime {
     return 0;
   }
 
-
   private runOutputsGivenNewInputForEvent(inputDep: Set<RelationNameType>) {
     // there should be a step here to check for caching, because if it's cached it should be in the same timestep!
 
@@ -336,13 +332,12 @@ export default class DielRuntime {
       }
     });
 
-    this.logTime.run({
+    this.runtimeInputs.get("logTime").stmt.run({
       $timestep: this.timestep,
       $kind: "end",
       $ts: performance.now()
     });
   }
-
 
   /**
    * this is the execution logic
@@ -423,9 +418,9 @@ export default class DielRuntime {
       this.AddRelation.bind(this)
     );
     await this.executeToDBs();
+    this.setupNewInput();
     GetAllOutputs(this.ast).map(o => this.setupNewOutput(o.rName));
     this.scales = ParseSqlJsWorkerResult(this.db.exec("select * from __scales"));
-    this.logTime = this.db.prepare(`insert into __perf values ($timestep, $kind, $ts)`);
     loadPage();
   }
 
@@ -573,10 +568,11 @@ export default class DielRuntime {
       remotesToShipTo.map(t => {
         const rDef = GetRelationDef(this.ast, t.relation);
         const columns = DeriveColumnsFromRelation(rDef);
-        const shareQuery = `select ${columns.map(c => c.columnName).join(", ")} from ${t.relation}`;
+        const shareQuery = `select ${columns.map(c => c.cName).join(", ")} from ${t.relation}`;
         let tableRes = this.db.exec(shareQuery)[0];
         if ((!tableRes) || (!tableRes.values)) {
           LogInternalWarning(`Query ${shareQuery} has NO result`);
+          return;
         }
         // FIXME: have more robust typing instead of quoting everything; look up types...
         const values = tableRes.values.map((d: any[]) => `(${d.map((v: any) => (v === null) ? "null" : `'${v}'`).join(", ")})`);
@@ -628,6 +624,37 @@ export default class DielRuntime {
       rName,
       this.dbPrepare(q)
     );
+  }
+
+  // what's dynamic is read from the local AST...
+  private setupNewInput() {
+    this.runtimeInputs = new Map();
+    const localSqlAst = this.physicalExecution.getAstFromDbId(LocalDbId);
+    const inputSqlAsts = localSqlAst.relations.filter(r => r.isDynamic);
+    inputSqlAsts.map(eRaw => {
+      const e = eRaw as SqlOriginalRelation;
+      const columnNames = e.columns.map(c => c.cName);
+      const q = `insert into ${e.rName} values (${columnNames.map(c => `$${c}`).join(", ")})`;
+      this.runtimeInputs.set(e.rName,
+        {
+          stmt: this.dbPrepare(q),
+          columnNames
+        }
+      );
+    });
+
+    this.runtimeInputs.set("allInput",
+      {
+        stmt: this.db.prepare(`insert into allInputs (timestep, inputRelation, timestamp, request_timestep) values ($timestep, $inputRelation, $timestamp, $request_timestep)`),
+        columnNames: ["$timestep", "$inputRelation", "$timestamp", "$request_timestep"]
+    });
+
+    this.runtimeInputs.set("logTime",
+      {
+        stmt: this.db.prepare(`insert into __perf values ($timestep, $kind, $ts)`),
+        columnNames: ["$timestep", "$kind", "$ts"]
+      });
+
   }
 
   private dbPrepare(q: string) {

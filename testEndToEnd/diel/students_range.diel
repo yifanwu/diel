@@ -1,0 +1,16 @@
+-- find student whose exams are within a range
+create event table score_range (low integer, high integer);
+
+create view current_score_range as select low, high from latest score_range;
+
+create event view matching_students AS
+  select student.first_name
+  from students natural join exam
+  join current_score_range
+  where exam.score < current_score_range.high and exam.score > current_score_range.low;
+
+-- find the latest requested
+create output current_matching_students AS
+  select first_name
+  from matching_students
+  where request_timestep = (select max(timestep) from score_range);

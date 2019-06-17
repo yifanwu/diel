@@ -115,7 +115,23 @@ export function getShippingInfoFromDistributedEval() {
 
 }
 
-const EventColumns: Column[] = [
+export const EventTableColumns: Column[] = [
+  // timestamp is actually stored in all inputs...
+  // {
+  //   cName: BuiltInColumn.TIMESTAMP,
+  //   dataType: DielDataType.TimeStamp,
+  // },
+  {
+    cName: BuiltInColumn.TIMESTEP,
+    dataType: DielDataType.Number,
+  },
+  {
+    cName: BuiltInColumn.REQUEST_TIMESTEP,
+    dataType: DielDataType.Number,
+  }
+];
+
+export const EventViewColumns: Column[] = [
   {
     cName: BuiltInColumn.TIMESTEP,
     dataType: DielDataType.Number,
@@ -171,7 +187,7 @@ export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTi
         relationType: SqlRelationType.Table,
         isDynamic: true,
         rName: i.rName,
-        columns: addTimeColumns ? i.columns.concat(EventColumns) : i.columns
+        columns: addTimeColumns ? i.columns.concat(EventTableColumns) : i.columns
       };
     }
     case RelationType.ExistingAndImmutable:
@@ -197,7 +213,7 @@ export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTi
         relationType: SqlRelationType.Table,
         isDynamic: true,
         rName: relation.rName,
-        columns: addTimeColumns ? originalColumns.concat(EventColumns) : originalColumns
+        columns: addTimeColumns ? originalColumns.concat(EventViewColumns) : originalColumns
       };
       return createSpec;
     default:

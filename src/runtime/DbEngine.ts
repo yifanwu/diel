@@ -186,10 +186,12 @@ export default class DbEngine {
       // let's make sure that this is sent...
       // debugger;
       this.nextQueue();
+      return null;
+    } else {
+      console.log(`  Failure! Two sets are not the same`, currentItem.received, currentItem.deps);
+      // need to keep on waiting
+      return null;
     }
-    console.log(`  Failure! Two sets are not the same`, currentItem.received, currentItem.deps);
-    // need to keep on waiting
-    return null;
   }
 
   private extendMsgWithCustom(msg: any) {
