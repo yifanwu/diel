@@ -1,7 +1,10 @@
-import { Database, QueryResults } from "sql.js";
+// import { Database, QueryResults } from "sql.js";
 import { RelationObject } from "./runtimeTypes";
 import { RelationSelection, ExprAst, ExprType, ExprColumnAst } from "../parser/dielAstTypes";
 import { LogInternalError } from "../util/messages";
+
+type QueryResults = any;
+type Database = any;
 
 function getNameFromExpr(e: ExprAst): string | undefined {
   switch (e.exprType) {
@@ -121,7 +124,7 @@ export function convertRelationObjectToQueryResults(ro: RelationObject): QueryRe
   qr.columns = Object.keys(ro[0]);
   ro.forEach((array) => {
     let values: string[] = [];
-    qr.columns.forEach((colname) => {
+    qr.columns.forEach((colname: any) => {
       values.push(array[colname] as string);
     });
     qr.values.push(values);

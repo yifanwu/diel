@@ -70,6 +70,20 @@ export default class DbEngine {
     this.relationShippingCallback = relationShippingCallback;
   }
 
+  public Close() {
+    switch (this.config.dbType) {
+      case DbType.Worker:
+        const id = {
+          remoteAction: DielRemoteAction.Close,
+          // timestep not needed...
+          requestTimestep: -1
+        };
+        // the sql is also not needed
+        this.connection.send(id, {sql: ""}, false);
+      case DbType.Socket:
+    }
+  }
+
   async setup() {
     switch (this.config.dbType) {
       case DbType.Worker:

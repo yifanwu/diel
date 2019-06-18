@@ -75,4 +75,5 @@ export function testStudentDb() {
     // window.setTimeout(() => {
     // }, 1000);
   }
+  return diel;
 }

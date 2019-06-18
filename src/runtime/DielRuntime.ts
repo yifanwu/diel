@@ -1,5 +1,6 @@
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
-import { Database, Statement, QueryResults } from "sql.js";
+import initSqlJs from "sql.js";
+// import { Database, Statement, QueryResults } from "sql.js";
 
 import { DIELLexer } from "../parser/grammar/DIELLexer";
 import { DIELParser } from "../parser/grammar/DIELParser";
@@ -27,6 +28,22 @@ import { getEventViewCacheName, getEventViewCacheReferenceName } from "../compil
 // ugly global mutable pattern here...
 export let STRICT = false;
 export let LOGINFO = false;
+
+
+const locateFile = (pathname: any) => {
+  if (pathname === "sql-wasm.wasm") {
+    return require("../../node_modules/sql.js/dist/sql-wasm.wasm");
+  }
+  throw new Error(`Unhandled locate path: ${pathname}`);
+};
+const config = {
+  locateFile
+};
+
+// FIXME: the new export pattern for sql.js is so weird.
+type Database = any;
+type Statement = any;
+type QueryResults = any;
 
 export const INIT_TIMESTEP = 1;
 
@@ -83,6 +100,7 @@ export default class DielRuntime {
   cache: Map<string, LogicalTimestep>;
 
   constructor(config: DielConfig) {
+    const startSetUpTime = performance.now();
     if (typeof window !== "undefined") {
       (<any>window).diel = this; // for debugging
     }
@@ -112,17 +130,41 @@ export default class DielRuntime {
     this.setup(config.setupCb);
     // TODO: move this into the DB for serialization
     this.cache = new Map();
+    const endSetUpTime = performance.now();
+    this.runtimeInputs.get("logTime").stmt.run({
+      $timestep: 0,
+      $kind: "begin",
+      $ts: startSetUpTime,
+    });
+    this.runtimeInputs.get("logTime").stmt.run({
+      $timestep: 0,
+      $kind: "end",
+      $ts: endSetUpTime,
+    });
   }
 
   getEventByTimestep(timestep: LogicalTimestep) {
     return this.eventByTimestep.get(timestep);
   }
 
+  public ShutDown() {
+    this.db.close();
+    this.dbEngines.forEach(e => {
+      e.Close();
+      // close
+    });
+  }
+
+  /**
+   * When the notebook invokes BindOutput it can invoke the data to be evaluated
+   * @param outputName
+   * @param reactFn
+   * @param triggerEval
+   */
   public BindOutput(outputName: string, reactFn: ReactFunc): void {
     if (!this.runtimeOutputs.has(outputName)) {
       ReportUserRuntimeError(`output not defined ${outputName}, from current outputs of: [${Array.from(this.runtimeOutputs.keys()).join(", ")}]`);
     }
-
     this.boundFns.push({outputName: outputName, uiUpdateFunc: reactFn });
     // the goal here is to tug on all the events so that the event views that outputs depend on will be shared
     // without any initial interactions
@@ -162,8 +204,9 @@ export default class DielRuntime {
         this.staticRelationsSent.push({static: t.relation, output: outputName});
       }
     }
+    // then evaluate the local view
+    this.runOutput({outputName, uiUpdateFunc: reactFn});
   }
-
 
   /**
    * GetView need to know if it's dependent on an event table
@@ -373,11 +416,12 @@ export default class DielRuntime {
     }
   }
 
-  downloadDB(dbId?: DbIdType) {
+  downloadDB(dbId?: DbIdType, fileName?: string) {
     if ((!dbId) || (dbId === LocalDbId)) {
       let dRaw = this.db.export();
       let blob = new Blob([dRaw]);
-      downloadHelper(blob,  "session");
+      const fName = fileName ? fileName : "session";
+      downloadHelper(blob, fName);
     } else {
       const remote = this.dbEngines.get(dbId);
       if (remote) {
@@ -601,13 +645,14 @@ export default class DielRuntime {
    * returns the DIEL code that will be ran to register the tables
    */
   private async setupMainDb() {
+    const SQL = await initSqlJs(config);
     if (!this.config.mainDbPath) {
-      this.db = new Database();
+      this.db = new SQL.Database();
     } else {
       const response = await fetch(this.config.mainDbPath);
       const bufferRaw = await response.arrayBuffer();
       const buffer = new Uint8Array(bufferRaw);
-      this.db = new Database(buffer);
+      this.db = new SQL.Database(buffer);
     }
     return;
   }
@@ -646,13 +691,13 @@ export default class DielRuntime {
     this.runtimeInputs.set("allInput",
       {
         stmt: this.db.prepare(`insert into allInputs (timestep, inputRelation, timestamp, request_timestep) values ($timestep, $inputRelation, $timestamp, $request_timestep)`),
-        columnNames: ["$timestep", "$inputRelation", "$timestamp", "$request_timestep"]
+        columnNames: ["timestep", "inputRelation", "timestamp", "request_timestep"]
     });
 
     this.runtimeInputs.set("logTime",
       {
         stmt: this.db.prepare(`insert into __perf values ($timestep, $kind, $ts)`),
-        columnNames: ["$timestep", "$kind", "$ts"]
+        columnNames: ["timestep", "kind", "ts"]
       });
 
   }
@@ -676,7 +721,8 @@ export default class DielRuntime {
 
   ExecuteStringQuery(q: string): RelationObject {
     let r: RelationObject = [];
-    this.db.each(q, (row) => { r.push(row as RecordObject); }, () => {});
+    // fixme: better types
+    this.db.each(q, (row: any) => { r.push(row as RecordObject); }, () => {});
     return r;
   }
 

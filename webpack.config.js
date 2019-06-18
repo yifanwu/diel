@@ -18,13 +18,18 @@ module.exports = {
     module: {
         rules: [
             // All files with a '.ts' or '.tsx' extension will be handled by 'awesome-typescript-loader'.
-            // 
+            //
+            {
+                test: /\.wasm$/,
+                loader: "file-loader",
+                type: "javascript/auto",
+            }, 
             {
                 test: /\.tsx?$/,
                 loaders: [
                   'awesome-typescript-loader?{configFileName: "testEndToEnd/tsconfig.json"}',
                 ],
-            },
+            }
             // {
             //     test: /\.js$/,
             //     enforce: "pre",
@@ -44,7 +49,7 @@ module.exports = {
     // This is important because it allows us to avoid bundling all of our
     // dependencies, which allows browsers to cache those libraries between builds.
     externals: {
-        "sql.js": "SQL",
+        "sql.js": "initSqlJs",
     },
     
     target: 'web',

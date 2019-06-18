@@ -23,6 +23,7 @@ interface FinalPromiseIdType extends FinalIdType {
 }
 const DielRemoteActionToEngineActionWorker = new Map<DielRemoteAction, string>([
   [DielRemoteAction.GetResultsByPromise, "exec"],
+  [DielRemoteAction.Close, "close"],
   [DielRemoteAction.UpdateRelation, "exec"],
   [DielRemoteAction.ConnectToDb, "open"],
   [DielRemoteAction.DefineRelations, "exec"],

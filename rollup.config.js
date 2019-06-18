@@ -23,6 +23,6 @@ export default {
   plugins: [nodeResolve({browser: true}), commonjs(), globals(), builtins()],
   external: ['sql.js'],
   globals: {
-    "sql.js": "SQL",
+    "sql.js": "initSqlJs",
   },
 };
