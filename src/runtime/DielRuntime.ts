@@ -1,6 +1,6 @@
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
-import initSqlJs from "sql.js";
-// import { Database, Statement, QueryResults } from "sql.js";
+// import initSqlJs from "sql.js";
+import { Database, Statement, QueryResults } from "sql.js";
 
 import { DIELLexer } from "../parser/grammar/DIELLexer";
 import { DIELParser } from "../parser/grammar/DIELParser";
@@ -30,20 +30,20 @@ export let STRICT = false;
 export let LOGINFO = false;
 
 
-const locateFile = (pathname: any) => {
-  if (pathname === "sql-wasm.wasm") {
-    return require("../../node_modules/sql.js/dist/sql-wasm.wasm");
-  }
-  throw new Error(`Unhandled locate path: ${pathname}`);
-};
-const config = {
-  locateFile
-};
+// const locateFile = (pathname: any) => {
+//   if (pathname === "sql-wasm.wasm") {
+//     return require("../../node_modules/sql.js/dist/sql-wasm.wasm");
+//   }
+//   throw new Error(`Unhandled locate path: ${pathname}`);
+// };
+// const config = {
+//   locateFile
+// };
 
 // FIXME: the new export pattern for sql.js is so weird.
-type Database = any;
-type Statement = any;
-type QueryResults = any;
+// type Database = any;
+// type Statement = any;
+// type QueryResults = any;
 
 export const INIT_TIMESTEP = 1;
 
@@ -127,20 +127,7 @@ export default class DielRuntime {
     this.boundFns = [];
     this.runOutput = this.runOutput.bind(this);
     this.BindOutput = this.BindOutput.bind(this);
-    this.setup(config.setupCb);
-    // TODO: move this into the DB for serialization
-    this.cache = new Map();
-    const endSetUpTime = performance.now();
-    this.runtimeInputs.get("logTime").stmt.run({
-      $timestep: 0,
-      $kind: "begin",
-      $ts: startSetUpTime,
-    });
-    this.runtimeInputs.get("logTime").stmt.run({
-      $timestep: 0,
-      $kind: "end",
-      $ts: endSetUpTime,
-    });
+    this.setup(config.setupCb, startSetUpTime);
   }
 
   getEventByTimestep(timestep: LogicalTimestep) {
@@ -449,7 +436,7 @@ export default class DielRuntime {
     return null;
   }
 
-  private async setup(loadPage: () => void) {
+  private async setup(loadPage: () => void, startSetUpTime: number) {
     console.log(`Setting up DielRuntime with ${JSON.stringify(this.config)}`);
     await this.setupMainDb();
     await this.setupRemotes();
@@ -465,6 +452,19 @@ export default class DielRuntime {
     this.setupNewInput();
     GetAllOutputs(this.ast).map(o => this.setupNewOutput(o.rName));
     this.scales = ParseSqlJsWorkerResult(this.db.exec("select * from __scales"));
+
+    this.cache = new Map();
+    const endSetUpTime = performance.now();
+    this.runtimeInputs.get("logTime").stmt.run({
+      $timestep: 0,
+      $kind: "begin",
+      $ts: startSetUpTime,
+    });
+    this.runtimeInputs.get("logTime").stmt.run({
+      $timestep: 0,
+      $kind: "end",
+      $ts: endSetUpTime,
+    });
     loadPage();
   }
 
@@ -645,14 +645,15 @@ export default class DielRuntime {
    * returns the DIEL code that will be ran to register the tables
    */
   private async setupMainDb() {
-    const SQL = await initSqlJs(config);
+    // console.log("initSqlJs is:", initSqlJs);
+    // const SQL = await initSqlJs(config);
     if (!this.config.mainDbPath) {
-      this.db = new SQL.Database();
+      this.db = new Database();
     } else {
       const response = await fetch(this.config.mainDbPath);
       const bufferRaw = await response.arrayBuffer();
       const buffer = new Uint8Array(bufferRaw);
-      this.db = new SQL.Database(buffer);
+      this.db = new Database(buffer);
     }
     return;
   }

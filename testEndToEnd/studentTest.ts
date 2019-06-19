@@ -35,7 +35,7 @@ answerByRequestTimestep.set("Alice", 50);
 answerByRequestTimestep.set("Bob", 85);
 answerByRequestTimestep.set("Charlie", 99);
 
-export function testStudentDb() {
+export function testStudentDb(perf: (diel: DielRuntime) => void) {
 
   const diel = new DielRuntime({
     isStrict: true,
@@ -72,8 +72,10 @@ export function testStudentDb() {
     // window.setTimeout(() => {
     //   diel.NewInput("name_choice", {first_name: "Alice"});
     // }, 1000);
-    // window.setTimeout(() => {
-    // }, 1000);
+    // manually wait for like 5 seconds and it should be enough time
+    window.setTimeout(() => {
+      perf(diel);
+    }, 5000);
   }
   return diel;
 }

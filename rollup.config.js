@@ -2,6 +2,7 @@ import commonjs from 'rollup-plugin-commonjs';
 import nodeResolve from 'rollup-plugin-node-resolve';
 import builtins from 'rollup-plugin-node-builtins';
 import globals from 'rollup-plugin-node-globals';
+import wasm from 'rollup-plugin-wasm';
 
 export function disallowedImports() {
   return {
@@ -20,7 +21,7 @@ export default {
     format: 'iife',
     name: 'diel'
   },
-  plugins: [nodeResolve({browser: true}), commonjs(), globals(), builtins()],
+  plugins: [nodeResolve({browser: true}), commonjs(), globals(), builtins(), wasm()],
   external: ['sql.js'],
   globals: {
     "sql.js": "initSqlJs",

@@ -3,7 +3,7 @@
 
 create event table name_choice (first_name text);
 
-create event view latest_name_choice as select first_name from latest name_choice;
+create view latest_name_choice as select first_name from latest name_choice;
 
 create event view current_student_score
   as select students.first_name as student, exam.score as grade

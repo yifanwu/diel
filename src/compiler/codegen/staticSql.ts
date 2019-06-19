@@ -26,4 +26,12 @@ create table __perf (
   check(kind = 'start' or kind = 'end'),
   primary key(timestep, kind)
 );
+
+create view __perfByStep as
+  select
+    b.timestep, round(e.ts - b.ts, 2) as total
+  from
+    (select * from __perf where kind = 'begin') b
+    join (select * from __perf where kind = 'end') e
+    on b.timestep = e.timestep;
 `;
