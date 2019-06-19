@@ -1,4 +1,4 @@
-import { ReportDielUserError, LogInternalError, DielInternalErrorType } from "../../util/messages";
+import { ReportDielUserError, LogInternalError, DielInternalErrorType, LogInternalWarning } from "../../util/messages";
 import { SqlAst, SqlRelationType, SqlRelation, SqlOriginalRelation, SqlDerivedRelation, TriggerAst } from "../../parser/sqlAstTypes";
 import { DropClause, AstType, DropType, Command, InsertionClause, RelationSelection, CompositeSelection, SetOperator, CompositeSelectionUnit, SelectionUnit, RelationReference, ColumnSelection, JoinType, JoinAst, ExprAst, ExprType, ExprValAst, DielDataType, ExprColumnAst, ExprRelationAst, ExprParen, ExprFunAst, FunctionType, BuiltInFunc, GroupByAst, OrderByAst, Order, Column, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, ExprStarAst, DeleteClause } from "../../parser/dielAstTypes";
 
@@ -65,6 +65,7 @@ export function generateDelete(command: DeleteClause) {
 }
 
 export function GenerateSqlRelationString(r: SqlRelation, replace = false): string {
+
   switch (r.relationType) {
     case SqlRelationType.Table:
       return generateTableSpec(r as SqlOriginalRelation, replace);
@@ -81,7 +82,7 @@ function generateTableSpec(t: SqlOriginalRelation, replace = false): string {
   const replaceQuery = replace ? `DROP TABLE IF EXISTS ${t.rName};` : "";
   return `${replaceQuery}
   CREATE TABLE ${t.rName} (
-    ${t.columns.map(c => generateColumnDefinition(c)).join(",\n")}
+${t.columns.map(c => "    " + generateColumnDefinition(c)).join(",\n")}
   )`;
 }
 
@@ -113,14 +114,12 @@ export function GetSqlStringFromCompositeSelectionUnit(c: CompositeSelectionUnit
 }
 
 export function SqlStrFromSelectionUnit(v: SelectionUnit): string {
-  if (v.derivedColumnSelections === undefined) {
-    return LogInternalError(`There should be selections; might be beucase this was not normalized!.  This is for query:\n${JSON.stringify(v)}`);
-  }
-  const selection = generateColumnSelection(v.derivedColumnSelections);
-  // const selection = original
-  //   ? generateColumnSelection(v.columnSelections)
-    // : generateColumnSelection(v.derivedColumnSelections)
-    // ;
+  // sometimes might want to use the un-normalized case for a quick SQL string...
+  const selection = v.derivedColumnSelections
+    ? generateColumnSelection(v.derivedColumnSelections)
+    : generateColumnSelection(v.columnSelections)
+    ;
+
   return `SELECT ${v.isDistinct ? "DISTINCT" : ""} ${selection}
     ${SqlStrFromSelectionUnitBody(v)}
   `;
@@ -183,6 +182,7 @@ const joinOpToString = new Map([
   [JoinType.LeftOuter, "LEFT OUTER JOIN"],
   [JoinType.Inner, "JOIN"],
   [JoinType.CROSS, "CROSS JOIN"],
+  [JoinType.Natural, "NATURAL JOIN"],
 ]);
 
 function generateJoin(j: JoinAst): string {
@@ -302,15 +302,7 @@ function generateTrigger({ trigger, replace = false }: { trigger: TriggerAst; re
   const replaceQuery = replace ? `DROP TRIGGER IF EXISTS ${trigger.tName};` : "";
   let program = `${replaceQuery}
   CREATE TRIGGER ${trigger.tName} AFTER INSERT ON ${trigger.afterRelationName}\nBEGIN\n`;
-  program += trigger.commands.map(p => {
-    if (p.astType === AstType.RelationSelection) {
-      const r = p as RelationSelection;
-      return generateSelect(r.compositeSelections) + ";";
-    } else {
-      const i = p as InsertionClause;
-      return generateInserts(i) + ";";
-    }
-  }).join("\n");
+  program += trigger.commands.map(p => generateCommand(p)).join("\n");
   program += "\nEND;";
   return program;
 }
@@ -337,7 +329,7 @@ function generateInserts(i: InsertionClause): string {
     : i.selection
       ? generateSelect(i.selection.compositeSelections)
       : "";
-  return `INSERT INTO ${i.relation} ${columns} ${values}`;
+  return `INSERT INTO ${i.relation} ${columns} ${values};`;
 }
 
 const TypeConversionLookUp = new Map<DielDataType, string>([
@@ -350,7 +342,7 @@ const TypeConversionLookUp = new Map<DielDataType, string>([
 function generateColumnDefinition(c: Column): string {
   const typeStr = TypeConversionLookUp.get(c.dataType);
   if (!typeStr) {
-    LogInternalError(`data type ${c.dataType} is not mapped tos tring`);
+    LogInternalError(`data type ${c.dataType} is not mapped to string`);
   }
   const plainQuery = `${c.cName} ${typeStr}`;
   if (!c.constraints) {

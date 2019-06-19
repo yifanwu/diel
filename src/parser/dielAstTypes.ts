@@ -126,6 +126,10 @@ export const BuiltInColumnTyppes: BuiltInColumnType[] = [
     type: DielDataType.Number
   },
   {
+    column: "request_timestep",
+    type: DielDataType.Number
+  },
+  {
     column: "timestamp",
     type: DielDataType.Number
   }
@@ -178,17 +182,25 @@ export const BuiltInUdfTypes: UdfType[] = [
   },
 ];
 
+export enum RelationOrigin {
+  User = "User",
+  DerivedFromCaching = "DerivedFromCaching",
+  DerivedFromMaterialization = "DerivedFromMaterialization"
+}
+
 interface RelationBase {
   rName: string;
+  origin?: HasDefault<RelationOrigin>;
+  replaces?: Optional<RelationNameType>;
+  isReplaced?: HasDefault<boolean>;
   constraints?: Optional<RelationConstraints>;
   relationType: RelationType;
 }
 
-
 export interface DerivedRelation extends RelationBase {
   selection: RelationSelection;
+  cachable?: HasDefault<boolean>;
 }
-
 
 export interface OriginalRelation extends RelationBase {
   columns: Column[];
@@ -255,6 +267,7 @@ export interface DielContext {
 
 export interface DielAst {
   relations: Relation[]; // contains all relations, including table definitions, events, ouputs and views
+  replacedRelations: Relation[];
   commands: Command[]; // contains select, insert, drop, and delete
   programs: ProgramsIr;
   udfTypes: UdfType[];
@@ -264,6 +277,7 @@ export interface DielAst {
 export function createEmptyDielAst() {
   const newAst: DielAst = {
     relations: [],
+    replacedRelations: [],
     programs: new Map(),
     commands: [],
     udfTypes: [],
@@ -299,6 +313,7 @@ export interface ColumnConstraints {
 export enum JoinType {
   LeftOuter = "LeftOuter",
   Inner = "Inner",
+  Natural = "Natural",
   CROSS = "Cross"
 }
 
@@ -529,7 +544,7 @@ export interface CustomFunc {
 
 
 export type SimpleColumn = {
-  columnName: string,
+  cName: string,
   dataType: DielDataType
 };
 

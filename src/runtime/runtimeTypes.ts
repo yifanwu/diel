@@ -34,6 +34,7 @@ export interface DielConfig {
   isStrict?: boolean;
   mainDbPath?: string;
   dbConfigs?: DbSetupConfig[];
+  caching?: boolean;
 }
 
 export type GetRelationToShipFuncType = (dbId: DbIdType, relation: string, step: LogicalTimestep) => Set<string>;
@@ -59,7 +60,8 @@ export enum DielRemoteAction {
   DefineRelations = "DefineRelations",
   UpdateRelation = "UpdateRelation",
   ShipRelation = "ShipRelation",
-  CleanUpQueries = "CleanUpQueries"
+  CleanUpQueries = "CleanUpQueries",
+  Close = "Close"
 }
 
 export interface DielRemoteMessageId {

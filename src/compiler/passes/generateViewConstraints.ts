@@ -252,8 +252,7 @@ function getUniqueQuery (viewConstraints: RelationConstraints, selUnit: Selectio
           functionType: FunctionType.Custom,
           functionReference: "COUNT",
           args: [{
-            exprType: ExprType.Column,
-            hasStar: true
+            exprType: ExprType.Star
           }]
         }
       };

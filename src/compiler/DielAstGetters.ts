@@ -1,12 +1,12 @@
 import { LogInternalError, DielInternalErrorType } from "../util/messages";
-import { SelectionUnit, DielAst, RelationType, OriginalRelation, Relation, ExprType, ExprColumnAst, RelationNameType, ExprFunAst, SimpleColumn } from "../parser/dielAstTypes";
+import { SelectionUnit, DielAst, RelationType, OriginalRelation, Relation, ExprType, ExprColumnAst, RelationNameType, ExprFunAst, SimpleColumn, BuiltInColumn, DielDataType } from "../parser/dielAstTypes";
 import { DerivedRelation } from "..";
+import { EventTableColumns, EventViewColumns } from "./passes/distributeQueries";
 
 const DerivedRelationTypes = new Set([RelationType.View, RelationType.EventView, , RelationType.Output, RelationType.DerivedTable]);
 const OriginalRelationTypes = new Set([RelationType.Table, RelationType.EventTable, RelationType.ExistingAndImmutable]);
 
 // --------------- BEGIN CHECKERs --------------------
-
 
 export function IsRelationTypeDerived(rType: RelationType) {
   if (DerivedRelationTypes.has(rType)) {
@@ -21,17 +21,27 @@ export function IsRelationTypeDerived(rType: RelationType) {
 
 // --------------- BEGIN GETTERS --------------------
 
-
 export function DeriveColumnsFromRelation(r: Relation): SimpleColumn[] {
   if (IsRelationTypeDerived(r.relationType)) {
     const d = r as DerivedRelation;
-    return DeriveColumnsFromSelectionUnit(d.selection.compositeSelections[0].relation);
+    const originalColumns = DeriveColumnsFromSelectionUnit(d.selection.compositeSelections[0].relation);
+    const derivedColumns = r.relationType === RelationType.EventView
+      // this casting is a bit brittle; should think more about the types
+      ? originalColumns.concat(EventViewColumns as SimpleColumn[])
+      : originalColumns
+      ;
+    return derivedColumns;
   } else {
     const o = r as OriginalRelation;
-    return o.columns.map(c => ({
-      columnName: c.cName,
+    const originalColumns: SimpleColumn[] = o.columns.map(c => ({
+      cName: c.cName,
       dataType: c.dataType
     }));
+    const derivedColumns = r.relationType === RelationType.EventTable
+      ? originalColumns.concat(EventTableColumns as SimpleColumn[])
+      : originalColumns
+      ;
+    return derivedColumns;
   }
 }
 
@@ -44,14 +54,14 @@ export function DeriveColumnsFromSelectionUnit(su: SelectionUnit): SimpleColumn[
       case ExprType.Column:
         const columnExpr = column.expr as ExprColumnAst;
         columns.push({
-          columnName: columnExpr.columnName,
+          cName: column.alias,
           dataType: columnExpr.dataType
         });
         break;
       case ExprType.Func:
         const functionExpr = column.expr as ExprFunAst;
         columns.push({
-          columnName: column.alias,
+          cName: column.alias,
           dataType: functionExpr.dataType
         });
         break;
@@ -102,98 +112,9 @@ export function GetRelationDef(ast: DielAst, rName: string): Relation | null {
 
 
 
-// -------------- CHERS ---------------
+// --------------  ---------------
 
 export function IsRelationEvent(ast: DielAst, rName: RelationNameType) {
   const r = GetRelationDef(ast, rName);
-  return r.relationType === RelationType.EventTable;
+  return (r.relationType === RelationType.EventTable) || (r.relationType === RelationType.EventView);
 }
-
-// export class DielIr {
-
-//   ast: DielAstFinal;
-//   dependencies: DependencyInfo;
-//   private allDerivedRelations: Map<string, DerivedRelationFinal>;
-//   // private allCompositeSelections: Map<string, CompositeSelection>;
-//   private allOriginalRelations: Map<string, OriginalRelationFinal>;
-//   constructor(ast: DielAst) {
-//     this.ast = ast;
-//     // this.buildIndicesToIr();
-//     // const allCompositeSelections = new Map();
-//     // this.applyToAllCompositeSelection<void>((r, name) => {
-//     //   allCompositeSelections.set(name, r);
-//     // });
-//     // this.allCompositeSelections = allCompositeSelections;
-//     this.allOriginalRelations = new Map();
-//     this.GetOriginalRelations().map((r) => {
-//       this.allOriginalRelations.set(r.rName, r);
-//     });
-//     this.allDerivedRelations = new Map();
-//     this.GetAllDerivedViews().map((r) => {
-//       this.allDerivedRelations.set(r.rName, r);
-//     });
-//   }
-
-
-  // THINK: we should probably do relations name?
-  // i think the materialization step wants this as well
-  // public GetDependentInputs(relationName: string) {
-  //   // get all its depdencies
-  // }
-
-
-  // public GetColumnsFromRelationName(relationName: string): SimpleColumn[] | null {
-  //   const relationDef = this.GetRelationDefinition(relationName);
-  //   if (relationDef) {
-  //     if (IsRelationTypeDerived(relationDef.relationType)) {
-  //       return columnsFromSelectionUnit((relationDef as DerivedRelationFinal).selection.compositeSelections[0].relation);
-  //     } else {
-  //       return (relationDef as OriginalRelationFinal).columns.map(c => ({columnName: c.cName, type: c.type}));
-  //     }
-  //   } else {
-  //     // note for LUCIE: this is a good place to add the fuzzy search for correct relation name suggestion
-  //     return LogInternalError(`Cannot find relation ${relationName}`, DielInternalErrorType.RelationNotFound);
-  //   }
-  // }
-
-//   public GetRelationDefinition(relationName: RelationIdType) {
-//     return this.ast.relations.find(r => r.rName === relationName);
-//   }
-
-//   public GetAllDerivedViews(): DerivedRelationFinal[] {
-//     return this.ast.relations.filter(r => IsRelationTypeDerived(r.relationType)) as DerivedRelationFinal[];
-//   }
-//   public GetOriginalRelations(): OriginalRelationFinal[] {
-//     return this.ast.relations.filter(r => !IsRelationTypeDerived(r.relationType)) as OriginalRelationFinal[];
-//   }
-
-//   public GetDielDefinedOriginalRelation() {
-//     return this.GetOriginalRelations().filter(r => r.relationType !== RelationType.ExistingAndImmutable);
-//   }
-
-//   public 
-
-//   /**
-//    * returns all the event relations by name
-//    */
-//   public GetEventRelationNames() {
-//     return this.ast.relations
-//       .filter(r => ((r.relationType === RelationType.EventTable) || (r.relationType === RelationType.EventView)))
-//       .map(i => i.rName);
-//   }
-
-//   public GetAllRelationNames() {
-//     return this.ast.relations.map(i => i.rName);
-//   }
-
-//   /**
-//    * Warning: this method does not actually visit all the selection units
-//    *   e.g., if it's a where predicate with a subquery, it's not going to visit the unit
-//    *         selection from that subquery.
-//    * @param fun
-//    * @param byDependency
-//    */
-//   public 
-
-
-// // }

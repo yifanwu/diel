@@ -1,7 +1,7 @@
 import { DbType, DielRemoteAction, DielRemoteReply, DielRemoteMessageId } from "./runtimeTypes";
 import { ParseSqlJsWorkerResult } from "./runtimeHelper";
 import { downloadHelper } from "../util/dielUtils";
-import { LogInfo, LogInternalError } from "../util/messages";
+import { LogInfo, LogInternalError, LogExecutionTrace, LogInternalWarning } from "../util/messages";
 import { DbIdType, LogicalTimestep } from "../parser/dielAstTypes";
 
 type FinalMsgType =
@@ -23,6 +23,7 @@ interface FinalPromiseIdType extends FinalIdType {
 }
 const DielRemoteActionToEngineActionWorker = new Map<DielRemoteAction, string>([
   [DielRemoteAction.GetResultsByPromise, "exec"],
+  [DielRemoteAction.Close, "close"],
   [DielRemoteAction.UpdateRelation, "exec"],
   [DielRemoteAction.ConnectToDb, "open"],
   [DielRemoteAction.DefineRelations, "exec"],
@@ -51,6 +52,7 @@ export class ConnectionWrapper {
   }
 
   public send(id: FinalIdType, msgToSend: FinalMsgType, isPromise: boolean): Promise<DielRemoteReply> | null  {
+    LogExecutionTrace(`Executing to DB ${(msgToSend as any).sql}`); // REMOVE
     if (isPromise) {
       // do the promise thing here
       const msgId = this.globalMsgId;
@@ -82,7 +84,7 @@ export class ConnectionWrapper {
         action,
         ...msgToSend
       };
-      LogInfo(`Posting to Worker`, finalMsg);
+      LogExecutionTrace(`Posting to Worker`, finalMsg);
       worker.postMessage(finalMsg);
     } else {
       // FIXME: clear serialization logic
@@ -100,7 +102,7 @@ export class ConnectionWrapper {
   setHandler(f: (msg: DielRemoteReply) => void) {
     const self = this;
     const newF = (event: any) => {
-      console.log(`Handling message`, event);
+      LogExecutionTrace(`DB executed message`, event.data);
       let msg: DielRemoteReply | undefined;
       if (this.remoteType === DbType.Socket) {
         try {
@@ -108,7 +110,7 @@ export class ConnectionWrapper {
           // special debugging case
           if ((msg as any).id === "test") return;
         } catch (e) {
-          console.log(`%cSocket sent mal-formatted message: ${JSON.stringify(event.data, null, 2)}`, "color: red");
+          LogInternalWarning(`Socket sent mal-formatted message: ${JSON.stringify(event.data, null, 2)}`);
           return;
         }
       } else {
@@ -144,12 +146,11 @@ export class ConnectionWrapper {
             resolve(msg);
           }
         }
-        console.log("Promise resolved", msg);
+        // LogExecutionTrace("Promise resolved", 1, msg);
         // purge used callbacks
         self.resolves.delete(promiseId);
         self.rejects.delete(promiseId);
       }
-      console.log("Connector handled", msg, "no promise");
       f(msg);
     };
     if (this.remoteType === DbType.Worker) {

@@ -1,31 +1,49 @@
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
+// import initSqlJs from "sql.js";
 import { Database, Statement, QueryResults } from "sql.js";
 
 import { DIELLexer } from "../parser/grammar/DIELLexer";
 import { DIELParser } from "../parser/grammar/DIELParser";
 
 import { DielRemoteAction, RelationObject, DielConfig, TableMetaData, DbType, RecordObject, RemoteShipRelationMessage, RemoteUpdateRelationMessage, RemoteExecuteMessage, ExecutionSpec, } from "./runtimeTypes";
-import { OriginalRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationNameType, DerivedRelation, DielAst, BuiltInColumn } from "../parser/dielAstTypes";
-import { SqlStrFromSelectionUnit, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst, GenerateSqlRelationString } from "../compiler/codegen/codeGenSql";
+import { OriginalRelation, RelationType, SelectionUnit, DbIdType, LogicalTimestep, RelationNameType, DerivedRelation, DielAst, BuiltInColumn, Relation, Optional, RelationReferenceType, RelationReferenceSubquery, RelationSelection, RelationReference, RelationReferenceDirect, RelationOrigin } from "../parser/dielAstTypes";
+import { SqlStrFromSelectionUnit, generateInsertClauseStringForValue, generateStringFromSqlIr, generateDrop, generateCleanUpAstFromSqlAst, GenerateSqlRelationString, GetSqlStringFromCompositeSelectionUnit } from "../compiler/codegen/codeGenSql";
 import Visitor from "../parser/generateAst";
 import { CompileAst, CompileDerivedAstGivenAst } from "../compiler/compiler";
 import { log } from "../util/dielUdfs";
 import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
-import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo } from "../util/messages";
+import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo, LogExecutionTrace } from "../util/messages";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult, GenerateViewName, CaughtLocalRun, convertRelationObjectToQueryResults } from "./runtimeHelper";
-import { DielPhysicalExecution, LocalDbId } from "../compiler/DielPhysicalExecution";
+import { DielPhysicalExecution, LocalDbId, dependsOnLocalTables, dependsOnRemoteTables } from "../compiler/DielPhysicalExecution";
 import DbEngine from "./DbEngine";
 import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { ParsePlainSelectQueryAst } from "../compiler/compiler";
 import { GetSqlRelationFromAst, GetDynamicRelationsColumns } from "../compiler/codegen/SqlAstGetters";
-import { SqlOriginalRelation, SqlRelationType } from "../parser/sqlAstTypes";
-import { DeriveDependentRelations } from "../compiler/passes/dependency";
-import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation } from "../compiler/DielAstGetters";
+import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation, SqlAst } from "../parser/sqlAstTypes";
+import { DeriveDependentRelations, getRelationReferenceDep } from "../compiler/passes/dependency";
+import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation, IsRelationTypeDerived } from "../compiler/DielAstGetters";
+import { getEventViewCacheName, getEventViewCacheReferenceName } from "../compiler/passes/distributeQueries";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
 export let LOGINFO = false;
+
+
+// const locateFile = (pathname: any) => {
+//   if (pathname === "sql-wasm.wasm") {
+//     return require("../../node_modules/sql.js/dist/sql-wasm.wasm");
+//   }
+//   throw new Error(`Unhandled locate path: ${pathname}`);
+// };
+// const config = {
+//   locateFile
+// };
+
+// FIXME: the new export pattern for sql.js is so weird.
+// type Database = any;
+// type Statement = any;
+// type QueryResults = any;
 
 export const INIT_TIMESTEP = 1;
 
@@ -54,6 +72,8 @@ type DbMetaData = {
 };
 
 export type PhysicalMetaData = {
+  // RYAN: TODO: Find better place for this.
+  cache?: boolean,
   dbs: Map<DbIdType, DbMetaData>;
   relationLocation: Map<string, TableMetaData>;
 };
@@ -76,8 +96,11 @@ export default class DielRuntime {
   checkConstraints: boolean;
   protected boundFns: TickBind[];
   protected runtimeOutputs: Map<string, Statement>;
+  protected runtimeInputs: Map<string, {stmt: Statement, columnNames: string[]}>;
+  cache: Map<string, LogicalTimestep>;
 
   constructor(config: DielConfig) {
+    const startSetUpTime = performance.now();
     if (typeof window !== "undefined") {
       (<any>window).diel = this; // for debugging
     }
@@ -97,19 +120,34 @@ export default class DielRuntime {
     this.runtimeOutputs = new Map();
     this.physicalMetaData = {
       dbs: new Map(),
-      relationLocation: new Map()
+      relationLocation: new Map(),
+      cache: config.caching ? config.caching : false
     };
     this.staticRelationsSent = [];
     this.boundFns = [];
     this.runOutput = this.runOutput.bind(this);
     this.BindOutput = this.BindOutput.bind(this);
-    this.setup(config.setupCb);
+    this.setup(config.setupCb, startSetUpTime);
   }
 
   getEventByTimestep(timestep: LogicalTimestep) {
     return this.eventByTimestep.get(timestep);
   }
 
+  public ShutDown() {
+    this.db.close();
+    this.dbEngines.forEach(e => {
+      e.Close();
+      // close
+    });
+  }
+
+  /**
+   * When the notebook invokes BindOutput it can invoke the data to be evaluated
+   * @param outputName
+   * @param reactFn
+   * @param triggerEval
+   */
   public BindOutput(outputName: string, reactFn: ReactFunc): void {
     if (!this.runtimeOutputs.has(outputName)) {
       ReportUserRuntimeError(`output not defined ${outputName}, from current outputs of: [${Array.from(this.runtimeOutputs.keys()).join(", ")}]`);
@@ -153,8 +191,9 @@ export default class DielRuntime {
         this.staticRelationsSent.push({static: t.relation, output: outputName});
       }
     }
+    // then evaluate the local view
+    this.runOutput({outputName, uiUpdateFunc: reactFn});
   }
-
 
   /**
    * GetView need to know if it's dependent on an event table
@@ -175,54 +214,159 @@ export default class DielRuntime {
 
   public NewInput(i: string, o: any, requestTimestep?: number) {
     requestTimestep = requestTimestep ? requestTimestep : this.timestep;
+    LogInfo(`New input ${requestTimestep ? `at ${requestTimestep}` : ""}`, JSON.stringify(o));
     this.newInputHelper(i, [o], requestTimestep);
   }
 
-  // also cache parts of the logic
-  // FIXME: use AST instead of string manipulation...
+  private makeSubKey(r: RelationReference) {
+    if (r.relationReferenceType === RelationReferenceType.Direct) {
+      let relation = (r as RelationReferenceDirect).relationName;
+      // we need to filter out the time related fields if they are not used
+      let query = `select * from ${relation}`;
+      console.log(`    Hashing "${query}" for caching`);
+      return JSON.stringify(this.ExecuteStringQuery(query));
+    } else {
+      let subqry = (r as RelationReferenceSubquery).subquery;
+      let hash = "";
+      subqry.compositeSelections.forEach(c => {
+          let query = GetSqlStringFromCompositeSelectionUnit(c);
+          console.log(`    Hashing "${query}" for caching`);
+          hash += JSON.stringify(this.ExecuteStringQuery(query));
+      });
+      return hash;
+    }
+  }
+
+  /**
+   * Improvements: could be smarter
+   * @param eventView
+   */
+  private getCacheKey(eventView: string) {
+    let rDef = GetRelationDef(this.ast, eventView) as DerivedRelation;
+
+    let selections: RelationReference[] = [];
+
+    let mainSelection = rDef.selection.compositeSelections[0].relation;
+
+    // RYAN TODO: if baseRelation undefined? Also check in other places for this.
+    selections.push(mainSelection.baseRelation);
+
+    mainSelection.joinClauses.forEach(j => {
+      selections.push(j.relation);
+    });
+
+    let key = "";
+
+    selections.forEach(s => {
+      if (dependsOnLocalTables(getRelationReferenceDep(s), this.physicalMetaData.relationLocation)) {
+        key += ";" + this.makeSubKey(s);
+      }
+    });
+
+    return key;
+  }
+
+  /**
+   * Returns the requestTimestep corresponding to the cached requestTimestep.
+   * If cache miss, will return the requestTimestep passed in.
+   * @param eventView
+   * @param requestTimestep
+   */
+  private getFromCacheOrMiss(eventView: string, requestTimestep: LogicalTimestep): LogicalTimestep {
+    let key = this.getCacheKey(eventView);
+    let cachedRequestTimestep = this.cache.get(key);
+    if (cachedRequestTimestep === undefined) {
+      console.log(`    Cache miss for local dependencies of ${eventView}.`);
+      this.cache.set(key, requestTimestep);
+      return requestTimestep;
+    }
+    console.log(`    Cache hit for ${eventView}: cached requestTimestep is ${requestTimestep}`);
+    return cachedRequestTimestep;
+  }
+
   private newInputHelper(eventName: string, objs: any[], requestTimestep: number) {
     // start of tick
     this.timestep++;
+    this.runtimeInputs.get("logTime").stmt.run({
+      $timestep: this.timestep,
+      $kind: "begin",
+      $ts: performance.now()
+    });
     this.eventByTimestep.set(this.timestep, eventName);
     // we should get the definition from the local SQL definitions...
-    const localSqlAst = this.physicalExecution.getAstFromDbId(LocalDbId);
-    const sqlRelation = GetSqlRelationFromAst(localSqlAst, eventName);
-    if (!sqlRelation) return ReportUserRuntimeError(`Event ${eventName} is not defined`);
-    const columnNames = GetDynamicRelationsColumns(sqlRelation as SqlOriginalRelation);
-      const values = objs.map(o => {
-        return columnNames.filter(c => !(c in BuiltInColumn)).map(cName => {
+    const caching = this.config.caching && this.GetRelationDef(eventName).relationType === RelationType.EventView;
+    const inputEvent = caching
+      ? getEventViewCacheName(eventName)
+      : eventName
+      ;
+
+    const builtIn: {[index: string]: number} = {
+      TIMESTEP: this.timestep,
+      REQUEST_TIMESTEP: requestTimestep,
+      ORIGINAL_REQUEST_TIMESTEP: requestTimestep
+    };
+
+    // set the values
+    objs.map(o => {
+      const value: {[index: string]: number | string} = {};
+      // note that we need to filter out the built in columns
+      //   because they are provided by US, not the input object
+      // filter(c => !(c in BuiltInColumn))
+      this.runtimeInputs.get(inputEvent).columnNames.map(cName => {
+        const builtInValue = builtIn[cName];
+        if (builtInValue) {
+          value[`$${cName}`] = builtInValue;
+          return;
+        } else {
           const raw = o[cName];
           // it can be explicitly set to null, but not undefined
           if (raw === undefined) {
             ReportUserRuntimeError(`We expected the input ${cName}, but it was not defined for ${eventName} in the object ${JSON.stringify(objs, null, 2)}.`);
+          } else {
+            value[`$${cName}`] = raw;
           }
-          return generateInsertClauseStringForValue(raw);
-        });
-      });
-      let finalQuery: string;
-      const allInputQuery = `
-      insert into allInputs (timestep, inputRelation, timestamp, request_timestep) values
-        (${this.timestep}, '${eventName}', ${Date.now()}, ${requestTimestep});`;
-      if (columnNames && (columnNames.length > 0)) {
-        finalQuery = `insert into ${eventName} (${columnNames.join(", ")}) values
-          ${values.map(v => `(${v.join(", ")}, ${this.timestep}, ${requestTimestep})`)};`; // HACK
-      } else {
-        finalQuery = `insert into ${eventName} (timestep, request_timestep) values (${this.timestep}, ${requestTimestep});`;
-      }
-      LogInfo(`Tick\n${finalQuery + allInputQuery}`);
-      this.db.exec(finalQuery + allInputQuery);
-
-      const inputDep = DeriveDependentRelations(this.ast.depTree, eventName);
-      if (!inputDep) {
-        return LogInternalWarning(`Input ${eventName} as not dependencies`);
-      }
-      this.boundFns.map(b => {
-        if (inputDep.has(b.outputName)) {
-          this.runOutput(b);
+          return;
         }
       });
-      // end of tick
-      this.shipWorkerInput(eventName, this.timestep);
+      this.runtimeInputs.get(inputEvent).stmt.run(value);
+    });
+
+    this.runtimeInputs.get("allInput").stmt.run({
+      $timestep: this.timestep,
+      $inputRelation: inputEvent,
+      $timestamp: Date.now(),
+      $request_timestep: requestTimestep
+    });
+
+    // Factored out so we can repeat
+    const relationsDependentOnCurrentEvent = DeriveDependentRelations(this.ast.depTree, eventName);
+    if (!relationsDependentOnCurrentEvent) {
+      return LogInternalWarning(`Input ${eventName} as not dependencies`);
+    }
+    const notCachedViews = this.checkAndApplyCache(eventName, relationsDependentOnCurrentEvent, this.timestep);
+    // must be ran after cache for cached views to be in effect for the current timestep
+    this.runOutputsGivenNewInputForEvent(relationsDependentOnCurrentEvent);
+    LogExecutionTrace(`notCachedViews are`, JSON.stringify(notCachedViews));
+    if (notCachedViews.length > 0) {
+      this.shipWorkerInput(eventName, notCachedViews, this.timestep);
+    }
+    return 0;
+  }
+
+  private runOutputsGivenNewInputForEvent(inputDep: Set<RelationNameType>) {
+    // there should be a step here to check for caching, because if it's cached it should be in the same timestep!
+
+    this.boundFns.map(b => {
+      if (inputDep.has(b.outputName)) {
+        this.runOutput(b);
+      }
+    });
+
+    this.runtimeInputs.get("logTime").stmt.run({
+      $timestep: this.timestep,
+      $kind: "end",
+      $ts: performance.now()
+    });
   }
 
   /**
@@ -244,8 +388,6 @@ export default class DielRuntime {
    */
   constraintChecking(viewName: string) {
     // TODO. Check view constraint for nested views. currently, it only checks output view.
-    console.log("toggle mode: ", this.checkConstraints);
-
     // only check if checking mode is turned on
     if (this.checkConstraints) {
       if (this.constraintQueries.has(viewName)) {
@@ -261,11 +403,12 @@ export default class DielRuntime {
     }
   }
 
-  downloadDB(dbId?: DbIdType) {
+  downloadDB(dbId?: DbIdType, fileName?: string) {
     if ((!dbId) || (dbId === LocalDbId)) {
       let dRaw = this.db.export();
       let blob = new Blob([dRaw]);
-      downloadHelper(blob,  "session");
+      const fName = fileName ? fileName : "session";
+      downloadHelper(blob, fName);
     } else {
       const remote = this.dbEngines.get(dbId);
       if (remote) {
@@ -293,16 +436,35 @@ export default class DielRuntime {
     return null;
   }
 
-  private async setup(loadPage: () => void) {
+  private async setup(loadPage: () => void, startSetUpTime: number) {
     console.log(`Setting up DielRuntime with ${JSON.stringify(this.config)}`);
     await this.setupMainDb();
     await this.setupRemotes();
     await this.initialCompile();
     this.setupUDFs();
-    this.physicalExecution = new DielPhysicalExecution(this.ast, this.physicalMetaData, this.getEventByTimestep.bind(this));
+    this.physicalExecution = new DielPhysicalExecution(
+      this.ast,
+      this.physicalMetaData,
+      this.getEventByTimestep.bind(this),
+      this.AddRelation.bind(this)
+    );
     await this.executeToDBs();
+    this.setupNewInput();
     GetAllOutputs(this.ast).map(o => this.setupNewOutput(o.rName));
     this.scales = ParseSqlJsWorkerResult(this.db.exec("select * from __scales"));
+
+    this.cache = new Map();
+    const endSetUpTime = performance.now();
+    this.runtimeInputs.get("logTime").stmt.run({
+      $timestep: 0,
+      $kind: "begin",
+      $ts: startSetUpTime,
+    });
+    this.runtimeInputs.get("logTime").stmt.run({
+      $timestep: 0,
+      $kind: "end",
+      $ts: endSetUpTime,
+    });
     loadPage();
   }
 
@@ -404,34 +566,57 @@ export default class DielRuntime {
   }
 
   /**
-   * Note for RYAN
-   * caching logic here
-   * - get all cacheable outputs dependent on this input
-   * - for each cacheable output
-   *   - check if its depenent state is the same
-   *   - only ship to the remotes that need to do a reevaluation
-   *   - for the outputs that are cached, do newInput to the events, with the cached dataId
+   * returns false if caching is not enabled or that it's a cache miss
+   * - if the cache misses, then ship to everywhere
+   * - if cache does not miss, then insert into reference directly (not an event)
+   * -   we have to do this for every view because the same view might be triggered by multiple inputs
    * @param inputName
    * @param timestep
    */
-  shipWorkerInput(inputName: string, timestep: number) {
-    // const remotesToShipTo = this.physicalExecution.getShippingInfoForDbByEvent(inputName, LocalDbId);
-    const remotesToShipTo = this.physicalExecution.getBubbledUpRelationToShipForEvent(LocalDbId, inputName);
+  checkAndApplyCache(eventName: RelationNameType, relationsDependentOnCurrentEvent: Set<RelationNameType>, timestep: number): RelationNameType[] {
+    const eventViews: RelationNameType[] = [];
+    relationsDependentOnCurrentEvent.forEach(dep => {
+      const isEventView = dependsOnRemoteTables(this.ast.depTree.get(dep).dependsOn, this.physicalMetaData.relationLocation);
+      if (isEventView) eventViews.push(dep);
+    });
+    if (!this.config.caching) return eventViews;
+    console.log(`Caching enabled, so determining whether we need to ship ${eventName}`);
+
+    const notCachedViews: RelationNameType[] = [];
+    eventViews.map(eventView => {
+      const requestTimestep = this.getFromCacheOrMiss(eventView, timestep);
+      // we need to insert this into the cache table
+      // but NOT advance the timestep
+      const referenceRelation = getEventViewCacheReferenceName(eventView);
+      const query = `insert into ${referenceRelation} (REQUEST_TIMESTEP, ORIGINAL_REQUEST_TIMESTEP) values (${timestep}, ${requestTimestep})`;
+      this.db.run(query);
+      if (requestTimestep < timestep) {
+        LogExecutionTrace(`    Cached ${eventView}`);
+      } else {
+        // we have to wait for the result...
+        notCachedViews.push(eventView);
+        LogExecutionTrace(`    NOT cached ${eventView}`);
+      }
+    });
+    return notCachedViews;
+  }
+
+  /**
+   * @param inputName
+   * @param timestep
+   */
+  shipWorkerInput(inputName: string, notCachedViews: RelationNameType[] , timestep: number) {
+    const remotesToShipTo = this.physicalExecution.getBubbledUpRelationToShipForEvent(LocalDbId, inputName, notCachedViews);
     // FIXME: we can improve performance by grouping by the views to ship so that they are not evaluated multiple times.
     if (remotesToShipTo && remotesToShipTo.length > 0) {
       remotesToShipTo.map(t => {
-        // select * is problematic for event relations since the corresponding one does not have the additional timestep
-        // get the columsn...
-        // const rDef = this.ir.GetRelationDef(t.relation) as OriginalRelation;
-        // if (!rDef.columns) {
-        //   LogInternalError(`Columns for ${t.relation} not defined, it looks like ${JSON.stringify(rDef, null, 2)}`);
-        // }
         const rDef = GetRelationDef(this.ast, t.relation);
         const columns = DeriveColumnsFromRelation(rDef);
-        const shareQuery = `select ${columns.map(c => c.columnName).join(", ")} from ${t.relation}`;
+        const shareQuery = `select ${columns.map(c => c.cName).join(", ")} from ${t.relation}`;
         let tableRes = this.db.exec(shareQuery)[0];
         if ((!tableRes) || (!tableRes.values)) {
           LogInternalWarning(`Query ${shareQuery} has NO result`);
+          return;
         }
         // FIXME: have more robust typing instead of quoting everything; look up types...
         const values = tableRes.values.map((d: any[]) => `(${d.map((v: any) => (v === null) ? "null" : `'${v}'`).join(", ")})`);
@@ -452,9 +637,7 @@ export default class DielRuntime {
 
   private findRemoteDbEngine(remoteId: DbIdType) {
     const r = this.dbEngines.get(remoteId);
-    if (!r) {
-      LogInternalError(`Remote ${remoteId} not found`);
-    }
+    if (!r) LogInternalError(`Remote ${remoteId} not found`);
     return r;
   }
 
@@ -462,6 +645,8 @@ export default class DielRuntime {
    * returns the DIEL code that will be ran to register the tables
    */
   private async setupMainDb() {
+    // console.log("initSqlJs is:", initSqlJs);
+    // const SQL = await initSqlJs(config);
     if (!this.config.mainDbPath) {
       this.db = new Database();
     } else {
@@ -487,6 +672,37 @@ export default class DielRuntime {
     );
   }
 
+  // what's dynamic is read from the local AST...
+  private setupNewInput() {
+    this.runtimeInputs = new Map();
+    const localSqlAst = this.physicalExecution.getAstFromDbId(LocalDbId);
+    const inputSqlAsts = localSqlAst.relations.filter(r => r.isDynamic);
+    inputSqlAsts.map(eRaw => {
+      const e = eRaw as SqlOriginalRelation;
+      const columnNames = e.columns.map(c => c.cName);
+      const q = `insert into ${e.rName} values (${columnNames.map(c => `$${c}`).join(", ")})`;
+      this.runtimeInputs.set(e.rName,
+        {
+          stmt: this.dbPrepare(q),
+          columnNames
+        }
+      );
+    });
+
+    this.runtimeInputs.set("allInput",
+      {
+        stmt: this.db.prepare(`insert into allInputs (timestep, inputRelation, timestamp, request_timestep) values ($timestep, $inputRelation, $timestamp, $request_timestep)`),
+        columnNames: ["timestep", "inputRelation", "timestamp", "request_timestep"]
+    });
+
+    this.runtimeInputs.set("logTime",
+      {
+        stmt: this.db.prepare(`insert into __perf values ($timestep, $kind, $ts)`),
+        columnNames: ["timestep", "kind", "ts"]
+      });
+
+  }
+
   private dbPrepare(q: string) {
     try {
       return this.db.prepare(q);
@@ -506,7 +722,8 @@ export default class DielRuntime {
 
   ExecuteStringQuery(q: string): RelationObject {
     let r: RelationObject = [];
-    this.db.each(q, (row) => { r.push(row as RecordObject); }, () => {});
+    // fixme: better types
+    this.db.each(q, (row: any) => { r.push(row as RecordObject); }, () => {});
     return r;
   }
 
@@ -625,11 +842,47 @@ export default class DielRuntime {
     return rName;
   }
 
-  public async AddEventTableByAst(rDef: OriginalRelation) {
+  public AddRelation(r: Relation) {
+    const find = this.ast.relations.findIndex(oldR => r.rName === oldR.rName);
+    if (IsRelationTypeDerived(r.relationType)) {
+      if (find > -1) {
+        if (r.replaces) {
+          this.DeleteView(find);
+        } else {
+          // the distributed execution might attempt multiple times for the same thing
+          // just ignore for now
+          return LogInternalWarning(`You are defining something already defined ${r.rName}`);
+        }
+      }
+      this.AddViewByAst(r as DerivedRelation);
+    } else {
+      if (find > -1) {
+        return LogInternalWarning(`You are defining something already defined ${r.rName}`);
+      }
+      this.AddOriginalTableByAst(r as OriginalRelation);
+    }
+    return null;
+  }
+
+  public DeleteView(foundIdx: number) {
+    // take it off
+    // and keep it if it were user created
+    const r = this.ast.relations[foundIdx];
+    if (r.origin === RelationOrigin.User) {
+      // only save it if it were the original thing
+      this.ast.replacedRelations.push(r);
+    }
+    this.ast.relations.splice(foundIdx, 1);
+    // also need to remove them from the dependency tree
+    this.physicalExecution.RemoveDerivedAst(r as DerivedRelation);
+    // TODO: also from the executions in other DBs that have been shipped...
+    return;
+  }
+
+  public async AddOriginalTableByAst(rDef: OriginalRelation) {
     // we don't need to compile it...
-    // we need to add it to the dependnecy tree (actually might not be needed... watch...)
-    // as well as the runtime metadata?
-    // hm i think we just need to add to the ast
+    // note that the dependency tree will be fixed once we add derived views
+    //   so not modified here.
     this.ast.relations.push(rDef);
   }
 
@@ -656,7 +909,13 @@ export default class DielRuntime {
     const instructions = this.physicalExecution.GetInstructionsToAddOutput(compiledAst);
     if (instructions) await this.incrementalExecuteToDb(instructions);
     // then set up the prepared statements as well (TODO: need to think thru all the steps that need to happen for the runtime, similar to the steps that compile DIEL)
-    this.setupNewOutput(derived.rName);
+    if (derived.relationType === RelationType.Output) {
+      this.setupNewOutput(derived.rName);
+    }
+    // also should replace things in the dependency tree if it's specified
+    if (derived.replaces) {
+
+    }
   }
 
   // ------------------------ debugging related ---------------------------
@@ -726,3 +985,4 @@ export default class DielRuntime {
 
   }
 }
+

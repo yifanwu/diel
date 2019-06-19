@@ -16,15 +16,21 @@ module.exports = {
     //     minimize: false,
     // },
     module: {
+        noParse: /sql-wasm.wasm/,
         rules: [
             // All files with a '.ts' or '.tsx' extension will be handled by 'awesome-typescript-loader'.
-            // 
+            //
+            {
+                test: /\.wasm$/,
+                type: "javascript/auto",
+                loader: "ignore-loader",
+            }, 
             {
                 test: /\.tsx?$/,
                 loaders: [
                   'awesome-typescript-loader?{configFileName: "testEndToEnd/tsconfig.json"}',
                 ],
-            },
+            }
             // {
             //     test: /\.js$/,
             //     enforce: "pre",
@@ -45,6 +51,7 @@ module.exports = {
     // dependencies, which allows browsers to cache those libraries between builds.
     externals: {
         "sql.js": "SQL",
+        // "sql.js": "initSqlJs",
     },
     
     target: 'web',

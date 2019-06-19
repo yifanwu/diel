@@ -32,7 +32,14 @@ export function TransformAstForMaterialization(ast: SqlAst) {
         LogInternalError(`${relation} was not found!`);
       } else {
         originalTables = DeriveOriginalRelationsAViewDependsOn(deps, view.rName);
-        materializeAView(view as SqlDerivedRelation, ast, originalTables);
+        if (originalTables.size === 0) {
+          // this means that this is a static view, in that it just need to be populated once...
+          // we then just need to change its reference to a table
+          // set in place
+          view.relationType = SqlRelationType.Table;
+        } else {
+          materializeAView(view as SqlDerivedRelation, ast, originalTables);
+        }
       }
     }
   });

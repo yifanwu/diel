@@ -35,21 +35,13 @@ export function ApplyLatestToDerivedRelation(derived: DerivedRelation) {
 
 // IN PLACE
 function applyLatestToRelationReference(ref: RelationReference, selection: SelectionUnit): void {
-  switch (ref.relationReferenceType) {
-    case RelationReferenceType.Direct: {
-      const r = ref as RelationReferenceDirect;
-      let relationName = r.relationName;
-      // we will be doing a rewrite!
-      modifyWhereComplete(selection, relationName);
-      return;
+  if (ref.relationReferenceType === RelationReferenceType.Direct) {
+    const r = ref as RelationReferenceDirect;
+    if (r.isLatest) {
+      modifyWhereComplete(selection, r.relationName);
     }
-    case RelationReferenceType.Subquery: {
-      return ReportDielUserError("Latest should be used with a simple named relation");
-    }
-    default:
-      LogInternalError(``);
-      return;
   }
+  return;
 }
 
 /**
@@ -98,8 +90,6 @@ function modifyWhereComplete(relation: SelectionUnit, relationName: string): voi
     columnName: "timestep",
     relationName: relationName
   };
-
-
   if (originalWhere) {
     // Merge into a where query
     lhsExpr = modifyExistingWhere(originalWhere, lhsExpr);

@@ -3,7 +3,7 @@ import { LogInternalError, DielInternalErrorType } from "../../util/messages";
 import { NodeDependencyAugmented, DependencyTree } from "../../runtime/runtimeTypes";
 import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation } from "../../parser/sqlAstTypes";
 import { LocalDbId } from "../DielPhysicalExecution";
-import { RelationNameType, DbIdType, Column, DielDataType, CompositeSelection, Relation, RelationType, OriginalRelation, DielAst, BuiltInColumn } from "../../parser/dielAstTypes";
+import { RelationNameType, DbIdType, Column, DielDataType, CompositeSelection, Relation, RelationType, OriginalRelation, DielAst, BuiltInColumn, SetOperator, RelationReferenceType, JoinAst, AstType, JoinType, ExprType, FunctionType, ColumnSelection } from "../../parser/dielAstTypes";
 import { DerivedRelation } from "../..";
 
 export type SingleDistribution = {
@@ -54,7 +54,7 @@ export function QueryDistributionRecursiveEval(
       ...sharedPartialDistributionObj
     });
     if (!node.remoteId) {
-      return LogInternalError(`Node should be assinged here`);
+      return LogInternalError(`Node should be assigned here`);
     }
     return {
       relationName: node.relationName,
@@ -115,7 +115,12 @@ export function getShippingInfoFromDistributedEval() {
 
 }
 
-const EventColumns: Column[] = [
+export const EventTableColumns: Column[] = [
+  // timestamp is actually stored in all inputs...
+  // {
+  //   cName: BuiltInColumn.TIMESTAMP,
+  //   dataType: DielDataType.TimeStamp,
+  // },
   {
     cName: BuiltInColumn.TIMESTEP,
     dataType: DielDataType.Number,
@@ -126,6 +131,21 @@ const EventColumns: Column[] = [
   }
 ];
 
+export const EventViewColumns: Column[] = [
+  {
+    cName: BuiltInColumn.TIMESTEP,
+    dataType: DielDataType.Number,
+  },
+  {
+    cName: BuiltInColumn.REQUEST_TIMESTEP,
+    dataType: DielDataType.Number,
+  }
+];
+
+/**
+ * creates a new column with a new object (NOT copied over)
+ * @param selection
+ */
 export function GetColumnsFromSelection(selection: CompositeSelection): Column[] | null {
   const originalColumns = selection[0].relation.derivedColumnSelections;
   if (!originalColumns) {
@@ -141,6 +161,23 @@ export function GetColumnsFromSelection(selection: CompositeSelection): Column[]
   return columns;
 }
 
+export function getEventViewCacheName(tableName: string) {
+  return `${tableName}Cache`;
+}
+
+export function getEventViewCacheReferenceName(tableName: string) {
+  return `${tableName}Reference`;
+}
+
+export type CacheTriplet = {
+  cacheTable: SqlOriginalRelation,
+  cacheDielTable: OriginalRelation;
+  referenceTable: SqlOriginalRelation,
+  referenceDielTable: OriginalRelation;
+  view: SqlDerivedRelation,
+  dielView: DerivedRelation
+};
+
 export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTimeColumns?: boolean): SqlOriginalRelation | null {
   switch (relation.relationType) {
     // when we turn an event into a table, the table is dynamic!
@@ -150,7 +187,7 @@ export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTi
         relationType: SqlRelationType.Table,
         isDynamic: true,
         rName: i.rName,
-        columns: addTimeColumns ? i.columns.concat(EventColumns) : i.columns
+        columns: addTimeColumns ? i.columns.concat(EventTableColumns) : i.columns
       };
     }
     case RelationType.ExistingAndImmutable:
@@ -176,12 +213,195 @@ export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTi
         relationType: SqlRelationType.Table,
         isDynamic: true,
         rName: relation.rName,
-        columns: addTimeColumns ? originalColumns.concat(EventColumns) : originalColumns
+        columns: addTimeColumns ? originalColumns.concat(EventViewColumns) : originalColumns
       };
       return createSpec;
     default:
       return LogInternalError(`Should all be handled, but ${relation.relationType} was not, for ${relation.rName}`, DielInternalErrorType.UnionTypeNotAllHandled);
   }
+}
+
+function makeCacheJoinClause(
+  cacheRelationName: string,
+  referenceRelationName: string): JoinAst {
+  const dataId = "ORIGINAL_REQUEST_TIMESTEP";
+  let returnVal: JoinAst = {
+    astType: AstType.Join,
+    joinType: JoinType.Inner,
+    relation: {
+      relationName: referenceRelationName,
+      relationReferenceType: RelationReferenceType.Direct
+    },
+    predicate: {
+      dataType: DielDataType.Boolean,
+      exprType: ExprType.Func,
+      functionType: FunctionType.Compare,
+      functionReference: "=",
+      args: [{
+          exprType: ExprType.Column,
+          relationName: cacheRelationName,
+          columnName: dataId,
+          dataType: DielDataType.Number,
+        }, {
+          exprType: ExprType.Column,
+          relationName: referenceRelationName,
+          columnName: dataId,
+          dataType: DielDataType.Number,
+        }
+      ]
+    }
+  };
+  return returnVal;
+}
+
+// [
+//   {
+//     cName: "TIMESTEP",
+//     dataType: DielDataType.Number
+//   }].concat(originalColumns)
+// function getEventDerivedColumnSelections(
+//   cacheTableName: string,
+//   originalColumns:  Column[]
+//   ): ColumnSelection[] {
+
+//    return cols;
+// }
+
+export function isCachable(relation: DerivedRelation) {
+
+}
+
+/**
+ * Obtains the internal representation of a cached event view, consisting
+ * of three relations: a cache table, containing the data normally contained
+ * by the event view; a reference table, which maps request timesteps to its
+ * corresponding data in the cache table; and a view sharing the name of the
+ * event view, which joins the previous two tables to represent the final
+ * behavior.
+ * 
+ * @param relation the event view to be cached
+ * @param addTimeColumns whether to add time columns.
+ *        TODO: Ryan: Should always be true?
+ */
+export function GetCachedEventView(relation: DerivedRelation, addTimeColumns: boolean): CacheTriplet {
+  const cacheName = getEventViewCacheName(relation.rName);
+  const refName = getEventViewCacheReferenceName(relation.rName);
+  const viewName = relation.rName;
+
+  const originalColumns = GetColumnsFromSelection (
+    relation.selection.compositeSelections
+  );
+
+  const cacheTableColumns = originalColumns.concat([
+    {
+      cName: "TIMESTEP",
+      dataType: DielDataType.Number
+    },
+    {
+      cName: "ORIGINAL_REQUEST_TIMESTEP",
+      dataType: DielDataType.Number
+    }
+  ]);
+
+  const cacheTable: SqlOriginalRelation = {
+    rName: cacheName,
+    isDynamic: true,
+    relationType: SqlRelationType.Table,
+    columns: cacheTableColumns
+  };
+  const cacheDielTable: OriginalRelation = {
+    rName: cacheName,
+    relationType: RelationType.EventTable,
+    columns: cacheTableColumns
+  };
+
+  const referenceColumns = [
+    {
+      cName: "ORIGINAL_REQUEST_TIMESTEP",
+      dataType: DielDataType.Number
+    }, {
+      cName: "REQUEST_TIMESTEP",
+      dataType: DielDataType.Number
+    }
+  ];
+  const referenceTable: SqlOriginalRelation = {
+    rName: refName,
+    isDynamic: true,
+    relationType: SqlRelationType.Table,
+    columns: referenceColumns
+  };
+  const referenceDielTable: OriginalRelation = {
+    rName: refName,
+    relationType: RelationType.Table,
+    columns: referenceColumns
+  };
+
+  const columnSelections: ColumnSelection[] = [];
+  originalColumns.forEach(function(c) {
+    columnSelections.push({
+        expr: {
+          exprType: ExprType.Column,
+          columnName: c.cName,
+          relationName: cacheName,
+          dataType: c.dataType,
+      },
+      alias: c.cName
+    });
+  });
+  columnSelections.push({
+    expr: {
+      exprType: ExprType.Column,
+      columnName: "TIMESTEP",
+      relationName: cacheName,
+      dataType: DielDataType.Number,
+    },
+    alias: "TIMESTEP"
+  });
+  columnSelections.push({
+    expr: {
+      exprType: ExprType.Column,
+      columnName: "REQUEST_TIMESTEP",
+      relationName: refName,
+      dataType: DielDataType.Number,
+    },
+    alias: "REQUEST_TIMESTEP"
+  });
+
+  const compositeSelections = [{
+    op: SetOperator.NA,
+    relation: {
+      baseRelation: {
+        relationName: cacheName,
+        relationReferenceType: RelationReferenceType.Direct
+      },
+      columnSelections,
+      derivedColumnSelections: columnSelections,
+      joinClauses: [makeCacheJoinClause(cacheName, refName)],
+    }
+  }];
+  const view: SqlDerivedRelation = {
+    rName: viewName,
+    relationType: SqlRelationType.View,
+    selection: compositeSelections
+  };
+
+  const dielView: DerivedRelation = {
+    rName: viewName,
+    relationType: RelationType.View,
+    selection: {
+      astType: AstType.RelationSelection,
+      compositeSelections
+    },
+  };
+
+  return {
+    cacheTable,
+    cacheDielTable,
+    referenceTable,
+    referenceDielTable,
+    view,
+    dielView
+  };
 }
 
 /**

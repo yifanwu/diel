@@ -1,6 +1,11 @@
 import { QueryResults, Database } from "sql.js";
+// import initSqlJs from "sql.js";
 import { log } from "./dielUdfs";
 import { LogInfo } from "./messages";
+
+// type QueryResults = any;
+// type Database = any;
+
 
 export type OutputBoundFunc = (v: any) => any;
 
@@ -64,7 +69,7 @@ export function SetUnion<T>(setA: Set<T>, setB: Set<T>): Set<T> {
 }
 
 export function SetIntersection<T>(setA: Set<T>, setB: Set<T>): Set<T> {
-  let _intersection = new Set();
+  let _intersection = new Set<T>();
   for (let elem of setB) {
     if (setA.has(elem)) {
         _intersection.add(elem);
@@ -81,6 +86,8 @@ export async function loadDbHelper(db: Database, file: string, tick: () => () =>
   const response = await fetch(file);
   const bufferRaw = await response.arrayBuffer();
   buffer = new Uint8Array(bufferRaw);
+  // const SQL = await initSqlJs();
+  // db = new SQL.Database(buffer);
   db = new Database(buffer);
   // db.create_function("timeNow", timeNow);
   db.create_function("log", log);
@@ -168,7 +175,7 @@ export function downloadQueryResultAsCSV(db: Database, query: string) {
   let r = db.exec(query);
   if (r.length && r[0].values) {
     csvContent += r[0].columns.join(",") + "\r\n";
-    r[0].values.forEach((rowArray) => {
+    r[0].values.forEach((rowArray: any) => {
       let row = rowArray.join(",");
       csvContent += row + "\r\n";
     });

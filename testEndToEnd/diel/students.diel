@@ -1,0 +1,18 @@
+-- remote table students(first_name text, id integer)
+-- remote table exam(id integer, score integer)
+
+create event table name_choice (first_name text);
+
+create view latest_name_choice as select first_name from latest name_choice;
+
+create event view current_student_score
+  as select students.first_name as student, exam.score as grade
+  from students natural join exam natural join latest_name_choice;
+    
+create output grade_result as
+  select student, grade
+  from current_student_score
+  where request_timestep = (
+    select max(request_timestep)
+    from current_student_score
+  );

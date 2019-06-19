@@ -1,0 +1,34 @@
+-- remote table data(datum integer)
+
+create event table click (num integer);
+create event table slider (position integer);
+
+create view pos_view as select max(position) as position from slider;
+
+
+create event view myclicks as select num*num as squared, subqry.position as pos
+    from data join click on (datum = num)
+    join pos_view as subqry; 
+
+create output o1 as select distinct squared, pos from myclicks;
+    
+
+-- create event view myclicks as select num * num as squared, position as pos
+--    from data2 join click on (datum = num)
+--    join latest slider; 
+
+-- Doesn't work.
+-- create event view myclicks as select num * num as squared, subqry.position as pos
+--     from data join click on (datum = num)
+--     join (select max(position) as position from slider) as subqry; 
+
+
+
+ -------------------------------------
+
+  
+-- below doesn't work for some reason (though it should work now?)
+-- create output o1 as select subqry.result from (select max(squared) as result from myclicks) as subqry;
+
+-- create output o1 as select max(squared) as result from myclicks;
+-- create event view myclicks as select num * num as squared, max_pos from  data join click on datum = num join (select max(position) as max_pos from slider) as subquery; 

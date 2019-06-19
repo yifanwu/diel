@@ -1,6 +1,7 @@
 import { ReportDielUserError, LogInternalWarning, LogInternalError, DielInternalErrorType } from "../../util/messages";
 import { ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprRelationAst, OriginalRelation, JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType, DielAst, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery  } from "../../parser/dielAstTypes";
 import { GetAllDielDefinedOriginalRelations, GetAllDerivedViews } from "../DielAstGetters";
+import { ApplyLatestToDerivedRelation } from "./syntaxSugar";
 
 /**
  * Find all the top level selections for:
@@ -17,7 +18,11 @@ import { GetAllDielDefinedOriginalRelations, GetAllDerivedViews } from "../DielA
  */
 export function ApplyTemplates(ast: DielAst) {
   // note: i think the concat should be fine with modifying in place?
-  GetAllDerivedViews(ast).map(r => TryToApplyTemplate(r.selection));
+  GetAllDerivedViews(ast).map(r => {
+    TryToApplyTemplate(r.selection);
+    // also apply syntax sugar..
+    ApplyLatestToDerivedRelation(r);
+  });
 
   // defined here since it needs to access the global definition
   // and the copy pass
