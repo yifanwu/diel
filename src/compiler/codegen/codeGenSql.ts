@@ -1,6 +1,6 @@
 import { ReportDielUserError, LogInternalError, DielInternalErrorType, LogInternalWarning } from "../../util/messages";
 import { SqlAst, SqlRelationType, SqlRelation, SqlOriginalRelation, SqlDerivedRelation, TriggerAst } from "../../parser/sqlAstTypes";
-import { DropClause, AstType, DropType, Command, InsertionClause, RelationSelection, CompositeSelection, SetOperator, CompositeSelectionUnit, SelectionUnit, RelationReference, ColumnSelection, JoinType, JoinAst, ExprAst, ExprType, ExprValAst, DielDataType, ExprColumnAst, ExprRelationAst, ExprParen, ExprFunAst, FunctionType, BuiltInFunc, GroupByAst, OrderByAst, Order, Column, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, ExprStarAst, DeleteClause } from "../../parser/dielAstTypes";
+import { DropClause, AstType, DropType, Command, InsertionClause, RelationSelection, CompositeSelection, SetOperator, CompositeSelectionUnit, SelectionUnit, RelationReference, ColumnSelection, JoinType, JoinAst, ExprAst, ExprType, ExprValAst, DielDataType, ExprColumnAst, ExprRelationAst, ExprParen, ExprFunAst, FunctionType, BuiltInFunc, GroupByAst, OrderByAst, Order, Column, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, ExprStarAst, DeleteClause, DerivedRelation, RelationType } from "../../parser/dielAstTypes";
 
 // export function generateSqlFromDielAst(ast: DielAst, options?: { replace: boolean; isRemote: boolean}) {
 //   const isRemote = options ? options.isRemote ? options.isRemote : false : false;
@@ -84,6 +84,18 @@ function generateTableSpec(t: SqlOriginalRelation, replace = false): string {
   CREATE TABLE ${t.rName} (
 ${t.columns.map(c => "    " + generateColumnDefinition(c)).join(",\n")}
   )`;
+}
+
+// helper function for quick DIEL code inspection
+
+export function GenerateStrFromDielDerivedRelation(v: DerivedRelation) {
+  const rStr = v.relationType === RelationType.EventView
+    ? "event view"
+    : v.relationType === RelationType.Output
+      ? "output"
+      : "view"
+      ;
+  return `create ${rStr} ${v.rName} AS ${generateSelect(v.selection.compositeSelections)}`;
 }
 
 export function generateSqlViews(v: SqlDerivedRelation, replace = false): string {
