@@ -115,8 +115,7 @@ function normalizeRelationReference(ref: RelationReference, ast: DielAst, rName?
 function normalizeColumnForSelectionUnit(s: SelectionUnit, ast: DielAst, rName?: string): void {
   console.log("normalized column for ", rName);
   if (s.derivedColumnSelections) {
-    // return LogInternalError(`DerivedColumnsSelections was already defined! Shouldn't do again for ${rName}`);
-    // done already
+    // not an error
     return;
   }
   // 1. let's first deal with the subqueries
