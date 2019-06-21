@@ -35,7 +35,7 @@ function defaultPolicyGetOutputHelper(ast: DerivedRelation, asyncViewName: strin
       alias: c.alias
     };
   });
-  if (eventDeps.size === 0) {
+  // if (eventDeps.size === 0) {
     const newOutput: DerivedRelation = {
       rName: ast.rName,
       relationType: RelationType.Output,
@@ -56,99 +56,100 @@ function defaultPolicyGetOutputHelper(ast: DerivedRelation, asyncViewName: strin
       }
     };
     return ApplyLatestToDerivedRelation(newOutput);
-  } else {
-    let timeStepSelections: SelectionUnit[] = [];
-    eventDeps.forEach(e => {
-      timeStepSelections.push({
-        isDistinct: false,
-        derivedColumnSelections: [{
-          expr: getTimestepColumn(e),
-          alias:  BuiltInColumn.TIMESTEP,
-        }],
-        baseRelation: {
-          relationReferenceType: RelationReferenceType.Direct,
-          relationName: e,
-        }
-      });
-    });
-    const unionedTimestepRelationName = "timestepUnion";
-    const compositeSelections = timeStepSelections.map((relation, i) => {
-      if (i) {
-        return {
-          op: SetOperator.UNION,
-          relation
-        };
-      } else {
-        return {
-          op: SetOperator.NA,
-          relation
-        };
-      }
-    });
-    const unionTimestepRelation: RelationSelection = {
-      astType: AstType.RelationSelection,
-      compositeSelections
-    };
-    const maxTimeStepRelationName = "maxTimeStep";
-    const maxColumnSelection: RelationSelection = {
-      astType: AstType.RelationSelection,
-      compositeSelections: [{
-        op: SetOperator.NA,
-        relation: {
-          derivedColumnSelections: [{
-            expr: {
-              exprType: ExprType.Column,
-              dataType: DielDataType.Number,
-              functionType: FunctionType.Math,
-              functionReference: "max",
-              args: [getTimestepColumn(unionedTimestepRelationName)]
-            },
-            alias: BuiltInColumn.TIMESTEP
-          }],
-          baseRelation: {
-            relationReferenceType: RelationReferenceType.Subquery,
-            subquery: unionTimestepRelation,
-            alias: unionedTimestepRelationName
-          }
-        }
-      }]
-    };
-    let joinClauses: JoinAst[] = [{
-      astType: AstType.Join,
-      joinType: JoinType.Inner,
-      relation: {
-        relationReferenceType: RelationReferenceType.Subquery,
-        subquery: maxColumnSelection,
-        alias: maxTimeStepRelationName
-      },
-      predicate: {
-        exprType: ExprType.Func,
-        dataType: DielDataType.Boolean,
-        functionType: FunctionType.Compare,
-        functionReference: "=",
-        args: [getTimestepColumn(asyncViewName, true), getTimestepColumn(maxTimeStepRelationName)]
-      }
-    }];
-    const newOutput: DerivedRelation = {
-      rName: ast.rName,
-      relationType: RelationType.Output,
-      selection: {
-        astType: AstType.RelationSelection,
-        compositeSelections: [{
-          op: SetOperator.NA,
-          relation: {
-            derivedColumnSelections,
-            baseRelation: {
-              relationReferenceType: RelationReferenceType.Direct,
-              relationName: asyncViewName
-            },
-            joinClauses
-          }
-        }]
-      }
-    };
-    return newOutput;
-  }
+  // FIXME: the following logic is a bit bogus...
+  // } else {
+  //   let timeStepSelections: SelectionUnit[] = [];
+  //   eventDeps.forEach(e => {
+  //     timeStepSelections.push({
+  //       isDistinct: false,
+  //       derivedColumnSelections: [{
+  //         expr: getTimestepColumn(e),
+  //         alias:  BuiltInColumn.TIMESTEP,
+  //       }],
+  //       baseRelation: {
+  //         relationReferenceType: RelationReferenceType.Direct,
+  //         relationName: e,
+  //       }
+  //     });
+  //   });
+  //   const unionedTimestepRelationName = "timestepUnion";
+  //   const compositeSelections = timeStepSelections.map((relation, i) => {
+  //     if (i) {
+  //       return {
+  //         op: SetOperator.UNION,
+  //         relation
+  //       };
+  //     } else {
+  //       return {
+  //         op: SetOperator.NA,
+  //         relation
+  //       };
+  //     }
+  //   });
+  //   const unionTimestepRelation: RelationSelection = {
+  //     astType: AstType.RelationSelection,
+  //     compositeSelections
+  //   };
+  //   const maxTimeStepRelationName = "maxTimeStep";
+  //   const maxColumnSelection: RelationSelection = {
+  //     astType: AstType.RelationSelection,
+  //     compositeSelections: [{
+  //       op: SetOperator.NA,
+  //       relation: {
+  //         derivedColumnSelections: [{
+  //           expr: {
+  //             exprType: ExprType.Column,
+  //             dataType: DielDataType.Number,
+  //             functionType: FunctionType.Math,
+  //             functionReference: "max",
+  //             args: [getTimestepColumn(unionedTimestepRelationName)]
+  //           },
+  //           alias: BuiltInColumn.TIMESTEP
+  //         }],
+  //         baseRelation: {
+  //           relationReferenceType: RelationReferenceType.Subquery,
+  //           subquery: unionTimestepRelation,
+  //           alias: unionedTimestepRelationName
+  //         }
+  //       }
+  //     }]
+  //   };
+  //   let joinClauses: JoinAst[] = [{
+  //     astType: AstType.Join,
+  //     joinType: JoinType.Inner,
+  //     relation: {
+  //       relationReferenceType: RelationReferenceType.Subquery,
+  //       subquery: maxColumnSelection,
+  //       alias: maxTimeStepRelationName
+  //     },
+  //     predicate: {
+  //       exprType: ExprType.Func,
+  //       dataType: DielDataType.Boolean,
+  //       functionType: FunctionType.Compare,
+  //       functionReference: "=",
+  //       args: [getTimestepColumn(asyncViewName, true), getTimestepColumn(maxTimeStepRelationName)]
+  //     }
+  //   }];
+  //   const newOutput: DerivedRelation = {
+  //     rName: ast.rName,
+  //     relationType: RelationType.Output,
+  //     selection: {
+  //       astType: AstType.RelationSelection,
+  //       compositeSelections: [{
+  //         op: SetOperator.NA,
+  //         relation: {
+  //           derivedColumnSelections,
+  //           baseRelation: {
+  //             relationReferenceType: RelationReferenceType.Direct,
+  //             relationName: asyncViewName
+  //           },
+  //           joinClauses
+  //         }
+  //       }]
+  //     }
+  //   };
+  //   return newOutput;
+  // }
 }
 
 export function GetAsyncViewNameFromOutput(rName: RelationNameType) {

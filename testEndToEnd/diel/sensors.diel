@@ -7,72 +7,81 @@ create view current_time_selection AS
   select * from latest time_selection;
 
 
-create output current_time_selection_pretty AS
-  select
-    datetime(minTs, 'unixepoch') as minTs,
-    datetime(maxTs, 'unixepoch') as maxTs
-  from current_time_selection;
+-- create output current_time_selection_pretty AS
+--   select
+--     datetime(minTs, 'unixepoch') as minTs,
+--     datetime(maxTs, 'unixepoch') as maxTs
+--   from current_time_selection;
 
 create view current_filtered_vals AS
   select * 
   from log 
   join current_time_selection s
-    on (log.time < s.maxTs
-    and log.time > s.minTs) or
+    on (log.ts < s.maxTs
+    and log.ts > s.minTs) or
       (s.maxTs is null);
   
 -- TODO: this is a good place ot use templates
-create output pack_ther as
+-- create output pack_ther as
+--   select
+--     time,
+--     ts,
+--     min as val,
+--     'minVal' as kind
+--   from current_filtered_vals
+--   where device = 'pack-ther'
+--   union
+--     select
+--       time, 
+--       ts,
+--       max as val,
+--       'maxVal' as kind
+--     from current_filtered_vals
+--     where device = 'pack-ther'
+--   union
+--     select 
+--       time as time,
+--       ts,
+--       value as val,
+--       'avgVal' as kind
+--     from current_filtered_vals
+--     where device = 'pack-ther'
+-- ;
+
+-- create output pack_cell as
+--   select 
+--     time as time,
+--     ts,
+--     min as val,
+--     'minVal' as kind
+--   from current_filtered_vals
+--   where device = 'pack-cell'
+--   union
+--     select 
+--       time as time,
+--       ts,
+--       max as val,
+--       'maxVal' as kind
+--     from current_filtered_vals
+--     where device = 'pack-cell'
+--   union
+--     select 
+--       time as time,
+--       ts,
+--       value as val,
+--       'avgVal' as kind
+--     from current_filtered_vals
+--     where device = 'pack-cell'
+-- ;
+
+create output pack_break_regen AS
   select
     time,
     ts,
-    min as val,
-    'minVal' as kind
+    value
   from current_filtered_vals
-  where device = 'pack-ther'
-  union
-    select
-      time, 
-      ts,
-      max as val,
-      'maxVal' as kind
-    from current_filtered_vals
-    where device = 'pack-ther'
-  union
-    select 
-      time as time,
-      ts,
-      value as val,
-      'avgVal' as kind
-    from current_filtered_vals
-    where device = 'pack-ther'
-;
+  where device = 'petal-brake-regen';
 
-create output pack_cell as
-  select 
-    time as time,
-    ts,
-    min as val,
-    'minVal' as kind
-  from current_filtered_vals
-  where device = 'pack-cell'
-  union
-    select 
-      time as time,
-      ts,
-      max as val,
-      'maxVal' as kind
-    from current_filtered_vals
-    where device = 'pack-cell'
-  union
-    select 
-      time as time,
-      ts,
-      value as val,
-      'avgVal' as kind
-    from current_filtered_vals
-    where device = 'pack-cell'
-;
 
 -- // "select time, value from log where device = 'pack-break-regen'",
 -- // "select time, value from log where device = 'speed-1'",
