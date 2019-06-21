@@ -100,6 +100,7 @@ export function GetAllOutputs(ast: DielAst): DerivedRelation[] {
 
 export function GetRelationDef(ast: DielAst, rName: string): Relation | null {
   // first search in original, then serach in derived, compalin otherwise
+  if (!rName) return LogInternalError(`[GetRelationDef]: passed in null name`);
   const result = ast.relations.find(r => r.rName === rName);
   if (result) {
     return result;

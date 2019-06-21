@@ -561,6 +561,10 @@ export default class DielRuntime {
     return;
   }
 
+  public AddUDF(fName: string) {
+    // a bit hacky
+    this.db.create_function(fName, (window as any)[fName]);
+  }
   private setupUDFs() {
     this.db.create_function("log", log);
   }
