@@ -5,6 +5,8 @@ import { LocalDbId } from "../src/compiler/DielPhysicalExecution";
 import { BgGreen, Reset } from "../src/util/messages";
 import { DependencyTree, NodeDependencyAugmented } from "../src/runtime/runtimeTypes";
 
+
+
 export function testTopologicalSort() {
   const depTree: DependencyTree = new Map([
     ["v1", {

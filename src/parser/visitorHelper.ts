@@ -13,7 +13,7 @@ export function parseColumnType(str: string) {
       return DielDataType.String;
     case "boolean":
       return DielDataType.Boolean;
-    case "datetime":
+    case "timetype":
       return DielDataType.TimeStamp;
     default:
       throw new Error(`parseColumnType error, got ${str}`);

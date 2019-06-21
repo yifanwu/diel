@@ -1,7 +1,7 @@
 import { DbType } from "../../src";
 import { DielPhysicalExecution } from "../../src/compiler/DielPhysicalExecution";
 import { CompileAst, ParsePlainDielAst } from "../../src/compiler/compiler";
-import { LogicalTimestep, RelationType } from "../../src/parser/dielAstTypes";
+import { LogicalTimestep, RelationType, Relation } from "../../src/parser/dielAstTypes";
 import { GetAsyncViewNameFromOutput } from "../../src/runtime/asyncPolicies";
 import { GenerateUnitTestErrorLogger } from "../testHelper";
 
@@ -23,7 +23,8 @@ export function testAsyncPolicy() {
   };
   // dummy!
   const getEventByTimestep = (n: LogicalTimestep) => "";
-  const physicalExecution = new DielPhysicalExecution(ast, physicalMetaData, getEventByTimestep);
+  const addRelationToDielMock = (r: Relation) => {};
+  const physicalExecution = new DielPhysicalExecution(ast, physicalMetaData, getEventByTimestep, addRelationToDielMock);
   // now assert!
   const local = physicalExecution.sqlAstSpecPerDb.get(1);
   // local must have o1 as select from an event

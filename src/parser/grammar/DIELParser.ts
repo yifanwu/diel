@@ -113,7 +113,7 @@ export class DIELParser extends Parser {
 	public static readonly ASC=84;
 	public static readonly DESC=85;
 	public static readonly AUTOINCREMENT=86;
-	public static readonly DATETIME=87;
+	public static readonly TIMETYPE=87;
 	public static readonly DISTINCT=88;
 	public static readonly TRUE=89;
 	public static readonly FALSE=90;
@@ -210,7 +210,7 @@ export class DIELParser extends Parser {
 		"FROM", "NATURAL", "JOIN", "ON", "WHERE", "LIMIT", "EXIST", "GROUP", "BY", 
 		"HAVING", "AND", "OR", "IN", "INTERSECT", "UNION", "LEFT", "OUTER", "CASE", 
 		"WHEN", "THEN", "ELSE", "IS", "NULL", "NOT", "ORDER", "ASC", "DESC", "AUTOINCREMENT", 
-		"DATETIME", "DISTINCT", "TRUE", "FALSE", "CACHED", "DELETE", "INT", "TEXT", 
+		"TIMETYPE", "DISTINCT", "TRUE", "FALSE", "CACHED", "DELETE", "INT", "TEXT", 
 		"LATEST", "MINUS", "DELIM", "STAR", "COMMA", "PIPE", "SIMPLE_COMMENT", 
 		"NUMBER", "STRING", "IDENTIFIER", "WS"
 	];
@@ -444,7 +444,7 @@ export class DIELParser extends Parser {
 			{
 			this.state = 116;
 			_la = this._input.LA(1);
-			if ( !(_la===DIELParser.BOOLEAN || ((((_la - 87)) & ~0x1F) === 0 && ((1 << (_la - 87)) & ((1 << (DIELParser.DATETIME - 87)) | (1 << (DIELParser.INT - 87)) | (1 << (DIELParser.TEXT - 87)))) !== 0)) ) {
+			if ( !(_la===DIELParser.BOOLEAN || ((((_la - 87)) & ~0x1F) === 0 && ((1 << (_la - 87)) & ((1 << (DIELParser.TIMETYPE - 87)) | (1 << (DIELParser.INT - 87)) | (1 << (DIELParser.TEXT - 87)))) !== 0)) ) {
 			this._errHandler.recoverInline(this);
 			} else {
 				if (this._input.LA(1) === Token.EOF) {
@@ -3241,7 +3241,7 @@ export class DataTypeContext extends ParserRuleContext {
 	public INT(): TerminalNode | undefined { return this.tryGetToken(DIELParser.INT, 0); }
 	public TEXT(): TerminalNode | undefined { return this.tryGetToken(DIELParser.TEXT, 0); }
 	public BOOLEAN(): TerminalNode | undefined { return this.tryGetToken(DIELParser.BOOLEAN, 0); }
-	public DATETIME(): TerminalNode | undefined { return this.tryGetToken(DIELParser.DATETIME, 0); }
+	public TIMETYPE(): TerminalNode | undefined { return this.tryGetToken(DIELParser.TIMETYPE, 0); }
 	constructor(parent: ParserRuleContext, invokingState: number);
 	constructor(parent: ParserRuleContext, invokingState: number) {
 		super(parent, invokingState);

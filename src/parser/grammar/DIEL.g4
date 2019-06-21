@@ -60,7 +60,7 @@ templateStmt
 //   ;
 
 dataType
-  : INT | TEXT | BOOLEAN | DATETIME
+  : INT | TEXT | BOOLEAN | TIMETYPE
   ;
 
 columnDefinition
@@ -350,7 +350,8 @@ ORDER: O R D E R;
 ASC: A S C;
 DESC: D E S C;
 AUTOINCREMENT: A U T O I N C R E M E N T;
-DATETIME: D A T E T I M E;
+// was going to call datetime but interferes with a method name...
+TIMETYPE: T I M E T Y P E;
 DISTINCT: D I S T I N C T;
 TRUE: T R U E;
 FALSE: F A L S E;

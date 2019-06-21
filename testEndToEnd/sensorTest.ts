@@ -27,6 +27,9 @@ export function sensorTest(perf: (diel: DielRuntime) => void) {
   });
 
   async function testClass() {
+    diel.BindOutput("current_time_selection_pretty", (o: RelationObject) => {
+      console.log("current_time_selection_pretty", o);
+    });
     diel.BindOutput("pack_ther", (o: RelationObject) => {
       console.log("pack_ther", o);
     });

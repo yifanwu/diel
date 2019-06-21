@@ -6,6 +6,13 @@ create event table time_selection (
 create view current_time_selection AS
   select * from latest time_selection;
 
+
+create output current_time_selection_pretty AS
+  select
+    datetime(minTs, 'unixepoch') as minTs,
+    datetime(maxTs, 'unixepoch') as maxTs
+  from current_time_selection;
+
 create view current_filtered_vals AS
   select * 
   from log 

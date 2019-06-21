@@ -1,7 +1,7 @@
 import { GenerateUnitTestErrorLogger } from "../testHelper";
 import { ParsePlainDielAst, CompileAst } from "../../src/compiler/compiler";
 import { DbType } from "../../src";
-import { LogicalTimestep } from "../../src/parser/dielAstTypes";
+import { LogicalTimestep, Relation } from "../../src/parser/dielAstTypes";
 import { DielPhysicalExecution, LocalDbId } from "../../src/compiler/DielPhysicalExecution";
 
 export function testMaterializationRuntime() {
@@ -26,7 +26,9 @@ export function testMaterializationRuntime() {
     relationLocation: new Map()
   };
   const getEventByTimestep = (n: LogicalTimestep) => "";
-  const physicalExecution = new DielPhysicalExecution(ast, physicalMetaData, getEventByTimestep);
+
+  const addRelationToDielMock = (r: Relation) => {};
+  const physicalExecution = new DielPhysicalExecution(ast, physicalMetaData, getEventByTimestep, addRelationToDielMock);
   const sqlAst = physicalExecution.getAstFromDbId(LocalDbId);
   // assertions on sqlAst for materialization
 }

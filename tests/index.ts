@@ -14,16 +14,10 @@ import { ParsePlainDielAst, CompileAst } from "../src/compiler/compiler";
 import { testAsyncPolicy } from "./compilerTests/testAsyncPolicy";
 import { testMaterializationRuntime } from "./compilerTests/testMaterializationRuntime";
 // import { PrintCode } from "../src/util/messages";
-
-// testTriTableCreation();
-// testAsyncPolicy();
-
-assertLatestSyntax();
-
-/*
-
+testTriTableCreation();
 testAsyncPolicy();
-
+assertLatestSyntax();
+testAsyncPolicy();
 testTopologicalSort();
 testGetOriginalRelationsDependedOn();
 testDistributionLogc();
@@ -43,9 +37,14 @@ create event table t2 (
   b int
 );
 
+REGISTER UDF testAdd TYPE int;
+REGISTER UDF datetime TYPE TIMETYPE;
+
 create view v1 as select a from t1 join t2 on t1.b = t2.b where c = 'cat';
 create view v2 as select a from t1 join (select max(b) as b from t2) m on m.b = t1.b;
 create view v3 as select a from t1 where b in (select b from t2 where c = 'hello');
+create view v5 as select testAdd(a, b) from t1;
+create view v4 as select datetime(a, 'unixepoch') from t1;
 `;
 
 let ast = ParsePlainDielAst(q);
@@ -60,5 +59,3 @@ assertFunctionParsing(ast, q);
 // @LUCIE: the following tests are not defined:
 // testMaterializedViewConstraint();
 // testMaterialization();
-
-*/
