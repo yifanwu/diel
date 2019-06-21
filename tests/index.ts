@@ -38,7 +38,6 @@ create event table t2 (
 );
 
 REGISTER UDF testAdd TYPE int;
-REGISTER UDF datetime TYPE TIMETYPE;
 
 create view v1 as select a from t1 join t2 on t1.b = t2.b where c = 'cat';
 create view v2 as select a from t1 join (select max(b) as b from t2) m on m.b = t1.b;

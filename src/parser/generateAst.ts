@@ -52,9 +52,9 @@ implements visitor.DIELVisitor<ExpressionValue> {
     // this.seenInserts = [];
     this.templates = new Map();
     ctx.templateStmt().map(e => this.visitTemplateStmt(e));
-    this.ast.udfTypes = ctx.registerTypeUdf().map(e => (
+    this.ast.udfTypes = this.ast.udfTypes.concat(ctx.registerTypeUdf().map(e => (
       this.visit(e) as UdfType
-    )).concat(BuiltInUdfTypes);
+    )));
     // two kinds of specifications
     const originalRelations = ctx.originalTableStmt().map(e => (
       this.visitOriginalTableStmt(e)

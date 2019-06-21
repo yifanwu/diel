@@ -60,7 +60,7 @@ templateStmt
 //   ;
 
 dataType
-  : INT | TEXT | BOOLEAN | TIMETYPE
+  : INT | TEXT | BOOLEAN | DATETIME
   ;
 
 columnDefinition
@@ -217,7 +217,8 @@ expr
   | NOT expr                                 # exprNegate
   | expr (PIPE expr)+                        # exprConcat
   | '(' expr ')'                             # exprParenthesis
-  | function=IDENTIFIER '(' (expr (COMMA expr)*)? ')' # exprFunction
+  // a mini hack since sqlite has a UDF the same name as type ugh..
+  | function=(DATETIME | IDENTIFIER) '(' (expr (COMMA expr)*)? ')' # exprFunction
   | lhs=expr (mathOp | compareOp | logicOp) rhs=expr  # exprBinOp
   | expr IS NULL                      # exprNull
   | expr NOT NULL                     # exprNotNull
@@ -350,8 +351,7 @@ ORDER: O R D E R;
 ASC: A S C;
 DESC: D E S C;
 AUTOINCREMENT: A U T O I N C R E M E N T;
-// was going to call datetime but interferes with a method name...
-TIMETYPE: T I M E T Y P E;
+DATETIME: D A T E T I M E;
 DISTINCT: D I S T I N C T;
 TRUE: T R U E;
 FALSE: F A L S E;

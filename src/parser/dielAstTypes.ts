@@ -137,6 +137,10 @@ export const BuiltInColumnTyppes: BuiltInColumnType[] = [
 
 export const BuiltInUdfTypes: UdfType[] = [
   {
+    udf: "DATETIME",
+    type: DielDataType.TimeStamp,
+  },
+  {
     udf: "COUNT",
     type: DielDataType.Number
   },
@@ -280,7 +284,7 @@ export function createEmptyDielAst() {
     replacedRelations: [],
     programs: new Map(),
     commands: [],
-    udfTypes: [],
+    udfTypes: BuiltInUdfTypes,
     depTree: new Map()
   };
   return newAst;
@@ -484,6 +488,8 @@ export enum ExprType {
  */
 export enum BuiltInFunc {
   In = "IN",
+  DateTime = "DATETIME",
+  JulianDay = "JULIANDAY",
   Coalesce = "COALESCE",
   ValueIsNull = "IS NULL",
   ValueIsNotNull = "NOT NULL",
