@@ -9,8 +9,8 @@ const perf = (diel: DielRuntime) => {
   diel.downloadDB(1);
   diel.ShutDown();
 };
-sensorTest(perf);
+//sensorTest(perf);
 // baseLineEval(perf);
 // testMultiTableCaching();
 // testRangeCaching();
-// testStudentDb();
+testStudentDb(perf);

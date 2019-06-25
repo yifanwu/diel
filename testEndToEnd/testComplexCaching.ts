@@ -1,7 +1,7 @@
 import * as path from "path";
 import { DielRuntime, DbSetupConfig, DbType, RelationObject } from "../src";
 import { LogTest } from "../src/util/messages";
-const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/js/worker.sql.js");
+const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/dist/worker.sql.js");
 
 
 const dbConfigs: DbSetupConfig[] = [{

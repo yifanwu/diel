@@ -1,6 +1,6 @@
 import { ANTLRInputStream, CommonTokenStream } from "antlr4ts";
-// import initSqlJs from "sql.js";
-import { Database, Statement, QueryResults } from "sql.js";
+import initSqlJs from "sql.js";
+// import { Database, Statement, QueryResults } from "sql.js";
 
 import { DIELLexer } from "../parser/grammar/DIELLexer";
 import { DIELParser } from "../parser/grammar/DIELParser";
@@ -30,20 +30,20 @@ export let STRICT = false;
 export let LOGINFO = false;
 
 
-// const locateFile = (pathname: any) => {
-//   if (pathname === "sql-wasm.wasm") {
-//     return require("../../node_modules/sql.js/dist/sql-wasm.wasm");
-//   }
-//   throw new Error(`Unhandled locate path: ${pathname}`);
-// };
-// const config = {
-//   locateFile
-// };
+const locateFile = (pathname: any) => {
+  if (pathname === "sql-wasm.wasm") {
+    return require("../../node_modules/sql.js/dist/sql-wasm.wasm");
+  }
+  throw new Error(`Unhandled locate path: ${pathname}`);
+};
+const config = {
+  locateFile
+};
 
 // FIXME: the new export pattern for sql.js is so weird.
-// type Database = any;
-// type Statement = any;
-// type QueryResults = any;
+type Database = any;
+type Statement = any;
+type QueryResults = any;
 
 export const INIT_TIMESTEP = 1;
 
@@ -650,14 +650,14 @@ export default class DielRuntime {
    */
   private async setupMainDb() {
     // console.log("initSqlJs is:", initSqlJs);
-    // const SQL = await initSqlJs(config);
+    const SQL = await initSqlJs();
     if (!this.config.mainDbPath) {
-      this.db = new Database();
+      this.db = new SQL.Database();
     } else {
       const response = await fetch(this.config.mainDbPath);
       const bufferRaw = await response.arrayBuffer();
       const buffer = new Uint8Array(bufferRaw);
-      this.db = new Database(buffer);
+      this.db = new SQL.Database(buffer);
     }
     return;
   }

@@ -1,4 +1,11 @@
+path = require("path")
+
 module.exports = {
+  node: {
+    fs: 'empty'
+ },
+
+
     entry: "./testEndToEnd/index.ts",
     output: {
         filename: "bundle.js",
@@ -50,12 +57,13 @@ module.exports = {
     // This is important because it allows us to avoid bundling all of our
     // dependencies, which allows browsers to cache those libraries between builds.
     externals: {
-        "sql.js": "SQL",
-        // "sql.js": "initSqlJs",
-    },
+      // "sql.js": "SQL",
+      //"sql.js": "initSqlJs",
+  },
     
     target: 'web',
     devServer: {
+        // publicPath: "/dist",
         inline: true
     },
 };
