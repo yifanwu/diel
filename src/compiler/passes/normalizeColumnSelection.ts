@@ -280,7 +280,7 @@ function normalizeColumnExpr(ast: DielAst, s: SelectionUnit, currentColumnExpr: 
       }
     }
   }
-  return LogInternalError(``);
+  return LogInternalError(`We cannot find ${currentColumnExpr.columnName} anywhere, maybe you have called on the wrong column name.`);
 }
 
 function checkIfColumnInRelationReference(ast: DielAst, ref: RelationReference, columnName: string): SimpleColumn | null {

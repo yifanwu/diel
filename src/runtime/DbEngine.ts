@@ -408,8 +408,8 @@ export default class DbEngine {
   private sanityCheck() {
     // if we send 100 messages within 1 second, probably some loop going on...
     if (this.totalMsgCount > 100) {
-      if (this.msgCountTimeStamp - Date.now() < 1000) {
-        LogInternalError(`Too many messages`);
+      if (Date.now() - this.msgCountTimeStamp < 1000) {
+        LogInternalError(`Too many messages:`);
       } else {
         this.totalMsgCount = 0;
         this.msgCountTimeStamp = Date.now();
