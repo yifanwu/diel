@@ -492,7 +492,8 @@ export enum BuiltInFunc {
   JulianDay = "JULIANDAY",
   Coalesce = "COALESCE",
   ValueIsNull = "IS NULL",
-  ValueIsNotNull = "NOT NULL",
+  // ValueIsNotNull = "NOT NULL",
+  ValueIsNotNull = "IS NOT NULL",
   SetEmpty = "NOT EXIST",
   SetNotEmpty = "EXIST",
   // specially parsed when SQL gen
