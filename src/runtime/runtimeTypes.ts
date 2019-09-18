@@ -45,7 +45,9 @@ export type RelationObject = RecordObject[];
 export enum DbType {
   Local = "Local",
   Worker = "Worker",
-  Socket = "Socket"
+  Socket = "Socket",
+  SqlLite = "sqlite",
+  Postgres = "postgres"
 }
 
 // TODO: add more runtime info

@@ -22,11 +22,11 @@ async function connectToSocket(url: string): Promise<WebSocket> {
 
 interface DbSetupConfigBase {
   dbType: DbType;
+  dbDriver: DbDriver;
 }
 
 export interface SocketConfig extends DbSetupConfigBase {
   connection: string;
-  dbDriver: DbDriver;
   message?: any; // JSON string to send to the server for setup
 }
 
@@ -445,17 +445,17 @@ export default class DbEngine {
    * SqlitemasterQuery returns sql and name
    */
   async getMetaData(id: DbIdType): Promise<{id: DbIdType, data: RelationObject | null}> {
-    let sql: string;
-    if (this.config.dbType !== DbType.Worker) {
-
-    } else {
-
-    }
+    // let sql: string;
+    // if (this.config.) {
+      
+    // } else {
+    //   sql = SqliteMasterQuery;
+    // }
     const promise = this.SendMsg({
       remoteAction: DielRemoteAction.GetResultsByPromise,
       requestTimestep: INIT_TIMESTEP, // might change later because we can load new databases later?
-      sql: this.config.dbDriver
-      // sql: SqliteMasterQuery
+      // sql: this.config.dbDriver
+      sql: SqliteMasterQuery
     }, true);
     const data = await promise;
     return {
