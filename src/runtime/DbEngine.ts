@@ -1,5 +1,5 @@
 import { DbType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemoteReply, RemoteOpenDbMessage, RemoteExecuteMessage, RemoteShipRelationMessage, RemoteUpdateRelationMessage } from "./runtimeTypes";
-import { SqliteMasterQuery, RelationShippingFuncType, INIT_TIMESTEP } from "./DielRuntime";
+import { PostgresMasterQuery, SqliteMasterQuery, RelationShippingFuncType, INIT_TIMESTEP } from "./DielRuntime";
 import { LogInternalError, ReportDielUserError, LogInternalWarning, DielInternalErrorType, LogInfo, LogExecutionTrace, LogSetup } from "../util/messages";
 import { LocalDbId, DielPhysicalExecution } from "../compiler/DielPhysicalExecution";
 import { IsSetIdentical } from "../util/dielUtils";
@@ -38,7 +38,7 @@ export enum DbDriver {
 
 export interface WorkerConfig extends DbSetupConfigBase {
   jsFile: string;
-  dataFile: string;
+  dataFile?: string;
 }
 
 export type DbSetupConfig = SocketConfig | WorkerConfig;
@@ -445,19 +445,36 @@ export default class DbEngine {
    * SqlitemasterQuery returns sql and name
    */
   async getMetaData(id: DbIdType): Promise<{id: DbIdType, data: RelationObject | null}> {
-    // let sql: string;
-    // if (this.config.) {
-      
-    // } else {
-    //   sql = SqliteMasterQuery;
-    // }
+    let sql: string;
+    if (this.config.dbDriver === DbDriver.Postgres) {
+      sql = PostgresMasterQuery;
+    } else {
+      sql = SqliteMasterQuery;
+    }
     const promise = this.SendMsg({
       remoteAction: DielRemoteAction.GetResultsByPromise,
       requestTimestep: INIT_TIMESTEP, // might change later because we can load new databases later?
       // sql: this.config.dbDriver
-      sql: SqliteMasterQuery
+      sql,
     }, true);
     const data = await promise;
+
+    // @Lucie TODO: later change this...
+    if (this.config.dbDriver === DbDriver.Postgres) {
+      data.results.forEach((value, index) => {
+        data.results[index].sql = `CREATE TABLE log (
+          time INT,
+          device TEXT,
+          value INT,
+          min INT,
+          max INT,
+          data TEXT,
+          message TEXT,
+          source TEXT,
+          ts INT
+        )`;
+      });
+    }
     return {
       id,
       data: data ? data.results : null

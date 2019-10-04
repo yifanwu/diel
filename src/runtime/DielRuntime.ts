@@ -54,6 +54,15 @@ export const SqliteMasterQuery = `
     AND sql not null
     AND name != 'sqlite_sequence'`;
 
+// sqlite_master contains schema.
+// we only need to fetch the table names and their create sql commands
+export const PostgresMasterQuery = `
+  SELECT 1 as sql,table_name as name
+  FROM information_schema.tables
+  WHERE table_type='BASE TABLE'
+  AND table_schema='public';
+`;
+
 type ReactFunc = (v: any) => void;
 
 type TickBind = {
@@ -440,7 +449,9 @@ export default class DielRuntime {
     console.log(`Setting up DielRuntime with ${JSON.stringify(this.config)}`);
     await this.setupMainDb();
     await this.setupRemotes();
+    console.log("1111111");
     await this.initialCompile();
+    console.log("444444");
     this.setupUDFs();
     this.physicalExecution = new DielPhysicalExecution(
       this.ast,
@@ -448,7 +459,9 @@ export default class DielRuntime {
       this.getEventByTimestep.bind(this),
       this.AddRelation.bind(this)
     );
+    console.log("555555");
     await this.executeToDBs();
+    console.log("666666");
     this.setupNewInput();
     GetAllOutputs(this.ast).map(o => this.setupNewOutput(o.rName));
     this.scales = ParseSqlJsWorkerResult(this.db.exec("select * from __scales"));
@@ -470,7 +483,9 @@ export default class DielRuntime {
 
   async initialCompile() {
     this.visitor = new Visitor();
+
     const tableDefinitions = SqlJsGetObjectArrayFromQuery(this.db, SqliteMasterQuery);
+    console.log("33333333", tableDefinitions);
     tableDefinitions.map(m => {
       const name = m["name"].toString();
       if (this.physicalMetaData.relationLocation.has(name)) {
@@ -486,6 +501,7 @@ export default class DielRuntime {
     const promises: Promise<{id: DbIdType, data: RecordObject[]}>[] = [];
     this.dbEngines.forEach((db) => {
       this.physicalMetaData.dbs.set(db.id, {dbType: db.config.dbType});
+      // @LUCIE we only utilize table names, not its create sql queries, correct?
       promises.push(db.getMetaData(db.id));
     });
     const metadatas = await Promise.all(promises);
