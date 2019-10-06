@@ -449,7 +449,7 @@ export default class DbEngine {
   }
 
   /**
-   * SqlitemasterQuery returns sql and name
+   *  Returns {id, [{sql, name} ... ]}
    */
   async getMetaData(id: DbIdType): Promise<{id: DbIdType, data: RelationObject | null}> {
     if (this.config.dbDriver === DbDriver.Postgres) {

@@ -100,7 +100,7 @@ export function GenerateStrFromDielDerivedRelation(v: DerivedRelation) {
 
 export function generateSqlViews(v: SqlDerivedRelation, replace = false): string {
   const replaceQuery = replace ? `DROP VIEW IF EXISTS ${v.rName};` : "";
-  const materialize = v.isMaterialized ? `MATERIALIZED` : ""; // check the syntax
+  const materialize = v.isMaterialized ? `MATERIALIZED` : "";
   return `${replaceQuery}
   CREATE ${materialize} VIEW ${v.rName} AS
   ${generateSelect(v.selection)}

@@ -15,7 +15,7 @@ import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo, LogExecutionTrace } from "../util/messages";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult, GenerateViewName, CaughtLocalRun, convertRelationObjectToQueryResults } from "./runtimeHelper";
 import { DielPhysicalExecution, LocalDbId, dependsOnLocalTables, dependsOnRemoteTables } from "../compiler/DielPhysicalExecution";
-import DbEngine from "./DbEngine";
+import DbEngine, { DbDriver } from "./DbEngine";
 import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { ParsePlainSelectQueryAst } from "../compiler/compiler";
@@ -69,6 +69,7 @@ class ViewConstraintQuery {
 export type MetaDataPhysical = Map<string, TableMetaData>;
 type DbMetaData = {
   dbType: DbType;
+  dbDriver?: DbDriver;
 };
 
 export type PhysicalMetaData = {
@@ -482,12 +483,11 @@ export default class DielRuntime {
         });
       }
     });
-    this.physicalMetaData.dbs.set(LocalDbId, {dbType: DbType.Local});
+    this.physicalMetaData.dbs.set(LocalDbId, {dbType: DbType.Local, dbDriver: DbDriver.SQLite});
     let code = processSqlMetaDataFromRelationObject(tableDefinitions, "main");
     const promises: Promise<{id: DbIdType, data: RecordObject[]}>[] = [];
     this.dbEngines.forEach((db) => {
-      this.physicalMetaData.dbs.set(db.id, {dbType: db.config.dbType});
-      // @LUCIE we only utilize table names, not its create sql queries, correct?
+      this.physicalMetaData.dbs.set(db.id, {dbType: db.config.dbType, dbDriver: db.config.dbDriver});
       promises.push(db.getMetaData(db.id));
     });
     const metadatas = await Promise.all(promises);
@@ -495,6 +495,8 @@ export default class DielRuntime {
     metadatas.map(mD => {
       code += processSqlMetaDataFromRelationObject(mD.data, mD.id.toString());
       // .map(m => m["sql"] + ";").join("\n");
+
+      // get where each relation is stored (which dbid) from metadata
       mD.data.map(m => {
         const name = m["name"].toString();
         if (this.physicalMetaData.relationLocation.has(name)) {

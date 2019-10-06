@@ -5,12 +5,13 @@ import { GetColumnsFromSelection } from "./distributeQueries";
 import { SqlAst, SqlRelationType, SqlDerivedRelation, SqlRelation } from "../../parser/sqlAstTypes";
 import { LogInternalError } from "../../util/messages";
 import { Command, DeleteClause, AstType, InsertionClause, RelationSelection, RelationNameType, DerivedRelation, OriginalRelation, RelationConstraints } from "../../parser/dielAstTypes";
+import { DbDriver } from "../../runtime/DbEngine";
 
 /**
  * For now we wil just set the changes on all original tables
  * @param ast
  */
-export function TransformAstForMaterialization(ast: SqlAst) {
+export function TransformAstForMaterialization(ast: SqlAst, dbDriver: DbDriver) {
   const dynamic = new Set(ast.relations.filter(r => r.isDynamic).map(r => r.rName));
   const views = ast.relations.filter(r => r.relationType === SqlRelationType.View) as SqlDerivedRelation[];
   const deps = DeriveDepTreeFromSqlRelations(views, dynamic);
@@ -38,7 +39,7 @@ export function TransformAstForMaterialization(ast: SqlAst) {
           // set in place
           view.relationType = SqlRelationType.Table;
         } else {
-          materializeAView(view as SqlDerivedRelation, ast, originalTables);
+          materializeAView(view as SqlDerivedRelation, ast, originalTables, dbDriver);
         }
       }
     }
@@ -48,43 +49,55 @@ export function TransformAstForMaterialization(ast: SqlAst) {
 /**
  * Change the derived view ast into program ast in place
  */
-function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables: Set<string>) {
+function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables: Set<string>, dbDriver: DbDriver) {
   // @Lucie TODO: if it livesin a postgresql database, just set materizlie to true
-  const columns = GetColumnsFromSelection(view.selection);
-  if (!columns) {
-    LogInternalError(`Columsn for ${view.selection} undefined`);
-    return;
-  }
-  let table = {
-    relationType: SqlRelationType.Table,
-    rName: view.rName,
-    columns
-  };
-
-  // 2. make a program ast
-  // 2-1. create insert,delete ast
-  let deleteCommand = makeDeleteCommand(view.rName);
-  let insertCommand = makeInsertCommand(view);
-
-  // 3. push into programs. (this is supposed to preserve topo order)
-  originalTables.forEach(rName => {
-    // if the tname already exists in the map, append the program
-    const existingTrigger = ast.triggers.find(t => t.afterRelationName === rName);
-    if (existingTrigger) {
-      existingTrigger.commands.push(deleteCommand, insertCommand);
-    } else {
-      ast.triggers.push({
-        tName: `${rName}Trigger`,
-        afterRelationName: rName,
-        commands: [deleteCommand, insertCommand]
-      });
+  switch (dbDriver) {
+    case DbDriver.Postgres: {
+      // do nothing other than setting materialize to true
+      // postgres will handle
+      view.isMaterialized = true;
+      break;
     }
-  });
+    case DbDriver.SQLite: {
+      const columns = GetColumnsFromSelection(view.selection);
+      if (!columns) {
+        LogInternalError(`Columsn for ${view.selection} undefined`);
+        return;
+      }
+      let table = {
+        relationType: SqlRelationType.Table,
+        rName: view.rName,
+        columns
+      };
+      // translateConstraints(view, table);
 
-  // 4. build the final ast. The order of relations sometimes changes
-  // since table -> view -> output order.
-  let relationIndex = ast.relations.indexOf(view);
-  ast.relations[relationIndex] = table;
+      // 2. make a program ast
+      // 2-1. create insert,delete ast
+      let deleteCommand = makeDeleteCommand(view.rName);
+      let insertCommand = makeInsertCommand(view);
+
+      // 3. push into programs. (this is supposed to preserve topo order)
+      originalTables.forEach(rName => {
+        // if the tname already exists in the map, append the program
+        const existingTrigger = ast.triggers.find(t => t.afterRelationName === rName);
+        if (existingTrigger) {
+          existingTrigger.commands.push(deleteCommand, insertCommand);
+        } else {
+          ast.triggers.push({
+            tName: `${rName}Trigger`,
+            afterRelationName: rName,
+            commands: [deleteCommand, insertCommand]
+          });
+        }
+      });
+
+      // 4. build the final ast. The order of relations sometimes changes
+      // since table -> view -> output order.
+      let relationIndex = ast.relations.indexOf(view);
+      ast.relations[relationIndex] = table;
+      break;
+    }
+  }
 }
 
 /**
