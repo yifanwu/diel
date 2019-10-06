@@ -279,6 +279,7 @@ export class DielPhysicalExecution {
     localAst.triggers = triggers;
 
     // materialization pass
+    // @LUCIE TODO: pass in the dbType (it's postgres or sqlite)
     this.sqlAstSpecPerDb.forEach(ast => {
       TransformAstForMaterialization(ast);
     });

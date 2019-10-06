@@ -1,10 +1,11 @@
 import { DbType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemoteReply, RemoteOpenDbMessage, RemoteExecuteMessage, RemoteShipRelationMessage, RemoteUpdateRelationMessage } from "./runtimeTypes";
-import { PostgresMasterQuery, SqliteMasterQuery, RelationShippingFuncType, INIT_TIMESTEP } from "./DielRuntime";
+import { SqliteMasterQuery, RelationShippingFuncType, INIT_TIMESTEP } from "./DielRuntime";
 import { LogInternalError, ReportDielUserError, LogInternalWarning, DielInternalErrorType, LogInfo, LogExecutionTrace, LogSetup } from "../util/messages";
 import { LocalDbId, DielPhysicalExecution } from "../compiler/DielPhysicalExecution";
 import { IsSetIdentical } from "../util/dielUtils";
 import { ConnectionWrapper } from "./ConnectionWrapper";
 import { LogicalTimestep, RelationNameType, DbIdType } from "../parser/dielAstTypes";
+import { RecordObject } from "..";
 
 async function connectToSocket(url: string): Promise<WebSocket> {
   return new Promise<WebSocket>(function(resolve, reject) {
@@ -28,6 +29,7 @@ interface DbSetupConfigBase {
 export interface SocketConfig extends DbSetupConfigBase {
   connection: string;
   message?: any; // JSON string to send to the server for setup
+  tableDef?: RecordObject[];
 }
 
 export enum DbDriver {
@@ -39,6 +41,11 @@ export enum DbDriver {
 export interface WorkerConfig extends DbSetupConfigBase {
   jsFile: string;
   dataFile?: string;
+}
+
+export interface TableDef {
+  name: string;
+  sql: string;
 }
 
 export type DbSetupConfig = SocketConfig | WorkerConfig;
@@ -445,39 +452,24 @@ export default class DbEngine {
    * SqlitemasterQuery returns sql and name
    */
   async getMetaData(id: DbIdType): Promise<{id: DbIdType, data: RelationObject | null}> {
-    let sql: string;
     if (this.config.dbDriver === DbDriver.Postgres) {
-      sql = PostgresMasterQuery;
+      return {
+        id,
+        data: (<SocketConfig> this.config).tableDef,
+      };
     } else {
-      sql = SqliteMasterQuery;
+      const promise = this.SendMsg({
+        remoteAction: DielRemoteAction.GetResultsByPromise,
+        requestTimestep: INIT_TIMESTEP, // might change later because we can load new databases later?
+        // sql: this.config.dbDriver
+        sql: SqliteMasterQuery,
+      }, true);
+      const data = await promise;
+      return {
+        id,
+        data: data ? data.results : null
+      };
     }
-    const promise = this.SendMsg({
-      remoteAction: DielRemoteAction.GetResultsByPromise,
-      requestTimestep: INIT_TIMESTEP, // might change later because we can load new databases later?
-      // sql: this.config.dbDriver
-      sql,
-    }, true);
-    const data = await promise;
 
-    // @Lucie TODO: later change this...
-    if (this.config.dbDriver === DbDriver.Postgres) {
-      data.results.forEach((value, index) => {
-        data.results[index].sql = `CREATE TABLE log (
-          time INT,
-          device TEXT,
-          value INT,
-          min INT,
-          max INT,
-          data TEXT,
-          message TEXT,
-          source TEXT,
-          ts INT
-        )`;
-      });
-    }
-    return {
-      id,
-      data: data ? data.results : null
-    };
   }
 }

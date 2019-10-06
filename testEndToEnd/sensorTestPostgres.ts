@@ -1,13 +1,31 @@
 import * as path from "path";
-import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject } from "../src";
+import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject, RecordObject } from "../src";
 
-// const jsFile = "./node_modules/sql.js/js/worker.sql.js";
 
+const tableDef: RecordObject[] = [];
+tableDef.push({
+  name: `log`,
+  sql: `CREATE TABLE log (
+    time INT,
+    device TEXT,
+    value INT,
+    min INT,
+    max INT,
+    data TEXT,
+    message TEXT,
+    source TEXT,
+    ts INT
+  )`
+});
+
+// @Lucie Todo: add another field for table definitions.
+// make developers put diel queries
 const dbConfigs: DbSetupConfig[] = [{
   dbType: DbType.Socket,
   dbDriver: DbDriver.Postgres,
   connection: "ws://localhost:8999",
-  message: {dbName: "sensors"}
+  message: {dbName: "sensors"},
+  tableDef,
 },
 ];
 

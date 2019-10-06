@@ -278,7 +278,7 @@ export function isCachable(relation: DerivedRelation) {
  * corresponding data in the cache table; and a view sharing the name of the
  * event view, which joins the previous two tables to represent the final
  * behavior.
- * 
+ *
  * @param relation the event view to be cached
  * @param addTimeColumns whether to add time columns.
  *        TODO: Ryan: Should always be true?

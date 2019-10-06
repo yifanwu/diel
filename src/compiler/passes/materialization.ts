@@ -49,6 +49,7 @@ export function TransformAstForMaterialization(ast: SqlAst) {
  * Change the derived view ast into program ast in place
  */
 function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables: Set<string>) {
+  // @Lucie TODO: if it livesin a postgresql database, just set materizlie to true
   const columns = GetColumnsFromSelection(view.selection);
   if (!columns) {
     LogInternalError(`Columsn for ${view.selection} undefined`);
