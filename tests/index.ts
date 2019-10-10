@@ -12,26 +12,22 @@ import { testGetOriginalRelationsDependedOn } from "./compilerTests/testDependen
 import { assertCheckViewConstraintTest } from "./compilerTests/testViewConstraints";
 import { ParsePlainDielAst, CompileAst } from "../src/compiler/compiler";
 import { testAsyncPolicy } from "./compilerTests/testAsyncPolicy";
-import { testMaterializationRuntime } from "./compilerTests/testMaterializationRuntime";
 import { testMaterializationPostgres } from "./compilerTests/testPostgresMaterialization";
 import { testMaterialization } from "./compilerTests/testMaterialization";
 
 // import { PrintCode } from "../src/util/messages";
-// testTriTableCreation();
-// testAsyncPolicy();
-// assertLatestSyntax();
-// testAsyncPolicy();
-// testTopologicalSort();
-// testGetOriginalRelationsDependedOn();
-// testDistributionLogc();
-// codeGenBasicSQLTest();
-// assertBasicOperators();
-// assertSimpleType();
-// assertAllStar();
-// assertMultiplyType();
-testMaterialization();
-// testMaterializationPostgres();
-// testMaterializationRuntime();
+testTriTableCreation();
+testAsyncPolicy();
+assertLatestSyntax();
+testAsyncPolicy();
+testTopologicalSort();
+testGetOriginalRelationsDependedOn();
+testDistributionLogc();
+codeGenBasicSQLTest();
+assertBasicOperators();
+assertSimpleType();
+assertAllStar();
+assertMultiplyType();
 const q = `
 create event table t1 (
   a int,
@@ -51,10 +47,10 @@ create view v5 as select testAdd(a, b) from t1;
 create view v4 as select datetime(a, 'unixepoch') from t1;
 `;
 
-// let ast = ParsePlainDielAst(q);
-// CompileAst(ast);
-// assertBasicNormalizationOfRelation(ast, q);
-// assertFunctionParsing(ast, q);
+let ast = ParsePlainDielAst(q);
+CompileAst(ast);
+assertBasicNormalizationOfRelation(ast, q);
+assertFunctionParsing(ast, q);
 
 // @LUCIE: the following tests are failing, fix me
 // assertBasicConstraints();
@@ -62,4 +58,6 @@ create view v4 as select datetime(a, 'unixepoch') from t1;
 
 // @LUCIE: the following tests are not defined:
 // testMaterializedViewConstraint();
-// testMaterialization();
+
+testMaterialization();
+testMaterializationPostgres();

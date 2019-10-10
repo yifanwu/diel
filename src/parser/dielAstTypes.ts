@@ -204,6 +204,7 @@ interface RelationBase {
 export interface DerivedRelation extends RelationBase {
   selection: RelationSelection;
   cachable?: HasDefault<boolean>;
+  toMaterialize?: boolean;
 }
 
 export interface OriginalRelation extends RelationBase {

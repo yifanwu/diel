@@ -172,11 +172,13 @@ implements visitor.DIELVisitor<ExpressionValue> {
     const cClause = ctx.constraintClause();
     const constraints = cClause ? this.visit(cClause) as RelationConstraints : NewRelationConstraints();
     const selection = this.visit(ctx.selectQuery()) as RelationSelection;
+    const toMaterialize = ctx.MATERIALIZED() ? true : false;
     return {
       rName: name,
       relationType,
       constraints,
-      selection
+      selection,
+      toMaterialize
     };
   }
 

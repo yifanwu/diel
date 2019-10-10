@@ -436,7 +436,8 @@ export function GetSqlDerivedRelationFromDielRelation(relation: Relation): SqlDe
       return {
         rName: relation.rName,
         relationType: SqlRelationType.View,
-        selection: (relation as DerivedRelation).selection.compositeSelections
+        selection: (relation as DerivedRelation).selection.compositeSelections,
+        isMaterialized: (relation as DerivedRelation).toMaterialize,
       };
     }
     default:
