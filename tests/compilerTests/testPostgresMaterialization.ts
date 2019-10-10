@@ -19,7 +19,7 @@ export function testMaterializationPostgres() {
     create output o2 as select aPrime from v1 join t3 on aPrime = a;
   `;
 
-  const logger = GenerateUnitTestErrorLogger("testMaterializatioPostgres", query);
+  const logger = GenerateUnitTestErrorLogger("testMaterializationPostgres", query);
   const ast = ParsePlainDielAst(query);
   CompileAst(ast);
 

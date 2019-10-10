@@ -245,11 +245,18 @@ export class DielPhysicalExecution {
     // find any static table that was not used by outputs...
     GetOriginalRelations(this.ast).map(r => {
       if ((r.relationType === RelationType.Table)
-      || (r.relationType === RelationType.DerivedTable)) {
+      || (r.relationType === RelationType.DerivedTable)
+      || (r.relationType === RelationType.EventTable)
+      ) {
         if (!distributions.find(d => d.relationName === r.rName)) {
           // we need to add this to the local one
           // fixme: might be relevant for workers as well
-          const newOriginal = GetSqlOriginalRelationFromDielRelation(r);
+
+          // @Lucie Question: when are we adding timestep,,,?
+          // are we adding to all the event tables?
+          const addTimeColumns = (r.relationType === RelationType.EventTable);
+
+          const newOriginal = GetSqlOriginalRelationFromDielRelation(r, addTimeColumns);
           if (newOriginal) {
             // need to do the following check because the distribution pass may also add relations
             // sigh this is a bit messy.
@@ -281,8 +288,6 @@ export class DielPhysicalExecution {
     // materialization pass
     // @LUCIE TODO: pass in the dbType it's postgres or sqlite
     this.sqlAstSpecPerDb.forEach((ast, dbId) => {
-      console.log(dbId);
-      console.log(ast);
       const dbDriver = this.metaData.dbs.get(dbId).dbDriver;
       TransformAstForMaterialization(ast, dbDriver);
     });

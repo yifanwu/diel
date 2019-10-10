@@ -1,8 +1,7 @@
 import { ReportDielUserError, LogInternalWarning, LogInternalError, DielInternalErrorType } from "../../util/messages";
-import { ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprRelationAst, OriginalRelation, JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType, DielAst, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery  } from "../../parser/dielAstTypes";
+import { ExprAst, ExprType, ExprColumnAst, ExprFunAst, ExprRelationAst, OriginalRelation, JoinAst, RelationSelection, CompositeSelectionUnit, ColumnSelection, OrderByAst, RelationReference, AstType, DielAst, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, InsertionClause, DerivedRelation  } from "../../parser/dielAstTypes";
 import { GetAllDielDefinedOriginalRelations, GetAllDerivedViews } from "../DielAstGetters";
 import { ApplyLatestToDerivedRelation } from "./syntaxSugar";
-
 /**
  * Find all the top level selections for:
  * - views
@@ -18,11 +17,33 @@ import { ApplyLatestToDerivedRelation } from "./syntaxSugar";
  */
 export function ApplyTemplates(ast: DielAst) {
   // note: i think the concat should be fine with modifying in place?
+  const derivedViews: string[] = [];
   GetAllDerivedViews(ast).map(r => {
     TryToApplyTemplate(r.selection);
     // also apply syntax sugar..
     ApplyLatestToDerivedRelation(r);
+    derivedViews.push(r.rName);
   });
+
+  // check the derived views inside trigger(insert clause) for latest
+  ast.programs.forEach(commands => {
+    commands.forEach(command => {
+      if (command.astType === AstType.Insert
+        && derivedViews.indexOf((<InsertionClause> command).relation)) {
+          // typecast to derived realtion since the function only utilize selection property
+          ApplyLatestToDerivedRelation(command as unknown as DerivedRelation);
+      }
+    });
+  });
+  // check the command as well
+  ast.commands.forEach(command => {
+    if (command.astType === AstType.Insert
+      && derivedViews.indexOf((<InsertionClause> command).relation)) {
+        // typecast to derived realtion since the function only utilize selection property
+        ApplyLatestToDerivedRelation(command as unknown as DerivedRelation);
+    }
+  });
+
 
   // defined here since it needs to access the global definition
   // and the copy pass

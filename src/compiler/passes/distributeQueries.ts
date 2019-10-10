@@ -3,7 +3,7 @@ import { LogInternalError, DielInternalErrorType } from "../../util/messages";
 import { NodeDependencyAugmented, DependencyTree } from "../../runtime/runtimeTypes";
 import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation } from "../../parser/sqlAstTypes";
 import { LocalDbId } from "../DielPhysicalExecution";
-import { RelationNameType, DbIdType, Column, DielDataType, CompositeSelection, Relation, RelationType, OriginalRelation, DielAst, BuiltInColumn, SetOperator, RelationReferenceType, JoinAst, AstType, JoinType, ExprType, FunctionType, ColumnSelection } from "../../parser/dielAstTypes";
+import { RelationNameType, DbIdType, Column, DielDataType, CompositeSelection, Relation, RelationType, OriginalRelation, DielAst, BuiltInColumn, SetOperator, RelationReferenceType, JoinAst, AstType, JoinType, ExprType, FunctionType, ColumnSelection, ColumnConstraints } from "../../parser/dielAstTypes";
 import { DerivedRelation } from "../..";
 
 export type SingleDistribution = {
@@ -156,6 +156,13 @@ export function GetColumnsFromSelection(selection: CompositeSelection): Column[]
     return {
       cName: c.alias,
       dataType: c.expr.dataType,
+      constraints: {
+        autoincrement: false,
+        notNull: false,
+        unique: false,
+        primaryKey: false,
+      } as ColumnConstraints,
+      defaultValue: null,
     };
   });
   return columns;

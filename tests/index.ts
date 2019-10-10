@@ -14,6 +14,8 @@ import { ParsePlainDielAst, CompileAst } from "../src/compiler/compiler";
 import { testAsyncPolicy } from "./compilerTests/testAsyncPolicy";
 import { testMaterializationRuntime } from "./compilerTests/testMaterializationRuntime";
 import { testMaterializationPostgres } from "./compilerTests/testPostgresMaterialization";
+import { testMaterialization } from "./compilerTests/testMaterialization";
+
 // import { PrintCode } from "../src/util/messages";
 // testTriTableCreation();
 // testAsyncPolicy();
@@ -27,7 +29,8 @@ import { testMaterializationPostgres } from "./compilerTests/testPostgresMateria
 // assertSimpleType();
 // assertAllStar();
 // assertMultiplyType();
-testMaterializationPostgres();
+testMaterialization();
+// testMaterializationPostgres();
 // testMaterializationRuntime();
 const q = `
 create event table t1 (
