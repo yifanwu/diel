@@ -25,6 +25,7 @@ export function ApplyTemplates(ast: DielAst) {
     derivedViews.push(r.rName);
   });
 
+  // @Lucie Check with Yifan?
   // check the derived views inside trigger(insert clause) for latest
   ast.programs.forEach(commands => {
     commands.forEach(command => {
