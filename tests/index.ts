@@ -13,20 +13,22 @@ import { assertCheckViewConstraintTest } from "./compilerTests/testViewConstrain
 import { ParsePlainDielAst, CompileAst } from "../src/compiler/compiler";
 import { testAsyncPolicy } from "./compilerTests/testAsyncPolicy";
 import { testMaterializationRuntime } from "./compilerTests/testMaterializationRuntime";
+import { testMaterializationPostgres } from "./compilerTests/testPostgresMaterialization";
 // import { PrintCode } from "../src/util/messages";
-testTriTableCreation();
-testAsyncPolicy();
-assertLatestSyntax();
-testAsyncPolicy();
-testTopologicalSort();
-testGetOriginalRelationsDependedOn();
-testDistributionLogc();
-codeGenBasicSQLTest();
-assertBasicOperators();
-assertSimpleType();
-assertAllStar();
-assertMultiplyType();
-
+// testTriTableCreation();
+// testAsyncPolicy();
+// assertLatestSyntax();
+// testAsyncPolicy();
+// testTopologicalSort();
+// testGetOriginalRelationsDependedOn();
+// testDistributionLogc();
+// codeGenBasicSQLTest();
+// assertBasicOperators();
+// assertSimpleType();
+// assertAllStar();
+// assertMultiplyType();
+testMaterializationPostgres();
+// testMaterializationRuntime();
 const q = `
 create event table t1 (
   a int,
@@ -46,10 +48,10 @@ create view v5 as select testAdd(a, b) from t1;
 create view v4 as select datetime(a, 'unixepoch') from t1;
 `;
 
-let ast = ParsePlainDielAst(q);
-CompileAst(ast);
-assertBasicNormalizationOfRelation(ast, q);
-assertFunctionParsing(ast, q);
+// let ast = ParsePlainDielAst(q);
+// CompileAst(ast);
+// assertBasicNormalizationOfRelation(ast, q);
+// assertFunctionParsing(ast, q);
 
 // @LUCIE: the following tests are failing, fix me
 // assertBasicConstraints();

@@ -281,6 +281,8 @@ export class DielPhysicalExecution {
     // materialization pass
     // @LUCIE TODO: pass in the dbType it's postgres or sqlite
     this.sqlAstSpecPerDb.forEach((ast, dbId) => {
+      console.log(dbId);
+      console.log(ast);
       const dbDriver = this.metaData.dbs.get(dbId).dbDriver;
       TransformAstForMaterialization(ast, dbDriver);
     });
