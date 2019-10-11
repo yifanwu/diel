@@ -3,6 +3,7 @@ import { testRangeCaching, testMultiTableCaching } from "./testComplexCaching";
 import { baseLineEval } from "./perfEval";
 import { sensorTest } from "./sensorTest";
 import { sensorTestPostgres } from "./sensorTestPostgres";
+import { materializeTest } from "./materializeTest";
 import { DielRuntime } from "../src";
 
 const perf = (diel: DielRuntime) => {
@@ -10,6 +11,7 @@ const perf = (diel: DielRuntime) => {
   diel.downloadDB(1);
   diel.ShutDown();
 };
+// materializeTest(perf);
 sensorTestPostgres(perf);
 // sensorTest(perf);
 

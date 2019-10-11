@@ -1,0 +1,8 @@
+create event table value_selection (
+  selectedVal number
+);
+
+create view v1 as select * from log, value_selection where value_selection.selectedVal > log.val;
+
+create output o1 as select * from v1;
+create output o2 as select * from v1;

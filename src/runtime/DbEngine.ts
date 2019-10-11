@@ -394,7 +394,7 @@ export default class DbEngine {
             LogInternalError(`Both view and request_timestep should be defined for sharing views! However, I got ${JSON.stringify(msg.id, null, 2)}`);
             return;
           }
-          if (msg.results.length > 0) {
+          if (msg.results && msg.results.length > 0) {
             this.relationShippingCallback(view, msg.results, msg.id.requestTimestep);
           }
           break;
