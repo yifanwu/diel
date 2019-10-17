@@ -504,8 +504,6 @@ export default class DielRuntime {
       console.log("initialCompile(): " + (initialCompileEnd.getTime() - initialCompileStart.getTime()));
       console.log("setupUDFs(): " + (setupUDFsEnd.getTime() - setupUDFsStart.getTime()));
       console.log("executeToDbs(): " + (executeToDBsEnd.getTime() - executeToDBsStart.getTime()));
-
-      // 
     }
   }
 
