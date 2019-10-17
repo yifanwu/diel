@@ -438,10 +438,30 @@ export default class DielRuntime {
   }
 
   private async setup(loadPage: () => void, startSetUpTime: number) {
+
+    var printTimes = true; // Used for performance analysis
+
+    var setupStart = new Date();
+
     console.log(`Setting up DielRuntime with ${JSON.stringify(this.config)}`);
+    
+    var setupMainDbStart = new Date();
+    
     await this.setupMainDb();
+   
+    var setupMainDbEnd = new Date();
+    var setupRemoteStart = new Date();
+    
     await this.setupRemotes();
+   
+    var setupRemoteEnd = new Date();
+    var initialCompileStart = new Date();
+    
     await this.initialCompile();
+    
+    var initialCompileEnd = new Date();
+    var setupUDFsStart = new Date();
+    
     this.setupUDFs();
     this.physicalExecution = new DielPhysicalExecution(
       this.ast,
@@ -449,7 +469,14 @@ export default class DielRuntime {
       this.getEventByTimestep.bind(this),
       this.AddRelation.bind(this)
     );
+
+    var setupUDFsEnd = new Date();
+    var executeToDBsStart = new Date();
+
     await this.executeToDBs();
+
+    var executeToDBsEnd = new Date();
+
     this.setupNewInput();
     GetAllOutputs(this.ast).map(o => this.setupNewOutput(o.rName));
     this.scales = ParseSqlJsWorkerResult(this.db.exec("select * from __scales"));
@@ -467,6 +494,19 @@ export default class DielRuntime {
       $ts: endSetUpTime,
     });
     loadPage();
+
+    var setupEnd = new Date();
+
+    if (printTimes) {
+      console.log("setup(): " + (setupEnd.getTime() - setupStart.getTime()));
+      console.log("setupMainDb(): " + (setupMainDbEnd.getTime() - setupMainDbStart.getTime()));
+      console.log("setupRemotes(): " + (setupRemoteEnd.getTime() - setupRemoteStart.getTime()));
+      console.log("initialCompile(): " + (initialCompileEnd.getTime() - initialCompileStart.getTime()));
+      console.log("setupUDFs(): " + (setupUDFsEnd.getTime() - setupUDFsStart.getTime()));
+      console.log("executeToDbs(): " + (executeToDBsEnd.getTime() - executeToDBsStart.getTime()));
+
+      // 
+    }
   }
 
   async initialCompile() {
@@ -663,6 +703,9 @@ export default class DielRuntime {
       const buffer = new Uint8Array(bufferRaw);
       this.db = new Database(buffer);
     }
+    var d = new Date();
+    var n = d.getMilliseconds();
+    console.log("FINISHED SETTING UP MAIN DB " + n);
     return;
   }
   /**

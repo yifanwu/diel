@@ -1,7 +1,6 @@
 import * as path from "path";
 import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject, RecordObject } from "../src";
 
-
 const tableDef: RecordObject[] = [];
 tableDef.push({
   name: `log`,
@@ -31,23 +30,48 @@ const dbConfigs: DbSetupConfig[] = [{
 
 const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/sensors.diel")];
 
-export function sensorTestPostgres(perf: (diel: DielRuntime) => void) {
-  const diel = new DielRuntime({
-    isStrict: true,
-    showLog: true,
-    setupCb: testClass,
-    caching: false,
-    dielFiles,
-    mainDbPath: null,
-    dbConfigs,
-  });
+export function sensorsPerformanceTest(perf: (diel: DielRuntime) => void) {
+    const diel = new DielRuntime({
+        isStrict: true,
+        showLog: true,
+        setupCb: testClass,
+        caching: false,
+        dielFiles,
+        mainDbPath: null,
+        dbConfigs,
+      });
+
+    // for (let i = 0; i < NUM_LOOPS; i++) {
+    //     diel = new DielRuntime({
+    //         isStrict: true,
+    //         showLog: true,
+    //         setupCb: testClass,
+    //         caching: false,
+    //         dielFiles,
+    //         mainDbPath: null,
+    //         dbConfigs,
+    //       });
+    // }
+
+
+
+//   const diel = new DielRuntime({
+//     isStrict: true,
+//     showLog: true,
+//     setupCb: testClass,
+//     caching: false,
+//     dielFiles,
+//     mainDbPath: null,
+//     dbConfigs,
+//   });
 
   async function testClass() {
     // diel.BindOutput("current_time_selection_pretty", (o: RelationObject) => {
     //   console.log("current_time_selection_pretty", o);
     // });
+    // console.log("In the test class");
     diel.BindOutput("pack_break_regen", (o: RelationObject) => {
-      console.log("pack_break_regen", o);
+      // console.log("pack_break_regen", o);
     });
     // diel.BindOutput("pack_ther", (o: RelationObject) => {
     //   console.log("pack_ther", o);
