@@ -16,11 +16,11 @@ const perf = (diel: DielRuntime) => {
   diel.ShutDown();
 };
 // materializeTest(perf);
-// sensorTestPostgres(perf);
+sensorTestPostgres(perf);
 
-for (let i = 0; i < NUM_LOOPS; i++) {
-  sensorsPerformanceTest(perf);
-}
+// for (let i = 0; i < NUM_LOOPS; i++) {
+//   sensorsPerformanceTest(perf);
+// }
 
 
 

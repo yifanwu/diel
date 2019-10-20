@@ -24,6 +24,7 @@ import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation, SqlAst } from
 import { DeriveDependentRelations, getRelationReferenceDep } from "../compiler/passes/dependency";
 import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation, IsRelationTypeDerived } from "../compiler/DielAstGetters";
 import { getEventViewCacheName, getEventViewCacheReferenceName } from "../compiler/passes/distributeQueries";
+import { saveAs } from "file-saver";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
@@ -438,30 +439,26 @@ export default class DielRuntime {
   }
 
   private async setup(loadPage: () => void, startSetUpTime: number) {
-
-    var printTimes = true; // Used for performance analysis
-
-    var setupStart = new Date();
-
+    const printTimes = true; // Used for performance analysis
+    const setupStart = new Date();
     console.log(`Setting up DielRuntime with ${JSON.stringify(this.config)}`);
-    
-    var setupMainDbStart = new Date();
-    
+    const setupMainDbStart = new Date();
+
     await this.setupMainDb();
-   
-    var setupMainDbEnd = new Date();
-    var setupRemoteStart = new Date();
-    
+
+    const setupMainDbEnd = new Date();
+    const setupRemoteStart = new Date();
+
     await this.setupRemotes();
-   
-    var setupRemoteEnd = new Date();
-    var initialCompileStart = new Date();
-    
+
+    const setupRemoteEnd = new Date();
+    const initialCompileStart = new Date();
+
     await this.initialCompile();
-    
-    var initialCompileEnd = new Date();
-    var setupUDFsStart = new Date();
-    
+
+    const initialCompileEnd = new Date();
+    const setupUDFsStart = new Date();
+
     this.setupUDFs();
     this.physicalExecution = new DielPhysicalExecution(
       this.ast,
@@ -470,12 +467,12 @@ export default class DielRuntime {
       this.AddRelation.bind(this)
     );
 
-    var setupUDFsEnd = new Date();
-    var executeToDBsStart = new Date();
+    const setupUDFsEnd = new Date();
+    const executeToDBsStart = new Date();
 
     await this.executeToDBs();
 
-    var executeToDBsEnd = new Date();
+    const executeToDBsEnd = new Date();
 
     this.setupNewInput();
     GetAllOutputs(this.ast).map(o => this.setupNewOutput(o.rName));
@@ -495,15 +492,31 @@ export default class DielRuntime {
     });
     loadPage();
 
-    var setupEnd = new Date();
+    const setupEnd = new Date();
 
     if (printTimes) {
-      console.log("setup(): " + (setupEnd.getTime() - setupStart.getTime()));
-      console.log("setupMainDb(): " + (setupMainDbEnd.getTime() - setupMainDbStart.getTime()));
-      console.log("setupRemotes(): " + (setupRemoteEnd.getTime() - setupRemoteStart.getTime()));
-      console.log("initialCompile(): " + (initialCompileEnd.getTime() - initialCompileStart.getTime()));
-      console.log("setupUDFs(): " + (setupUDFsEnd.getTime() - setupUDFsStart.getTime()));
-      console.log("executeToDbs(): " + (executeToDBsEnd.getTime() - executeToDBsStart.getTime()));
+      const setupTime = setupEnd.getTime() - setupStart.getTime();
+      const setupMainDbTime = setupMainDbEnd.getTime() - setupMainDbStart.getTime();
+      const setupRemoteTime = setupRemoteEnd.getTime() - setupRemoteStart.getTime();
+      const initialCompileTime = initialCompileEnd.getTime() - initialCompileStart.getTime();
+      const setupUDFsTime = setupUDFsEnd.getTime() - setupUDFsStart.getTime();
+      const executeToDBsTime = executeToDBsEnd.getTime() - executeToDBsStart.getTime();
+
+      // console.log("setup(): " + (setupEnd.getTime() - setupStart.getTime()));
+      // console.log("setupMainDb(): " + (setupMainDbEnd.getTime() - setupMainDbStart.getTime()));
+      // console.log("setupRemotes(): " + (setupRemoteEnd.getTime() - setupRemoteStart.getTime()));
+      // console.log("initialCompile(): " + (initialCompileEnd.getTime() - initialCompileStart.getTime()));
+      // console.log("setupUDFs(): " + (setupUDFsEnd.getTime() - setupUDFsStart.getTime()));
+      // console.log("executeToDbs(): " + (executeToDBsEnd.getTime() - executeToDBsStart.getTime()));
+      const blob = new Blob([
+        `setupTime: ${setupTime}\n`,
+        `setupMainDbTime: ${setupMainDbTime}\n`,
+        `setupRemoteTime: ${setupRemoteTime}\n`,
+        `initialCompileTime: ${initialCompileTime}\n`,
+        `setupUDFsTime: ${setupUDFsTime}\n`,
+        `executeToDBsTime : ${executeToDBsTime}\n`],
+        {type: "text/plain;charset=utf-8"});
+      saveAs(blob, "performance.txt");
     }
   }
 

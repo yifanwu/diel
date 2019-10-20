@@ -24,7 +24,7 @@ const dbConfigs: DbSetupConfig[] = [{
   dbType: DbType.Socket,
   dbDriver: DbDriver.Postgres,
   connection: "ws://localhost:8999",
-  message: {dbName: "davidkim"},
+  message: {dbName: "sensors"},
   tableDef,
 },
 ];
