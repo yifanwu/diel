@@ -24,12 +24,20 @@ import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation, SqlAst } from
 import { DeriveDependentRelations, getRelationReferenceDep } from "../compiler/passes/dependency";
 import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation, IsRelationTypeDerived } from "../compiler/DielAstGetters";
 import { getEventViewCacheName, getEventViewCacheReferenceName } from "../compiler/passes/distributeQueries";
-import { saveAs } from "file-saver";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
 export let LOGINFO = false;
 
+// variables to measure..
+export let setupTime = 0;
+export let setupMainDbTime = 0;
+export let setupRemoteTime = 0;
+export let initialCompileTime = 0;
+export let setupUDFsTime = 0;
+export let physicalExecutionTime = 0;
+export let executeToDBsTime = 0;
+const printTimes = true; // Used for performance analysis
 
 // const locateFile = (pathname: any) => {
 //   if (pathname === "sql-wasm.wasm") {
@@ -419,6 +427,19 @@ export default class DielRuntime {
     }
   }
 
+  downloadPerformance() {
+      const blob = new Blob([
+        `setupTime: ${setupTime}\n`,
+        `setupMainDbTime: ${setupMainDbTime}\n`,
+        `setupRemoteTime: ${setupRemoteTime}\n`,
+        `initialCompileTime: ${initialCompileTime}\n`,
+        `setupUDFsTime: ${setupUDFsTime}\n`,
+        `physicalExecutionTime: ${physicalExecutionTime}\n`,
+        `executeToDBsTime : ${executeToDBsTime}\n`],
+        {type: "text/plain;charset=utf-8"});
+    downloadHelper(blob, "performance", "txt");
+  }
+
   simpleGetLocal(view: string): RelationObject | null {
     const s = this.runtimeOutputs.get(view);
     if (s) {
@@ -439,39 +460,36 @@ export default class DielRuntime {
   }
 
   private async setup(loadPage: () => void, startSetUpTime: number) {
-    const printTimes = true; // Used for performance analysis
     const setupStart = new Date();
     console.log(`Setting up DielRuntime with ${JSON.stringify(this.config)}`);
+
     const setupMainDbStart = new Date();
-
     await this.setupMainDb();
-
     const setupMainDbEnd = new Date();
+
     const setupRemoteStart = new Date();
-
     await this.setupRemotes();
-
     const setupRemoteEnd = new Date();
+
     const initialCompileStart = new Date();
-
     await this.initialCompile();
-
     const initialCompileEnd = new Date();
-    const setupUDFsStart = new Date();
 
+    const setupUDFsStart = new Date();
     this.setupUDFs();
+    const setupUDFsEnd = new Date();
+
+    const physicalExecutionStart = new Date();
     this.physicalExecution = new DielPhysicalExecution(
       this.ast,
       this.physicalMetaData,
       this.getEventByTimestep.bind(this),
       this.AddRelation.bind(this)
     );
+    const physicalExecutionEnd = new Date();
 
-    const setupUDFsEnd = new Date();
     const executeToDBsStart = new Date();
-
     await this.executeToDBs();
-
     const executeToDBsEnd = new Date();
 
     this.setupNewInput();
@@ -495,12 +513,13 @@ export default class DielRuntime {
     const setupEnd = new Date();
 
     if (printTimes) {
-      const setupTime = setupEnd.getTime() - setupStart.getTime();
-      const setupMainDbTime = setupMainDbEnd.getTime() - setupMainDbStart.getTime();
-      const setupRemoteTime = setupRemoteEnd.getTime() - setupRemoteStart.getTime();
-      const initialCompileTime = initialCompileEnd.getTime() - initialCompileStart.getTime();
-      const setupUDFsTime = setupUDFsEnd.getTime() - setupUDFsStart.getTime();
-      const executeToDBsTime = executeToDBsEnd.getTime() - executeToDBsStart.getTime();
+      setupTime = setupEnd.getTime() - setupStart.getTime();
+      setupMainDbTime = setupMainDbEnd.getTime() - setupMainDbStart.getTime();
+      setupRemoteTime = setupRemoteEnd.getTime() - setupRemoteStart.getTime();
+      initialCompileTime = initialCompileEnd.getTime() - initialCompileStart.getTime();
+      setupUDFsTime = setupUDFsEnd.getTime() - setupUDFsStart.getTime();
+      physicalExecutionTime = physicalExecutionEnd.getTime() - physicalExecutionStart.getTime();
+      executeToDBsTime = executeToDBsEnd.getTime() - executeToDBsStart.getTime();
 
       // console.log("setup(): " + (setupEnd.getTime() - setupStart.getTime()));
       // console.log("setupMainDb(): " + (setupMainDbEnd.getTime() - setupMainDbStart.getTime()));
@@ -508,15 +527,17 @@ export default class DielRuntime {
       // console.log("initialCompile(): " + (initialCompileEnd.getTime() - initialCompileStart.getTime()));
       // console.log("setupUDFs(): " + (setupUDFsEnd.getTime() - setupUDFsStart.getTime()));
       // console.log("executeToDbs(): " + (executeToDBsEnd.getTime() - executeToDBsStart.getTime()));
-      const blob = new Blob([
-        `setupTime: ${setupTime}\n`,
-        `setupMainDbTime: ${setupMainDbTime}\n`,
-        `setupRemoteTime: ${setupRemoteTime}\n`,
-        `initialCompileTime: ${initialCompileTime}\n`,
-        `setupUDFsTime: ${setupUDFsTime}\n`,
-        `executeToDBsTime : ${executeToDBsTime}\n`],
-        {type: "text/plain;charset=utf-8"});
-      saveAs(blob, "performance.txt");
+
+    //   const blob = new Blob([
+    //     `setupTime: ${setupTime}\n`,
+    //     `setupMainDbTime: ${setupMainDbTime}\n`,
+    //     `setupRemoteTime: ${setupRemoteTime}\n`,
+    //     `initialCompileTime: ${initialCompileTime}\n`,
+    //     `setupUDFsTime: ${setupUDFsTime}\n`,
+    //     `physicalExecutionTime: ${physicalExecutionTime}\n`,
+    //     `executeToDBsTime : ${executeToDBsTime}\n`],
+    //     {type: "text/plain;charset=utf-8"});
+    //   saveAs(blob, "performance.txt");
     }
   }
 
@@ -714,8 +735,8 @@ export default class DielRuntime {
       const buffer = new Uint8Array(bufferRaw);
       this.db = new Database(buffer);
     }
-    var d = new Date();
-    var n = d.getMilliseconds();
+    const d = new Date();
+    const n = d.getMilliseconds();
     console.log("FINISHED SETTING UP MAIN DB " + n);
     return;
   }
