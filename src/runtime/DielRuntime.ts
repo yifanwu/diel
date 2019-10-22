@@ -427,17 +427,13 @@ export default class DielRuntime {
     }
   }
 
+  /**
+   * Calling in this the browser will download a CSV with performance times
+   */
   downloadPerformance() {
-      const blob = new Blob([
-        `setupTime: ${setupTime}\n`,
-        `setupMainDbTime: ${setupMainDbTime}\n`,
-        `setupRemoteTime: ${setupRemoteTime}\n`,
-        `initialCompileTime: ${initialCompileTime}\n`,
-        `setupUDFsTime: ${setupUDFsTime}\n`,
-        `physicalExecutionTime: ${physicalExecutionTime}\n`,
-        `executeToDBsTime : ${executeToDBsTime}\n`],
-        {type: "text/plain;charset=utf-8"});
-    downloadHelper(blob, "performance", "txt");
+      const blob = new Blob(["setupTime, setupMainDbTime, setupRemoteTime, initialCompileTime, setupUDFsTime, physicalExecutionTime, executeToDBsTime\n", `${setupTime}, ${setupMainDbTime}, ${setupRemoteTime}, ${initialCompileTime}, ${setupUDFsTime}, ${physicalExecutionTime}, ${executeToDBsTime}`], {type: "text/csv;charset=utf-8"});
+
+    downloadHelper(blob, "performance", "csv");
   }
 
   simpleGetLocal(view: string): RelationObject | null {
@@ -520,24 +516,6 @@ export default class DielRuntime {
       setupUDFsTime = setupUDFsEnd.getTime() - setupUDFsStart.getTime();
       physicalExecutionTime = physicalExecutionEnd.getTime() - physicalExecutionStart.getTime();
       executeToDBsTime = executeToDBsEnd.getTime() - executeToDBsStart.getTime();
-
-      // console.log("setup(): " + (setupEnd.getTime() - setupStart.getTime()));
-      // console.log("setupMainDb(): " + (setupMainDbEnd.getTime() - setupMainDbStart.getTime()));
-      // console.log("setupRemotes(): " + (setupRemoteEnd.getTime() - setupRemoteStart.getTime()));
-      // console.log("initialCompile(): " + (initialCompileEnd.getTime() - initialCompileStart.getTime()));
-      // console.log("setupUDFs(): " + (setupUDFsEnd.getTime() - setupUDFsStart.getTime()));
-      // console.log("executeToDbs(): " + (executeToDBsEnd.getTime() - executeToDBsStart.getTime()));
-
-    //   const blob = new Blob([
-    //     `setupTime: ${setupTime}\n`,
-    //     `setupMainDbTime: ${setupMainDbTime}\n`,
-    //     `setupRemoteTime: ${setupRemoteTime}\n`,
-    //     `initialCompileTime: ${initialCompileTime}\n`,
-    //     `setupUDFsTime: ${setupUDFsTime}\n`,
-    //     `physicalExecutionTime: ${physicalExecutionTime}\n`,
-    //     `executeToDBsTime : ${executeToDBsTime}\n`],
-    //     {type: "text/plain;charset=utf-8"});
-    //   saveAs(blob, "performance.txt");
     }
   }
 
