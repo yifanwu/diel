@@ -456,37 +456,37 @@ export default class DielRuntime {
   }
 
   private async setup(loadPage: () => void, startSetUpTime: number) {
-    const setupStart = new Date();
+    const setupStart = performance.now();
     console.log(`Setting up DielRuntime with ${JSON.stringify(this.config)}`);
 
-    const setupMainDbStart = new Date();
+    const setupMainDbStart = performance.now();
     await this.setupMainDb();
-    const setupMainDbEnd = new Date();
+    const setupMainDbEnd = performance.now();
 
-    const setupRemoteStart = new Date();
+    const setupRemoteStart = performance.now();
     await this.setupRemotes();
-    const setupRemoteEnd = new Date();
+    const setupRemoteEnd = performance.now();
 
-    const initialCompileStart = new Date();
+    const initialCompileStart = performance.now();
     await this.initialCompile();
-    const initialCompileEnd = new Date();
+    const initialCompileEnd = performance.now();
 
-    const setupUDFsStart = new Date();
+    const setupUDFsStart = performance.now();
     this.setupUDFs();
-    const setupUDFsEnd = new Date();
+    const setupUDFsEnd = performance.now();
 
-    const physicalExecutionStart = new Date();
+    const physicalExecutionStart = performance.now();
     this.physicalExecution = new DielPhysicalExecution(
       this.ast,
       this.physicalMetaData,
       this.getEventByTimestep.bind(this),
       this.AddRelation.bind(this)
     );
-    const physicalExecutionEnd = new Date();
+    const physicalExecutionEnd = performance.now();
 
-    const executeToDBsStart = new Date();
+    const executeToDBsStart = performance.now();
     await this.executeToDBs();
-    const executeToDBsEnd = new Date();
+    const executeToDBsEnd = performance.now();
 
     this.setupNewInput();
     GetAllOutputs(this.ast).map(o => this.setupNewOutput(o.rName));
@@ -506,16 +506,16 @@ export default class DielRuntime {
     });
     loadPage();
 
-    const setupEnd = new Date();
+    const setupEnd = performance.now();
 
     if (printTimes) {
-      setupTime = setupEnd.getTime() - setupStart.getTime();
-      setupMainDbTime = setupMainDbEnd.getTime() - setupMainDbStart.getTime();
-      setupRemoteTime = setupRemoteEnd.getTime() - setupRemoteStart.getTime();
-      initialCompileTime = initialCompileEnd.getTime() - initialCompileStart.getTime();
-      setupUDFsTime = setupUDFsEnd.getTime() - setupUDFsStart.getTime();
-      physicalExecutionTime = physicalExecutionEnd.getTime() - physicalExecutionStart.getTime();
-      executeToDBsTime = executeToDBsEnd.getTime() - executeToDBsStart.getTime();
+      setupTime = setupEnd - setupStart;
+      setupMainDbTime = setupMainDbEnd - setupMainDbStart;
+      setupRemoteTime = setupRemoteEnd - setupRemoteStart;
+      initialCompileTime = initialCompileEnd - initialCompileStart;
+      setupUDFsTime = setupUDFsEnd - setupUDFsStart;
+      physicalExecutionTime = physicalExecutionEnd - physicalExecutionStart;
+      executeToDBsTime = executeToDBsEnd - executeToDBsStart;
     }
   }
 
