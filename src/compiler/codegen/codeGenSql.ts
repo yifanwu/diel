@@ -53,7 +53,7 @@ function generateCommand(command: Command): string {
 }
 
 export function generateDrop(command: DropClause) {
-  return `DROP ${command.dropType} ${command.dropName};`;
+  return `DROP ${command.dropType} ${command.dropName} CASCADE;`;
 }
 
 export function generateDelete(command: DeleteClause) {
@@ -79,7 +79,7 @@ export function GenerateSqlRelationString(r: SqlRelation, replace = false): stri
 
 // FIXME note that we should probably not use the if not exist as a crutch
 function generateTableSpec(t: SqlOriginalRelation, replace = false): string {
-  const replaceQuery = replace ? `DROP TABLE IF EXISTS ${t.rName};` : "";
+  const replaceQuery = replace ? `DROP TABLE IF EXISTS ${t.rName} CASCADE;` : "";
   return `${replaceQuery}
   CREATE TABLE ${t.rName} (
 ${t.columns.map(c => "    " + generateColumnDefinition(c)).join(",\n")}
@@ -99,7 +99,7 @@ export function GenerateStrFromDielDerivedRelation(v: DerivedRelation) {
 }
 
 export function generateSqlViews(v: SqlDerivedRelation, replace = false): string {
-  const replaceQuery = replace ? `DROP VIEW IF EXISTS ${v.rName};` : "";
+  const replaceQuery = replace ? `DROP VIEW IF EXISTS ${v.rName} CASCADE;` : "";
   const materialize = v.isMaterialized ? `MATERIALIZED` : "";
   return `${replaceQuery}
   CREATE ${materialize} VIEW ${v.rName} AS
@@ -312,7 +312,7 @@ function generateLimit(e: ExprAst | undefined): string {
 }
 
 function generateTrigger({ trigger, replace = false }: { trigger: TriggerAst; replace?: boolean; }): string {
-  const replaceQuery = replace ? `DROP TRIGGER IF EXISTS ${trigger.tName};` : "";
+  const replaceQuery = replace ? `DROP TRIGGER IF EXISTS ${trigger.tName} CASCADE;` : "";
   let program = `${replaceQuery}
   CREATE TRIGGER ${trigger.tName} AFTER INSERT ON ${trigger.afterRelationName}\nBEGIN\n`;
   program += trigger.commands.map(p => generateCommand(p)).join("\n");

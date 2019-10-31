@@ -431,7 +431,8 @@ export default class DielRuntime {
    * Calling in this the browser will download a CSV with performance times
    */
   downloadPerformance() {
-      const blob = new Blob(["setupTime, setupMainDbTime, setupRemoteTime, initialCompileTime, setupUDFsTime, physicalExecutionTime, executeToDBsTime\n", `${setupTime}, ${setupMainDbTime}, ${setupRemoteTime}, ${initialCompileTime}, ${setupUDFsTime}, ${physicalExecutionTime}, ${executeToDBsTime}`], {type: "text/csv;charset=utf-8"});
+      const blob = new Blob(["setupTime, setupMainDbTime, setupRemoteTime, initialCompileTime, setupUDFsTime, physicalExecutionTime, executeToDBsTime\n",
+      `${setupTime}, ${setupMainDbTime}, ${setupRemoteTime}, ${initialCompileTime}, ${setupUDFsTime}, ${physicalExecutionTime}, ${executeToDBsTime}`], {type: "text/csv;charset=utf-8"});
 
     downloadHelper(blob, "performance", "csv");
   }
@@ -452,7 +453,6 @@ export default class DielRuntime {
     } else {
       return ReportUserRuntimeError(`${view} does not exist.`);
     }
-    return null;
   }
 
   private async setup(loadPage: () => void, startSetUpTime: number) {

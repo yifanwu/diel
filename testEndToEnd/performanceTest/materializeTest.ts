@@ -1,5 +1,5 @@
 import * as path from "path";
-import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject, RecordObject } from "../src";
+import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject, RecordObject } from "../../src";
 
 
 const tableDef: RecordObject[] = [];
@@ -18,8 +18,6 @@ tableDef.push({
   )`
 });
 
-// @Lucie Todo: add another field for table definitions.
-// make developers put diel queries
 const dbConfigs: DbSetupConfig[] = [{
   dbType: DbType.Socket,
   dbDriver: DbDriver.Postgres,
@@ -43,18 +41,14 @@ export function materializeTest(perf: (diel: DielRuntime) => void) {
   });
 
   async function testClass() {
-    diel.BindOutput("o1", (o: RelationObject) => {
-      // document.write("<html><body><h2>Added!!!!</h2></body></html>");
-      console.log("\nBIND OUTPUT-O1!\n", o);
+    diel.BindOutput("pack_break_regen_first", (o: RelationObject) => {
+      console.log("!!!!!", "pack_break_regen_first!", "!!!!", o);
     });
-    diel.BindOutput("o2", (o: RelationObject) => {
-      // document.write("<html><body><h2>Added!!!!</h2></body></html>");
-      console.log("\nBIND OUTPUT-O2!\n", o);
+    diel.BindOutput("pack_break_regen_second", (o: RelationObject) => {
+      console.log("?????", "pack_break_regen_second", "????", o);
     });
-
-    diel.NewInput("value_selection", {selectedVal: 10});
-
-    diel.NewInput("value_selection", {selectedVal: 0});
+    diel.NewInput("time_selection", {minTs: null, maxTs: null});
+    diel.NewInput("time_selection", {minTs: 1541878513, maxTs: 1541886987});
   }
   return diel;
 }

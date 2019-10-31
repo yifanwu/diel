@@ -1,5 +1,5 @@
 import * as path from "path";
-import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject, RecordObject } from "../src";
+import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject, RecordObject } from "../../src";
 
 const tableDef: RecordObject[] = [];
 tableDef.push({

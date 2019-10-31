@@ -289,7 +289,7 @@ export class DielPhysicalExecution {
     // @LUCIE TODO: pass in the dbType it's postgres or sqlite
     this.sqlAstSpecPerDb.forEach((ast, dbId) => {
       const dbDriver = this.metaData.dbs.get(dbId).dbDriver;
-      TransformAstForMaterialization(ast, dbDriver);
+      // TransformAstForMaterialization(ast, dbDriver);
     });
   }
 
