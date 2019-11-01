@@ -50,6 +50,7 @@ export function TransformAstForMaterialization(ast: SqlAst, dbDriver: DbDriver) 
  */
 function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables: Set<string>, dbDriver: DbDriver) {
   // @Lucie TODO: if it livesin a postgresql database, just set materizlie to true
+  console.log("Materializing " + view.rName);
   switch (dbDriver) {
     case DbDriver.Postgres: {
       // do nothing other than setting materialize to true

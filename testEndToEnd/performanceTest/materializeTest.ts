@@ -20,7 +20,7 @@ tableDef.push({
 
 const dbConfigs: DbSetupConfig[] = [{
   dbType: DbType.Socket,
-  dbDriver: DbDriver.Postgres,
+  dbDriver: DbDriver.SQLite,
   connection: "ws://localhost:8999",
   message: {dbName: "sensors"},
   tableDef,
@@ -29,7 +29,7 @@ const dbConfigs: DbSetupConfig[] = [{
 
 const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/materialize.diel")];
 
-export function materializeTest(perf: (diel: DielRuntime) => void) {
+export function materializeTest(perf: (diel: DielRuntime) => void, materialize?: boolean) {
   const diel = new DielRuntime({
     isStrict: true,
     showLog: true,
@@ -38,7 +38,7 @@ export function materializeTest(perf: (diel: DielRuntime) => void) {
     dielFiles,
     mainDbPath: null,
     dbConfigs,
-    materialize: false,
+    materialize: materialize ? materialize : false,
   });
 
   async function testClass() {

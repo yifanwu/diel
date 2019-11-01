@@ -837,7 +837,7 @@ export default class DielRuntime {
         if (remoteInstance) {
           remoteInstance.setPhysicalExecutionReference(this.physicalExecution);
           const replace = remoteInstance.config.dbType === DbType.Socket;
-          const queries = generateStringFromSqlIr(ast, replace);
+          const queries = generateStringFromSqlIr(ast, replace, remoteInstance.config.dbDriver);
           if (queries && queries.length > 0) {
             const sql = queries.map(q => q + ";").join("\n");
             const msg: RemoteExecuteMessage = {
@@ -849,7 +849,7 @@ export default class DielRuntime {
             if (mPromise) promises.push(mPromise);
           }
           const deleteQueryAst = generateCleanUpAstFromSqlAst(ast);
-          const deleteQueries = deleteQueryAst.map(d => generateDrop(d)).join("\n");
+          const deleteQueries = deleteQueryAst.map(d => generateDrop(d, remoteInstance.config.dbDriver)).join("\n");
           console.log(`%c Cleanup queries:\n${deleteQueries}`, "color: blue");
           if ((remoteInstance.config.dbType === DbType.Socket) && deleteQueries) {
             const msg: RemoteExecuteMessage = {
