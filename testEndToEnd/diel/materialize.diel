@@ -6,6 +6,9 @@ create event table time_selection (
 create view current_time_selection AS
   select * from latest time_selection;
 
+
+-- the view current_filtered_vals should be materialized
+-- since there are two outputs that depend on this view
 create view current_filtered_vals AS
   select * 
   from log 

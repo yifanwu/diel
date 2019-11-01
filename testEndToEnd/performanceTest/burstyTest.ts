@@ -35,7 +35,7 @@ export function burstyTest(perf: (diel: DielRuntime) => void, bursty: boolean, i
         isStrict: true,
         showLog: true,
         setupCb: bursty ? testClassburstySameRange : testClassNotBursty ,
-        caching: true,
+        caching: false,
         dielFiles,
         mainDbPath: null,
         dbConfigs,

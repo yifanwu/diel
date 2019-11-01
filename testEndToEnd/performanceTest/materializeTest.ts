@@ -38,6 +38,7 @@ export function materializeTest(perf: (diel: DielRuntime) => void) {
     dielFiles,
     mainDbPath: null,
     dbConfigs,
+    materialize: false,
   });
 
   async function testClass() {

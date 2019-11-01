@@ -14,7 +14,7 @@ import { log } from "../util/dielUdfs";
 import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo, LogExecutionTrace } from "../util/messages";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult, GenerateViewName, CaughtLocalRun, convertRelationObjectToQueryResults } from "./runtimeHelper";
-import { DielPhysicalExecution, LocalDbId, dependsOnLocalTables, dependsOnRemoteTables } from "../compiler/DielPhysicalExecution";
+import { materializationTime, DielPhysicalExecution, LocalDbId, dependsOnLocalTables, dependsOnRemoteTables } from "../compiler/DielPhysicalExecution";
 import DbEngine, { DbDriver } from "./DbEngine";
 import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
@@ -84,6 +84,7 @@ type DbMetaData = {
 export type PhysicalMetaData = {
   // RYAN: TODO: Find better place for this.
   cache?: boolean,
+  materialize?: boolean,
   dbs: Map<DbIdType, DbMetaData>;
   relationLocation: Map<string, TableMetaData>;
 };
@@ -131,7 +132,8 @@ export default class DielRuntime {
     this.physicalMetaData = {
       dbs: new Map(),
       relationLocation: new Map(),
-      cache: config.caching ? config.caching : false
+      cache: config.caching ? config.caching : false,
+      materialize: config.materialize ? config.materialize : false,
     };
     this.staticRelationsSent = [];
     this.boundFns = [];
@@ -431,8 +433,9 @@ export default class DielRuntime {
    * Calling in this the browser will download a CSV with performance times
    */
   downloadPerformance() {
-      const blob = new Blob(["setupTime, setupMainDbTime, setupRemoteTime, initialCompileTime, setupUDFsTime, physicalExecutionTime, executeToDBsTime\n",
-      `${setupTime}, ${setupMainDbTime}, ${setupRemoteTime}, ${initialCompileTime}, ${setupUDFsTime}, ${physicalExecutionTime}, ${executeToDBsTime}`], {type: "text/csv;charset=utf-8"});
+      const blob = new Blob(["setupTime, setupMainDbTime, setupRemoteTime, initialCompileTime, setupUDFsTime, physicalExecutionTime, executeToDBsTime, materializationTime\n",
+      `${setupTime}, ${setupMainDbTime}, ${setupRemoteTime}, ${initialCompileTime}, ${setupUDFsTime}, ${physicalExecutionTime}, ${executeToDBsTime} ${materializationTime}`],
+      {type: "text/csv;charset=utf-8"});
 
     downloadHelper(blob, "performance", "csv");
   }

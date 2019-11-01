@@ -23,10 +23,10 @@ const perf = (diel: DielRuntime) => {
 
 // performance Test
 // -- materialize
-// materializeTest(perf);
+materializeTest(perf);
 
 // -- bursty (interval, number of loops)
-burstyTest(perf, true, 0, 50);
+// burstyTest(perf, true, 0, 50);
 // burstyTest(perf, false, 500, 10);
 
 // -- cache (interval, number of loops  )
