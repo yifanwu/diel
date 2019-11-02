@@ -146,6 +146,7 @@ export default class DielRuntime {
     return this.eventByTimestep.get(timestep);
   }
 
+
   public ShutDown() {
     this.db.close();
     this.dbEngines.forEach(e => {
@@ -575,6 +576,9 @@ export default class DielRuntime {
     let ast = this.visitor.visitQueries(tree);
     this.ast = CompileAst(ast);
 
+    console.log("original ast");
+    console.log(ast);
+
     // get sql for views constraints
     checkViewConstraint(ast).forEach((queries: string[][], viewName: string) => {
       if (queries.length > 0) {
@@ -852,6 +856,7 @@ export default class DielRuntime {
           const deleteQueries = deleteQueryAst.map(d => generateDrop(d, remoteInstance.config.dbDriver)).join("\n");
           console.log(`%c Cleanup queries:\n${deleteQueries}`, "color: blue");
           if ((remoteInstance.config.dbType === DbType.Socket) && deleteQueries) {
+            remoteInstance.deleteQueries = deleteQueries;
             const msg: RemoteExecuteMessage = {
               remoteAction: DielRemoteAction.CleanUpQueries,
               requestTimestep: INIT_TIMESTEP,

@@ -296,6 +296,8 @@ export class DielPhysicalExecution {
       const materializationEnd = performance.now();
       materializationTime = materializationEnd - materializationStart;
     }
+    console.log("transformed ast after materialization");
+    console.log(this.sqlAstSpecPerDb);
   }
 
   /**
