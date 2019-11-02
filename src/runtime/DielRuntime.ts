@@ -856,7 +856,6 @@ export default class DielRuntime {
           const deleteQueries = deleteQueryAst.map(d => generateDrop(d, remoteInstance.config.dbDriver)).join("\n");
           console.log(`%c Cleanup queries:\n${deleteQueries}`, "color: blue");
           if ((remoteInstance.config.dbType === DbType.Socket) && deleteQueries) {
-            remoteInstance.deleteQueries = deleteQueries;
             const msg: RemoteExecuteMessage = {
               remoteAction: DielRemoteAction.CleanUpQueries,
               requestTimestep: INIT_TIMESTEP,

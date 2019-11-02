@@ -70,7 +70,6 @@ export default class DbEngine {
   // if the connection has multiple databases, then the dbName must be specified
   // dbName?: string;
   connection: ConnectionWrapper;
-  deleteQueries?: string;
 
   constructor(config: DbSetupConfig,
               remoteId: number,
@@ -96,14 +95,12 @@ export default class DbEngine {
         // the sql is also not needed
         this.connection.send(id, {sql: ""}, false);
       case DbType.Socket:
-        if (this.deleteQueries) {
-          const msg: RemoteExecuteMessage = {
-            remoteAction: DielRemoteAction.CleanUpQueries,
-            requestTimestep: 10,
-            sql: this.deleteQueries,
-          };
-          await this.SendMsg(msg, true);
-        }
+        const msg: RemoteExecuteMessage = {
+          remoteAction: DielRemoteAction.Close,
+          requestTimestep: -1,
+          sql: "",
+        };
+        this.SendMsg(msg, false);
     }
   }
 
@@ -269,6 +266,13 @@ export default class DbEngine {
           };
           return this.connection.send(id, msgToSend, isPromise);
         }
+      }
+      case DielRemoteAction.Close: {
+        const closeMsg = msg as RemoteExecuteMessage;
+        const msgToSend = this.extendMsgWithCustom({
+          sql: closeMsg.sql
+        });
+        return this.connection.send(id, msgToSend, isPromise);
       }
       case DielRemoteAction.CleanUpQueries: {
         const cleanupMsg = msg as RemoteExecuteMessage;

@@ -48,8 +48,8 @@ export function materializeTest(perf: (diel: DielRuntime) => void, materialize?:
     diel.BindOutput("pack_break_regen_second", (o: RelationObject) => {
       console.log("?????", "pack_break_regen_second", "????", o);
     });
-    diel.NewInput("time_selection", {minTs: null, maxTs: null});
-    diel.NewInput("time_selection", {minTs: 1541878513, maxTs: 1541886987});
+    // diel.NewInput("time_selection", {minTs: null, maxTs: null});
+    // diel.NewInput("time_selection", {minTs: 1541878513, maxTs: 1541886987});
   }
   return diel;
 }
