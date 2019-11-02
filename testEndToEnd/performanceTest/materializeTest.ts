@@ -20,7 +20,7 @@ tableDef.push({
 
 const dbConfigs: DbSetupConfig[] = [{
   dbType: DbType.Socket,
-  dbDriver: DbDriver.SQLite,
+  dbDriver: DbDriver.Postgres,
   connection: "ws://localhost:8999",
   message: {dbName: "sensors"},
   tableDef,
@@ -48,8 +48,11 @@ export function materializeTest(perf: (diel: DielRuntime) => void, materialize?:
     diel.BindOutput("pack_break_regen_second", (o: RelationObject) => {
       console.log("?????", "pack_break_regen_second", "????", o);
     });
-    // diel.NewInput("time_selection", {minTs: null, maxTs: null});
-    // diel.NewInput("time_selection", {minTs: 1541878513, maxTs: 1541886987});
+    diel.NewInput("time_selection", {minTs: 1541878513, maxTs: 1541886987});
+
+    // for (let i = 0; i < 10; i++) {
+    //   diel.NewInput("time_selection", {minTs: 1541878513, maxTs: 1541886987});
+    // }
   }
   return diel;
 }

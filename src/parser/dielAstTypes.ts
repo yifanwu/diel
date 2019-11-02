@@ -460,6 +460,7 @@ export enum DropType {
 export interface DropClause extends AstBase {
   dropType: DropType;
   dropName: string;
+  isMaterialized?: boolean;
 }
 export interface DeleteClause extends AstBase {
   relationName: string;

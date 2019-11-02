@@ -13,12 +13,11 @@ import { DbDriver } from "../..";
 export function generateCleanUpAstFromSqlAst(ast: SqlAst): DropClause[] {
   // basically drop everything
   // triggers etc.
-  console.log("generating drop!!!!!!!!!!!!!!");
-  console.log(ast);
   const tables = ast.relations.map(r => ({
     astType: AstType.Drop,
     dropType: r.relationType === SqlRelationType.Table ? DropType.Table : DropType.View,
     dropName: r.rName,
+    isMaterialized: r.relationType === SqlRelationType.View && (r as SqlDerivedRelation).isMaterialized
   }));
 
   let triggers = ast.triggers.map(t => ({
@@ -56,8 +55,13 @@ function generateCommand(command: Command, dbDrvier?: DbDriver): string {
 }
 
 export function generateDrop(command: DropClause, dbDrvier?: DbDriver) {
-  return `DROP ${command.dropType} ${command.dropName}
-    ${(dbDrvier && dbDrvier === DbDriver.Postgres) ? "CASCADE" : ""};`;
+  return `DROP ` +
+    `${command.isMaterialized &&
+      dbDrvier && dbDrvier === DbDriver.Postgres &&
+      command.dropType === DropType.View ? "MATERIALIZED " : ""}` +
+    `${command.dropType} ` +
+    `${command.dropName} ` +
+    `${(dbDrvier && dbDrvier === DbDriver.Postgres) ? "CASCADE" : ""};`;
 }
 
 export function generateDelete(command: DeleteClause) {
