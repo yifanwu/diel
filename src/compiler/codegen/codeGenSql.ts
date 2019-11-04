@@ -107,13 +107,43 @@ export function GenerateStrFromDielDerivedRelation(v: DerivedRelation) {
   return `create ${rStr} ${v.rName} AS ${generateSelect(v.selection.compositeSelections)}`;
 }
 
+export function generatePostgresTrigger(vName: string, originalRelations: Set<string>): string {
+  if (originalRelations.size > 0) {
+  // create a function once but multiple triggers for each original Relations
+  const functionName = `refresh_mat_view_${vName}`;
+  const functionQuery = `create or replace function ${functionName}()
+    returns trigger language plpgsql as
+    $$
+      begin
+        refresh materialized view ${vName};
+        return null;
+      end
+    $$;
+    `;
+  let triggerQueries: string[] = [];
+  originalRelations.forEach(tName => {
+    const triggerName = `refresh_mat_view_${vName}_${tName}`;
+    triggerQueries.push(`create trigger ${triggerName}
+      after insert on ${tName}
+      for each statement
+      execute procedure ${functionName}();
+      `);
+  });
+  return functionQuery + triggerQueries.join("");
+  }
+  return "";
+}
+
 export function generateSqlViews(v: SqlDerivedRelation, replace = false, dbDrvier?: DbDriver): string {
   const replaceQuery = replace ? `DROP VIEW IF EXISTS ${v.rName}
     ${(dbDrvier && dbDrvier === DbDriver.Postgres) ? "CASCADE" : ""};` : "";
   const materialize = v.isMaterialized ? `MATERIALIZED` : "";
+  const triggerQueries = v.isMaterialized && v.originalRelations && dbDrvier === DbDriver.Postgres ?
+    generatePostgresTrigger(v.rName, v.originalRelations) : "";
   return `${replaceQuery}
   CREATE ${materialize} VIEW ${v.rName} AS
-  ${generateSelect(v.selection)}
+  ${generateSelect(v.selection)};
+  ${triggerQueries}
   `;
 }
 
