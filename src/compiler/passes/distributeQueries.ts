@@ -220,7 +220,8 @@ export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTi
         relationType: SqlRelationType.Table,
         isDynamic: true,
         rName: relation.rName,
-        columns: addTimeColumns ? originalColumns.concat(EventViewColumns) : originalColumns
+        columns: (addTimeColumns)
+          ? originalColumns.concat(EventViewColumns) : originalColumns
       };
       return createSpec;
     default:

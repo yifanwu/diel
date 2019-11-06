@@ -1,0 +1,35 @@
+create event table time_selection (
+  minTs integer,
+  maxTs integer
+);
+
+create view current_time_selection AS
+  select * from latest time_selection;
+
+
+create view v1 AS
+  select log.ts 
+  from log 
+  join current_time_selection s
+    on (log.ts < s.maxTs
+    and log.ts > s.minTs);
+
+create view v2 AS
+  select v1.ts as ts
+  from v1;
+
+
+-- output 1 
+create output pack_break_regen_first AS
+  select v2.ts 
+  from v2;
+
+-- output 2
+create output pack_break_regen_second AS
+   select v2.ts
+   from v2;
+
+-- output 3
+create output pack_break_regen_third AS
+   select v1.ts
+   from v1;

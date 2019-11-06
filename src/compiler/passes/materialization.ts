@@ -23,6 +23,7 @@ export function TransformAstForMaterialization(ast: SqlAst, dbDriver: DbDriver) 
     return ast.relations.find(v => v.rName === rName);
   }
   const toMaterialize = getRelationsToMateralize(deps, getRelationDef);
+  console.log("TOMATIERALIZE!!!!!", toMaterialize, ast, deps, getRelationDef);
   let originalTables: Set<string>;
   // Materialize by topological order
   topoOrder.forEach(relation => {
