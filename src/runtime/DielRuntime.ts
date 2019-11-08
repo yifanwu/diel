@@ -24,6 +24,7 @@ import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation, SqlAst } from
 import { DeriveDependentRelations, getRelationReferenceDep } from "../compiler/passes/dependency";
 import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation, IsRelationTypeDerived } from "../compiler/DielAstGetters";
 import { getEventViewCacheName, getEventViewCacheReferenceName } from "../compiler/passes/distributeQueries";
+import { execTime } from "./ConnectionWrapper";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
@@ -431,7 +432,7 @@ export default class DielRuntime {
    * Calling in this the browser will download a CSV with performance times
    */
   downloadPerformance() {
-      const blob = new Blob(["setupTime, setupMainDbTime, setupRemoteTime, initialCompileTime, setupUDFsTime, physicalExecutionTime, executeToDBsTime\n", `${setupTime}, ${setupMainDbTime}, ${setupRemoteTime}, ${initialCompileTime}, ${setupUDFsTime}, ${physicalExecutionTime}, ${executeToDBsTime}`], {type: "text/csv;charset=utf-8"});
+      const blob = new Blob(["setupTime, setupMainDbTime, setupRemoteTime, initialCompileTime, setupUDFsTime, physicalExecutionTime, executeToDBsTime, execTime\n", `${setupTime}, ${setupMainDbTime}, ${setupRemoteTime}, ${initialCompileTime}, ${setupUDFsTime}, ${physicalExecutionTime}, ${executeToDBsTime}, ${execTime}`], {type: "text/csv;charset=utf-8"});
 
     downloadHelper(blob, "performance", "csv");
   }
