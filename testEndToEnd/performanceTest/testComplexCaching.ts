@@ -1,6 +1,6 @@
 import * as path from "path";
-import { DielRuntime, DbSetupConfig, DbType, RelationObject, DbDriver } from "../src";
-import { LogTest } from "../src/util/messages";
+import { DielRuntime, DbSetupConfig, DbType, RelationObject, DbDriver } from "../../src";
+import { LogTest } from "../../src/util/messages";
 const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/js/worker.sql.js");
 
 

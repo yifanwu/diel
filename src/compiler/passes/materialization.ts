@@ -55,6 +55,7 @@ function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables:
       // do nothing other than setting materialize to true
       // postgres will handle
       view.isMaterialized = true;
+      view.originalRelations = originalTables;
       break;
     }
     case DbDriver.SQLite: {

@@ -12,6 +12,7 @@ import { GetRelationDef, GetAllOutputs, GetOriginalRelations } from "./DielAstGe
 import { AddRelation, DeleteRelation } from "./DielAstVisitors";
 
 export const LocalDbId = 1;
+export let materializationTime = 0;
 
 // local helper function
 // not using a set here because sets do not work well over complex objects...
@@ -286,11 +287,17 @@ export class DielPhysicalExecution {
     localAst.triggers = triggers;
 
     // materialization pass
-    // @LUCIE TODO: pass in the dbType it's postgres or sqlite
-    this.sqlAstSpecPerDb.forEach((ast, dbId) => {
-      const dbDriver = this.metaData.dbs.get(dbId).dbDriver;
-      TransformAstForMaterialization(ast, dbDriver);
-    });
+    if (this.metaData.materialize) {
+      const materializationStart = performance.now();
+      this.sqlAstSpecPerDb.forEach((ast, dbId) => {
+        const dbDriver = this.metaData.dbs.get(dbId).dbDriver;
+        TransformAstForMaterialization(ast, dbDriver);
+      });
+      const materializationEnd = performance.now();
+      materializationTime = materializationEnd - materializationStart;
+    }
+    console.log("transformed ast after materialization");
+    console.log(this.sqlAstSpecPerDb);
   }
 
   /**

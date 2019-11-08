@@ -18,8 +18,6 @@ tableDef.push({
   )`
 });
 
-// @Lucie Todo: add another field for table definitions.
-// make developers put diel queries
 const dbConfigs: DbSetupConfig[] = [{
   dbType: DbType.Socket,
   dbDriver: DbDriver.Postgres,
@@ -31,7 +29,7 @@ const dbConfigs: DbSetupConfig[] = [{
 
 const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/sensors.diel")];
 
-export function sensorTestPostgres(perf: (diel: DielRuntime) => void) {
+export function sensorTestPostgresConnection(perf: (diel: DielRuntime) => void) {
   const diel = new DielRuntime({
     isStrict: true,
     showLog: true,
@@ -56,7 +54,7 @@ export function sensorTestPostgres(perf: (diel: DielRuntime) => void) {
     //   console.log("pack_cell", o);
     // });
     diel.NewInput("time_selection", {minTs: null, maxTs: null});
-    diel.NewInput("time_selection", {minTs: 2458433.3161339, maxTs: 2458433.36517046});
+    diel.NewInput("time_selection", {minTs: 1541878513, maxTs: 1541878515});
     // window.setTimeout(() => {
     //   perf(diel);
     // }, 5000);

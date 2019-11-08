@@ -84,7 +84,7 @@ export default class DbEngine {
     this.relationShippingCallback = relationShippingCallback;
   }
 
-  public Close() {
+  public async Close() {
     switch (this.config.dbType) {
       case DbType.Worker:
         const id = {
@@ -95,6 +95,12 @@ export default class DbEngine {
         // the sql is also not needed
         this.connection.send(id, {sql: ""}, false);
       case DbType.Socket:
+        const msg: RemoteExecuteMessage = {
+          remoteAction: DielRemoteAction.Close,
+          requestTimestep: -1,
+          sql: "",
+        };
+        this.SendMsg(msg, false);
     }
   }
 
@@ -260,6 +266,13 @@ export default class DbEngine {
           };
           return this.connection.send(id, msgToSend, isPromise);
         }
+      }
+      case DielRemoteAction.Close: {
+        const closeMsg = msg as RemoteExecuteMessage;
+        const msgToSend = this.extendMsgWithCustom({
+          sql: closeMsg.sql
+        });
+        return this.connection.send(id, msgToSend, isPromise);
       }
       case DielRemoteAction.CleanUpQueries: {
         const cleanupMsg = msg as RemoteExecuteMessage;

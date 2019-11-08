@@ -35,6 +35,7 @@ export interface DielConfig {
   mainDbPath?: string;
   dbConfigs?: DbSetupConfig[];
   caching?: boolean;
+  materialize?: boolean;
 }
 
 export type GetRelationToShipFuncType = (dbId: DbIdType, relation: string, step: LogicalTimestep) => Set<string>;

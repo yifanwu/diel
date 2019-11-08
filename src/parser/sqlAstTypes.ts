@@ -19,6 +19,7 @@ export interface SqlOriginalRelation extends SqlRelationBase {
 export interface SqlDerivedRelation extends SqlRelationBase {
   selection: CompositeSelection;
   isMaterialized?: boolean;
+  originalRelations?: Set<string>;
 }
 
 export type SqlRelation = SqlDerivedRelation | SqlOriginalRelation;
