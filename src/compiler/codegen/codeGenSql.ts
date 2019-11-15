@@ -67,6 +67,7 @@ export function generateDrop(command: DropClause, dbDrvier?: DbDriver) {
   return `${dropFunction} ` +
     `DROP ${isViewAndMaterializedPostgres ? "MATERIALIZED " : ""}` +
     `${command.dropType} ` +
+    `IF EXISTS ` +
     `${command.dropName} ` +
     `${(dbDrvier && dbDrvier === DbDriver.Postgres) ? `ON ${command.dropAfter} CASCADE` : ""};`;
 }
