@@ -74,6 +74,7 @@ export interface DielRemoteMessageId {
 export interface DielRemoteReply {
   id: DielRemoteMessageId;
   results: RelationObject;
+  execTime: number;
   err: any;
 }
 
