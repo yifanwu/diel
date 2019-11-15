@@ -23,7 +23,6 @@ export function TransformAstForMaterialization(ast: SqlAst, dbDriver: DbDriver) 
     return ast.relations.find(v => v.rName === rName);
   }
   const toMaterialize = getRelationsToMateralize(deps, getRelationDef);
-  console.log("TOMATIERALIZE!!!!!", toMaterialize, ast, deps, getRelationDef);
   let originalTables: Set<string>;
   // Materialize by topological order
   topoOrder.forEach(relation => {
@@ -53,10 +52,18 @@ function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables:
   // @Lucie TODO: if it livesin a postgresql database, just set materizlie to true
   switch (dbDriver) {
     case DbDriver.Postgres: {
-      // do nothing other than setting materialize to true
-      // postgres will handle
+      // set materialize to true and generate triggers
       view.isMaterialized = true;
       view.originalRelations = originalTables;
+      originalTables.forEach(tName => {
+          ast.triggers.push({
+            tName: `refresh_mat_view_${view.rName}_${tName}`,
+            afterRelationName: tName,
+            commands: [],
+            functionName: `refresh_mat_view_${view.rName}`
+          });
+        }
+      );
       break;
     }
     case DbDriver.SQLite: {

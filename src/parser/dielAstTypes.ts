@@ -461,6 +461,7 @@ export interface DropClause extends AstBase {
   dropType: DropType;
   dropName: string;
   isMaterialized?: boolean;
+  dropAfter?: string;
 }
 export interface DeleteClause extends AstBase {
   relationName: string;

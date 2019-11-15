@@ -27,7 +27,7 @@ const dbConfigs: DbSetupConfig[] = [{
 },
 ];
 
-const dielFiles2 = [path.resolve(__dirname, "../../testEndToEnd/diel/materializeTriggerOrder.diel")];
+// const dielFiles2 = [path.resolve(__dirname, "../../testEndToEnd/diel/materializeTriggerOrder.diel")];
 const dielFiles1 = [path.resolve(__dirname, "../../testEndToEnd/diel/materialize.diel")];
 
 
@@ -35,9 +35,9 @@ export function materializeTest(perf: (diel: DielRuntime) => void, materialize?:
   const diel = new DielRuntime({
     isStrict: true,
     showLog: true,
-    setupCb: testClass2,
+    setupCb: testClass1,
     caching: false,
-    dielFiles: dielFiles2,
+    dielFiles: dielFiles1,
     mainDbPath: null,
     dbConfigs,
     materialize: materialize ? materialize : false,
@@ -52,9 +52,9 @@ export function materializeTest(perf: (diel: DielRuntime) => void, materialize?:
     });
     diel.NewInput("time_selection", {minTs: 1541878513, maxTs: 1541886987});
 
-    for (let i = 0; i < 10; i++) {
-      diel.NewInput("time_selection", {minTs: 1541878513, maxTs: 1541886987});
-    }
+    // for (let i = 0; i < 10; i++) {
+    //   diel.NewInput("time_selection", {minTs: 1541878513, maxTs: 1541886987});
+    // }
   }
 
     async function testClass2() {

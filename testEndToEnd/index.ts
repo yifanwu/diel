@@ -24,8 +24,8 @@ const perf = (diel: DielRuntime) => {
 
 // performance Test
 // -- materialize
-materializeFixTest(perf, true);
-// materializeTest(perf, true);
+// materializeFixTest(perf, true);
+materializeTest(perf, true);
 // materializeTest(perf, false);
 
 
