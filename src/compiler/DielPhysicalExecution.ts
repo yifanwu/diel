@@ -288,13 +288,10 @@ export class DielPhysicalExecution {
 
     // materialization pass
     if (this.metaData.materialize) {
-      const materializationStart = performance.now();
       this.sqlAstSpecPerDb.forEach((ast, dbId) => {
         const dbDriver = this.metaData.dbs.get(dbId).dbDriver;
         TransformAstForMaterialization(ast, dbDriver);
       });
-      const materializationEnd = performance.now();
-      materializationTime = materializationEnd - materializationStart;
     }
     console.log("transformed ast after materialization");
     console.log(this.sqlAstSpecPerDb);
