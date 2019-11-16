@@ -5,7 +5,7 @@ import { sensorTest } from "./sensorTest";
 import { sensorTestPostgresConnection } from "./sensorTestPostgres";
 import { sensorsPerformanceTest } from "./performanceTest/sensorsPerformanceTest";
 import { materializeTest } from "./performanceTest/materializeTest";
-import {materializeFixTest} from "./performanceTest/materializeFix";
+import { materializeE2ETest } from "./materializeE2ETest";
 import { burstyTest } from "./performanceTest/burstyTest";
 import { DielRuntime } from "../src";
 
@@ -21,11 +21,13 @@ const perf = (diel: DielRuntime) => {
 // connection Test
 // sensorTestPostgresConnection(perf);
 
+materializeE2ETest(perf);
+
 
 // performance Test
 // -- materialize
 // materializeFixTest(perf, true);
-materializeTest(perf, true);
+// materializeTest(perf, true);
 // materializeTest(perf, false);
 
 
