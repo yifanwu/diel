@@ -95,7 +95,7 @@ function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables:
           existingTrigger.commands.push(deleteCommand, insertCommand);
         } else {
           ast.triggers.push({
-            tName: `refresh_mat_view_${view.rName}_${tName}`,
+            tName: `${tName}Trigger`,
             afterRelationName: tName,
             commands: [deleteCommand, insertCommand]
           });

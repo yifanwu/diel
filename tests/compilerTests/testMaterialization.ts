@@ -325,7 +325,7 @@ create program after (t1)
   end;
 
 create table v2 (v2Prime integer);
-create program after (v1)
+create program after (t1)
   begin
     delete from v2;
     insert into v2 select v1Prime + 1 as v2Prime from v1;
