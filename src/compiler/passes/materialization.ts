@@ -59,8 +59,14 @@ function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables:
       view.isMaterialized = true;
       view.originalRelations = originalTables;
       originalTables.forEach(tName => {
+        // check there is a trigger already after that table, calculate its order
+        // This is needed for correctly ordering the triggers for postgres
+        // only works when there are few triggers on the same table(less than what ascii can support)
+        const count = ast.triggers.reduce((n, trigger) => {
+          return trigger.afterRelationName === tName ? n + 1 : n;
+        }, 0);
           ast.triggers.push({
-            tName: `refresh_mat_view_${view.rName}_${tName}`,
+            tName: `${tName}Trigger_${String.fromCharCode(count + 65)}`,
             afterRelationName: tName,
             commands: [],
             functionName: `refresh_mat_view_${view.rName}`
