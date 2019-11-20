@@ -16,6 +16,8 @@ export function TransformAstForMaterialization(ast: SqlAst, dbDriver: DbDriver) 
   const views = ast.relations.filter(r => r.relationType === SqlRelationType.View) as SqlDerivedRelation[];
   const deps = DeriveDepTreeFromSqlRelations(views, dynamic);
 
+  console.log("Calculating materialization\n", deps);
+
   // get topo order
   const topoOrder = getTopologicalOrder(deps);
 
@@ -49,6 +51,7 @@ export function TransformAstForMaterialization(ast: SqlAst, dbDriver: DbDriver) 
  * Change the derived view ast into program ast in place
  */
 function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables: Set<string>, dbDriver: DbDriver) {
+  console.log(`Materializing view! ${view.rName}`);
   // @Lucie TODO: if it livesin a postgresql database, just set materizlie to true
   switch (dbDriver) {
     case DbDriver.Postgres: {
@@ -85,15 +88,15 @@ function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables:
       let insertCommand = makeInsertCommand(view);
 
       // 3. push into programs. (this is supposed to preserve topo order)
-      originalTables.forEach(rName => {
+      originalTables.forEach(tName => {
         // if the tname already exists in the map, append the program
-        const existingTrigger = ast.triggers.find(t => t.afterRelationName === rName);
+        const existingTrigger = ast.triggers.find(t => t.afterRelationName === tName);
         if (existingTrigger) {
           existingTrigger.commands.push(deleteCommand, insertCommand);
         } else {
           ast.triggers.push({
-            tName: `${rName}Trigger`,
-            afterRelationName: rName,
+            tName: `refresh_mat_view_${view.rName}_${tName}`,
+            afterRelationName: tName,
             commands: [deleteCommand, insertCommand]
           });
         }

@@ -3,12 +3,12 @@ import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject, RecordObj
 
 
 const tableDef: RecordObject[] = [];
-tableDef.push({
-  name: `log`,
-  sql: `CREATE TABLE t2 (
-      a INT
-    )`
-});
+// tableDef.push({
+//   name: `t2`,
+//   sql: `CREATE TABLE t2 (
+//       a INT
+//     )`
+// });
 
 const dbConfigs: DbSetupConfig[] = [{
   dbType: DbType.Socket,
@@ -37,8 +37,26 @@ export function materializeFixTest(perf: (diel: DielRuntime) => void, materializ
   async function testClass1() {
     diel.BindOutput("o1", (o: RelationObject) => {
       console.log(`\x1b[42m%s\x1b[0m`, "OUTPUT O1");
+      o.forEach(v => {
+        console.log(v);
+      });
     });
-    // diel.NewInput("t1", {a: 2});
+
+    diel.BindOutput("o2", (o: RelationObject) => {
+      console.log(`\x1b[43m%s\x1b[0m`, "OUTPUT O2");
+      o.forEach(v => {
+        console.log(v);
+      });
+    });
+
+    diel.BindOutput("o3", (o: RelationObject) => {
+      console.log(`\x1b[41m%s\x1b[0m`, "OUTPUT O3");
+      o.forEach(v => {
+        console.log(v);
+      });
+    });
+    diel.NewInput("t1", {a: 2});
+    diel.NewInput("t1", {a: 8});
 
   }
   return diel;
