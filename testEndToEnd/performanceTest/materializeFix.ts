@@ -3,16 +3,16 @@ import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject, RecordObj
 
 
 const tableDef: RecordObject[] = [];
-// tableDef.push({
-//   name: `t2`,
-//   sql: `CREATE TABLE t2 (
-//       a INT
-//     )`
-// });
+tableDef.push({
+  name: `t2`,
+  sql: `CREATE TABLE t2 (
+      a INT
+    )`
+});
 
 const dbConfigs: DbSetupConfig[] = [{
   dbType: DbType.Socket,
-  dbDriver: DbDriver.SQLite,
+  dbDriver: DbDriver.Postgres,
   connection: "ws://localhost:8999",
   message: {dbName: "sensors"},
   tableDef,

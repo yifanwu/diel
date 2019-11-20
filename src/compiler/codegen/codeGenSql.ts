@@ -69,7 +69,9 @@ export function generateDrop(command: DropClause, dbDrvier?: DbDriver) {
     `${command.dropType} ` +
     `IF EXISTS ` +
     `${command.dropName} ` +
-    `${(dbDrvier && dbDrvier === DbDriver.Postgres) ? `ON ${command.dropAfter} CASCADE` : ""};`;
+    `${(dbDrvier && dbDrvier === DbDriver.Postgres && command.dropType === DropType.Trigger) ? `ON ${command.dropAfter} ` : ""}` +
+    `${(dbDrvier && dbDrvier === DbDriver.Postgres) ? `CASCADE` : ""};`
+    ;
 }
 
 export function generateDelete(command: DeleteClause) {
