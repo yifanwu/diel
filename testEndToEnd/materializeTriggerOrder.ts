@@ -3,20 +3,6 @@ import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject, RecordObj
 
 
 const tableDef: RecordObject[] = [];
-// tableDef.push({
-//   name: `log`,
-//   sql: `CREATE TABLE log (
-//     time INT,
-//     device TEXT,
-//     value INT,
-//     min INT,
-//     max INT,
-//     data TEXT,
-//     message TEXT,
-//     source TEXT,
-//     ts INT
-//   )`
-// });
 
 const dbConfigs: DbSetupConfig[] = [{
   dbType: DbType.Socket,
@@ -30,7 +16,7 @@ const dbConfigs: DbSetupConfig[] = [{
 const dielFiles = [path.resolve(__dirname, "../testEndToEnd/diel/materializeTriggerOrder.diel")];
 
 
-export function materializeE2ETest(perf: (diel: DielRuntime) => void) {
+export function materializeTriggerOrder(perf: (diel: DielRuntime) => void) {
   const diel = new DielRuntime({
     isStrict: true,
     showLog: true,
@@ -44,12 +30,26 @@ export function materializeE2ETest(perf: (diel: DielRuntime) => void) {
 
   async function testClass() {
     diel.BindOutput("o1", (o: RelationObject) => {
-      console.log(`%c BINDING O1`, "color: green");
-    });
-    diel.BindOutput("o2", (o: RelationObject) => {
-      console.log(`%c BINDING O2`, "color: green");
+      console.log(`\x1b[42m%s\x1b[0m`, "OUTPUT O1");
+      o.forEach(v => {
+        console.log(v);
+      });
     });
 
+    diel.BindOutput("o2", (o: RelationObject) => {
+      console.log(`\x1b[43m%s\x1b[0m`, "OUTPUT O2");
+      o.forEach(v => {
+        console.log(v);
+      });
+    });
+
+    diel.BindOutput("o3", (o: RelationObject) => {
+      console.log(`\x1b[41m%s\x1b[0m`, "OUTPUT O3");
+      o.forEach(v => {
+        console.log(v);
+      });
+    });
+    diel.NewInput("t1", {a: 5});
   }
   return diel;
 }

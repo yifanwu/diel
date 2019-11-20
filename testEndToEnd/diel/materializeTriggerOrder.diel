@@ -1,7 +1,10 @@
-create event table t1 (a integer);
+create event table t1 (a int);
+create view v0 as select a from t1;
 
-create view v1 as select a+1 as a from t1;
-create view v2 as select a+1 as a from v1;
 
-create output o1 as select a+1 as a from v2;
-create output o2 as select a+1 as a from v2;
+create view v1 as select a+1 as a from v0, t2 where v0.a = t2.a;
+create view v2 as select a+1 as a from v1; 
+
+create output o3 as select v1.a from v1;
+create output o1 as select v2.a from v2;
+create output o2 as select v2.a from v2;

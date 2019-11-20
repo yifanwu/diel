@@ -1,5 +1,5 @@
 import * as path from "path";
-import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject, RecordObject } from "../../src";
+import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject, RecordObject } from "../src";
 
 
 const tableDef: RecordObject[] = [];
@@ -19,10 +19,10 @@ const dbConfigs: DbSetupConfig[] = [{
 },
 ];
 
-const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/materializeFix.diel")];
+const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/materializeComplex.diel")];
 
 
-export function materializeFixTest(perf: (diel: DielRuntime) => void, materialize?: boolean) {
+export function materializeComplex(perf: (diel: DielRuntime) => void, materialize?: boolean) {
   const diel = new DielRuntime({
     isStrict: true,
     showLog: true,
