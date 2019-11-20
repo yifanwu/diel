@@ -10,6 +10,7 @@ import { generateStringFromSqlIr } from "../../src/compiler/codegen/codeGenSql";
 const physicalMetaData = {
     dbs: new Map([[1, {dbType: DbType.Local, dbDriver: DbDriver.Postgres}]]),
     relationLocation: new Map(),
+    materialize: true,
 };
 const getEventByTimestep = (n: LogicalTimestep) => "";
 const addRelationToDielMock = (r: Relation) => {};

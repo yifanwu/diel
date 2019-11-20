@@ -26,7 +26,6 @@ materializeE2ETest(perf);
 
 // performance Test
 // -- materialize
-// materializeFixTest(perf, true);
 // materializeTest(perf, true);
 // materializeTest(perf, false);
 

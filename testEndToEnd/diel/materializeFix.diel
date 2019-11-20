@@ -1,20 +1,18 @@
--- t (local)
-create table t (a int);
 --  t1 (local)
-create table t1 (a int);
+create event table t1 (a int);
 -- t2 (postgres)
-create table t2 (a int);
+-- create table t2 (a int);
 
 -- v1 (local)
-create view v1 as select * from latest t1;
-create output o3 as select * from v1 join t;
+create view v1 as select a from t1;
+create output o1 as select v1.a from v1;
 
 
-create view v2 as select * from v1 join t2;
+create view v2 as select v1.a from v1, t2 where v1.a = t2.a;
 -- async view v3
-create view v3 as select * from latest v2;
--- async view v4
-create view v4 as select * from latest v2 join t;
+create output o3 as select v2.a from v2;
+-- async view o2
+create output o2 as select v2.a from v2;
 
 -- v1: [from local, to postgres]
 

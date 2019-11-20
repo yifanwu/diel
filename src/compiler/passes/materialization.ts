@@ -12,11 +12,11 @@ import { DbDriver } from "../../runtime/DbEngine";
  * @param ast
  */
 export function TransformAstForMaterialization(ast: SqlAst, dbDriver: DbDriver) {
-  console.log(JSON.stringify(ast, null, 2));
-
   const dynamic = new Set(ast.relations.filter(r => r.isDynamic).map(r => r.rName));
   const views = ast.relations.filter(r => r.relationType === SqlRelationType.View) as SqlDerivedRelation[];
   const deps = DeriveDepTreeFromSqlRelations(views, dynamic);
+
+  console.log("Calculating materialization\n", deps);
 
   // get topo order
   const topoOrder = getTopologicalOrder(deps);
@@ -24,22 +24,23 @@ export function TransformAstForMaterialization(ast: SqlAst, dbDriver: DbDriver) 
   function getRelationDef(rName: string) {
     return ast.relations.find(v => v.rName === rName);
   }
-  const toMaterialize = filterRelationsToMateralize(deps, getRelationDef);
+  const toMaterialize = getRelationsToMateralize(deps, getRelationDef);
+  let originalTables: Set<string>;
   // Materialize by topological order
   topoOrder.forEach(relation => {
-    if (toMaterialize.has(relation)) {
+    if (toMaterialize.indexOf(relation) !== -1) {
       const view = getRelationDef(relation);
       if (!view) {
         LogInternalError(`${relation} was not found!`);
       } else {
-        const dependsOn = toMaterialize.get(relation);
-        if (dependsOn.size === 0) {
+        originalTables = DeriveOriginalRelationsAViewDependsOn(deps, view.rName);
+        if (originalTables.size === 0) {
           // this means that this is a static view, in that it just need to be populated once...
           // we then just need to change its reference to a table
           // set in place
           view.relationType = SqlRelationType.Table;
         } else {
-          materializeAView(view as SqlDerivedRelation, ast, dependsOn, dbDriver);
+          materializeAView(view as SqlDerivedRelation, ast, originalTables, dbDriver);
         }
       }
     }
@@ -49,15 +50,15 @@ export function TransformAstForMaterialization(ast: SqlAst, dbDriver: DbDriver) 
 /**
  * Change the derived view ast into program ast in place
  */
-function materializeAView(view: SqlDerivedRelation, ast: SqlAst, dependsOn: Set<string>, dbDriver: DbDriver) {
+function materializeAView(view: SqlDerivedRelation, ast: SqlAst, originalTables: Set<string>, dbDriver: DbDriver) {
+  console.log(`Materializing view! ${view.rName}`);
   // @Lucie TODO: if it livesin a postgresql database, just set materizlie to true
-  console.log("To Materialize", view.rName, dependsOn);
   switch (dbDriver) {
     case DbDriver.Postgres: {
       // set materialize to true and generate triggers
       view.isMaterialized = true;
-      view.originalRelations = dependsOn;
-      dependsOn.forEach(tName => {
+      view.originalRelations = originalTables;
+      originalTables.forEach(tName => {
           ast.triggers.push({
             tName: `refresh_mat_view_${view.rName}_${tName}`,
             afterRelationName: tName,
@@ -87,15 +88,15 @@ function materializeAView(view: SqlDerivedRelation, ast: SqlAst, dependsOn: Set<
       let insertCommand = makeInsertCommand(view);
 
       // 3. push into programs. (this is supposed to preserve topo order)
-      dependsOn.forEach(rName => {
+      originalTables.forEach(tName => {
         // if the tname already exists in the map, append the program
-        const existingTrigger = ast.triggers.find(t => t.afterRelationName === rName);
+        const existingTrigger = ast.triggers.find(t => t.afterRelationName === tName);
         if (existingTrigger) {
           existingTrigger.commands.push(deleteCommand, insertCommand);
         } else {
           ast.triggers.push({
-            tName: `${rName}Trigger`,
-            afterRelationName: rName,
+            tName: `refresh_mat_view_${view.rName}_${tName}`,
+            afterRelationName: tName,
             commands: [deleteCommand, insertCommand]
           });
         }
@@ -189,14 +190,14 @@ function makeInsertCommand(view: SqlDerivedRelation): Command {
  * t1 -> v1 - o2
  * @param ast
  */
-function filterRelationsToMateralize(depTree: DependencyTree, getRelationDef: (rName: RelationNameType) => SqlRelation | undefined ): Map<string, Set<string>> {
-  let toMAterialize: Map<RelationNameType, Set<string>> = new Map();
+function getRelationsToMateralize(depTree: DependencyTree, getRelationDef: (rName: RelationNameType) => SqlRelation | undefined ): string[] {
+  let toMAterialize: RelationNameType[] = [];
   depTree.forEach((nodeDep, relationName) => {
     const rDef = getRelationDef(relationName);
     if (rDef && (rDef.relationType === SqlRelationType.View)) {
        // and if the view is dependent on by at least two views/outputs, mark it as to materialize
        if (nodeDep.isDependedBy.length > 1) {
-        toMAterialize.set(relationName, new Set(nodeDep.dependsOn));
+        toMAterialize.push(relationName);
        }
      }
   });
