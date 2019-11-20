@@ -5,22 +5,14 @@ import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject, RecordObj
 const tableDef: RecordObject[] = [];
 tableDef.push({
   name: `log`,
-  sql: `CREATE TABLE log (
-    time INT,
-    device TEXT,
-    value INT,
-    min INT,
-    max INT,
-    data TEXT,
-    message TEXT,
-    source TEXT,
-    ts INT
-  )`
+  sql: `CREATE TABLE t2 (
+      a INT
+    )`
 });
 
 const dbConfigs: DbSetupConfig[] = [{
   dbType: DbType.Socket,
-  dbDriver: DbDriver.Postgres,
+  dbDriver: DbDriver.SQLite,
   connection: "ws://localhost:8999",
   message: {dbName: "sensors"},
   tableDef,
@@ -39,17 +31,14 @@ export function materializeFixTest(perf: (diel: DielRuntime) => void, materializ
     dielFiles: dielFiles,
     mainDbPath: null,
     dbConfigs,
-    materialize: materialize ? materialize : false,
+    materialize: true,
   });
 
   async function testClass1() {
-    diel.BindOutput("pack_break_regen_first", (o: RelationObject) => {
-      console.log(`%c pack_break_regen_first`, "color: green");
+    diel.BindOutput("o1", (o: RelationObject) => {
+      console.log(`\x1b[42m%s\x1b[0m`, "OUTPUT O1");
     });
-    diel.BindOutput("pack_break_regen_second", (o: RelationObject) => {
-      console.log(`%c pack_break_regen_second`, "color: green");
-    });
-    diel.NewInput("time_selection", {minTs: 1541878513, maxTs: 1541886987});
+    // diel.NewInput("t1", {a: 2});
 
   }
   return diel;
