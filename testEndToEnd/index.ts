@@ -18,12 +18,12 @@ const perf = (diel: DielRuntime) => {
 };
 
 // connection Test
-// sensorTestPostgresConnection(perf);
+sensorTestPostgresConnection(perf);
 
 
 // performance Test
 // -- materialize
-materializeTest(perf, true);
+// materializeTest(perf, true);
 // materializeTest(perf, false);
 
 

@@ -111,7 +111,10 @@ export class ConnectionWrapper {
         try {
           msg = parseDielReply(event.data);
 
-          if (msg.id.msgId == 3) {
+          // Will only print the *latest* new inputs to log to download
+          if (msg.id.msgId != null && msg.id.remoteAction == DielRemoteAction.ShipRelation) {
+            // console.log("PRINTING!!!!!");
+            // console.log(msg.execTime);
             execTime = msg.execTime;
           }
           
