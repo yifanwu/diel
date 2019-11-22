@@ -724,7 +724,7 @@ export default class DielRuntime {
     }
     const d = new Date();
     const n = d.getMilliseconds();
-    console.log("FINISHED SETTING UP MAIN DB " + n);
+    // console.log("FINISHED SETTING UP MAIN DB " + n);
     return;
   }
   /**

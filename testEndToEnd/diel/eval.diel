@@ -1,0 +1,17 @@
+create event table boundaries  (
+    minNum integer,
+    maxNum integer
+);
+
+create view current_boundary AS
+  select * from latest boundaries;
+
+
+create view current_filtered_results AS
+    select num
+    from eval e join current_boundary c
+        on e.num >= c.minNum and e.num <= c.maxNum;
+
+
+create output eval_out AS 
+    select num from current_filtered_results;

@@ -8,6 +8,7 @@ import { materializeTest } from "./performanceTest/materializeTest";
 import { materializeTriggerOrder } from "./materializeTriggerOrder";
 import { materializeComplex } from "./materializeComplex"; 
 import { burstyTest } from "./performanceTest/burstyTest";
+import { evalTest } from "./evalTest";
 import { DielRuntime } from "../src";
 
 const NUM_LOOPS = 1;
@@ -20,7 +21,9 @@ const perf = (diel: DielRuntime) => {
 };
 
 // connection Test
-sensorTestPostgresConnection(perf);
+// sensorTestPostgresConnection(perf);
+
+evalTest(perf);
 
 // sensorTestPostgresConnection(perf);
 // materializeComplex(perf);
