@@ -28,6 +28,7 @@ export interface TriggerAst {
   tName: string;
   afterRelationName: string;
   commands: Command[];
+  functionName?: string;
 }
 
 /**

@@ -12,6 +12,7 @@ import { generateStringFromSqlIr } from "../../src/compiler/codegen/codeGenSql";
 const physicalMetaData = {
     dbs: new Map([[1, {dbType: DbType.Local, dbDriver: DbDriver.SQLite}]]),
     relationLocation: new Map(),
+    materialize: true,
 };
 const getEventByTimestep = (n: LogicalTimestep) => "";
 const addRelationToDielMock = (r: Relation) => {};
@@ -65,14 +66,20 @@ function compareAST(query: string, sqlAst2: SqlAst, logger: TestLogger) {
     //     }
     // }
     if (relation1 !== relation2) {
-        logger.error(`${relation1} is not the same as ${relation2}.`);
+        console.log(`\x1b[44m%s\x1b[0m`, `${relation1}`);
+        console.log(`\x1b[42m%s\x1b[0m`, `${relation2}`);
+        logger.error("relations not the same");
     }
     if (command1 !== command2) {
-        logger.error(`${command1} is not the same as ${command2}.`);
+        console.log(`\x1b[44m%s\x1b[0m`, `${command1}`);
+        console.log(`\x1b[42m%s\x1b[0m`, `${command2}`);
+        logger.error("commands not the same");
     }
 
     if (trigger1 !== trigger2) {
-        logger.error(`${trigger1} is not the same as ${trigger2}.`);
+        console.log(`\x1b[44m%s\x1b[0m`, `${trigger1}`);
+        console.log(`\x1b[42m%s\x1b[0m`, `${trigger2}`);
+        logger.error("trigger not the same");
     }
 }
 
@@ -182,7 +189,7 @@ create output o2 as select aPrime from v2 join v3 on aPrime = a;
 
 // // 4. nested views. Materialize just v2. v2 is still dependent on v1.
 // this actually works, but there's no way to check it with physical execution
-// since v1 is only a view and it's not included in the distribution
+// since v1 is only a view and it's not included in the distribution for the answer query
 // let q4 =
 // `
 // create event table t1 (a integer);
@@ -201,11 +208,11 @@ create output o2 as select aPrime from v2 join v3 on aPrime = a;
 // create view v1 as select a + 1 as aPrime from t1 where a > 2;
 
 // create table v2 (aaPrime integer);
-// create program after (t1)
+// create program after (v1)
 // 	begin
 // 		delete from v2;
 // 		insert into v2 select aPrime + 1 as aaPrime from v1 where aPrime > 2;
-//   end;
+//     end;
 
 // create output o1 as select aaPrime from v2 join t1 on aaPrime = a;
 // create output o2 as select aaPrime from v2 join t1 on aaPrime = a;

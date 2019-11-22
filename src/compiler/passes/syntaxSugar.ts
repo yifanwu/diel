@@ -29,7 +29,9 @@ export function applyLatestToAst(ast: DielAst): void {
 }
 
 export function ApplyLatestToDerivedRelation(derived: DerivedRelation) {
-  derived.selection.compositeSelections.map(s => applyLatestToSelectionUnit(s.relation));
+  if (derived.selection) {
+    derived.selection.compositeSelections.map(s => applyLatestToSelectionUnit(s.relation));
+  }
   return derived;
 }
 
