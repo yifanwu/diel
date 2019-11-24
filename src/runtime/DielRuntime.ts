@@ -25,6 +25,7 @@ import { DeriveDependentRelations, getRelationReferenceDep } from "../compiler/p
 import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation, IsRelationTypeDerived } from "../compiler/DielAstGetters";
 import { getEventViewCacheName, getEventViewCacheReferenceName } from "../compiler/passes/distributeQueries";
 import { execTime } from "./ConnectionWrapper";
+import {requestStart, requestEnd } from "../../testEndToEnd/evalTestPostgres";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
@@ -38,6 +39,10 @@ export let initialCompileTime = 0;
 export let setupUDFsTime = 0;
 export let physicalExecutionTime = 0;
 export let executeToDBsTime = 0;
+
+
+export let requestStartGlobal = 0;
+
 const printTimes = true; // Used for performance analysis
 
 // const locateFile = (pathname: any) => {
@@ -436,8 +441,8 @@ export default class DielRuntime {
    */
   downloadPerformance() {
 
-      const blob = new Blob(["setupTime, setupMainDbTime, setupRemoteTime, initialCompileTime, setupUDFsTime, physicalExecutionTime, executeToDBsTime, materializationTime, execTime\n",
-      `${setupTime}, ${setupMainDbTime}, ${setupRemoteTime}, ${initialCompileTime}, ${setupUDFsTime}, ${physicalExecutionTime}, ${executeToDBsTime}, ${materializationTime}, ${execTime}`],
+      const blob = new Blob(["setupTime, setupMainDbTime, setupRemoteTime, initialCompileTime, setupUDFsTime, physicalExecutionTime, executeToDBsTime, materializationTime, execTime, requestStart, requestEnd\n",
+      `${setupTime}, ${setupMainDbTime}, ${setupRemoteTime}, ${initialCompileTime}, ${setupUDFsTime}, ${physicalExecutionTime}, ${executeToDBsTime}, ${materializationTime}, ${execTime}, ${requestStart}, ${requestEnd}`],
       {type: "text/csv;charset=utf-8"});
 
     downloadHelper(blob, "performance", "csv");
