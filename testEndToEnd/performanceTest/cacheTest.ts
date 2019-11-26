@@ -2,7 +2,7 @@ import * as path from "path";
 import { DielRuntime, DbSetupConfig, DbType, RelationObject, DbDriver } from "../../src";
 import { LogInternalError, DielInternalErrorType } from "../../src/util/messages";
 
-const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/js/worker.sql.js");
+const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/dist/worker.sql.js");
 
 const dbConfigs: DbSetupConfig[] = [{
     dbType: DbType.Worker,

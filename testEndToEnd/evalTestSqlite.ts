@@ -1,7 +1,6 @@
 import * as path from "path";
 import { DielRuntime, DbSetupConfig, DbType, RelationObject, DbDriver } from "../src";
 import { LogInternalError, LogTest, LogInternalWarning } from "../src/util/messages";
-// import { requestStartGlobal } from "../src/runtime/DielRuntime" 
 
 const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/js/worker.sql.js");
 
@@ -13,8 +12,12 @@ const dbConfigs: DbSetupConfig[] = [{
   },
 ];
 
-const mainDbPath: string = null;
+const mainDbPath: string = null; // Type your sqlite db file path here to inject into maindb on browser
 const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/eval.diel")];
+
+let requestStart = 0;
+let requestEnd = 0;
+
 
 export function evalTestSqlite(perf: (diel: DielRuntime) => void, bursty: boolean, numBursts: number) {
 
@@ -25,32 +28,38 @@ export function evalTestSqlite(perf: (diel: DielRuntime) => void, bursty: boolea
     caching: false,
     dielFiles,
     mainDbPath,
-    dbConfigs,
+//   dbConfigs,
   });
 
   async function singleWorkload() {
     diel.BindOutput("eval_out", (o: RelationObject) => {
-      console.log("eval_out", o);
+        requestEnd = performance.now();
+        console.log("eval_out", o);
+        diel.downloadE2EPerformance(requestStart, requestEnd);
     });
 
-    // requestStartGlobal = 0;
+    requestStart = performance.now();
     diel.NewInput("boundaries", {minNum: 5, maxNum: 1000});
-    // window.setTimeout(() => {
-    //   perf(diel);
-    // }, 5000);
   }
 
   async function burstyWorkload() {
+    let responseNum = 0;
+
     diel.BindOutput("eval_out", (o: RelationObject) => {
-      console.log("eval_out", o);
+        requestEnd = performance.now();
+        responseNum += 1;
+        console.log("eval_out", o);
+
+        if (responseNum == numBursts) {
+            diel.downloadE2EPerformance(requestStart, requestEnd);
+        }
     });
 
+    requestStart = performance.now();
+
     for (let i = 0; i < numBursts; i++) {
-        diel.NewInput("boundaries", {minNum: 1, maxNum: 500});
+        diel.NewInput("boundaries", {minNum: 1, maxNum: 1000});
     }
-    // window.setTimeout(() => {
-    //   perf(diel);
-    // }, 5000);
   }
   return diel;
 }

@@ -39,6 +39,7 @@
     "@types/file-saver": "^2.0.1",
     "antlr4ts-cli": "^0.4.0-alpha.4",
     "awesome-typescript-loader": "^5.2.1",
+    "ignore-loader": "^0.1.2",
     "rollup": "^1.9.0",
     "rollup-plugin-commonjs": "^9.3.4",
     "rollup-plugin-node-builtins": "^2.1.2",
@@ -56,10 +57,13 @@
     "webpack-dev-server": "^3.3.1"
   },
   "dependencies": {
-    "@types/sql.js": "0.0.29",
+    "@types/sql.js": "^1.0.0",
     "antlr4ts": "^0.4.1-alpha.0",
-    "file-saver": "^2.0.2",
-    "json-diff": "^0.5.4",
-    "sql.js": "^0.5.0"
+// <<<<<<< HEAD
+//     "file-saver": "^2.0.2",
+//     "json-diff": "^0.5.4",
+//     "sql.js": "^0.5.0"
+// =======
+    "sql.js": "^1.0.0"
   }
 }

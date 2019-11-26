@@ -10,6 +10,7 @@ import { materializeComplex } from "./materializeComplex";
 import { burstyTest } from "./performanceTest/burstyTest";
 import { evalTestPostgres } from "./evalTestPostgres";
 import { DielRuntime } from "../src";
+import { evalTestSqlite } from "./evalTestSqlite";
 
 const NUM_LOOPS = 1;
 
@@ -19,11 +20,16 @@ const perf = (diel: DielRuntime) => {
   diel.downloadDB(1);
   diel.ShutDown();
 };
+<<<<<<< HEAD
 
 // connection Test
 // sensorTestPostgresConnection(perf);
 
-evalTestPostgres(perf, false, 100);
+evalTestPostgres(perf, false, 10);
+// evalTestSqlite(perf, true, 10);
+
+// Sqlite test
+// evalTestSqlite(perf, false,100);
 
 // sensorTestPostgresConnection(perf);
 // materializeComplex(perf);
@@ -50,7 +56,10 @@ evalTestPostgres(perf, false, 100);
 // sensorsPerformanceTest(perf);
 // sensorTest(perf);
 
+=======
+//sensorTest(perf);
+>>>>>>> a4c78173a3729a2fc7ac475a7406d2f1741dfcd4
 // baseLineEval(perf);
 // testMultiTableCaching();
 // testRangeCaching();
-// testStudentDb();
+testStudentDb(perf);

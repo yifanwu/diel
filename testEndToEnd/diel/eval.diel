@@ -13,10 +13,10 @@ create view current_boundary AS
 --        on e.duration >= c.minNum and e.duration <= c.maxNum;
 
 create view current_filtered_results AS
-    select num
-    from bigdata e join current_boundary c
+    select count(num) as cnt
+    from eval e join current_boundary c
         on e.num >= c.minNum and e.num <= c.maxNum;
 
 
 create output eval_out AS 
-    select num from current_filtered_results;
+    select cnt from current_filtered_results;
