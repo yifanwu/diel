@@ -1,0 +1,27 @@
+--  t1 (local)
+create event table t1 (a int);
+-- t2 (postgres)
+-- create table t2 (a int);
+
+-- v1 (local)
+create view v1 as select a from t1;
+create output o1 as select v1.a from v1;
+
+
+create view v2 as select v1.a from v1, t2 where v1.a = t2.a;
+-- async view v3
+create output o3 as select v2.a from v2;
+-- async view o2
+create output o2 as select v2.a from v2;
+
+-- v1: [from local, to postgres]
+
+-- v2, v3, v4 (postgres)
+
+-- v2 needs to be materialized
+
+-- sqlAST on the postgres node
+
+-- event table: v1 (from client)
+-- materialized v2
+-- ship v3 and v4 to client

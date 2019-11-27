@@ -1,6 +1,7 @@
 import { ReportDielUserError, LogInternalError, DielInternalErrorType, LogInternalWarning } from "../../util/messages";
 import { SqlAst, SqlRelationType, SqlRelation, SqlOriginalRelation, SqlDerivedRelation, TriggerAst } from "../../parser/sqlAstTypes";
 import { DropClause, AstType, DropType, Command, InsertionClause, RelationSelection, CompositeSelection, SetOperator, CompositeSelectionUnit, SelectionUnit, RelationReference, ColumnSelection, JoinType, JoinAst, ExprAst, ExprType, ExprValAst, DielDataType, ExprColumnAst, ExprRelationAst, ExprParen, ExprFunAst, FunctionType, BuiltInFunc, GroupByAst, OrderByAst, Order, Column, RelationReferenceType, RelationReferenceDirect, RelationReferenceSubquery, ExprStarAst, DeleteClause, DerivedRelation, RelationType } from "../../parser/dielAstTypes";
+import { DbDriver } from "../..";
 
 // export function generateSqlFromDielAst(ast: DielAst, options?: { replace: boolean; isRemote: boolean}) {
 //   const isRemote = options ? options.isRemote ? options.isRemote : false : false;
@@ -12,38 +13,40 @@ import { DropClause, AstType, DropType, Command, InsertionClause, RelationSelect
 export function generateCleanUpAstFromSqlAst(ast: SqlAst): DropClause[] {
   // basically drop everything
   // triggers etc.
-  const tables = ast.relations.map(r => ({
+  const tables: DropClause[] = ast.relations.map(r => ({
     astType: AstType.Drop,
     dropType: r.relationType === SqlRelationType.Table ? DropType.Table : DropType.View,
-    dropName: r.rName
+    dropName: r.rName,
+    isMaterialized: r.relationType === SqlRelationType.View && (r as SqlDerivedRelation).isMaterialized,
   }));
 
-  let triggers = ast.triggers.map(t => ({
+  let triggers: DropClause[] = ast.triggers.map(t => ({
       astType: AstType.Drop,
       dropType: DropType.Trigger,
-      dropName: t.tName
+      dropName: t.tName,
+      dropAfter: t.afterRelationName,
     }));
   // note that we might need to do dependency order?
   return triggers.concat(tables);
 }
 
-export function generateStringFromSqlIr(sqlAst: SqlAst, replace = false): string[] {
+export function generateStringFromSqlIr(sqlAst: SqlAst, replace = false, dbDrvier?: DbDriver): string[] {
   // if remoteType is server, then we need to drop the old ones if we want to make a new one
   // we need to architect this properly to scale, but a quick fix for now
-  const relations = sqlAst.relations.map(t => GenerateSqlRelationString(t, replace));
-  let triggers = sqlAst.triggers.map(t => generateTrigger({ trigger: t, replace }));
-  let commands = sqlAst.commands.map(c => generateCommand(c));
+  const relations = sqlAst.relations.map(t => GenerateSqlRelationString(t, replace, dbDrvier));
+  let triggers = sqlAst.triggers.map(t => generateTrigger({ trigger: t, replace }, dbDrvier));
+  let commands = sqlAst.commands.map(c => generateCommand(c, dbDrvier));
   return relations.concat(triggers).concat(commands);
 }
 
-function generateCommand(command: Command): string {
+function generateCommand(command: Command, dbDrvier?: DbDriver): string {
   switch (command.astType) {
     case AstType.Delete:
       return generateDelete(command as DeleteClause);
     case AstType.Insert:
       return generateInserts(command as InsertionClause);
     case AstType.Drop:
-      return generateDrop(command as DropClause);
+      return generateDrop(command as DropClause, dbDrvier);
     case AstType.RelationSelection:
       return generateSelect((command as RelationSelection).compositeSelections);
     default:
@@ -52,8 +55,23 @@ function generateCommand(command: Command): string {
   }
 }
 
-export function generateDrop(command: DropClause) {
-  return `DROP ${command.dropType} ${command.dropName};`;
+export function generateDrop(command: DropClause, dbDrvier?: DbDriver) {
+  const isViewAndMaterializedPostgres = command.isMaterialized &&
+    dbDrvier && dbDrvier === DbDriver.Postgres &&
+    command.dropType === DropType.View;
+  let dropFunction = "";
+  if (isViewAndMaterializedPostgres) {
+    // drop the function too
+    dropFunction = `DROP FUNCTION IF EXISTS refresh_mat_view_${command.dropName} CASCADE;`;
+  }
+  return `${dropFunction} ` +
+    `DROP ${isViewAndMaterializedPostgres ? "MATERIALIZED " : ""}` +
+    `${command.dropType} ` +
+    `IF EXISTS ` +
+    `${command.dropName} ` +
+    `${(dbDrvier && dbDrvier === DbDriver.Postgres && command.dropType === DropType.Trigger) ? `ON ${command.dropAfter} ` : ""}` +
+    `${(dbDrvier && dbDrvier === DbDriver.Postgres) ? `CASCADE` : ""};`
+    ;
 }
 
 export function generateDelete(command: DeleteClause) {
@@ -64,13 +82,13 @@ export function generateDelete(command: DeleteClause) {
   return `DELETE FROM ${command.relationName} ${pred};`;
 }
 
-export function GenerateSqlRelationString(r: SqlRelation, replace = false): string {
+export function GenerateSqlRelationString(r: SqlRelation, replace = false, dbDrvier?: DbDriver): string {
 
   switch (r.relationType) {
     case SqlRelationType.Table:
-      return generateTableSpec(r as SqlOriginalRelation, replace);
+      return generateTableSpec(r as SqlOriginalRelation, replace, dbDrvier);
     case SqlRelationType.View:
-      return generateSqlViews(r as SqlDerivedRelation, replace);
+      return generateSqlViews(r as SqlDerivedRelation, replace, dbDrvier);
     default:
       LogInternalError("Not all Sql relation types are handled", DielInternalErrorType.UnionTypeNotAllHandled);
       return "";
@@ -78,8 +96,9 @@ export function GenerateSqlRelationString(r: SqlRelation, replace = false): stri
 }
 
 // FIXME note that we should probably not use the if not exist as a crutch
-function generateTableSpec(t: SqlOriginalRelation, replace = false): string {
-  const replaceQuery = replace ? `DROP TABLE IF EXISTS ${t.rName};` : "";
+function generateTableSpec(t: SqlOriginalRelation, replace = false, dbDrvier?: DbDriver): string {
+  const replaceQuery = replace ? `DROP TABLE IF EXISTS ${t.rName}
+  ${(dbDrvier && dbDrvier === DbDriver.Postgres) ? "CASCADE" : ""};` : "";
   return `${replaceQuery}
   CREATE TABLE ${t.rName} (
 ${t.columns.map(c => "    " + generateColumnDefinition(c)).join(",\n")}
@@ -98,11 +117,34 @@ export function GenerateStrFromDielDerivedRelation(v: DerivedRelation) {
   return `create ${rStr} ${v.rName} AS ${generateSelect(v.selection.compositeSelections)}`;
 }
 
-export function generateSqlViews(v: SqlDerivedRelation, replace = false): string {
-  const replaceQuery = replace ? `DROP VIEW IF EXISTS ${v.rName};` : "";
+export function generatePostgresFunction(vName: string, originalRelations: Set<string>): string {
+  if (originalRelations.size > 0) {
+    // create a function once but multiple triggers for each original Relations
+    const functionName = `refresh_mat_view_${vName}`;
+    const functionQuery = `create or replace function ${functionName}()
+      returns trigger language plpgsql as
+      $$
+        begin
+          refresh materialized view ${vName};
+          return null;
+        end
+      $$;
+      `;
+    return functionQuery;
+  }
+  return "";
+}
+
+export function generateSqlViews(v: SqlDerivedRelation, replace = false, dbDrvier?: DbDriver): string {
+  const replaceQuery = replace ? `DROP VIEW IF EXISTS ${v.rName}
+    ${(dbDrvier && dbDrvier === DbDriver.Postgres) ? "CASCADE" : ""};` : "";
+  const materialize = v.isMaterialized ? `MATERIALIZED` : "";
+  const triggerQueries = v.isMaterialized && v.originalRelations && dbDrvier === DbDriver.Postgres ?
+    generatePostgresFunction(v.rName, v.originalRelations) : "";
   return `${replaceQuery}
-  CREATE VIEW ${v.rName} AS
-  ${generateSelect(v.selection)}
+  CREATE ${materialize} VIEW ${v.rName} AS
+  ${generateSelect(v.selection)};
+  ${triggerQueries}
   `;
 }
 
@@ -310,13 +352,25 @@ function generateLimit(e: ExprAst | undefined): string {
   return `LIMIT ${GetSqlStringFromExpr(e)}`;
 }
 
-function generateTrigger({ trigger, replace = false }: { trigger: TriggerAst; replace?: boolean; }): string {
-  const replaceQuery = replace ? `DROP TRIGGER IF EXISTS ${trigger.tName};` : "";
-  let program = `${replaceQuery}
-  CREATE TRIGGER ${trigger.tName} AFTER INSERT ON ${trigger.afterRelationName}\nBEGIN\n`;
-  program += trigger.commands.map(p => generateCommand(p)).join("\n");
-  program += "\nEND;";
-  return program;
+function generateTrigger({ trigger, replace = false }: { trigger: TriggerAst; replace?: boolean; }, dbDrvier?: DbDriver): string {
+  const replaceQuery = replace ? `DROP TRIGGER IF EXISTS ${trigger.tName}
+    ${(dbDrvier && dbDrvier === DbDriver.Postgres) ? `ON ${trigger.afterRelationName} CASCADE` : ""};` : "";
+  if (dbDrvier && dbDrvier === DbDriver.Postgres && trigger.functionName) {
+    // postgres trigger
+    return `${replaceQuery}
+    CREATE TRIGGER ${trigger.tName}
+    AFTER INSERT ON ${trigger.afterRelationName}
+    FOR EACH STATEMENT
+    EXECUTE PROCEDURE ${trigger.functionName}();
+    `;
+  } else {
+    // sqlite trigger
+    let program = `${replaceQuery}
+    CREATE TRIGGER ${trigger.tName} AFTER INSERT ON ${trigger.afterRelationName}\nBEGIN\n`;
+    program += trigger.commands.map(p => generateCommand(p, dbDrvier)).join("\n");
+    program += "\nEND;";
+    return program;
+  }
 }
 
 export function generateInsertClauseStringForValue(raw: any): string {

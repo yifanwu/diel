@@ -12,6 +12,7 @@ import { GetRelationDef, GetAllOutputs, GetOriginalRelations } from "./DielAstGe
 import { AddRelation, DeleteRelation } from "./DielAstVisitors";
 
 export const LocalDbId = 1;
+export let materializationTime = 0;
 
 // local helper function
 // not using a set here because sets do not work well over complex objects...
@@ -245,11 +246,18 @@ export class DielPhysicalExecution {
     // find any static table that was not used by outputs...
     GetOriginalRelations(this.ast).map(r => {
       if ((r.relationType === RelationType.Table)
-      || (r.relationType === RelationType.DerivedTable)) {
+      || (r.relationType === RelationType.DerivedTable)
+      || (r.relationType === RelationType.EventTable)
+      ) {
         if (!distributions.find(d => d.relationName === r.rName)) {
           // we need to add this to the local one
           // fixme: might be relevant for workers as well
-          const newOriginal = GetSqlOriginalRelationFromDielRelation(r);
+
+          // @Lucie Question: when are we adding timestep,,,?
+          // are we adding to all the event tables?
+          const addTimeColumns = (r.relationType === RelationType.EventTable);
+
+          const newOriginal = GetSqlOriginalRelationFromDielRelation(r, addTimeColumns);
           if (newOriginal) {
             // need to do the following check because the distribution pass may also add relations
             // sigh this is a bit messy.
@@ -279,9 +287,14 @@ export class DielPhysicalExecution {
     localAst.triggers = triggers;
 
     // materialization pass
-    this.sqlAstSpecPerDb.forEach(ast => {
-      TransformAstForMaterialization(ast);
-    });
+    if (this.metaData.materialize) {
+      this.sqlAstSpecPerDb.forEach((ast, dbId) => {
+        const dbDriver = this.metaData.dbs.get(dbId).dbDriver;
+        TransformAstForMaterialization(ast, dbDriver);
+      });
+    }
+    console.log("transformed ast after materialization");
+    console.log(this.sqlAstSpecPerDb);
   }
 
   /**

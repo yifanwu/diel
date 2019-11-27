@@ -5,6 +5,7 @@ import { LocalDbId, DielPhysicalExecution } from "../compiler/DielPhysicalExecut
 import { IsSetIdentical } from "../util/dielUtils";
 import { ConnectionWrapper } from "./ConnectionWrapper";
 import { LogicalTimestep, RelationNameType, DbIdType } from "../parser/dielAstTypes";
+import { RecordObject } from "..";
 
 async function connectToSocket(url: string): Promise<WebSocket> {
   return new Promise<WebSocket>(function(resolve, reject) {
@@ -22,16 +23,29 @@ async function connectToSocket(url: string): Promise<WebSocket> {
 
 interface DbSetupConfigBase {
   dbType: DbType;
+  dbDriver: DbDriver;
 }
 
 export interface SocketConfig extends DbSetupConfigBase {
   connection: string;
   message?: any; // JSON string to send to the server for setup
+  tableDef?: RecordObject[];
+}
+
+export enum DbDriver {
+  SQLite = "SQLite",
+  Postgres = "Postgres",
+  MySQL = "MySQL"
 }
 
 export interface WorkerConfig extends DbSetupConfigBase {
   jsFile: string;
-  dataFile: string;
+  dataFile?: string;
+}
+
+export interface TableDef {
+  name: string;
+  sql: string;
 }
 
 export type DbSetupConfig = SocketConfig | WorkerConfig;
@@ -70,7 +84,7 @@ export default class DbEngine {
     this.relationShippingCallback = relationShippingCallback;
   }
 
-  public Close() {
+  public async Close() {
     switch (this.config.dbType) {
       case DbType.Worker:
         const id = {
@@ -81,6 +95,12 @@ export default class DbEngine {
         // the sql is also not needed
         this.connection.send(id, {sql: ""}, false);
       case DbType.Socket:
+        const msg: RemoteExecuteMessage = {
+          remoteAction: DielRemoteAction.Close,
+          requestTimestep: -1,
+          sql: "",
+        };
+        this.SendMsg(msg, false);
     }
   }
 
@@ -247,6 +267,13 @@ export default class DbEngine {
           return this.connection.send(id, msgToSend, isPromise);
         }
       }
+      case DielRemoteAction.Close: {
+        const closeMsg = msg as RemoteExecuteMessage;
+        const msgToSend = this.extendMsgWithCustom({
+          sql: closeMsg.sql
+        });
+        return this.connection.send(id, msgToSend, isPromise);
+      }
       case DielRemoteAction.CleanUpQueries: {
         const cleanupMsg = msg as RemoteExecuteMessage;
         const msgToSend = this.extendMsgWithCustom({
@@ -380,7 +407,7 @@ export default class DbEngine {
             LogInternalError(`Both view and request_timestep should be defined for sharing views! However, I got ${JSON.stringify(msg.id, null, 2)}`);
             return;
           }
-          if (msg.results.length > 0) {
+          if (msg.results && msg.results.length > 0) {
             this.relationShippingCallback(view, msg.results, msg.id.requestTimestep);
           }
           break;
@@ -435,18 +462,27 @@ export default class DbEngine {
   }
 
   /**
-   * SqlitemasterQuery returns sql and name
+   *  Returns {id, [{sql, name} ... ]}
    */
   async getMetaData(id: DbIdType): Promise<{id: DbIdType, data: RelationObject | null}> {
-    const promise = this.SendMsg({
-      remoteAction: DielRemoteAction.GetResultsByPromise,
-      requestTimestep: INIT_TIMESTEP, // might change later because we can load new databases later?
-      sql: SqliteMasterQuery
-    }, true);
-    const data = await promise;
-    return {
-      id,
-      data: data ? data.results : null
-    };
+    if (this.config.dbDriver === DbDriver.Postgres) {
+      return {
+        id,
+        data: (<SocketConfig> this.config).tableDef,
+      };
+    } else {
+      const promise = this.SendMsg({
+        remoteAction: DielRemoteAction.GetResultsByPromise,
+        requestTimestep: INIT_TIMESTEP, // might change later because we can load new databases later?
+        // sql: this.config.dbDriver
+        sql: SqliteMasterQuery,
+      }, true);
+      const data = await promise;
+      return {
+        id,
+        data: data ? data.results : null
+      };
+    }
+
   }
 }

@@ -3,7 +3,7 @@ import { LogInternalError, DielInternalErrorType } from "../../util/messages";
 import { NodeDependencyAugmented, DependencyTree } from "../../runtime/runtimeTypes";
 import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation } from "../../parser/sqlAstTypes";
 import { LocalDbId } from "../DielPhysicalExecution";
-import { RelationNameType, DbIdType, Column, DielDataType, CompositeSelection, Relation, RelationType, OriginalRelation, DielAst, BuiltInColumn, SetOperator, RelationReferenceType, JoinAst, AstType, JoinType, ExprType, FunctionType, ColumnSelection } from "../../parser/dielAstTypes";
+import { RelationNameType, DbIdType, Column, DielDataType, CompositeSelection, Relation, RelationType, OriginalRelation, DielAst, BuiltInColumn, SetOperator, RelationReferenceType, JoinAst, AstType, JoinType, ExprType, FunctionType, ColumnSelection, ColumnConstraints } from "../../parser/dielAstTypes";
 import { DerivedRelation } from "../..";
 
 export type SingleDistribution = {
@@ -156,6 +156,13 @@ export function GetColumnsFromSelection(selection: CompositeSelection): Column[]
     return {
       cName: c.alias,
       dataType: c.expr.dataType,
+      constraints: {
+        autoincrement: false,
+        notNull: false,
+        unique: false,
+        primaryKey: false,
+      } as ColumnConstraints,
+      defaultValue: null,
     };
   });
   return columns;
@@ -213,7 +220,8 @@ export function GetSqlOriginalRelationFromDielRelation(relation: Relation, addTi
         relationType: SqlRelationType.Table,
         isDynamic: true,
         rName: relation.rName,
-        columns: addTimeColumns ? originalColumns.concat(EventViewColumns) : originalColumns
+        columns: (addTimeColumns)
+          ? originalColumns.concat(EventViewColumns) : originalColumns
       };
       return createSpec;
     default:
@@ -278,7 +286,7 @@ export function isCachable(relation: DerivedRelation) {
  * corresponding data in the cache table; and a view sharing the name of the
  * event view, which joins the previous two tables to represent the final
  * behavior.
- * 
+ *
  * @param relation the event view to be cached
  * @param addTimeColumns whether to add time columns.
  *        TODO: Ryan: Should always be true?
@@ -429,7 +437,8 @@ export function GetSqlDerivedRelationFromDielRelation(relation: Relation): SqlDe
       return {
         rName: relation.rName,
         relationType: SqlRelationType.View,
-        selection: (relation as DerivedRelation).selection.compositeSelections
+        selection: (relation as DerivedRelation).selection.compositeSelections,
+        isMaterialized: (relation as DerivedRelation).toMaterialize,
       };
     }
     default:
