@@ -50,4 +50,4 @@ multipleConnectionTest(perf);
 // baseLineEval(perf);
 // testMultiTableCaching();
 // testRangeCaching();
-// testStudentDb();
+testStudentDb(perf);

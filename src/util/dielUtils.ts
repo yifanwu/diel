@@ -1,10 +1,10 @@
-import { QueryResults, Database } from "sql.js";
-// import initSqlJs from "sql.js";
+// import { QueryResults, Database } from "sql.js";
+import initSqlJs from "sql.js";
 import { log } from "./dielUdfs";
 import { LogInfo } from "./messages";
 
-// type QueryResults = any;
-// type Database = any;
+type QueryResults = any;
+type Database = any;
 
 
 export type OutputBoundFunc = (v: any) => any;
@@ -86,9 +86,9 @@ export async function loadDbHelper(db: Database, file: string, tick: () => () =>
   const response = await fetch(file);
   const bufferRaw = await response.arrayBuffer();
   buffer = new Uint8Array(bufferRaw);
-  // const SQL = await initSqlJs();
-  // db = new SQL.Database(buffer);
-  db = new Database(buffer);
+  const SQL = await initSqlJs();
+  db = new SQL.Database(buffer);
+  // db = new Database(buffer);
   // db.create_function("timeNow", timeNow);
   db.create_function("log", log);
   db.create_function("tick", tick());

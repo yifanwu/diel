@@ -10,4 +10,4 @@ We present DIEL, a framework that achieves this cross-layer and transparent auto
 
 ## Team
 
-DIEL is a research project at [UC Berkeley RISE Lab](https://rise.cs.berkeley.edu/), by [Yifan Wu](http://twitter.com/yifanwu), with advising from [Joe Hellerstein](http://twitter.com/joe_hellerstein), [Eugen Wu](http://twitter.com/sirrice) and [Remco Chang](http://www.cs.tufts.edu/~remco/), and help from undergrad researchers [ryan](http://github.com/rmpurp) and [lucie](http://github.com/dkqntiqn).
+DIEL is a research project at [UC Berkeley RISE Lab](https://rise.cs.berkeley.edu/), by [Yifan Wu](http://twitter.com/yifanwu), with advising from [Joe Hellerstein](http://twitter.com/joe_hellerstein), [Eugene Wu](http://twitter.com/sirrice) and [Remco Chang](http://www.cs.tufts.edu/~remco/), and help from undergrad researchers [Ryan Purpura](http://github.com/rmpurp) and [Lucie Choi](http://github.com/dkqntiqn).
