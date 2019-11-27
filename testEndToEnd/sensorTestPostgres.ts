@@ -54,10 +54,15 @@ export function sensorTestPostgresConnection(perf: (diel: DielRuntime) => void) 
     //   console.log("pack_cell", o);
     // });
     diel.NewInput("time_selection", {minTs: null, maxTs: null});
-    diel.NewInput("time_selection", {minTs: 1541878513, maxTs: 1541878515});
-    // window.setTimeout(() => {
-    //   perf(diel);
-    // }, 5000);
+    
+    window.setTimeout(() => {
+      // perf(diel);
+      // console.log("done with first");
+      diel.NewInput("time_selection", {minTs: 1541878513, maxTs: 1541878515});
+    }, 5000);
+    
+    
+
   }
   return diel;
 }

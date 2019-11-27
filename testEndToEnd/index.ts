@@ -22,6 +22,8 @@ const perf = (diel: DielRuntime) => {
 
 // connection Test
 // sensorTestPostgresConnection(perf);
+
+// sensorTestPostgresConnection(perf);
 // materializeComplex(perf);
 // materializeTriggerOrder(perf);
 multipleConnectionTest(perf);
@@ -50,4 +52,4 @@ multipleConnectionTest(perf);
 // baseLineEval(perf);
 // testMultiTableCaching();
 // testRangeCaching();
-testStudentDb(perf);
+// testStudentDb(perf);
