@@ -16,8 +16,6 @@ export function TransformAstForMaterialization(ast: SqlAst, dbDriver: DbDriver) 
   const views = ast.relations.filter(r => r.relationType === SqlRelationType.View) as SqlDerivedRelation[];
   const deps = DeriveDepTreeFromSqlRelations(views, dynamic);
 
-  console.log("Calculating materialization\n", deps);
-
   // get topo order
   const topoOrder = getTopologicalOrder(deps);
 

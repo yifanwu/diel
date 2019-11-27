@@ -1,0 +1,3 @@
+create event table t0 (a int);
+create view v as select t0.a from t0, t1, t2 where t0.a = t1.a and t1.a = t2.a;
+create output o as select a from v;
