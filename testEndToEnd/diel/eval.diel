@@ -14,7 +14,7 @@ create view current_boundary AS
 
 create view current_filtered_results AS
     select num
-    from bigdata e join current_boundary c
+    from eval e join current_boundary c
         on e.num >= c.minNum and e.num <= c.maxNum;
 
 

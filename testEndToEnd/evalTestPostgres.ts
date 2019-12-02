@@ -2,8 +2,8 @@ import * as path from "path";
 import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject, RecordObject } from "../src";
 import { SSL_OP_NO_TLSv1_2 } from "constants";
 
-export let requestStart = 0;
-export let requestEnd = 0;
+let requestStart = 0;
+let requestEnd = 0;
 
 const tableDef: RecordObject[] = [];
 // tableDef.push({
@@ -28,8 +28,8 @@ const tableDef: RecordObject[] = [];
 // });
 
 tableDef.push({
-  name: `bigdata`,
-  sql: `create table bigdata (
+  name: `eval`,
+  sql: `create table eval (
       num INT
   )`
 });
@@ -62,6 +62,7 @@ export function evalTestPostgres(perf: (diel: DielRuntime) => void, bursty: bool
     diel.BindOutput("eval_out", (o: RelationObject) => {
         requestEnd = performance.now();
         console.log("Output table is ", o);
+        diel.downloadE2EPerformance(requestStart, requestEnd);
         // diel.downloadPerformance();
     });
 
@@ -72,16 +73,24 @@ export function evalTestPostgres(perf: (diel: DielRuntime) => void, bursty: bool
   }
 
   async function burstyWorkload() {
+    let responseNum = 0;
     diel.BindOutput("eval_out", (o: RelationObject) => {
         requestEnd = performance.now();
+        responseNum += 1;
         console.log("Output table is ", o);
+        if (responseNum == numBursts) {
+          diel.downloadE2EPerformance(requestStart, requestEnd);
+        }
         // diel.downloadPerformance();
     });
 
     requestStart = performance.now();
 
     for (let i = 0; i < numBursts; i++) {
-      diel.NewInput("boundaries", {minNum: 1, maxNum: 500});
+      let min = Math.floor(Math.random() * 100);
+      let max = Math.floor(Math.random() * 900 + 101);
+
+      diel.NewInput("boundaries", {minNum: min, maxNum: max});
     }
   }
 

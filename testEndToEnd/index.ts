@@ -23,7 +23,7 @@ const perf = (diel: DielRuntime) => {
 // connection Test
 // sensorTestPostgresConnection(perf);
 
-evalTestPostgres(perf, false, 100);
+evalTestPostgres(perf, false, 10);
 
 // sensorTestPostgresConnection(perf);
 // materializeComplex(perf);
