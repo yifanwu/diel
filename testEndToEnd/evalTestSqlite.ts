@@ -7,12 +7,12 @@ const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/js/worker.
 const dbConfigs: DbSetupConfig[] = [{
     dbType: DbType.Worker,
     jsFile,
-    dataFile: path.resolve(__dirname, "../../testEndToEnd/data/eval.sqlite"),
+    dataFile: null, // path.resolve(__dirname, "../../testEndToEnd/data/eval.sqlite"),
     dbDriver: DbDriver.SQLite
   },
 ];
 
-const mainDbPath: string = null; // Type your sqlite db file path here to inject into maindb on browser
+const mainDbPath: string = "../../testEndToEnd/data/eval.sqlite"; // null; // Type your sqlite db file path here to inject into maindb on browser
 const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/eval.diel")];
 
 let requestStart = 0;
@@ -35,7 +35,7 @@ export function evalTestSqlite(perf: (diel: DielRuntime) => void, bursty: boolea
     diel.BindOutput("eval_out", (o: RelationObject) => {
         requestEnd = performance.now();
         console.log("eval_out", o);
-        diel.downloadE2EPerformance(requestStart, requestEnd);
+        // diel.downloadE2EPerformance(requestStart, requestEnd);
     });
 
     requestStart = performance.now();
@@ -51,7 +51,7 @@ export function evalTestSqlite(perf: (diel: DielRuntime) => void, bursty: boolea
         console.log("eval_out", o);
 
         if (responseNum == numBursts) {
-            diel.downloadE2EPerformance(requestStart, requestEnd);
+            // diel.downloadE2EPerformance(requestStart, requestEnd);
         }
     });
 

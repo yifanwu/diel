@@ -10,8 +10,10 @@ import { materializeComplex } from "./materializeComplex";
 import { burstyTest } from "./performanceTest/burstyTest";
 import { evalTestPostgres } from "./evalTestPostgres";
 import { DielRuntime } from "../src";
+import { evalTestSqlite } from "./evalTestSqlite";
 
-const NUM_LOOPS = 1;
+const bursty = false;
+const numBursts = 2;
 
 
 const perf = (diel: DielRuntime) => {
@@ -23,7 +25,8 @@ const perf = (diel: DielRuntime) => {
 // connection Test
 // sensorTestPostgresConnection(perf);
 
-evalTestPostgres(perf, false, 10);
+evalTestPostgres(perf, bursty, numBursts);
+// evalTestSqlite(perf, bursty, numBursts);
 
 // sensorTestPostgresConnection(perf);
 // materializeComplex(perf);

@@ -4,7 +4,9 @@ import { downloadHelper } from "../util/dielUtils";
 import { LogInfo, LogInternalError, LogExecutionTrace, LogInternalWarning } from "../util/messages";
 import { DbIdType, LogicalTimestep } from "../parser/dielAstTypes";
 
+
 export let execTime = 0;
+export let requestTimestep = 0;
 
 type FinalMsgType =
     { buffer: any }     // setting up worker (note that talking to servers do not require serialization)
@@ -111,10 +113,11 @@ export class ConnectionWrapper {
         try {
           msg = parseDielReply(event.data);
 
+          // if (msg.id.requestTimestep != null && )
           // Will only print the *latest* new inputs to log to download
           if (msg.id.msgId != null && msg.id.remoteAction == DielRemoteAction.ShipRelation) {
-            // console.log("PRINTING!!!!!");
-            // console.log(msg.execTime);
+            requestTimestep = msg.id.requestTimestep;
+            console.log("END TIME WAS: ", performance.now());
             execTime = msg.execTime;
           }
           

@@ -12,11 +12,19 @@ create view current_boundary AS
 --    from ford e join current_boundary c
 --        on e.duration >= c.minNum and e.duration <= c.maxNum;
 
-create view current_filtered_results AS
+-- create view current_filtered_results AS
+--    select e.year as y, count(uuid) as c
+--    from realistic e join current_boundary c
+--        on e.gpa >= c.minNum and e.gpa <= c.maxNum
+--    group by year;
+
+ create view current_filtered_results AS
     select num
-    from eval e join current_boundary c
+    from bigdata e join current_boundary c
         on e.num >= c.minNum and e.num <= c.maxNum;
 
-
-create output eval_out AS 
+ create output eval_out AS 
     select num from current_filtered_results;
+
+-- create output eval_out AS 
+--    select y, c from current_filtered_results;

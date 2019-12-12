@@ -24,7 +24,7 @@ import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation, SqlAst } from
 import { DeriveDependentRelations, getRelationReferenceDep } from "../compiler/passes/dependency";
 import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation, IsRelationTypeDerived } from "../compiler/DielAstGetters";
 import { getEventViewCacheName, getEventViewCacheReferenceName } from "../compiler/passes/distributeQueries";
-import { execTime } from "./ConnectionWrapper";
+import { execTime, requestTimestep } from "./ConnectionWrapper";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
@@ -39,6 +39,8 @@ export let setupUDFsTime = 0;
 export let physicalExecutionTime = 0;
 export let executeToDBsTime = 0;
 
+let startTimes: number[] = [];
+let endTimes: number[] = [];
 
 export let requestStartGlobal = 0;
 
@@ -446,11 +448,42 @@ export default class DielRuntime {
     downloadHelper(blob, "performance", "csv");
   }
 
-  downloadE2EPerformance(start: number, end: number) {
-  const blob = new Blob(["startRequest, endRequest\n", `${start}, ${end}`],
-  {type: "text/csv;charset=utf-8"});
+  downloadE2EPerformance(e2e: boolean) {
+    // console.log("Request timestep is: ", requestTimestep);
+    if (e2e) { // Idk if it will always be 2 for the FIRST new input timestep? I think it should be...???
+      const blob = new Blob(["startRequest, endRequest\n", `${startTimes[2]}, ${endTimes[requestTimestep]}`], 
+      {type: "text/csv;charset=utf-8"});
+  
+      downloadHelper(blob, "performance", "csv");
+    } else {
+      console.log("Request timestep is: ", requestTimestep);
+      const blob = new Blob(["startRequest, endRequest\n", `${startTimes[requestTimestep]}, ${endTimes[requestTimestep]}`],
+      {type: "text/csv;charset=utf-8"});
+  
+      downloadHelper(blob, "performance", "csv");
+    }
 
-  downloadHelper(blob, "performance", "csv");
+  }
+
+  initializePerformance(numBursts: number) {
+    for (let i = 0; i <= numBursts; i++) { // ignore index 0
+      startTimes.push(0);
+    }
+
+    for (let i = 0; i <= numBursts; i++) { // ignore index 0
+      endTimes.push(0);
+    }
+  }
+
+  logStartTime(startTime: number) {
+    // console.log("Start time is: ", startTime);
+    console.log("Start timestep is: ", this.timestep);
+    startTimes[this.timestep] = startTime;
+  }
+
+  logEndTime(endTime: number) {
+    console.log("End time is: ", endTime);
+    endTimes[requestTimestep] = endTime;
   }
 
   simpleGetLocal(view: string): RelationObject | null {
