@@ -58,6 +58,6 @@
   "dependencies": {
     "@types/sql.js": "^1.0.0",
     "antlr4ts": "^0.4.1-alpha.0",
-    "sql.js": "^1.0.0"
+    "sql.js": "1.0.0"
   }
 }
