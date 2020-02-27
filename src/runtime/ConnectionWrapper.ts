@@ -28,7 +28,7 @@ const DielRemoteActionToEngineActionWorker = new Map<DielRemoteAction, string>([
   [DielRemoteAction.ConnectToDb, "open"],
   [DielRemoteAction.DefineRelations, "exec"],
   [DielRemoteAction.ShipRelation, "exec"],
-  [DielRemoteAction.CleanUpQueries, "cleanup"] // supported only for socket
+  [DielRemoteAction.SetCleanUpQueries, "cleanup"] // supported only for socket
 ]);
 const DielRemoteActionToEngineActionSocket = new Map(DielRemoteActionToEngineActionWorker);
 DielRemoteActionToEngineActionSocket.set(DielRemoteAction.DefineRelations, "run");

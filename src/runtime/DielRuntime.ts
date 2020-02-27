@@ -623,14 +623,9 @@ export default class DielRuntime {
           return;
         }
         // FIXME: have more robust typing instead of quoting everything; look up types...
-        const values = tableRes.values.map((d: any[]) => `(${d.map((v: any) => (v === null) ? "null" : `'${v}'`).join(", ")})`);
-        let sql = `
-          DELETE from ${t.relation};
-          INSERT INTO ${t.relation} VALUES ${values};
-        `;
         const updateMsg: RemoteUpdateRelationMessage = {
           remoteAction: DielRemoteAction.UpdateRelation,
-          relationName: t.relation,
+          updateRelationName: t.relation,
           requestTimestep: timestep,
           sql
         };
@@ -793,7 +788,7 @@ export default class DielRuntime {
           console.log(`%c Cleanup queries:\n${deleteQueries}`, "color: blue");
           if ((remoteInstance.config.dbType === DbType.Socket) && deleteQueries) {
             const msg: RemoteExecuteMessage = {
-              remoteAction: DielRemoteAction.CleanUpQueries,
+              remoteAction: DielRemoteAction.SetCleanUpQueries,
               requestTimestep: INIT_TIMESTEP,
               sql: deleteQueries,
             };

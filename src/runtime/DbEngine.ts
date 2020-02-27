@@ -1,4 +1,4 @@
-import { DbType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemoteReply, RemoteOpenDbMessage, RemoteExecuteMessage, RemoteShipRelationMessage, RemoteUpdateRelationMessage } from "./runtimeTypes";
+import { DbType, RelationObject, DielRemoteAction, DielRemoteMessage, DielRemoteReply, WorkerOpenDbMessage, RemoteExecuteMessage, RemoteShipRelationMessage, RemoteUpdateRelationMessage } from "./runtimeTypes";
 import { SqliteMasterQuery, RelationShippingFuncType, INIT_TIMESTEP } from "./DielRuntime";
 import { LogInternalError, ReportDielUserError, LogInternalWarning, DielInternalErrorType, LogInfo, LogExecutionTrace, LogSetup } from "../util/messages";
 import { LocalDbId, DielPhysicalExecution } from "../compiler/DielPhysicalExecution";
@@ -98,9 +98,7 @@ export default class DbEngine {
         // note that this must be set before the await is called, otherwise we get into a dealock!
         // same code for socket for below as well
         this.connection.setHandler(this.getHandleMsgForRemote());
-        const response = await fetch(configWorker.dataFile);
-        const bufferRaw = await response.arrayBuffer();
-        const buffer = new Uint8Array(bufferRaw);
+        
         // we should block because if it's not ack-ed the rest of the messages cannot be processed properly
         return await this.SendMsg({
           remoteAction: DielRemoteAction.ConnectToDb,
@@ -132,82 +130,6 @@ export default class DbEngine {
     }
   }
 
-  private async nextQueue(): Promise<void> {
-    if (this.currentQueueHead) this.queueMap.delete(this.currentQueueHead);
-    this.currentQueueHead = null;
-    // if there is more in the queue to address, deal with them
-    if (this.queueMap.size > 0) {
-      this.currentQueueHead = Math.min(...this.queueMap.keys());
-      // also load the next queue's results in
-      const currentQueueMap = this.queueMap.get(this.currentQueueHead);
-      if (!currentQueueMap) {
-        LogInternalError(`CurrentQueneMap not defined`);
-        return;
-      }
-      const promises = currentQueueMap.receivedValues.map(async updateMsg => {
-        const id = {
-          remoteAction: updateMsg.remoteAction,
-          msgId: updateMsg.msgId,
-          requestTimestep: updateMsg.requestTimestep,
-        };
-        const msgToSend = this.extendMsgWithCustom({
-          sql: updateMsg.sql,
-        });
-        await this.connection.send(id, msgToSend, true);
-      });
-      await Promise.all(promises);
-      // note that this must be evaluated after the messages have actually finished executing
-      // which means asynchrony!
-      await this.evaluateQueueOnUpdateHandler();
-    } else {
-      // debugger;
-      LogExecutionTrace(`Setting current queue head to null`);
-    }
-  }
-
-  // RECURSIVE
-  private async evaluateQueueOnUpdateHandler(): Promise<null> {
-    if (!this.currentQueueHead) {
-      // if there is no queue, skip
-      if (this.queueMap.size === 0) {
-        return null;
-      }
-      const queueKeys = this.queueMap.keys();
-      // this is the first time
-      this.currentQueueHead = Math.min(...queueKeys);
-    }
-    const currentItem = this.queueMap.get(this.currentQueueHead);
-    if (!currentItem) {
-      return LogInternalError(`Queue should contain current head ${this.currentQueueHead}, but it contains ${this.queueMap.keys()}!`);
-    }
-    LogExecutionTrace(`Attempting to process queue at ${this.currentQueueHead}`, this.queueMap);
-    // coarse grained
-    const currentQueueHead = this.currentQueueHead;
-    if (!currentQueueHead) return LogInternalError(`Curretn quene head shoudl be defined!`);
-    if (IsSetIdentical(currentItem.received, currentItem.deps)) {
-      console.log(`  Success Processing queue at ${this.currentQueueHead}`, currentItem.relationsToShip);
-      await currentItem.relationsToShip.forEach(async (destinations, relationName) => {
-        await destinations.forEach(async dbId => {
-          const shipMsg: RemoteShipRelationMessage = {
-            remoteAction: DielRemoteAction.ShipRelation,
-            requestTimestep: currentQueueHead,
-            relationName,
-            dbId
-          };
-          await this.SendMsg(shipMsg, true);
-        });
-      });
-      // let's make sure that this is sent...
-      // debugger;
-      this.nextQueue();
-      return null;
-    } else {
-      console.log(`  Failure! Two sets are not the same`, currentItem.received, currentItem.deps);
-      // need to keep on waiting
-      return null;
-    }
-  }
-
   private extendMsgWithCustom(msg: any) {
     switch (this.config.dbType) {
       case DbType.Worker:
@@ -223,65 +145,63 @@ export default class DbEngine {
   }
 
   public SendMsg(msg: DielRemoteMessage, isPromise = false): Promise<DielRemoteReply> | null {
-    LogExecutionTrace(`Received message. Worker attempting to action ${msg.remoteAction} for request step ${msg.requestTimestep}`, msg);
+    const remoteAction = msg.action;
+    const requestTimestep = msg.requestTimestep;
+    LogExecutionTrace(`Received message. Remote attempting to action ${remoteAction} for request step ${requestTimestep}`, msg);
     this.totalMsgCount++;
     this.sanityCheck();
     const id = {
-      remoteAction: msg.remoteAction,
-      requestTimestep: msg.requestTimestep,
+      remoteAction: remoteAction,
+      requestTimestep: requestTimestep,
     };
-    switch (msg.remoteAction) {
-      case DielRemoteAction.ConnectToDb: {
-        const opMsg = msg as RemoteOpenDbMessage;
-        if (this.config.dbType === DbType.Worker) {
-          const buffer = opMsg.buffer;
-          const msgToSend = {
-            buffer
-          };
-          return this.connection.send(id, msgToSend, isPromise);
-        } else {
-          const message = opMsg.message ? opMsg.message : "";
-          const msgToSend = {
-            message
-          };
-          return this.connection.send(id, msgToSend, isPromise);
-        }
-      }
-      case DielRemoteAction.CleanUpQueries: {
-        const cleanupMsg = msg as RemoteExecuteMessage;
-        const msgToSend = this.extendMsgWithCustom({
-          sql: cleanupMsg.sql
-        });
+    switch (remoteAction) {
+      // case DielRemoteAction.ConnectToDb: {
+      //   const opMsg = msg as WorkerOpenDbMessage;
+      //   if (this.config.dbType === DbType.Worker) {
+      //     const buffer = opMsg.buffer;
+      //     const msgToSend = {
+      //       buffer
+      //     };
+      //     return this.connection.send(id, msgToSend, isPromise);
+      //   } else {
+      //     const message = opMsg.message ? opMsg.message : "";
+      //     const msgToSend = {
+      //       message
+      //     };
+      //     return this.connection.send(id, msgToSend, isPromise);
+      //   }
+      // }
         return this.connection.send(id, msgToSend, isPromise);
       }
       case DielRemoteAction.UpdateRelation: {
         if (!this.physicalExeuctionRef) return LogInternalError(`should have reference to phsyical execution by now`);
         const updateMsg = msg as RemoteUpdateRelationMessage;
         // push this on to the message queue
-        if (this.queueMap.has(updateMsg.requestTimestep)) {
-          const requestTimestepQueue = this.queueMap.get(updateMsg.requestTimestep);
+        const requestTimestep = updateMsg.requestTimestep;
+        if (this.queueMap.has(requestTimestep)) {
+          const requestTimestepQueue = this.queueMap.get(requestTimestep);
           if (!requestTimestepQueue) {
             return LogInternalError(``);
           }
-          requestTimestepQueue.received.add(updateMsg.relationName);
+          requestTimestepQueue.received.add(updateMsg.updateRelationName);
         } else {
-          const rToShip = this.physicalExeuctionRef.getRelationsToShipForDb(this.id, msg.requestTimestep);
+          const rToShip = this.physicalExeuctionRef.getRelationsToShipForDb(this.id, requestTimestep);
           if (!rToShip) {
             return LogInternalError(``);
           }
           this.queueMap.set(msg.requestTimestep, {
             receivedValues: [],
-            received: new Set([updateMsg.relationName]),
+            received: new Set([updateMsg.updateRelationName]),
             relationsToShip: rToShip.relationsToShip,
             deps: rToShip.deps
           });
-          LogExecutionTrace(`Setting queue with new request timestep ${msg.requestTimestep}`);
+          LogExecutionTrace(`Setting queue with new request timestep ${requestTimestep}`);
         }
         // then process
         // the following is brittle, but if we don't set it, the queue just keeps going
-        if (!this.currentQueueHead) this.currentQueueHead = msg.requestTimestep;
-        if (msg.requestTimestep === this.currentQueueHead) {
-          LogExecutionTrace(`Executing immediately as received, with request timestep: ${msg.requestTimestep}`);
+        if (!this.currentQueueHead) this.currentQueueHead = requestTimestep;
+        if (requestTimestep === this.currentQueueHead) {
+          LogExecutionTrace(`Executing immediately as received, with request timestep: ${requestTimestep}`);
           // can actually execute execute
           // figure out the dbname if it's there.
           const msgToSend = this.extendMsgWithCustom({
@@ -289,9 +209,9 @@ export default class DbEngine {
           });
           return this.connection.send(id, msgToSend, isPromise);
         } else {
-          LogExecutionTrace(`CANNOT execute immediately, pushing request timestep: ${msg.requestTimestep} to queue`);
+          LogExecutionTrace(`CANNOT execute immediately, pushing request timestep: ${requestTimestep} to queue`);
           // otherwise push on the queue
-          const requestTimestepQueue = this.queueMap.get(updateMsg.requestTimestep);
+          const requestTimestepQueue = this.queueMap.get(requestTimestep);
           if (!requestTimestepQueue) {
             return LogInternalError(`requestTimestepQuee null`);
           }
@@ -353,7 +273,7 @@ export default class DbEngine {
         return this.connection.send(id, msgToSend, true);
       }
       default:
-        return LogInternalError(`DielRemoteAction ${msg.remoteAction} not handled`);
+        return LogInternalError(`DielRemoteAction ${msg.action} not handled`);
     }
   }
 
@@ -364,7 +284,7 @@ export default class DbEngine {
   getHandleMsgForRemote() {
     const handleMsg = async (msg: DielRemoteReply): Promise<void> => {
       // if this is socket we need to unpack all, but if this is worker, then we just need to unpack id... so annoying
-      switch (msg.id.remoteAction) {
+      switch (msg.action) {
         case DielRemoteAction.UpdateRelation: {
           await this.evaluateQueueOnUpdateHandler();
           LogExecutionTrace(`Finished UpdateRelation and queue evaluation`);
@@ -375,30 +295,30 @@ export default class DbEngine {
           break;
         }
         case DielRemoteAction.ShipRelation: {
-          const view = msg.id.relationName;
-          if (!view || !msg.id.requestTimestep) {
-            LogInternalError(`Both view and request_timestep should be defined for sharing views! However, I got ${JSON.stringify(msg.id, null, 2)}`);
+          const view = msg.relationName;
+          if (!view || !msg.requestTimestep) {
+            LogInternalError(`Both view and request_timestep should be defined for sharing views! However, I got ${JSON.stringify(msg, null, 2)}`);
             return;
           }
           if (msg.results.length > 0) {
-            this.relationShippingCallback(view, msg.results, msg.id.requestTimestep);
+            this.relationShippingCallback(view, msg.results, msg.requestTimestep);
           }
           break;
         }
-        case DielRemoteAction.DefineRelations: {
-          console.log(`Relations defined successfully for ${this.id}`);
-          break;
-        }
-        case DielRemoteAction.CleanUpQueries: {
-          console.log(`Cleanup queries defined successfully for ${this.id}`);
-          break;
-        }
-        case DielRemoteAction.ConnectToDb: {
-          console.log(`Db opened for ${this.id}`);
-          break;
-        }
+        // case DielRemoteAction.DefineRelations: {
+        //   console.log(`Relations defined successfully for ${this.id}`);
+        //   break;
+        // }
+        // case DielRemoteAction.SetCleanUpQueries: {
+        //   console.log(`Cleanup queries defined successfully for ${this.id}`);
+        //   break;
+        // }
+        // case DielRemoteAction.ConnectToDb: {
+        //   console.log(`Db opened for ${this.id}`);
+        //   break;
+        // }
         default:
-          LogInternalError(`You should handle ${msg.id.remoteAction} as well`, DielInternalErrorType.UnionTypeNotAllHandled);
+          LogInternalError(`Message type ${msg.action} not currently handled`, DielInternalErrorType.UnionTypeNotAllHandled);
       }
     };
     return handleMsg;
@@ -439,7 +359,7 @@ export default class DbEngine {
    */
   async getMetaData(id: DbIdType): Promise<{id: DbIdType, data: RelationObject | null}> {
     const promise = this.SendMsg({
-      remoteAction: DielRemoteAction.GetResultsByPromise,
+      action: DielRemoteAction.GetResultsByPromise,
       requestTimestep: INIT_TIMESTEP, // might change later because we can load new databases later?
       sql: SqliteMasterQuery
     }, true);

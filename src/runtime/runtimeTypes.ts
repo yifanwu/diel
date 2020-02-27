@@ -54,59 +54,76 @@ export interface TableMetaData {
   dbId: DbIdType;
 }
 
+export type QueryResult = (string|number)[][];
+
+export interface DataflowPerNodeMetaData {
+  eventTable: RelationNameType;
+  deps: Set<RelationNameType>;
+  relationsToShip: Map<RelationNameType, Set<DbIdType>>;
+}
+
 export enum DielRemoteAction {
-  ConnectToDb = "ConnectToDb",
-  GetResultsByPromise = "GetResultsByPromise",
+  // the following are set up
+  SetUpWebWorkerFile = "SetUpWebWorkerFile", // just for webworkers...
+  SetExecutionMetaData = "ExecutionMetaData",
+  SetCleanUpQueries = "CleanUpQueries",
+  DefineDbId = "DefineDbId",
+  // the following are at runtime
   DefineRelations = "DefineRelations",
   UpdateRelation = "UpdateRelation",
   ShipRelation = "ShipRelation",
-  CleanUpQueries = "CleanUpQueries",
-  Close = "Close"
-}
-
-export interface DielRemoteMessageId {
-  remoteAction: DielRemoteAction;
-  relationName?: RelationNameType;
-  msgId?: number; // currently only used for fullfilling promises.
-  requestTimestep?: number;
-}
-export interface DielRemoteReply {
-  id: DielRemoteMessageId;
-  results: RelationObject;
-  err: any;
+  Close = "Close",
+  // strange.. think about cutting
+  GetResultsByPromise = "GetResultsByPromise",
 }
 
 interface DielRemoteMessageBase {
-  remoteAction: DielRemoteAction;
+  action: DielRemoteAction;
   requestTimestep: LogicalTimestep;
-  msgId?: number;
 }
 
-export interface RemoteGetResultsByPromiseMessage extends RemoteExecuteMessage {
-  msgId: number;
-}
 
-export interface RemoteShipRelationMessage extends DielRemoteMessageBase {
-  relationName: RelationNameType;
-  dbId: DbIdType;
-}
-
-export interface RemoteOpenDbMessage extends DielRemoteMessageBase {
-  message?: string;     // for socket
-  buffer?: Uint8Array; // for worker
-}
-
-export interface RemoteUpdateRelationMessage extends RemoteExecuteMessage {
-  relationName: RelationNameType; // redundancy
+export interface DielRemoteReply extends DielRemoteMessageBase {
+  results: RelationObject;
+  err: any;
 }
 
 export interface RemoteExecuteMessage extends DielRemoteMessageBase {
   sql: string;
 }
 
+export interface RemoteGetResultsByPromiseMessage extends RemoteExecuteMessage {
+  msgId: number;
+}
+
+export interface RemoteUpdateRelationMessage extends RemoteExecuteMessage {
+  // this is used for metadata
+  updateRelationName: RelationNameType;
+  // this is used for figuring out the metadata
+  eventTableName: RelationNameType;
+}
+
+export interface RemoteShipRelationMessage extends DielRemoteMessageBase {
+  relationName: RelationNameType;
+  dbId: DbIdType;
+  eventTableName: RelationNameType;
+}
+
+// note that we have to do it
+export interface WorkerOpenDbMessage extends DielRemoteMessageBase {
+  // buffer: Uint8Array;
+  filePath: string;
+}
+
+
+
+export interface RemoteIdMessage extends DielRemoteMessageBase {
+  dbId: DbIdType;
+}
 
 export type DielRemoteMessage = RemoteGetResultsByPromiseMessage
                                 | RemoteShipRelationMessage
                                 | RemoteUpdateRelationMessage
-                                | RemoteOpenDbMessage
+                                | WorkerOpenDbMessage
+                                | RemoteIdMessage
                                 ;

@@ -99,6 +99,15 @@ export function SqlJsGetObjectArrayFromQuery(db: Database, query: string) {
   return r;
 }
 
+export function convertDataToUpdateString(raw_values: QueryResults, relationName: string): string {
+  const values = raw_values.map((d: any[]) => `(${d.map((v: any) => (v === null) ? "null" : `'${v}'`).join(", ")})`);
+  let sql = `
+    DELETE from ${relationName};
+    INSERT INTO ${relationName} VALUES ${values};
+  `;
+  return sql;
+}
+
 // /**
 //  * run time type checker
 //  * @param fn
