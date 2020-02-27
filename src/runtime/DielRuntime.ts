@@ -15,7 +15,7 @@ import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo, LogExecutionTrace } from "../util/messages";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult, GenerateViewName, CaughtLocalRun, convertRelationObjectToQueryResults } from "./runtimeHelper";
 import { materializationTime, DielPhysicalExecution, LocalDbId, dependsOnLocalTables, dependsOnRemoteTables } from "../compiler/DielPhysicalExecution";
-import DbEngine, { DbDriver } from "./DbEngine";
+import DbEngine, { DbDriver, serialize1 } from "./DbEngine";
 import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { ParsePlainSelectQueryAst } from "../compiler/compiler";
@@ -449,15 +449,14 @@ export default class DielRuntime {
   }
 
   downloadE2EPerformance(e2e: boolean) {
-    // console.log("Request timestep is: ", requestTimestep);
     if (e2e) { // Idk if it will always be 2 for the FIRST new input timestep? I think it should be...???
-      const blob = new Blob(["startRequest, endRequest\n", `${startTimes[2]}, ${endTimes[requestTimestep]}`], 
+      const blob = new Blob(["startRequest, endRequest, execTime\n", `${startTimes[2]}, ${endTimes[requestTimestep]}, ${execTime}`], 
       {type: "text/csv;charset=utf-8"});
   
       downloadHelper(blob, "performance", "csv");
     } else {
       console.log("Request timestep is: ", requestTimestep);
-      const blob = new Blob(["startRequest, endRequest\n", `${startTimes[requestTimestep]}, ${endTimes[requestTimestep]}`],
+      const blob = new Blob(["startRequest, endRequest, serializeSend, execTime\n", `${startTimes[requestTimestep]}, ${endTimes[requestTimestep]}, ${(serialize1 - startTimes[requestTimestep])/1000}, ${execTime}`],
       {type: "text/csv;charset=utf-8"});
   
       downloadHelper(blob, "performance", "csv");
@@ -476,13 +475,10 @@ export default class DielRuntime {
   }
 
   logStartTime(startTime: number) {
-    // console.log("Start time is: ", startTime);
-    console.log("Start timestep is: ", this.timestep);
     startTimes[this.timestep] = startTime;
   }
 
   logEndTime(endTime: number) {
-    console.log("End time is: ", endTime);
     endTimes[requestTimestep] = endTime;
   }
 

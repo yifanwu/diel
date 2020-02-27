@@ -98,7 +98,7 @@ export function evalTestPostgres(perf: (diel: DielRuntime) => void, bursty: bool
 
   
     requestStart = performance.now();
-    console.log("START TIME IS: ", requestStart);
+    // console.log("START TIME IS: ", requestStart);
     
     // diel.NewInput("boundaries", {minNum: 5, maxNum: 1000});
     // diel.NewInput("boundaries", {minNum: 50, maxNum: 100});

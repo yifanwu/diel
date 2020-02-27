@@ -21,6 +21,8 @@ async function connectToSocket(url: string): Promise<WebSocket> {
   });
 }
 
+export let serialize1: number;
+
 interface DbSetupConfigBase {
   dbType: DbType;
   dbDriver: DbDriver;
@@ -314,6 +316,7 @@ export default class DbEngine {
           const msgToSend = this.extendMsgWithCustom({
             sql: updateMsg.sql
           });
+          serialize1 = performance.now();
           return this.connection.send(id, msgToSend, isPromise);
         } else {
           LogExecutionTrace(`CANNOT execute immediately, pushing request timestep: ${msg.requestTimestep} to queue`);

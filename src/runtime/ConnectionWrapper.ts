@@ -113,12 +113,10 @@ export class ConnectionWrapper {
         try {
           msg = parseDielReply(event.data);
 
-          // if (msg.id.requestTimestep != null && )
           // Will only print the *latest* new inputs to log to download
           if (msg.id.msgId != null && msg.id.remoteAction == DielRemoteAction.ShipRelation) {
             requestTimestep = msg.id.requestTimestep;
-            console.log("END TIME WAS: ", performance.now());
-            execTime = msg.execTime;
+            execTime = (msg.execTime + 0.0) / 1000;
           }
           
 
