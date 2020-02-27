@@ -2,7 +2,7 @@
 
 ```bash
 npm install
-npm testEndToEnd
+npm run testEndToEnd
 ```
 
 Then go to `http://localhost:8080/testEndToEnd/` for the test
