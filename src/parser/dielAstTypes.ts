@@ -204,6 +204,7 @@ interface RelationBase {
 export interface DerivedRelation extends RelationBase {
   selection: RelationSelection;
   cachable?: HasDefault<boolean>;
+  toMaterialize?: boolean;
 }
 
 export interface OriginalRelation extends RelationBase {
@@ -459,6 +460,8 @@ export enum DropType {
 export interface DropClause extends AstBase {
   dropType: DropType;
   dropName: string;
+  isMaterialized?: boolean;
+  dropAfter?: string;
 }
 export interface DeleteClause extends AstBase {
   relationName: string;
@@ -492,7 +495,8 @@ export enum BuiltInFunc {
   JulianDay = "JULIANDAY",
   Coalesce = "COALESCE",
   ValueIsNull = "IS NULL",
-  ValueIsNotNull = "NOT NULL",
+  // ValueIsNotNull = "NOT NULL",
+  ValueIsNotNull = "IS NOT NULL",
   SetEmpty = "NOT EXIST",
   SetNotEmpty = "EXIST",
   // specially parsed when SQL gen

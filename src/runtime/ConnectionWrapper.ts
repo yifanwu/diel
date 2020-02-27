@@ -4,6 +4,10 @@ import { downloadHelper } from "../util/dielUtils";
 import { LogInfo, LogInternalError, LogExecutionTrace, LogInternalWarning } from "../util/messages";
 import { DbIdType, LogicalTimestep } from "../parser/dielAstTypes";
 
+
+export let execTime = 0;
+export let requestTimestep = 0;
+
 type FinalMsgType =
     { buffer: any }     // setting up worker (note that talking to servers do not require serialization)
   | { message: string } // setting up server via socket
@@ -102,11 +106,20 @@ export class ConnectionWrapper {
   setHandler(f: (msg: DielRemoteReply) => void) {
     const self = this;
     const newF = (event: any) => {
+      
       LogExecutionTrace(`DB executed message`, event.data);
       let msg: DielRemoteReply | undefined;
       if (this.remoteType === DbType.Socket) {
         try {
           msg = parseDielReply(event.data);
+
+          // Will only print the *latest* new inputs to log to download
+          if (msg.id.msgId != null && msg.id.remoteAction == DielRemoteAction.ShipRelation) {
+            requestTimestep = msg.id.requestTimestep;
+            execTime = (msg.execTime + 0.0) / 1000;
+          }
+          
+
           // special debugging case
           if ((msg as any).id === "test") return;
         } catch (e) {
@@ -125,6 +138,7 @@ export class ConnectionWrapper {
           msg = {
             id: event.data.id as DielRemoteMessageId,
             results: ParseSqlJsWorkerResult(event.data.results),
+            execTime: 0,
             err: event.data.err
           };
         } else {

@@ -67,6 +67,7 @@ export function CompileAst(ast: DielAst) {
 // there should be a progressive version of this already.
 // do not support crossfilter for now, but easy to fix!
 export function CompileNewRelationToExistingAst(ast: DielAst, relation: OriginalRelation | DerivedRelation) {
+  alert(relation.rName + " " + relation.relationType);
   if (IsRelationTypeDerived(relation.relationType)) {
     CompileDerivedAstGivenAst(ast, relation as DerivedRelation);
   } else {

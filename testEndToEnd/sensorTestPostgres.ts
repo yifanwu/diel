@@ -1,29 +1,42 @@
 import * as path from "path";
-import { DielRuntime, DbSetupConfig, DbType, RelationObject, DbDriver } from "../src";
-import { LogInternalError, LogTest, LogInternalWarning } from "../src/util/messages";
+import { DielRuntime, DbType, DbSetupConfig, DbDriver, RelationObject, RecordObject } from "../src";
 
-const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/dist/worker.sql.js");
+
+const tableDef: RecordObject[] = [];
+tableDef.push({
+  name: `log`,
+  sql: `CREATE TABLE log (
+    time INT,
+    device TEXT,
+    value INT,
+    min INT,
+    max INT,
+    data TEXT,
+    message TEXT,
+    source TEXT,
+    ts INT
+  )`
+});
 
 const dbConfigs: DbSetupConfig[] = [{
-    dbType: DbType.Worker,
-    jsFile,
-    dataFile: path.resolve(__dirname, "../../testEndToEnd/data/sensors_10000.sqlite"),
-    dbDriver: DbDriver.SQLite
-  },
+  dbType: DbType.Socket,
+  dbDriver: DbDriver.Postgres,
+  connection: "ws://localhost:8999",
+  message: {dbName: "sensors"},
+  tableDef,
+},
 ];
 
-const mainDbPath: string = null;
 const dielFiles = [path.resolve(__dirname, "../../testEndToEnd/diel/sensors.diel")];
 
-export function sensorTest(perf: (diel: DielRuntime) => void) {
-
+export function sensorTestPostgresConnection(perf: (diel: DielRuntime) => void) {
   const diel = new DielRuntime({
     isStrict: true,
     showLog: true,
     setupCb: testClass,
     caching: false,
     dielFiles,
-    mainDbPath,
+    mainDbPath: null,
     dbConfigs,
   });
 
@@ -41,10 +54,15 @@ export function sensorTest(perf: (diel: DielRuntime) => void) {
     //   console.log("pack_cell", o);
     // });
     diel.NewInput("time_selection", {minTs: null, maxTs: null});
-    diel.NewInput("time_selection", {minTs: 2458433.3161339, maxTs: 2458433.36517046});
-    // window.setTimeout(() => {
-    //   perf(diel);
-    // }, 5000);
+    
+    window.setTimeout(() => {
+      // perf(diel);
+      // console.log("done with first");
+      diel.NewInput("time_selection", {minTs: 1541878513, maxTs: 1541878515});
+    }, 5000);
+    
+    
+
   }
   return diel;
 }

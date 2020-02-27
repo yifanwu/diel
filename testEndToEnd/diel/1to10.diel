@@ -1,0 +1,14 @@
+create event table boundary  (
+    val integer
+);
+
+create view current_boundary AS
+  select * from latest boundary;
+
+ create view current_filtered_results AS
+    select num
+    from test e join current_boundary c
+        on num = c.val;
+
+ create output eval_out AS 
+    select num from current_filtered_results;

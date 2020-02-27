@@ -1,13 +1,14 @@
 import * as path from "path";
-import { DielRuntime, DbSetupConfig, DbType, RelationObject } from "../src";
-import { LogTest } from "../src/util/messages";
-const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/dist/worker.sql.js");
+import { DielRuntime, DbSetupConfig, DbType, RelationObject, DbDriver } from "../../src";
+import { LogTest } from "../../src/util/messages";
+const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/js/worker.sql.js");
 
 
 const dbConfigs: DbSetupConfig[] = [{
     dbType: DbType.Worker,
     jsFile,
-    dataFile: path.resolve(__dirname, "../../testEndToEnd/data/students.sqlite")
+    dataFile: path.resolve(__dirname, "../../testEndToEnd/data/students.sqlite"),
+    dbDriver: DbDriver.SQLite
   },
 ];
 

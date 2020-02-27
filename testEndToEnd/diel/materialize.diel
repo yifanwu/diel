@@ -1,0 +1,36 @@
+create event table time_selection (
+  minTs integer,
+  maxTs integer
+);
+
+create view current_time_selection AS
+  select * from latest time_selection;
+
+
+-- the view current_filtered_vals should be materialized
+-- since there are two outputs that depend on this view
+create view current_filtered_vals AS
+  select * 
+  from log 
+  join current_time_selection s
+    on (log.ts < s.maxTs
+    and log.ts > s.minTs) or
+      (s.maxTs is null);
+
+-- output 1 
+create output pack_break_regen_first AS
+  select
+    time,
+    ts,
+    value
+  from current_filtered_vals
+  where device = 'petal-brake-regen';
+
+-- output 2
+create output pack_break_regen_second AS
+   select
+    time,
+    ts,
+    value
+  from current_filtered_vals
+  where device = 'petal-brake-regen';

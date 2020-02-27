@@ -35,6 +35,7 @@ export interface DielConfig {
   mainDbPath?: string;
   dbConfigs?: DbSetupConfig[];
   caching?: boolean;
+  materialize?: boolean;
 }
 
 export type GetRelationToShipFuncType = (dbId: DbIdType, relation: string, step: LogicalTimestep) => Set<string>;
@@ -45,7 +46,7 @@ export type RelationObject = RecordObject[];
 export enum DbType {
   Local = "Local",
   Worker = "Worker",
-  Socket = "Socket"
+  Socket = "Socket",
 }
 
 // TODO: add more runtime info
@@ -73,6 +74,7 @@ export interface DielRemoteMessageId {
 export interface DielRemoteReply {
   id: DielRemoteMessageId;
   results: RelationObject;
+  execTime: number;
   err: any;
 }
 

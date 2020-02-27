@@ -1,5 +1,5 @@
 import * as path from "path";
-import { DielRuntime, DbSetupConfig, DbType, RelationObject } from "../src";
+import { DielRuntime, DbSetupConfig, DbType, RelationObject, DbDriver } from "../src";
 import { LogInternalError, LogTest, LogInternalWarning } from "../src/util/messages";
 
 const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/dist/worker.sql-wasm.js");
@@ -7,7 +7,8 @@ const jsFile = path.resolve(__dirname, "../../..//node_modules/sql.js/dist/worke
 const dbConfigs: DbSetupConfig[] = [{
     dbType: DbType.Worker,
     jsFile,
-    dataFile: path.resolve(__dirname, "../../testEndToEnd/data/students.sqlite")
+    dataFile: path.resolve(__dirname, "../../testEndToEnd/data/students.sqlite"),
+    dbDriver: DbDriver.SQLite
   },
 ];
 

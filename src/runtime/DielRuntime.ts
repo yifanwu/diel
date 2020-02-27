@@ -14,8 +14,8 @@ import { log } from "../util/dielUdfs";
 import { downloadHelper, CheckObjKeys } from "../util/dielUtils";
 import { LogInternalError, LogTmp, ReportUserRuntimeError, LogInternalWarning, ReportUserRuntimeWarning, ReportDielUserError, UserErrorType, PrintCode, LogInfo, LogExecutionTrace } from "../util/messages";
 import { SqlJsGetObjectArrayFromQuery, processSqlMetaDataFromRelationObject, ParseSqlJsWorkerResult, GenerateViewName, CaughtLocalRun, convertRelationObjectToQueryResults } from "./runtimeHelper";
-import { DielPhysicalExecution, LocalDbId, dependsOnLocalTables, dependsOnRemoteTables } from "../compiler/DielPhysicalExecution";
-import DbEngine from "./DbEngine";
+import { materializationTime, DielPhysicalExecution, LocalDbId, dependsOnLocalTables, dependsOnRemoteTables } from "../compiler/DielPhysicalExecution";
+import DbEngine, { DbDriver, serialize1 } from "./DbEngine";
 import { checkViewConstraint } from "../compiler/passes/generateViewConstraints";
 import { StaticSql } from "../compiler/codegen/staticSql";
 import { ParsePlainSelectQueryAst } from "../compiler/compiler";
@@ -24,11 +24,27 @@ import { SqlOriginalRelation, SqlRelationType, SqlDerivedRelation, SqlAst } from
 import { DeriveDependentRelations, getRelationReferenceDep } from "../compiler/passes/dependency";
 import { GetAllOutputs, GetRelationDef, DeriveColumnsFromRelation, IsRelationTypeDerived } from "../compiler/DielAstGetters";
 import { getEventViewCacheName, getEventViewCacheReferenceName } from "../compiler/passes/distributeQueries";
+import { execTime, requestTimestep } from "./ConnectionWrapper";
 
 // ugly global mutable pattern here...
 export let STRICT = false;
 export let LOGINFO = false;
 
+// variables to measure..
+export let setupTime = 0;
+export let setupMainDbTime = 0;
+export let setupRemoteTime = 0;
+export let initialCompileTime = 0;
+export let setupUDFsTime = 0;
+export let physicalExecutionTime = 0;
+export let executeToDBsTime = 0;
+
+let startTimes: number[] = [];
+let endTimes: number[] = [];
+
+export let requestStartGlobal = 0;
+
+const printTimes = true; // Used for performance analysis
 
 const locateFile = (pathname: any) => {
   if (pathname === "sql-wasm.wasm") {
@@ -69,11 +85,13 @@ class ViewConstraintQuery {
 export type MetaDataPhysical = Map<string, TableMetaData>;
 type DbMetaData = {
   dbType: DbType;
+  dbDriver?: DbDriver;
 };
 
 export type PhysicalMetaData = {
   // RYAN: TODO: Find better place for this.
   cache?: boolean,
+  materialize?: boolean,
   dbs: Map<DbIdType, DbMetaData>;
   relationLocation: Map<string, TableMetaData>;
 };
@@ -121,7 +139,8 @@ export default class DielRuntime {
     this.physicalMetaData = {
       dbs: new Map(),
       relationLocation: new Map(),
-      cache: config.caching ? config.caching : false
+      cache: config.caching ? config.caching : false,
+      materialize: config.materialize ? config.materialize : false,
     };
     this.staticRelationsSent = [];
     this.boundFns = [];
@@ -133,6 +152,7 @@ export default class DielRuntime {
   getEventByTimestep(timestep: LogicalTimestep) {
     return this.eventByTimestep.get(timestep);
   }
+
 
   public ShutDown() {
     this.db.close();
@@ -417,6 +437,51 @@ export default class DielRuntime {
     }
   }
 
+  /**
+   * Calling in this the browser will download a CSV with performance times
+   */
+  downloadPerformance() {
+    const blob = new Blob(["setupTime, setupMainDbTime, setupRemoteTime, initialCompileTime, setupUDFsTime, physicalExecutionTime, executeToDBsTime, materializationTime, execTime\n",
+      `${setupTime}, ${setupMainDbTime}, ${setupRemoteTime}, ${initialCompileTime}, ${setupUDFsTime}, ${physicalExecutionTime}, ${executeToDBsTime}, ${materializationTime}, ${execTime}`],
+      {type: "text/csv;charset=utf-8"});
+
+    downloadHelper(blob, "performance", "csv");
+  }
+
+  downloadE2EPerformance(e2e: boolean) {
+    if (e2e) { // Idk if it will always be 2 for the FIRST new input timestep? I think it should be...???
+      const blob = new Blob(["startRequest, endRequest, execTime\n", `${startTimes[2]}, ${endTimes[requestTimestep]}, ${execTime}`], 
+      {type: "text/csv;charset=utf-8"});
+  
+      downloadHelper(blob, "performance", "csv");
+    } else {
+      console.log("Request timestep is: ", requestTimestep);
+      const blob = new Blob(["startRequest, endRequest, serializeSend, execTime\n", `${startTimes[requestTimestep]}, ${endTimes[requestTimestep]}, ${(serialize1 - startTimes[requestTimestep])/1000}, ${execTime}`],
+      {type: "text/csv;charset=utf-8"});
+  
+      downloadHelper(blob, "performance", "csv");
+    }
+
+  }
+
+  initializePerformance(numBursts: number) {
+    for (let i = 0; i <= numBursts; i++) { // ignore index 0
+      startTimes.push(0);
+    }
+
+    for (let i = 0; i <= numBursts; i++) { // ignore index 0
+      endTimes.push(0);
+    }
+  }
+
+  logStartTime(startTime: number) {
+    startTimes[this.timestep] = startTime;
+  }
+
+  logEndTime(endTime: number) {
+    endTimes[requestTimestep] = endTime;
+  }
+
   simpleGetLocal(view: string): RelationObject | null {
     const s = this.runtimeOutputs.get(view);
     if (s) {
@@ -433,22 +498,41 @@ export default class DielRuntime {
     } else {
       return ReportUserRuntimeError(`${view} does not exist.`);
     }
-    return null;
   }
 
   private async setup(loadPage: () => void, startSetUpTime: number) {
+    const setupStart = performance.now();
     console.log(`Setting up DielRuntime with ${JSON.stringify(this.config)}`);
+
+    const setupMainDbStart = performance.now();
     await this.setupMainDb();
+    const setupMainDbEnd = performance.now();
+
+    const setupRemoteStart = performance.now();
     await this.setupRemotes();
+    const setupRemoteEnd = performance.now();
+
+    const initialCompileStart = performance.now();
     await this.initialCompile();
+    const initialCompileEnd = performance.now();
+
+    const setupUDFsStart = performance.now();
     this.setupUDFs();
+    const setupUDFsEnd = performance.now();
+
+    const physicalExecutionStart = performance.now();
     this.physicalExecution = new DielPhysicalExecution(
       this.ast,
       this.physicalMetaData,
       this.getEventByTimestep.bind(this),
       this.AddRelation.bind(this)
     );
+    const physicalExecutionEnd = performance.now();
+
+    const executeToDBsStart = performance.now();
     await this.executeToDBs();
+    const executeToDBsEnd = performance.now();
+
     this.setupNewInput();
     GetAllOutputs(this.ast).map(o => this.setupNewOutput(o.rName));
     this.scales = ParseSqlJsWorkerResult(this.db.exec("select * from __scales"));
@@ -466,10 +550,23 @@ export default class DielRuntime {
       $ts: endSetUpTime,
     });
     loadPage();
+
+    const setupEnd = performance.now();
+
+    if (printTimes) {
+      setupTime = setupEnd - setupStart;
+      setupMainDbTime = setupMainDbEnd - setupMainDbStart;
+      setupRemoteTime = setupRemoteEnd - setupRemoteStart;
+      initialCompileTime = initialCompileEnd - initialCompileStart;
+      setupUDFsTime = setupUDFsEnd - setupUDFsStart;
+      physicalExecutionTime = physicalExecutionEnd - physicalExecutionStart;
+      executeToDBsTime = executeToDBsEnd - executeToDBsStart;
+    }
   }
 
   async initialCompile() {
     this.visitor = new Visitor();
+    // main db get metadata
     const tableDefinitions = SqlJsGetObjectArrayFromQuery(this.db, SqliteMasterQuery);
     tableDefinitions.map(m => {
       const name = m["name"].toString();
@@ -481,11 +578,11 @@ export default class DielRuntime {
         });
       }
     });
-    this.physicalMetaData.dbs.set(LocalDbId, {dbType: DbType.Local});
+    this.physicalMetaData.dbs.set(LocalDbId, {dbType: DbType.Local, dbDriver: DbDriver.SQLite});
     let code = processSqlMetaDataFromRelationObject(tableDefinitions, "main");
     const promises: Promise<{id: DbIdType, data: RecordObject[]}>[] = [];
     this.dbEngines.forEach((db) => {
-      this.physicalMetaData.dbs.set(db.id, {dbType: db.config.dbType});
+      this.physicalMetaData.dbs.set(db.id, {dbType: db.config.dbType, dbDriver: db.config.dbDriver});
       promises.push(db.getMetaData(db.id));
     });
     const metadatas = await Promise.all(promises);
@@ -493,6 +590,8 @@ export default class DielRuntime {
     metadatas.map(mD => {
       code += processSqlMetaDataFromRelationObject(mD.data, mD.id.toString());
       // .map(m => m["sql"] + ";").join("\n");
+
+      // get where each relation is stored (which dbid) from metadata
       mD.data.map(m => {
         const name = m["name"].toString();
         if (this.physicalMetaData.relationLocation.has(name)) {
@@ -517,6 +616,9 @@ export default class DielRuntime {
     const tree = p.queries();
     let ast = this.visitor.visitQueries(tree);
     this.ast = CompileAst(ast);
+
+    console.log("original ast");
+    console.log(ast);
 
     // get sql for views constraints
     checkViewConstraint(ast).forEach((queries: string[][], viewName: string) => {
@@ -659,6 +761,9 @@ export default class DielRuntime {
       const buffer = new Uint8Array(bufferRaw);
       this.db = new SQL.Database(buffer);
     }
+    const d = new Date();
+    const n = d.getMilliseconds();
+    // console.log("FINISHED SETTING UP MAIN DB " + n);
     return;
   }
   /**
@@ -777,7 +882,7 @@ export default class DielRuntime {
         if (remoteInstance) {
           remoteInstance.setPhysicalExecutionReference(this.physicalExecution);
           const replace = remoteInstance.config.dbType === DbType.Socket;
-          const queries = generateStringFromSqlIr(ast, replace);
+          const queries = generateStringFromSqlIr(ast, replace, remoteInstance.config.dbDriver);
           if (queries && queries.length > 0) {
             const sql = queries.map(q => q + ";").join("\n");
             const msg: RemoteExecuteMessage = {
@@ -789,7 +894,7 @@ export default class DielRuntime {
             if (mPromise) promises.push(mPromise);
           }
           const deleteQueryAst = generateCleanUpAstFromSqlAst(ast);
-          const deleteQueries = deleteQueryAst.map(d => generateDrop(d)).join("\n");
+          const deleteQueries = deleteQueryAst.map(d => generateDrop(d, remoteInstance.config.dbDriver)).join("\n");
           console.log(`%c Cleanup queries:\n${deleteQueries}`, "color: blue");
           if ((remoteInstance.config.dbType === DbType.Socket) && deleteQueries) {
             const msg: RemoteExecuteMessage = {
