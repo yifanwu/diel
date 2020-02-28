@@ -1,24 +1,25 @@
 
 CREATE EVENT TABLE distanceRangeEvent (
-  minDist int,
-  maxDist int
+  max_dist int,
+  min_dist int
 );
 
 
 create view currentRange as 
-  select minDist, maxDist
+  select min_dist, max_dist
   from LATEST distanceRangeEvent;
 
 create event view currentRangeView AS
   select
-    round(distance/1000)*1000,
-    count() as c
+    round(distance/100)*100 as trunc_dist,
+    count(id) as c
   from flights
-    group by round(distance/1000)*1000
+  group by trunc_dist
   order by c
   limit 20;
 
 create output rangeOutput AS
   select *
-  from currentRangeView crv
-  join currentRange cr on crv.request_timestep = cr.timestep;
+  from currentRangeView crv 
+  join currentRange cr on trunc_dist <= cr.max_dist and trunc_dist >= cr.min_dist
+  where timestep = (select max(timestep) from currentRangeView);
